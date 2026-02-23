@@ -7,6 +7,7 @@
 
 import { useState } from 'react';
 import type { ProPlayer } from '@/game/pubg';
+import { TEAM_SLUGS, getPlayerImageUrl as PLAYER_IMG, getTeamLogoUrl as TEAM_LOGO } from '@/game/pubg';
 import styles from './pros.module.css';
 
 interface ProsClientProps {
@@ -115,9 +116,18 @@ export function ProsClient({ players, stats }: ProsClientProps) {
                         {compPlayers.map(player => (
                             <div key={player.id} className={styles.compareCard}>
                                 <div className={styles.compareHeader}>
-                                    <img src={FLAG_URL(player.countryCode)} alt={player.countryCode} className={styles.flagImg} />
-                                    <strong>{player.name}</strong>
-                                    <span className={styles.compareTeam}>{player.team}</span>
+                                    <div className={styles.comparePhotoWrapper}>
+                                        <img src={PLAYER_IMG(player.name)} alt={player.name} className={styles.playerPhoto} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                                    </div>
+                                    <div className={styles.compareNameWrapper}>
+                                        <img src={FLAG_URL(player.countryCode)} alt={player.countryCode} className={styles.flagImg} />
+                                        <strong>{player.name}</strong>
+                                    </div>
+                                    {TEAM_LOGO(player.team) ? (
+                                        <img src={TEAM_LOGO(player.team)!} alt={player.team} className={styles.compareTeamLogo} onError={(e) => { e.currentTarget.style.display = 'none'; }} title={player.team} />
+                                    ) : (
+                                        <span className={styles.compareTeam}>{player.team}</span>
+                                    )}
                                 </div>
                                 <div className={styles.compareStats}>
                                     <div className={styles.compareStat}>
@@ -192,16 +202,26 @@ export function ProsClient({ players, stats }: ProsClientProps) {
                                 {/* Header */}
                                 <div className={styles.cardHeader}>
                                     <div className={styles.cardPlayer}>
-                                        <img
-                                            src={FLAG_URL(player.countryCode)}
-                                            alt={player.countryCode}
-                                            className={styles.flagImg}
-                                            width={24}
-                                            height={18}
-                                        />
-                                        <div>
-                                            <h3 className={styles.cardName}>{player.name}</h3>
-                                            <span className={styles.cardTeam}>{player.teamLogo} {player.team}</span>
+                                        <div className={styles.playerPhotoWrapper}>
+                                            <img src={PLAYER_IMG(player.name)} alt={player.name} className={styles.playerPhoto} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                                        </div>
+                                        <div className={styles.cardNameGroup}>
+                                            <div className={styles.cardNameRow}>
+                                                <img
+                                                    src={FLAG_URL(player.countryCode)}
+                                                    alt={player.countryCode}
+                                                    className={styles.flagImg}
+                                                    width={24}
+                                                    height={18}
+                                                />
+                                                <h3 className={styles.cardName}>{player.name}</h3>
+                                            </div>
+                                            <div className={styles.cardTeamRow}>
+                                                {TEAM_LOGO(player.team) && (
+                                                    <img src={TEAM_LOGO(player.team)!} alt={player.team} className={styles.teamLogoImg} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                                                )}
+                                                <span className={styles.cardTeam}>{player.team}</span>
+                                            </div>
                                         </div>
                                     </div>
                                     <span className={styles.rolePill} data-role={player.role}>

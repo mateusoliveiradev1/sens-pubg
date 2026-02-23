@@ -17,5 +17,6 @@ export {
 
 export {
     PRO_PLAYERS, getProPlayer, getProsByRole, getProStats,
+    getPlayerImageUrl, getTeamLogoUrl, TEAM_SLUGS,
     type ProPlayer,
 } from './pro-players';
