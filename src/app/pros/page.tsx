@@ -1,173 +1,222 @@
 /**
- * /pros — Página de Comparação com Jogadores Profissionais.
- * Tabela interativa com filtros por role, DPI, e comparação visual.
+ * /pros — Comparação com Jogadores Profissionais.
+ * Design premium com cards individuais, visual bars, e insights.
  */
 
 import type { Metadata } from 'next';
+import { Header } from '@/ui/components/header';
 import { PRO_PLAYERS, getProStats } from '@/game/pubg';
 import styles from './pros.module.css';
 
 export const metadata: Metadata = {
     title: 'Configs dos Pros',
-    description: 'Compare suas configurações de sensibilidade com as dos melhores jogadores profissionais de PUBG.',
+    description: 'Compare suas configurações com as dos melhores jogadores profissionais de PUBG.',
 };
+
+export const dynamic = 'force-dynamic';
 
 export default function ProsPage() {
     const stats = getProStats();
 
     return (
-        <div className={styles.container}>
-            {/* Header */}
-            <section className={styles.hero}>
-                <span className={styles.badge}>📊 Database de Pros</span>
-                <h1 className={styles.title}>
-                    Configs dos <span className={styles.accent}>Profissionais</span>
-                </h1>
-                <p className={styles.subtitle}>
-                    Compare suas configurações com as dos melhores jogadores do mundo.
-                    Dados de {stats.totalPlayers} jogadores profissionais.
-                </p>
+        <>
+            <Header />
+            <div className={styles.page}>
+                {/* ─── Hero ─── */}
+                <section className={styles.hero}>
+                    <div className={styles.heroBg} />
+                    <div className={styles.heroContent}>
+                        <span className={styles.badge}>
+                            <span className={styles.badgeDot} />
+                            PRO CONFIGS
+                        </span>
+                        <h1 className={styles.title}>
+                            O que os <span className={styles.gradient}>melhores do mundo</span> usam
+                        </h1>
+                        <p className={styles.subtitle}>
+                            Configurações reais de {stats.totalPlayers} jogadores profissionais
+                            de PUBG. DPI, sensibilidade, mouse, grip e mais.
+                        </p>
 
-                {/* Quick Stats */}
-                <div className={styles.statsRow}>
-                    <div className={styles.statBox}>
-                        <span className={styles.statValue}>{stats.avgCmPer360.toFixed(1)}</span>
-                        <span className={styles.statLabel}>cm/360° médio</span>
-                    </div>
-                    <div className={styles.divider} />
-                    <div className={styles.statBox}>
-                        <span className={styles.statValue}>{stats.mostCommonDpi}</span>
-                        <span className={styles.statLabel}>DPI mais usado</span>
-                    </div>
-                    <div className={styles.divider} />
-                    <div className={styles.statBox}>
-                        <span className={styles.statValue}>{stats.minCmPer360.toFixed(0)}–{stats.maxCmPer360.toFixed(0)}</span>
-                        <span className={styles.statLabel}>range cm/360°</span>
-                    </div>
-                    <div className={styles.divider} />
-                    <div className={styles.statBox}>
-                        <span className={styles.statValue}>Claw</span>
-                        <span className={styles.statLabel}>grip dominante</span>
-                    </div>
-                </div>
-            </section>
-
-            {/* Pro Table */}
-            <section className={styles.tableSection}>
-                <div className={styles.tableWrapper}>
-                    <table className={styles.table}>
-                        <thead>
-                            <tr>
-                                <th>Jogador</th>
-                                <th>Time</th>
-                                <th>Role</th>
-                                <th>DPI</th>
-                                <th>Sens</th>
-                                <th>cm/360°</th>
-                                <th>Mouse</th>
-                                <th>Grip</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {PRO_PLAYERS.map((player) => (
-                                <tr key={player.id} className={styles.row}>
-                                    <td className={styles.playerCell}>
-                                        <span className={styles.flag}>{player.country}</span>
-                                        <span className={styles.playerName}>{player.name}</span>
-                                    </td>
-                                    <td className={styles.teamCell}>{player.team}</td>
-                                    <td>
-                                        <span className={styles.roleBadge} data-role={player.role}>
-                                            {player.role}
-                                        </span>
-                                    </td>
-                                    <td className={styles.numCell}>{player.dpi}</td>
-                                    <td className={styles.numCell}>{player.inGameSens}</td>
-                                    <td className={styles.sensCell}>
-                                        <div className={styles.sensBar}>
-                                            <div
-                                                className={styles.sensBarFill}
-                                                style={{ width: `${Math.min((player.cmPer360 / 60) * 100, 100)}%` }}
-                                            />
-                                        </div>
-                                        <span>{player.cmPer360.toFixed(1)}</span>
-                                    </td>
-                                    <td className={styles.mouseCell}>{player.mouse}</td>
-                                    <td className={styles.gripCell}>{player.gripStyle}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-
-            {/* Scope Sensitivity Breakdown */}
-            <section className={styles.scopeSection}>
-                <h2 className={styles.sectionTitle}>Sensibilidade por Scope</h2>
-                <p className={styles.sectionDesc}>
-                    Como os pros ajustam a sensibilidade para cada magnificação.
-                </p>
-                <div className={styles.scopeGrid}>
-                    {PRO_PLAYERS.slice(0, 6).map((player) => (
-                        <div key={player.id} className={styles.scopeCard}>
-                            <div className={styles.scopeCardHeader}>
-                                <span className={styles.flag}>{player.country}</span>
-                                <strong>{player.name}</strong>
-                                <span className={styles.scopeTeam}>{player.team}</span>
+                        {/* Quick Stats */}
+                        <div className={styles.statsGrid}>
+                            <div className={styles.statCard}>
+                                <span className={styles.statIcon}>🎯</span>
+                                <div className={styles.statInfo}>
+                                    <span className={styles.statNum}>{stats.avgCmPer360.toFixed(1)}</span>
+                                    <span className={styles.statLabel}>cm/360° médio</span>
+                                </div>
                             </div>
-                            <div className={styles.scopeValues}>
-                                {(['red-dot', '2x', '3x', '4x', '6x', '8x'] as const).map((scope) => (
-                                    <div key={scope} className={styles.scopeRow}>
-                                        <span className={styles.scopeLabel}>{scope}</span>
-                                        <div className={styles.scopeBarTrack}>
-                                            <div
-                                                className={styles.scopeBarFill}
-                                                style={{ width: `${((player.scopeSens[scope] ?? 0) / 70) * 100}%` }}
-                                            />
-                                        </div>
-                                        <span className={styles.scopeNum}>{player.scopeSens[scope] ?? '—'}</span>
-                                    </div>
-                                ))}
+                            <div className={styles.statCard}>
+                                <span className={styles.statIcon}>🖱️</span>
+                                <div className={styles.statInfo}>
+                                    <span className={styles.statNum}>{stats.mostCommonDpi}</span>
+                                    <span className={styles.statLabel}>DPI mais usado</span>
+                                </div>
+                            </div>
+                            <div className={styles.statCard}>
+                                <span className={styles.statIcon}>✋</span>
+                                <div className={styles.statInfo}>
+                                    <span className={styles.statNum}>Claw</span>
+                                    <span className={styles.statLabel}>grip dominante</span>
+                                </div>
+                            </div>
+                            <div className={styles.statCard}>
+                                <span className={styles.statIcon}>📏</span>
+                                <div className={styles.statInfo}>
+                                    <span className={styles.statNum}>{stats.minCmPer360.toFixed(0)}–{stats.maxCmPer360.toFixed(0)}</span>
+                                    <span className={styles.statLabel}>range cm/360°</span>
+                                </div>
                             </div>
                         </div>
-                    ))}
-                </div>
-            </section>
+                    </div>
+                </section>
 
-            {/* Insight */}
-            <section className={styles.insightSection}>
-                <h2 className={styles.sectionTitle}>💡 Insights</h2>
-                <div className={styles.insightGrid}>
-                    <div className={styles.insightCard}>
-                        <h3>DPI</h3>
-                        <p>
-                            <strong>80% dos pros usam 800 DPI.</strong> DPIs mais altos (como 1600) são raros no cenário competitivo.
-                            A maioria prefere precisão com DPI moderado.
-                        </p>
+                {/* ─── Player Cards ─── */}
+                <section className={styles.section}>
+                    <div className={styles.sectionHeader}>
+                        <h2 className={styles.sectionTitle}>Jogadores</h2>
+                        <p className={styles.sectionSub}>{stats.totalPlayers} profissionais • Atualizado Feb 2026</p>
                     </div>
-                    <div className={styles.insightCard}>
-                        <h3>cm/360°</h3>
-                        <p>
-                            A média dos pros é <strong>{stats.avgCmPer360.toFixed(1)} cm/360°</strong>.
-                            Entry fraggers tendem a jogar mais rápido (26-33cm), enquanto snipers preferem mais lento (36-58cm).
-                        </p>
+
+                    <div className={styles.playerGrid}>
+                        {PRO_PLAYERS.map((player) => {
+                            const sensPercent = Math.min((player.cmPer360 / 60) * 100, 100);
+                            return (
+                                <article key={player.id} className={styles.playerCard}>
+                                    {/* Card Header */}
+                                    <div className={styles.cardHeader}>
+                                        <div className={styles.cardPlayer}>
+                                            <span className={styles.cardFlag}>{player.country}</span>
+                                            <div>
+                                                <h3 className={styles.cardName}>{player.name}</h3>
+                                                <span className={styles.cardTeam}>{player.team}</span>
+                                            </div>
+                                        </div>
+                                        <span className={styles.rolePill} data-role={player.role}>
+                                            {player.role}
+                                        </span>
+                                    </div>
+
+                                    {/* Sensitivity Visual */}
+                                    <div className={styles.sensSection}>
+                                        <div className={styles.sensHeader}>
+                                            <span className={styles.sensLabel}>cm/360°</span>
+                                            <span className={styles.sensValue}>{player.cmPer360.toFixed(1)}</span>
+                                        </div>
+                                        <div className={styles.sensTrack}>
+                                            <div className={styles.sensFill} style={{ width: `${sensPercent}%` }} />
+                                            <div className={styles.sensMarker} style={{ left: `${(stats.avgCmPer360 / 60) * 100}%` }} />
+                                        </div>
+                                        <div className={styles.sensRange}>
+                                            <span>Rápido</span>
+                                            <span className={styles.sensAvgLabel}>Média: {stats.avgCmPer360.toFixed(1)}</span>
+                                            <span>Lento</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Config Details */}
+                                    <div className={styles.configGrid}>
+                                        <div className={styles.configItem}>
+                                            <span className={styles.configLabel}>DPI</span>
+                                            <span className={styles.configValue}>{player.dpi}</span>
+                                        </div>
+                                        <div className={styles.configItem}>
+                                            <span className={styles.configLabel}>In-Game</span>
+                                            <span className={styles.configValue}>{player.inGameSens}</span>
+                                        </div>
+                                        <div className={styles.configItem}>
+                                            <span className={styles.configLabel}>Mouse</span>
+                                            <span className={styles.configValue}>{player.mouse.split(' ').slice(-2).join(' ')}</span>
+                                        </div>
+                                        <div className={styles.configItem}>
+                                            <span className={styles.configLabel}>Grip</span>
+                                            <span className={styles.configValue}>{player.gripStyle}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Scope Sens Bar Chart */}
+                                    <div className={styles.scopeSection}>
+                                        <span className={styles.scopeTitle}>Scope Sensitivity</span>
+                                        <div className={styles.scopeBars}>
+                                            {(['red-dot', '2x', '3x', '4x', '6x', '8x'] as const).map((scope) => {
+                                                const val = player.scopeSens[scope] ?? 0;
+                                                return (
+                                                    <div key={scope} className={styles.scopeBar}>
+                                                        <div
+                                                            className={styles.scopeBarInner}
+                                                            style={{ height: `${(val / 70) * 100}%` }}
+                                                        />
+                                                        <span className={styles.scopeBarLabel}>{scope}</span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* Achievements */}
+                                    {player.achievements.length > 0 && (
+                                        <div className={styles.achievements}>
+                                            <span className={styles.achIcon}>🏆</span>
+                                            <span className={styles.achText}>{player.achievements[0]}</span>
+                                        </div>
+                                    )}
+                                </article>
+                            );
+                        })}
                     </div>
-                    <div className={styles.insightCard}>
-                        <h3>Grip Style</h3>
-                        <p>
-                            <strong>Claw grip domina</strong> no cenário pro. É o balanço ideal entre controle fino (fingertip)
-                            e estabilidade (palm) para sprays longos.
-                        </p>
+                </section>
+
+                {/* ─── Insights Section ─── */}
+                <section className={styles.section}>
+                    <div className={styles.sectionHeader}>
+                        <h2 className={styles.sectionTitle}>💡 Insights do Cenário Pro</h2>
                     </div>
-                    <div className={styles.insightCard}>
-                        <h3>Scope Sens</h3>
-                        <p>
-                            Todos os pros <strong>diminuem a sens nos scopes maiores</strong>. A queda média é de ~40% entre red-dot e 8x.
-                            Isso compensa a magnificação aumentada.
-                        </p>
+
+                    <div className={styles.insightGrid}>
+                        <div className={styles.insightCard}>
+                            <div className={styles.insightTop}>
+                                <span className={styles.insightEmoji}>🖱️</span>
+                                <h3>DPI</h3>
+                            </div>
+                            <p>
+                                <strong>80% dos pros usam 800 DPI.</strong> DPIs maiores (1600+) são raríssimos.
+                                O consenso é: DPI moderado + sens in-game baixa = precisão máxima.
+                            </p>
+                        </div>
+                        <div className={styles.insightCard}>
+                            <div className={styles.insightTop}>
+                                <span className={styles.insightEmoji}>🎯</span>
+                                <h3>Sensibilidade</h3>
+                            </div>
+                            <p>
+                                Média: <strong>{stats.avgCmPer360.toFixed(1)} cm/360°</strong>. Entry fraggers jogam
+                                mais rápido (26-33cm), snipers preferem mais lento (36-58cm) para precisão.
+                            </p>
+                        </div>
+                        <div className={styles.insightCard}>
+                            <div className={styles.insightTop}>
+                                <span className={styles.insightEmoji}>✋</span>
+                                <h3>Grip Style</h3>
+                            </div>
+                            <p>
+                                <strong>Claw grip domina</strong> o cenário pro. Balanço perfeito entre controle fino
+                                (fingertip) e estabilidade (palm) para sprays longos.
+                            </p>
+                        </div>
+                        <div className={styles.insightCard}>
+                            <div className={styles.insightTop}>
+                                <span className={styles.insightEmoji}>🔭</span>
+                                <h3>Scopes</h3>
+                            </div>
+                            <p>
+                                Todos os pros <strong>diminuem ~40% a sens</strong> entre red-dot e 8x.
+                                Isso compensa a magnificação e mantém o controle preciso.
+                            </p>
+                        </div>
                     </div>
-                </div>
-            </section>
-        </div>
+                </section>
+            </div>
+        </>
     );
 }
