@@ -7,29 +7,19 @@ import NextAuth from 'next-auth';
 import Discord from 'next-auth/providers/discord';
 import Google from 'next-auth/providers/google';
 
-// Build providers list dynamically based on available env vars
+// We remove the internal checking because if the variables are missing on Vercel,
+// we want NextAuth to loud-fail instead of silently hiding the provider (resulting in a default signin redirect).
 function getProviders() {
-    const providers = [];
-
-    if (process.env.AUTH_DISCORD_ID && process.env.AUTH_DISCORD_SECRET) {
-        providers.push(
-            Discord({
-                clientId: process.env.AUTH_DISCORD_ID,
-                clientSecret: process.env.AUTH_DISCORD_SECRET,
-            })
-        );
-    }
-
-    if (process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET) {
-        providers.push(
-            Google({
-                clientId: process.env.AUTH_GOOGLE_ID,
-                clientSecret: process.env.AUTH_GOOGLE_SECRET,
-            })
-        );
-    }
-
-    return providers;
+    return [
+        Discord({
+            clientId: process.env.AUTH_DISCORD_ID || '',
+            clientSecret: process.env.AUTH_DISCORD_SECRET || '',
+        }),
+        Google({
+            clientId: process.env.AUTH_GOOGLE_ID || '',
+            clientSecret: process.env.AUTH_GOOGLE_SECRET || '',
+        })
+    ];
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
