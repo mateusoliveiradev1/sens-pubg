@@ -1,0 +1,272 @@
+/**
+ * Spray Metrics Calculator — Calcula as 6 métricas obrigatórias do spray.
+ *
+ * 1. Spray Stability Score (0-100)
+ * 2. Vertical Control Index (0-1, ideal = 1.0)
+ * 3. Horizontal Noise Index (0+)
+ * 4. Initial Recoil Response Time (ms)
+ * 5. Drift Direction Bias
+ * 6. Consistency Score (0-100)
+ */
+
+import type {
+    TrackingPoint,
+    DisplacementVector,
+    SprayTrajectory,
+    SprayMetrics,
+    DriftBias,
+} from '@/types/engine';
+import type { Pixels, Milliseconds, Score } from '@/types/branded';
+import { asMilliseconds, asScore, asPixels } from '@/types/branded';
+import type { TrackingResult } from './crosshair-tracking';
+import type { WeaponData, RecoilVector } from '@/game/pubg/weapon-data';
+
+// ═══════════════════════════════════════════
+// Trajectory Builder
+// ═══════════════════════════════════════════
+
+/**
+ * Converte TrackingPoints em displacements (variação entre frames consecutivos).
+ */
+export function buildDisplacements(
+    points: readonly TrackingPoint[]
+): DisplacementVector[] {
+    const displacements: DisplacementVector[] = [];
+
+    for (let i = 1; i < points.length; i++) {
+        const prev = points[i - 1];
+        const curr = points[i];
+        if (!prev || !curr) continue;
+
+        displacements.push({
+            dx: Number(curr.x) - Number(prev.x),
+            dy: Number(curr.y) - Number(prev.y),
+            timestamp: curr.timestamp,
+            shotIndex: i - 1,
+        });
+    }
+
+    return displacements;
+}
+
+/**
+ * Constrói a trajetória completa do spray.
+ */
+export function buildTrajectory(
+    tracking: TrackingResult,
+    weaponId: string
+): SprayTrajectory {
+    const displacements = buildDisplacements(tracking.points);
+    const firstPoint = tracking.points[0];
+    const lastPoint = tracking.points[tracking.points.length - 1];
+
+    return {
+        points: tracking.points,
+        displacements,
+        totalFrames: tracking.points.length,
+        durationMs: asMilliseconds(
+            (lastPoint && firstPoint)
+                ? Number(lastPoint.timestamp) - Number(firstPoint.timestamp)
+                : 0
+        ),
+        weaponId,
+    };
+}
+
+// ═══════════════════════════════════════════
+// Metric 1: Spray Stability Score (0-100)
+// ═══════════════════════════════════════════
+
+/**
+ * Estabilidade geral com base no desvio padrão do spray.
+ * Score alto = spray concentrado em uma área pequena.
+ */
+function calculateStability(displacements: readonly DisplacementVector[]): Score {
+    if (displacements.length === 0) return asScore(0);
+
+    // Calcular desvio padrão das distâncias do centróide
+    const meanDx = displacements.reduce((a, d) => a + d.dx, 0) / displacements.length;
+    const meanDy = displacements.reduce((a, d) => a + d.dy, 0) / displacements.length;
+
+    const variance = displacements.reduce((sum, d) => {
+        return sum + (d.dx - meanDx) ** 2 + (d.dy - meanDy) ** 2;
+    }, 0) / displacements.length;
+
+    const stdDev = Math.sqrt(variance);
+
+    // Normalizar: stdDev ~0 = 100, stdDev ~30 = 0
+    const normalized = Math.max(0, 100 - (stdDev / 30) * 100);
+    return asScore(normalized);
+}
+
+// ═══════════════════════════════════════════
+// Metric 2: Vertical Control Index (0-1)
+// ═══════════════════════════════════════════
+
+/**
+ * Mede quão bem o jogador compensa o recoil vertical.
+ * Compara o deslocamento vertical observado com o esperado.
+ * 
+ * 1.0 = compensação perfeita
+ * <1.0 = underpull (não puxa o suficiente)
+ * >1.0 = overpull (puxa demais)
+ */
+function calculateVerticalControl(
+    displacements: readonly DisplacementVector[],
+    weaponRecoil: readonly RecoilVector[]
+): number {
+    if (displacements.length === 0 || weaponRecoil.length === 0) return 1.0;
+
+    // Soma total do recoil esperado (vertical)
+    const expectedVertical = weaponRecoil.reduce((sum, r) => sum + r.dy, 0);
+    if (expectedVertical === 0) return 1.0;
+
+    // Soma total do deslocamento vertical observado (dy positivo = jogador NÃO compensou)
+    const observedVertical = displacements.reduce((sum, d) => sum + d.dy, 0);
+
+    // Se observado é próximo de 0, jogador compensou perfeitamente.
+    // Ratio: (expectedVertical - observedVertical) / expectedVertical
+    const compensated = expectedVertical - observedVertical;
+    const ratio = compensated / expectedVertical;
+
+    // Clamp entre 0 e 2 (0 = nenhuma comp., 1 = perfeita, 2 = overpull)
+    return Math.max(0, Math.min(2, ratio));
+}
+
+// ═══════════════════════════════════════════
+// Metric 3: Horizontal Noise Index
+// ═══════════════════════════════════════════
+
+/**
+ * Desvio padrão do movimento horizontal.
+ * Valor baixo = spray horizontal limpo.
+ */
+function calculateHorizontalNoise(
+    displacements: readonly DisplacementVector[]
+): number {
+    if (displacements.length === 0) return 0;
+
+    const dxValues = displacements.map(d => d.dx);
+    const mean = dxValues.reduce((a, b) => a + b, 0) / dxValues.length;
+    const variance = dxValues.reduce((sum, dx) => sum + (dx - mean) ** 2, 0) / dxValues.length;
+
+    return Math.round(Math.sqrt(variance) * 100) / 100;
+}
+
+// ═══════════════════════════════════════════
+// Metric 4: Initial Recoil Response Time (ms)
+// ═══════════════════════════════════════════
+
+/**
+ * Tempo até o jogador começar a compensar o recoil.
+ * Medido como o tempo até o primeiro movimento oposto ao recoil.
+ */
+function calculateRecoilResponseTime(
+    displacements: readonly DisplacementVector[]
+): Milliseconds {
+    if (displacements.length < 2) return asMilliseconds(0);
+
+    // Procurar o primeiro frame onde dy é negativo (jogador puxou pra baixo)
+    for (let i = 0; i < displacements.length; i++) {
+        const d = displacements[i];
+        if (d && d.dy < -1) { // threshold: pelo menos -1px
+            return asMilliseconds(Number(d.timestamp));
+        }
+    }
+
+    // Nunca compensou — retorna duração total
+    const lastD = displacements[displacements.length - 1];
+    return asMilliseconds(lastD ? Number(lastD.timestamp) : 0);
+}
+
+// ═══════════════════════════════════════════
+// Metric 5: Drift Direction Bias
+// ═══════════════════════════════════════════
+
+/**
+ * Detecta tendência de desvio horizontal.
+ * Se o acumulado horizontal pende para um lado, há drift bias.
+ */
+function calculateDriftBias(
+    displacements: readonly DisplacementVector[]
+): DriftBias {
+    if (displacements.length === 0) {
+        return { direction: 'neutral', magnitude: 0 };
+    }
+
+    const totalDx = displacements.reduce((sum, d) => sum + d.dx, 0);
+    const avgDx = totalDx / displacements.length;
+
+    const THRESHOLD = 0.5; // pixels por frame
+
+    let direction: 'left' | 'right' | 'neutral';
+    if (avgDx < -THRESHOLD) {
+        direction = 'left';
+    } else if (avgDx > THRESHOLD) {
+        direction = 'right';
+    } else {
+        direction = 'neutral';
+    }
+
+    return {
+        direction,
+        magnitude: Math.round(Math.abs(avgDx) * 100) / 100,
+    };
+}
+
+// ═══════════════════════════════════════════
+// Metric 6: Consistency Score (0-100)
+// ═══════════════════════════════════════════
+
+/**
+ * Mede a consistência do spray comparando janelas de frames.
+ * Score alto = cada segmento do spray é similar aos outros.
+ */
+function calculateConsistency(
+    displacements: readonly DisplacementVector[]
+): Score {
+    if (displacements.length < 6) return asScore(50);
+
+    // Dividir em 3 segmentos
+    const segmentSize = Math.floor(displacements.length / 3);
+    const segments = [
+        displacements.slice(0, segmentSize),
+        displacements.slice(segmentSize, segmentSize * 2),
+        displacements.slice(segmentSize * 2, segmentSize * 3),
+    ];
+
+    // Calcular variância de cada segmento
+    const segmentVariances = segments.map(seg => {
+        const dys = seg.map(d => d.dy);
+        const mean = dys.reduce((a, b) => a + b, 0) / (dys.length || 1);
+        return dys.reduce((sum, dy) => sum + (dy - mean) ** 2, 0) / (dys.length || 1);
+    });
+
+    // Consistência = baixa variação entre as variâncias dos segmentos
+    const meanVar = segmentVariances.reduce((a, b) => a + b, 0) / segmentVariances.length;
+    const varOfVar = segmentVariances.reduce((sum, v) => sum + (v - meanVar) ** 2, 0) / segmentVariances.length;
+
+    // Normalizar: varOfVar ~0 = 100, varOfVar ~100 = 0
+    const normalized = Math.max(0, 100 - Math.sqrt(varOfVar) * 5);
+    return asScore(normalized);
+}
+
+// ═══════════════════════════════════════════
+// Main: Calculate All Metrics
+// ═══════════════════════════════════════════
+
+export function calculateSprayMetrics(
+    trajectory: SprayTrajectory,
+    weapon: WeaponData
+): SprayMetrics {
+    const { displacements } = trajectory;
+
+    return {
+        stabilityScore: calculateStability(displacements),
+        verticalControlIndex: calculateVerticalControl(displacements, weapon.recoilPattern),
+        horizontalNoiseIndex: calculateHorizontalNoise(displacements),
+        initialRecoilResponseMs: calculateRecoilResponseTime(displacements),
+        driftDirectionBias: calculateDriftBias(displacements),
+        consistencyScore: calculateConsistency(displacements),
+    };
+}
