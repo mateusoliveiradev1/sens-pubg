@@ -1,0 +1,306 @@
+/**
+ * Analysis Page Styles
+ */
+
+/* ═══ Dropzone ═══ */
+
+.dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-lg);
+    padding: var(--space-4xl) var(--space-xl);
+    border: 2px dashed var(--color-border);
+    border-radius: var(--radius-xl);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    text-align: center;
+    background: var(--color-bg-card);
+}
+
+.dropzone:hover,
+.dropzoneActive {
+    border-color: var(--color-accent-primary);
+    background: rgba(255, 107, 0, 0.03);
+    box-shadow: 0 0 30px var(--color-accent-glow);
+}
+
+.dropzoneIcon {
+    font-size: 3rem;
+    animation: float 3s ease-in-out infinite;
+}
+
+.error {
+    margin-top: var(--space-lg);
+    padding: var(--space-md) var(--space-lg);
+    background: rgba(255, 61, 61, 0.1);
+    border: 1px solid rgba(255, 61, 61, 0.3);
+    border-radius: var(--radius-md);
+    color: var(--color-error);
+    font-size: var(--text-sm);
+}
+
+/* ═══ Video Preview ═══ */
+
+.videoPreview {
+    margin-bottom: var(--space-lg);
+}
+
+.video {
+    width: 100%;
+    border-radius: var(--radius-md);
+    max-height: 300px;
+    object-fit: contain;
+    background: #000;
+}
+
+.videoMeta {
+    display: flex;
+    gap: var(--space-sm);
+    margin-top: var(--space-md);
+}
+
+/* ═══ Settings ═══ */
+
+.settingsForm {
+    margin-top: var(--space-lg);
+}
+
+.settingsForm h3 {
+    margin-bottom: var(--space-lg);
+}
+
+.settingsGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-lg);
+    margin-bottom: var(--space-xl);
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+}
+
+.settingsActions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* ═══ Processing ═══ */
+
+.processing {
+    text-align: center;
+    padding: var(--space-4xl) var(--space-xl);
+}
+
+.processing h3 {
+    margin-bottom: var(--space-lg);
+}
+
+.processingSpinner {
+    width: 48px;
+    height: 48px;
+    border: 3px solid var(--color-border);
+    border-top-color: var(--color-accent-primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto var(--space-xl);
+}
+
+/* ═══ Results Dashboard ═══ */
+
+.dashboard {
+    margin-top: var(--space-xl);
+}
+
+.section {
+    margin-bottom: var(--space-3xl);
+}
+
+.sectionTitle {
+    font-size: var(--text-xl);
+    margin-bottom: var(--space-lg);
+}
+
+.resultHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-xl);
+}
+
+/* ═══ Metrics Grid ═══ */
+
+.metricsGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-lg);
+}
+
+.metricCard {
+    text-align: center;
+    padding: var(--space-lg);
+}
+
+.metricUnit {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    display: block;
+    margin-top: var(--space-xs);
+}
+
+/* ═══ Diagnosis ═══ */
+
+.diagnosisList {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.diagnosisCard {
+    padding: var(--space-lg);
+}
+
+.diagnosisHeader {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    margin-bottom: var(--space-md);
+}
+
+.diagnosisType {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+.diagnosisDesc {
+    margin-bottom: var(--space-sm);
+    color: var(--color-text-primary);
+    font-size: var(--text-sm);
+}
+
+.diagnosisCause,
+.diagnosisFix {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-xs);
+}
+
+/* ═══ Sensitivity Profiles ═══ */
+
+.profilesGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-lg);
+}
+
+.profileCard {
+    position: relative;
+    text-align: center;
+    padding: var(--space-xl);
+}
+
+.profileRecommended {
+    border-color: var(--color-success);
+    box-shadow: 0 0 20px rgba(0, 230, 118, 0.15);
+}
+
+.recommendedBadge {
+    position: absolute;
+    top: var(--space-md);
+    right: var(--space-md);
+}
+
+.profileCard h4 {
+    margin-bottom: var(--space-sm);
+}
+
+.profileDesc {
+    font-size: var(--text-xs);
+    margin-bottom: var(--space-lg);
+}
+
+.profileStats {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-xl);
+}
+
+.profileValue {
+    font-family: var(--font-mono);
+    font-size: var(--text-xl);
+    font-weight: 700;
+    color: var(--color-accent-primary);
+    display: block;
+}
+
+/* ═══ Coach ═══ */
+
+.coachList {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+}
+
+.coachCard {
+    padding: var(--space-lg);
+}
+
+.coachRow {
+    margin-bottom: var(--space-md);
+}
+
+.coachLabel {
+    font-weight: 600;
+    font-size: var(--text-sm);
+    color: var(--color-accent-primary);
+    display: block;
+    margin-bottom: var(--space-xs);
+}
+
+.coachRow p {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+}
+
+.coachAdapt {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--color-border);
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+}
+
+.coachDays {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    color: var(--color-accent-cyan);
+}
+
+/* ═══ Responsive ═══ */
+
+@media (max-width: 767px) {
+    .metricsGrid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .profilesGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .settingsGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .settingsActions {
+        flex-direction: column;
+        gap: var(--space-md);
+    }
+}
