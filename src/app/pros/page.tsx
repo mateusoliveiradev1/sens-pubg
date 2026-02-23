@@ -90,7 +90,7 @@ export default function ProsPage() {
                                             <span className={styles.cardFlag}>{player.country}</span>
                                             <div>
                                                 <h3 className={styles.cardName}>{player.name}</h3>
-                                                <span className={styles.cardTeam}>{player.team}</span>
+                                                <span className={styles.cardTeam}>{player.teamLogo} {player.team}</span>
                                             </div>
                                         </div>
                                         <span className={styles.rolePill} data-role={player.role}>
