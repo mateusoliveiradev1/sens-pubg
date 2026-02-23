@@ -27,7 +27,7 @@ describe('generateCoaching', () => {
             {
                 type: 'inconsistency',
                 severity: 2,
-                consistencyScore: 40 as any,
+                consistencyScore: 40 as never,
                 description: 'Spray inconsistente',
                 cause: 'Falta de prática',
                 remediation: 'Pratique mais',

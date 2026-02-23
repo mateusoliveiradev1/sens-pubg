@@ -10,7 +10,6 @@ import {
     SCOPE_LIST,
     calculateCmPer360,
     internalFromCmPer360,
-    calculateEffectiveSensitivity,
     getJitterThreshold,
     sliderToInternal,
 } from '@/game/pubg';

@@ -1,4 +1,4 @@
-import { sliderToInternal, internalToSlider, PUBG_BASE_ROTATION_CONSTANT } from './sens-math';
+import { sliderToInternal, PUBG_BASE_ROTATION_CONSTANT } from './sens-math';
 
 // ═══════════════════════════════════════════
 // Scope Data

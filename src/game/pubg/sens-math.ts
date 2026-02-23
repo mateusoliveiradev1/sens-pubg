@@ -22,7 +22,7 @@ export function sliderToInternal(slider: number): number {
 export function internalToSlider(internal: number): number {
     if (internal <= 0) return 0;
     const slider = 50 * Math.log10(internal) + 50;
-    return Math.max(0, Math.min(100, Math.round(slider * 100) / 100));
+    return Math.max(0, Math.min(100, Math.round(slider)));
 }
 
 /**

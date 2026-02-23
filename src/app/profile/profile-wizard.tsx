@@ -102,7 +102,7 @@ export function ProfileWizard({ initialData }: Props): React.JSX.Element {
                 scopeSens: initialData.scopeSens as Record<string, number>,
             },
             physical: {
-                armLength: initialData.armLength as any,
+                armLength: initialData.armLength as 'short' | 'medium' | 'long',
                 deskSpaceCm: initialData.deskSpace,
             },
         };

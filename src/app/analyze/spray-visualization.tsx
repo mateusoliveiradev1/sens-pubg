@@ -6,7 +6,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import type { SprayTrajectory, DisplacementVector } from '@/types/engine';
+import type { SprayTrajectory } from '@/types/engine';
 
 interface Props {
     readonly trajectory: SprayTrajectory;

@@ -43,6 +43,13 @@ export interface SprayMetrics {
     readonly initialRecoilResponseMs: Milliseconds;
     readonly driftDirectionBias: DriftBias;
     readonly consistencyScore: Score;
+    // Phase-based metrics
+    readonly burstVCI: number;      // Shots 1-10
+    readonly sustainedVCI: number;  // Shots 11-20
+    readonly fatigueVCI: number;    // Shots 21+
+    readonly burstHNI: number;
+    readonly sustainedHNI: number;
+    readonly fatigueHNI: number;
 }
 
 export interface DriftBias {
@@ -144,6 +151,7 @@ export interface SensitivityRecommendation {
     ];
     readonly recommended: ProfileType;
     readonly reasoning: string;
+    readonly suggestedVSM?: number; // Recomendaçao do Vertical Sensitivity Multiplier (1.0-2.0)
 }
 
 // ═══════════════════════════════════════════

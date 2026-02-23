@@ -18,7 +18,7 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
     const [activeSession, setActiveSession] = useState<AnalysisResult>(result);
     const isAggregated = activeSession.id === result.id;
 
-    const { metrics, diagnoses, sensitivity, coaching, subSessions } = activeSession;
+    const { metrics, diagnoses, sensitivity, coaching } = activeSession;
 
     const metricCards = [
         { label: 'Estabilidade', value: Number(metrics.stabilityScore).toFixed(0), unit: '/100', color: Number(metrics.stabilityScore) >= 70 ? 'var(--color-success)' : Number(metrics.stabilityScore) >= 40 ? 'var(--color-warning)' : 'var(--color-error)' },
@@ -26,6 +26,7 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
         { label: 'Ruído Horizontal', value: metrics.horizontalNoiseIndex.toFixed(1), unit: 'px/frame', color: metrics.horizontalNoiseIndex <= 3 ? 'var(--color-success)' : 'var(--color-error)' },
         { label: 'Tempo de Resposta', value: Number(metrics.initialRecoilResponseMs).toFixed(0), unit: 'ms', color: Number(metrics.initialRecoilResponseMs) <= 180 ? 'var(--color-success)' : 'var(--color-warning)' },
         { label: 'Consistência', value: Number(metrics.consistencyScore).toFixed(0), unit: '/100', color: Number(metrics.consistencyScore) >= 65 ? 'var(--color-success)' : Number(metrics.consistencyScore) >= 40 ? 'var(--color-warning)' : 'var(--color-error)' },
+        { label: 'VSM Sugerido', value: sensitivity.suggestedVSM?.toFixed(2) ?? '1.00', unit: '', color: 'var(--color-primary)' },
     ];
 
     return (
@@ -72,6 +73,23 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                                 <span className={styles.metricUnit}>{m.unit}</span>
                             </div>
                         ))}
+                    </div>
+
+                    <div className={styles.phasesContainer} style={{ marginTop: 'var(--space-md)' }}>
+                        <div className={styles.phaseBar}>
+                            <div className={styles.phaseSegment} style={{ flex: 1 }}>
+                                <span>Burst (1-10)</span>
+                                <strong>VCI {metrics.burstVCI.toFixed(2)}</strong>
+                            </div>
+                            <div className={styles.phaseSegment} style={{ flex: 1, borderLeft: '1px solid var(--color-white-10)' }}>
+                                <span>Meio (11-20)</span>
+                                <strong>VCI {metrics.sustainedVCI.toFixed(2)}</strong>
+                            </div>
+                            <div className={styles.phaseSegment} style={{ flex: 1, borderLeft: '1px solid var(--color-white-10)' }}>
+                                <span>Fadiga (21+)</span>
+                                <strong>VCI {metrics.fatigueVCI.toFixed(2)}</strong>
+                            </div>
+                        </div>
                     </div>
                 </section>
 

@@ -47,7 +47,7 @@ export async function saveAnalysisResult(
             diagnoses,
             // Only keeping limited JSON to avoid large payloads if needed, but we can store everything
             coachingData: result.coaching as unknown as Record<string, unknown>[],
-            fullResult: result, // Save the entire diagnostic payload for 1:1 identical historic viewing
+            fullResult: result as unknown as Record<string, unknown>, // Save the entire diagnostic payload for 1:1 identical historic viewing
         }).returning({ id: analysisSessions.id });
 
         const sessionId = insertedSession[0]!.id;

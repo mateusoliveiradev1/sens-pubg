@@ -20,7 +20,7 @@ import type {
     InconsistencyDiagnosis,
     Severity,
 } from '@/types/engine';
-import { asMilliseconds, asScore } from '@/types/branded';
+import { asMilliseconds } from '@/types/branded';
 import type { WeaponCategory } from '@/game/pubg/weapon-data';
 import { getJitterThreshold } from '@/game/pubg/weapon-data';
 

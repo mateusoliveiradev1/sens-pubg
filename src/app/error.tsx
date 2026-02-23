@@ -4,6 +4,8 @@
 
 'use client';
 
+import Link from 'next/link';
+
 export default function Error({
     error,
     reset,
@@ -64,9 +66,9 @@ export default function Error({
                 >
                     Tentar Novamente
                 </button>
-                <a href="/" className="btn btn-secondary">
+                <Link href="/" className="btn btn-secondary">
                     Voltar ao Início
-                </a>
+                </Link>
             </div>
         </div>
     );

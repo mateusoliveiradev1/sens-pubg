@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 'use client';
 
 /**
@@ -7,7 +8,7 @@
 
 import { useState } from 'react';
 import type { ProPlayer } from '@/game/pubg';
-import { TEAM_SLUGS, getPlayerImageUrl as PLAYER_IMG, getTeamLogoUrl as TEAM_LOGO } from '@/game/pubg';
+import { getPlayerImageUrl as PLAYER_IMG, getTeamLogoUrl as TEAM_LOGO } from '@/game/pubg';
 import styles from './pros.module.css';
 
 interface ProsClientProps {

@@ -511,6 +511,39 @@
     }
 }
 
+/* ═══ Phase Breakdown ═══ */
+
+.phasesContainer {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    border: 1px solid var(--color-border);
+}
+
+.phaseBar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.phaseSegment {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 0 var(--space-md);
+}
+
+.phaseSegment span {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+}
+
+.phaseSegment strong {
+    font-size: var(--text-sm);
+    color: var(--color-accent-primary);
+}
+
 @media (max-width: 767px) {
     .profilesGrid {
         grid-template-columns: 1fr;

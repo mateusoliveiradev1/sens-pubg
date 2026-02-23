@@ -25,6 +25,14 @@ const FAQS: FaqItem[] = [
         q: 'Funciona com qualquer arma do PUBG?',
         a: 'Atualmente suportamos as armas mais importantes do meta do PUBG (M416, Beryl, AUG, ACE32, G36C, SCAR-L, DMRs e SMGs). A engine tem padrões de Recoil precisos e específicos gravados diretamente dos servidores oficiais de 2024.',
     },
+    {
+        q: 'O que é o Vertical Sensitivity Multiplier (VSM) e como ajustar?',
+        a: 'O VSM (Multiplicador de Sensibilidade Vertical) altera a proporção entre o movimento vertical e horizontal. Nossa IA analisa se você está compensando o recuo de forma excessiva ou insuficiente e sugere o valor exato (ex: 1.25) para que seu "puxe" de mouse seja mais natural e consistente.',
+    },
+    {
+        q: 'Como funciona a detecção automática (Elite Workflow)?',
+        a: 'Para que a ferramenta identifique sua arma e acessórios sem você precisar digitar nada, basta abrir o Inventário (Tab) por cerca de 1 a 2 segundos logo no início do seu vídeo de spray. Nossa visão computacional escaneará os slots e aplicará os dados de recuo e acessórios automaticamente para uma análise 100% precisa.',
+    },
 ];
 
 export function FaqAccordion() {

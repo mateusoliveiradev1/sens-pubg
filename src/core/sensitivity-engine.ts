@@ -11,14 +11,10 @@ import type {
     ScopeSensitivity,
     ProfileType,
     Diagnosis,
-    PlayerHardwareProfile,
 } from '@/types/engine';
 import { asSensitivity, asCentimeters } from '@/types/branded';
-import type { Sensitivity, Centimeters } from '@/types/branded';
 import {
-    calculateCmPer360,
     internalFromCmPer360,
-    calculateEffectiveSensitivity,
     isSensViableForMousepad,
     SCOPES,
     type ScopeId,
@@ -65,29 +61,31 @@ function getBaseSensRange(
 
 function adjustForDiagnostics(
     idealCm360: number,
-    diagnoses: readonly Diagnosis[]
+    diagnoses: readonly Diagnosis[],
+    metrics: SprayMetrics // Pass metrics to check phases
 ): number {
     let adjusted = idealCm360;
+
+    // Usar burstVCI (balas 1-10) como peso principal (80%) se disponível
+    const controlIndex = metrics.burstVCI !== undefined ? metrics.burstVCI : metrics.verticalControlIndex;
 
     for (const d of diagnoses) {
         switch (d.type) {
             case 'overpull':
-                // Sens muito baixa → reduzir cm/360 (aumentar sens) ligeiramente
-                adjusted -= adjusted * 0.03; // 3%
+                // Se o burstVCI confirmar overpull, o ajuste é mais agressivo
+                const factor = controlIndex > 1.2 ? 0.05 : 0.03;
+                adjusted -= adjusted * factor;
                 break;
             case 'underpull':
-                // Sens muito alta → aumentar cm/360 (diminuir sens) ligeiramente
-                adjusted += adjusted * 0.03;
+                const uFactor = controlIndex < 0.8 ? 0.05 : 0.03;
+                adjusted += adjusted * uFactor;
                 break;
             case 'excessive_jitter':
-                // Aumentar cm/360 (diminuir sens) para reduzir tremor
                 adjusted += adjusted * 0.04;
                 break;
             case 'horizontal_drift':
-                // Slight increase in cm/360 to reduce uncontrolled movement
                 adjusted += adjusted * 0.02;
                 break;
-            // late_compensation e inconsistency não alteram sens diretamente
         }
     }
 
@@ -168,22 +166,23 @@ export function generateSensitivityRecommendation(
     playStyle: string,
     gripStyle: string,
     mousepadWidthCm: number,
-    currentScopeSens: Record<string, number>
+    currentScopeSens: Record<string, number>,
+    currentVSM: number = 1.0
 ): SensitivityRecommendation {
     // 1. Get base range
     const range = getBaseSensRange(playStyle, gripStyle);
 
-    // 2. Adjust ideal based on diagnostics
-    const adjustedIdeal = adjustForDiagnostics(range.idealCm360, diagnoses);
+    // 2. Adjust ideal based on diagnostics + phase weighting
+    const adjustedIdeal = adjustForDiagnostics(range.idealCm360, diagnoses, metrics);
 
     // 3. Clamp to viable range (mousepad-aware)
     const minViable = isSensViableForMousepad(range.minCm360, mousepadWidthCm) ? range.minCm360 : adjustedIdeal * 0.8;
     const maxViable = range.maxCm360;
 
     // 4. Generate 3 profiles with ~5% spread
-    const lowCm360 = Math.min(adjustedIdeal * 1.06, maxViable);   // +6% cm/360 = lower sens
+    const lowCm360 = Math.min(adjustedIdeal * 1.06, maxViable);
     const balancedCm360 = adjustedIdeal;
-    const highCm360 = Math.max(adjustedIdeal * 0.94, minViable);  // -6% cm/360 = higher sens
+    const highCm360 = Math.max(adjustedIdeal * 0.94, minViable);
 
     const profiles: [SensitivityProfile, SensitivityProfile, SensitivityProfile] = [
         buildProfile('low', lowCm360, dpi, currentScopeSens),
@@ -196,22 +195,37 @@ export function generateSensitivityRecommendation(
     const dominant = diagnoses[0]; // Highest severity
     if (dominant) {
         if (dominant.type === 'overpull') {
-            recommended = 'high'; // Sens muito baixa (precisa puxar muito) -> recomendar sensi mais alta
+            recommended = 'high';
         } else if (dominant.type === 'underpull') {
-            recommended = 'low'; // Sens muito alta (puxa pouco e desce muito) -> recomendar sensi mais baixa
+            recommended = 'low';
         }
     }
 
-    // 6. Reasoning
+    // 6. Calculate Bi-directional VSM Adjustment
+    // Se BurstVCI > 1.1 ou < 0.9, sugerimos mudar o VSM
+    const burstVCI = metrics.burstVCI ?? metrics.verticalControlIndex;
+    let suggestedVSM: number | undefined;
+
+    if (burstVCI > 1.05 || burstVCI < 0.95) {
+        // target_vsm = current_vsm / vci
+        suggestedVSM = Number((currentVSM / burstVCI).toFixed(2));
+        // Clamp entre 0.7 e 2.0 (limites razoáveis do PUBG)
+        suggestedVSM = Math.max(0.7, Math.min(2.0, suggestedVSM));
+    }
+
+    // 7. Reasoning
     const reasoningParts: string[] = [
-        `Baseado no seu estilo ${playStyle} com grip ${gripStyle}`,
-        `DPI de ${dpi}`,
-        `mousepad de ${mousepadWidthCm}cm`,
+        `Fase Burst: VCI ${burstVCI.toFixed(2)}`,
+        `Estilo ${playStyle}, Grip ${gripStyle}`,
     ];
     if (dominant) {
-        reasoningParts.push(`diagnóstico principal: ${dominant.type}`);
+        reasoningParts.push(`foco em ${dominant.type}`);
     }
     const reasoning = reasoningParts.join(', ') + '.';
-
-    return { profiles, recommended, reasoning };
+    return {
+        profiles,
+        recommended,
+        reasoning,
+        ...(suggestedVSM !== undefined ? { suggestedVSM } : {})
+    };
 }

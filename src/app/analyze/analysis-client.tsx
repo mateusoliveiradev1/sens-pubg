@@ -5,7 +5,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useMemo } from 'react';
-import { validateAndPrepareVideo, releaseVideoUrl, extractFrames, trackCrosshair, buildTrajectory, calculateSprayMetrics, runDiagnostics, generateSensitivityRecommendation, generateCoaching } from '@/core';
+import { validateAndPrepareVideo, releaseVideoUrl, extractFrames, trackCrosshair, buildTrajectory, calculateSprayMetrics, runDiagnostics, generateSensitivityRecommendation, generateCoaching, scanInventory } from '@/core';
 import type { VideoMetadata } from '@/core';
 import type { AnalysisResult } from '@/types/engine';
 import { WEAPON_LIST, getWeapon, SCOPE_LIST } from '@/game/pubg';
@@ -92,6 +92,15 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
             const weapon = getWeapon(weaponId);
             if (!weapon) throw new Error('Arma não encontrada');
 
+            // 1. [Elite Workflow] Scan for Inventory (Tab) in the first 2 seconds
+            // This helps auto-detect attachments and active slot.
+            const scanFrames = await extractFrames(video.url, 10, 0, 2);
+            const invResult = scanInventory(scanFrames);
+            if (invResult.found) {
+                console.log('Inventory detected!', invResult);
+                // Implementation for auto-updating weapon/attachments will follow
+            }
+
             const subSessions: AnalysisResult[] = [];
             const stepIncrement = 100 / markers.length;
 
@@ -121,10 +130,11 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
                 const sensitivity = generateSensitivityRecommendation(
                     metrics, diagnoses,
                     profile.mouseDpi,
-                    profile.playStyle as any,
-                    profile.gripStyle as any,
-                    profile.generalSens,
-                    profile.scopeSens as Record<string, number>
+                    profile.playStyle,
+                    profile.gripStyle,
+                    profile.mousepadWidth,
+                    profile.scopeSens as Record<string, number>,
+                    profile.verticalMultiplier
                 );
                 const coaching = generateCoaching(diagnoses);
 
@@ -141,30 +151,41 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
                 setProgress((i + 1) * stepIncrement);
             }
 
-            // Aggregate Results
-            const avgStability = subSessions.reduce((acc, s) => acc + s.metrics.stabilityScore, 0) / subSessions.length;
-            const avgVCI = subSessions.reduce((acc, s) => acc + s.metrics.verticalControlIndex, 0) / subSessions.length;
-            const avgHNI = subSessions.reduce((acc, s) => acc + s.metrics.horizontalNoiseIndex, 0) / subSessions.length;
-            const avgResponse = subSessions.reduce((acc, s) => acc + s.metrics.initialRecoilResponseMs, 0) / subSessions.length;
-            const avgConsistency = subSessions.reduce((acc, s) => acc + s.metrics.consistencyScore, 0) / subSessions.length;
+            // Aggregate Results with Weighted Average (by Duration)
+            const totalDuration = subSessions.reduce((acc, s) => acc + s.trajectory.durationMs, 0) || 1;
+
+            const avgStability = subSessions.reduce((acc, s) => acc + (s.metrics.stabilityScore * s.trajectory.durationMs), 0) / totalDuration;
+            const avgVCI = subSessions.reduce((acc, s) => acc + (s.metrics.verticalControlIndex * s.trajectory.durationMs), 0) / totalDuration;
+            const avgHNI = subSessions.reduce((acc, s) => acc + (s.metrics.horizontalNoiseIndex * s.trajectory.durationMs), 0) / totalDuration;
+            const avgResponse = subSessions.reduce((acc, s) => acc + (s.metrics.initialRecoilResponseMs * s.trajectory.durationMs), 0) / totalDuration;
+            const avgConsistency = subSessions.reduce((acc, s) => acc + (s.metrics.consistencyScore * s.trajectory.durationMs), 0) / totalDuration;
+
+            // Average of Phase-based metrics
+            const avgBurstVCI = subSessions.reduce((acc, s) => acc + (s.metrics.burstVCI * s.trajectory.durationMs), 0) / totalDuration;
+            const avgSustainedVCI = subSessions.reduce((acc, s) => acc + (s.metrics.sustainedVCI * s.trajectory.durationMs), 0) / totalDuration;
+            const avgFatigueVCI = subSessions.reduce((acc, s) => acc + (s.metrics.fatigueVCI * s.trajectory.durationMs), 0) / totalDuration;
 
             const finalMetrics = {
                 ...subSessions[0]!.metrics,
-                stabilityScore: Math.round(avgStability) as any,
+                stabilityScore: Math.round(avgStability) as never,
                 verticalControlIndex: Number(avgVCI.toFixed(2)),
                 horizontalNoiseIndex: Number(avgHNI.toFixed(2)),
-                initialRecoilResponseMs: Math.round(avgResponse) as any,
-                consistencyScore: Math.round(avgConsistency) as any,
+                initialRecoilResponseMs: Math.round(avgResponse) as never,
+                consistencyScore: Math.round(avgConsistency) as never,
+                burstVCI: avgBurstVCI,
+                sustainedVCI: avgSustainedVCI,
+                fatigueVCI: avgFatigueVCI,
             };
 
             const finalDiagnoses = runDiagnostics(finalMetrics, weapon.category);
             const finalSens = generateSensitivityRecommendation(
                 finalMetrics, finalDiagnoses,
                 profile.mouseDpi,
-                profile.playStyle as any,
-                profile.gripStyle as any,
-                profile.generalSens,
-                profile.scopeSens as Record<string, number>
+                profile.playStyle,
+                profile.gripStyle,
+                profile.mousepadWidth,
+                profile.scopeSens as Record<string, number>,
+                profile.verticalMultiplier
             );
 
             const finalResult: AnalysisResult = {

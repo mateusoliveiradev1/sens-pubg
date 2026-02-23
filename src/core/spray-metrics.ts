@@ -16,7 +16,7 @@ import type {
     SprayMetrics,
     DriftBias,
 } from '@/types/engine';
-import type { Pixels, Milliseconds, Score } from '@/types/branded';
+import type { Milliseconds, Score } from '@/types/branded';
 import { asMilliseconds, asScore, asPixels } from '@/types/branded';
 import type { TrackingResult } from './crosshair-tracking';
 import type { WeaponData, RecoilVector } from '@/game/pubg/weapon-data';
@@ -273,21 +273,22 @@ function calculateHorizontalNoise(
  * Medido como o tempo até o primeiro movimento oposto ao recoil.
  */
 function calculateRecoilResponseTime(
-    displacements: readonly DisplacementVector[]
+    displacements: readonly DisplacementVector[],
+    firstTimestamp: number
 ): Milliseconds {
-    if (displacements.length < 2) return asMilliseconds(0);
+    if (displacements.length === 0) return asMilliseconds(0);
 
     // Procurar o primeiro frame onde dy é negativo (jogador puxou pra baixo)
     for (let i = 0; i < displacements.length; i++) {
         const d = displacements[i];
         if (d && d.dy < -1) { // threshold: pelo menos -1px
-            return asMilliseconds(Number(d.timestamp));
+            return asMilliseconds(Number(d.timestamp) - firstTimestamp);
         }
     }
 
     // Nunca compensou — retorna duração total
     const lastD = displacements[displacements.length - 1];
-    return asMilliseconds(lastD ? Number(lastD.timestamp) : 0);
+    return asMilliseconds(lastD ? Number(lastD.timestamp) - firstTimestamp : 0);
 }
 
 // ═══════════════════════════════════════════
@@ -338,7 +339,7 @@ function calculateConsistency(
 ): Score {
     if (displacements.length < 6) return asScore(50);
 
-    // Dividir em 3 segmentos
+    // Dividir em 3 segmentos (Burst, Sustained, Fatigue) para checar a variação
     const segmentSize = Math.floor(displacements.length / 3);
     const segments = [
         displacements.slice(0, segmentSize),
@@ -346,20 +347,24 @@ function calculateConsistency(
         displacements.slice(segmentSize * 2, segmentSize * 3),
     ];
 
-    // Calcular variância de cada segmento
+    // Calcular variância de cada segmento baseada no DY (controle vertical)
     const segmentVariances = segments.map(seg => {
+        if (seg.length === 0) return 0;
         const dys = seg.map(d => d.dy);
-        const mean = dys.reduce((a, b) => a + b, 0) / (dys.length || 1);
-        return dys.reduce((sum, dy) => sum + (dy - mean) ** 2, 0) / (dys.length || 1);
+        const mean = dys.reduce((a, b) => a + b, 0) / dys.length;
+        return dys.reduce((sum, dy) => sum + (dy - mean) ** 2, 0) / dys.length;
     });
 
     // Consistência = baixa variação entre as variâncias dos segmentos
     const meanVar = segmentVariances.reduce((a, b) => a + b, 0) / segmentVariances.length;
     const varOfVar = segmentVariances.reduce((sum, v) => sum + (v - meanVar) ** 2, 0) / segmentVariances.length;
 
-    // Normalizar: varOfVar ~0 = 100, varOfVar ~100 = 0
-    const normalized = Math.max(0, 100 - Math.sqrt(varOfVar) * 5);
-    return asScore(normalized);
+    // Normalização Sigmóide para evitar que caia pra 0 com facilidade
+    // Se a variação da variância for alta, o score cai, mas de forma mais suave
+    const sensitivity = 0.5; // Ajuste para calibração
+    const normalized = 100 / (1 + Math.exp(Math.sqrt(varOfVar) * sensitivity - 5));
+
+    return asScore(Math.round(normalized));
 }
 
 // ═══════════════════════════════════════════
@@ -371,14 +376,31 @@ export function calculateSprayMetrics(
     weapon: WeaponData,
     pixelToDegree: number = 0.046875 // Default 1080p 90 FOV
 ): SprayMetrics {
-    const { displacements } = trajectory;
+    const { displacements, points } = trajectory;
+    const firstTimestamp = points.length > 0 ? Number(points[0]!.timestamp) : 0;
+
+    // Phases definition
+    const burstDisplacements = displacements.slice(0, 10);
+    const sustainedDisplacements = displacements.slice(10, 20);
+    const fatigueDisplacements = displacements.slice(20);
+
+    const burstRecoil = weapon.recoilPattern.slice(0, 10);
+    const sustainedRecoil = weapon.recoilPattern.slice(10, 20);
+    const fatigueRecoil = weapon.recoilPattern.slice(20, displacements.length);
 
     return {
         stabilityScore: calculateStability(displacements),
         verticalControlIndex: calculateVerticalControl(displacements, weapon.recoilPattern, pixelToDegree),
         horizontalNoiseIndex: calculateHorizontalNoise(displacements, pixelToDegree),
-        initialRecoilResponseMs: calculateRecoilResponseTime(displacements),
+        initialRecoilResponseMs: calculateRecoilResponseTime(displacements, firstTimestamp),
         driftDirectionBias: calculateDriftBias(displacements),
         consistencyScore: calculateConsistency(displacements),
+        // Phase-based metrics
+        burstVCI: calculateVerticalControl(burstDisplacements, burstRecoil, pixelToDegree),
+        sustainedVCI: calculateVerticalControl(sustainedDisplacements, sustainedRecoil, pixelToDegree),
+        fatigueVCI: calculateVerticalControl(fatigueDisplacements, fatigueRecoil, pixelToDegree),
+        burstHNI: calculateHorizontalNoise(burstDisplacements, pixelToDegree),
+        sustainedHNI: calculateHorizontalNoise(sustainedDisplacements, pixelToDegree),
+        fatigueHNI: calculateHorizontalNoise(fatigueDisplacements, pixelToDegree),
     };
 }

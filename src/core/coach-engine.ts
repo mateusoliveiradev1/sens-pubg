@@ -40,7 +40,7 @@ function estimateAdaptationDays(severity: number): number {
 export function generateCoaching(diagnoses: readonly Diagnosis[]): CoachFeedback[] {
     return diagnoses.map((diagnosis): CoachFeedback => {
         let whatToAdjust = diagnosis.remediation;
-        let whyItHappens = diagnosis.cause;
+        const whyItHappens = diagnosis.cause;
 
         // Injetar recomendações de attachments específicas baseadas no diagnóstico
         if (diagnosis.type === 'overpull') {

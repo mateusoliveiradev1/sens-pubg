@@ -149,7 +149,7 @@ export const analysisSessions = pgTable('analysis_sessions', {
     // Full analysis data
     trajectoryData: jsonb('trajectory_data').$type<Record<string, unknown>>(),
     coachingData: jsonb('coaching_data').$type<Record<string, unknown>[]>(),
-    fullResult: jsonb('full_result').$type<any>(), // Stores the complete AnalysisResult
+    fullResult: jsonb('full_result').$type<Record<string, unknown>>(), // Stores the complete AnalysisResult
 
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
 });
