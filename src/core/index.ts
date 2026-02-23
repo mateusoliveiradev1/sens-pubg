@@ -29,3 +29,7 @@ export {
     buildTrajectory,
     calculateSprayMetrics,
 } from './spray-metrics';
+
+export { runDiagnostics } from './diagnostic-engine';
+export { generateSensitivityRecommendation } from './sensitivity-engine';
+export { generateCoaching } from './coach-engine';
