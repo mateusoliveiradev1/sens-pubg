@@ -14,3 +14,8 @@ export {
     isSensViableForMousepad,
     type ScopeData, type ScopeId,
 } from './scope-multipliers';
+
+export {
+    PRO_PLAYERS, getProPlayer, getProsByRole, getProStats,
+    type ProPlayer,
+} from './pro-players';

@@ -23,6 +23,7 @@ export async function Header(): Promise<React.JSX.Element> {
 
                 <ul className={styles.links} role="list">
                     <li><Link href="/analyze" className={styles.link}>Analisar</Link></li>
+                    <li><Link href="/pros" className={styles.link}>Pros</Link></li>
                     <li><Link href="/history" className={styles.link}>Histórico</Link></li>
                     <li><Link href="/profile" className={styles.link}>Perfil</Link></li>
                 </ul>
