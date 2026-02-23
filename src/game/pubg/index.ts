@@ -9,11 +9,15 @@ export {
 
 export {
     SCOPES, SCOPE_LIST, getScope,
-    calculateEffectiveSensitivity, calculateCmPer360, sensFromCmPer360,
+    calculateEffectiveSensitivity, calculateCmPer360, internalFromCmPer360,
     horizontalToVerticalFov, pixelsPerDegree, pixelDisplacementToDegrees,
     isSensViableForMousepad,
     type ScopeData, type ScopeId,
 } from './scope-multipliers';
+
+export {
+    sliderToInternal, internalToSlider, PUBG_BASE_ROTATION_CONSTANT,
+} from './sens-math';
 
 export {
     PRO_PLAYERS, getProPlayer, getProsByRole, getProStats,

@@ -27,6 +27,8 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
     const [weaponId, setWeaponId] = useState('m416');
     const [scopeId, setScopeId] = useState('red-dot');
     const [distance, setDistance] = useState(30);
+    const [markers, setMarkers] = useState<{ id: string, time: number }[]>([{ id: crypto.randomUUID(), time: 0 }]);
+    const videoRef = useRef<HTMLVideoElement>(null);
     const [phase, setPhase] = useState<ProcessingPhase>('extracting');
     const [progress, setProgress] = useState(0);
     const [error, setError] = useState<string | null>(null);
@@ -51,7 +53,21 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
             return;
         }
         setVideo(result.metadata);
+        setMarkers([{ id: crypto.randomUUID(), time: 0 }]);
         setStep('settings');
+    }, []);
+
+    const addMarker = useCallback(() => {
+        setMarkers(prev => [...prev, { id: crypto.randomUUID(), time: video?.duration ? video.duration / 2 : 0 }]);
+    }, [video]);
+
+    const removeMarker = useCallback((id: string) => {
+        setMarkers(prev => prev.length > 1 ? prev.filter(m => m.id !== id) : prev);
+    }, []);
+
+    const updateMarker = useCallback((id: string, time: number) => {
+        setMarkers(prev => prev.map(m => m.id === id ? { ...m, time } : m));
+        if (videoRef.current) videoRef.current.currentTime = time;
     }, []);
 
     const handleDrop = useCallback((e: React.DragEvent) => {
@@ -73,56 +89,96 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
         setProgress(0);
 
         try {
-            // Step 1: Extract frames
-            const frames = await extractFrames(video.url, Math.min(video.fps, 30), (p) => {
-                setProgress(p.percent * 0.3); // 0-30%
-            });
-
-            // Step 2: Track crosshair
-            setPhase('tracking');
-            const tracking = trackCrosshair(frames);
-            setProgress(60);
-
-            // Step 3: Calculate metrics
-            setPhase('calculating');
             const weapon = getWeapon(weaponId);
             if (!weapon) throw new Error('Arma não encontrada');
-            const trajectory = buildTrajectory(tracking, weapon);
 
-            // Extrair Resolução e FOV do hardware físico do jogador para precisão perfeita (Pixels -> Angular Yaw/Pitch)
-            const monitorWidth = parseInt(profile.monitorResolution.split('x')[0] || '1920', 10);
-            const pixelToDegree = profile.fov / monitorWidth;
+            const subSessions: AnalysisResult[] = [];
+            const stepIncrement = 100 / markers.length;
 
-            const metrics = calculateSprayMetrics(trajectory, weapon, pixelToDegree);
-            setProgress(80);
+            for (let i = 0; i < markers.length; i++) {
+                const marker = markers[i]!;
+                const startTime = marker.time;
 
-            // Step 4: Run diagnostics + sensitivity + coaching
-            setPhase('diagnosing');
-            const diagnoses = runDiagnostics(metrics, weapon.category);
-            const sensitivity = generateSensitivityRecommendation(
-                metrics, diagnoses,
+                setPhase('extracting');
+                // Calculate EXACT spray duration
+                const expectedDurationSecs = (weapon.magazineSize * weapon.msPerShot / 1000) + 0.5;
+
+                const frames = await extractFrames(video.url, Math.min(video.fps, 30), startTime, expectedDurationSecs, (p) => {
+                    setProgress((i * stepIncrement) + (p.percent * 0.3 * (stepIncrement / 100)));
+                });
+
+                setPhase('tracking');
+                const tracking = trackCrosshair(frames);
+
+                setPhase('calculating');
+                const trajectory = buildTrajectory(tracking, weapon);
+                const monitorWidth = parseInt(profile.monitorResolution.split('x')[0] || '1920', 10);
+                const pixelToDegree = profile.fov / monitorWidth;
+                const metrics = calculateSprayMetrics(trajectory, weapon, pixelToDegree);
+
+                setPhase('diagnosing');
+                const diagnoses = runDiagnostics(metrics, weapon.category);
+                const sensitivity = generateSensitivityRecommendation(
+                    metrics, diagnoses,
+                    profile.mouseDpi,
+                    profile.playStyle as any,
+                    profile.gripStyle as any,
+                    profile.generalSens,
+                    profile.scopeSens as Record<string, number>
+                );
+                const coaching = generateCoaching(diagnoses);
+
+                subSessions.push({
+                    id: crypto.randomUUID(),
+                    timestamp: new Date(),
+                    trajectory,
+                    metrics,
+                    diagnoses,
+                    sensitivity,
+                    coaching,
+                });
+
+                setProgress((i + 1) * stepIncrement);
+            }
+
+            // Aggregate Results
+            const avgStability = subSessions.reduce((acc, s) => acc + s.metrics.stabilityScore, 0) / subSessions.length;
+            const avgVCI = subSessions.reduce((acc, s) => acc + s.metrics.verticalControlIndex, 0) / subSessions.length;
+            const avgHNI = subSessions.reduce((acc, s) => acc + s.metrics.horizontalNoiseIndex, 0) / subSessions.length;
+            const avgResponse = subSessions.reduce((acc, s) => acc + s.metrics.initialRecoilResponseMs, 0) / subSessions.length;
+            const avgConsistency = subSessions.reduce((acc, s) => acc + s.metrics.consistencyScore, 0) / subSessions.length;
+
+            const finalMetrics = {
+                ...subSessions[0]!.metrics,
+                stabilityScore: Math.round(avgStability) as any,
+                verticalControlIndex: Number(avgVCI.toFixed(2)),
+                horizontalNoiseIndex: Number(avgHNI.toFixed(2)),
+                initialRecoilResponseMs: Math.round(avgResponse) as any,
+                consistencyScore: Math.round(avgConsistency) as any,
+            };
+
+            const finalDiagnoses = runDiagnostics(finalMetrics, weapon.category);
+            const finalSens = generateSensitivityRecommendation(
+                finalMetrics, finalDiagnoses,
                 profile.mouseDpi,
-                profile.playStyle as 'arm' | 'wrist' | 'hybrid',
-                profile.gripStyle as 'palm' | 'claw' | 'fingertip' | 'hybrid',
+                profile.playStyle as any,
+                profile.gripStyle as any,
                 profile.generalSens,
                 profile.scopeSens as Record<string, number>
             );
-            const coaching = generateCoaching(diagnoses);
-            setProgress(100);
 
-            setPhase('done');
-            const finalResult = {
+            const finalResult: AnalysisResult = {
                 id: crypto.randomUUID(),
                 timestamp: new Date(),
-                trajectory,
-                metrics,
-                diagnoses,
-                sensitivity,
-                coaching,
+                trajectory: subSessions[0]!.trajectory, // Use first as preview
+                metrics: finalMetrics,
+                diagnoses: finalDiagnoses,
+                sensitivity: finalSens,
+                coaching: generateCoaching(finalDiagnoses),
+                subSessions,
             };
 
             try {
-                // Save to database
                 await saveAnalysisResult(finalResult, weaponId, scopeId, distance);
             } catch (err) {
                 console.error('[saveAnalysisResult]', err);
@@ -135,7 +191,7 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
             setError(err instanceof Error ? err.message : 'Erro na análise');
             setStep('error');
         }
-    }, [video, weaponId]);
+    }, [video, weaponId, markers, profile, scopeId, distance]);
 
     const handleReset = useCallback(() => {
         if (video) releaseVideoUrl(video.url);
@@ -190,7 +246,7 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
         return (
             <div className="animate-fade-in">
                 <div className={`glass-card ${styles.videoPreview}`}>
-                    <video src={video.url} controls className={styles.video} />
+                    <video ref={videoRef} src={video.url} controls className={styles.video} />
                     <div className={styles.videoMeta}>
                         <span className="badge badge-info">{video.width}×{video.height}</span>
                         <span className="badge badge-info">{Math.round(video.duration)}s</span>
@@ -222,6 +278,44 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
                             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
                                 <input id="dist" type="range" className="slider" min={10} max={300} value={distance} onChange={e => setDistance(Number(e.target.value))} />
                                 <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-accent-primary)', minWidth: '40px' }}>{distance}m</span>
+                            </div>
+                        </div>
+                        <div className={styles.field} style={{ gridColumn: '1 / -1' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                <div>
+                                    <label className="input-label">Identificação de Sprays *</label>
+                                    <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', lineHeight: 1.4 }}>
+                                        Adicione marcadores no exato frame em que cada burst começa. A IA analisará todos e fará a média.
+                                    </p>
+                                </div>
+                                <button className="btn btn-ghost btn-sm" onClick={addMarker}>+ Adicionar Spray</button>
+                            </div>
+
+                            <div className={styles.markersList}>
+                                {markers.map((m, idx) => (
+                                    <div key={m.id} className={styles.markerRow}>
+                                        <span className={styles.markerLabel}>Spray #{idx + 1}</span>
+                                        <input
+                                            type="range"
+                                            className="slider"
+                                            min={0}
+                                            max={video.duration}
+                                            step={0.01}
+                                            value={m.time}
+                                            onChange={e => updateMarker(m.id, Number(e.target.value))}
+                                            style={{ flex: 1 }}
+                                        />
+                                        <span className={styles.markerTime}>{m.time.toFixed(2)}s</span>
+                                        <button
+                                            className={styles.removeMarker}
+                                            onClick={() => removeMarker(m.id)}
+                                            disabled={markers.length <= 1}
+                                            title="Remover"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </div>

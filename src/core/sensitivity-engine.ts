@@ -17,12 +17,13 @@ import { asSensitivity, asCentimeters } from '@/types/branded';
 import type { Sensitivity, Centimeters } from '@/types/branded';
 import {
     calculateCmPer360,
-    sensFromCmPer360,
+    internalFromCmPer360,
     calculateEffectiveSensitivity,
     isSensViableForMousepad,
     SCOPES,
     type ScopeId,
 } from '@/game/pubg';
+import { internalToSlider } from '@/game/pubg/sens-math';
 
 // ═══════════════════════════════════════════
 // Base ranges por play style + grip
@@ -103,8 +104,9 @@ function buildProfile(
     dpi: number,
     currentScopeSens: Record<string, number>
 ): SensitivityProfile {
-    const generalSens = sensFromCmPer360(dpi, targetCm360);
-    const adsSens = generalSens; // PUBG: ADS normalmente = general
+    const internalMultiplier = internalFromCmPer360(dpi, targetCm360);
+    const generalSlider = internalToSlider(internalMultiplier);
+    const adsSlider = generalSlider; // PUBG baseline: ADS usually matches General
 
     // Calculate per-scope sensitivities
     const scopeEntries: ScopeSensitivity[] = (Object.keys(SCOPES) as ScopeId[])
@@ -112,14 +114,18 @@ function buildProfile(
         .map(scopeId => {
             const scope = SCOPES[scopeId];
             const current = currentScopeSens[scopeId] ?? 50;
-            const recommended = 50; // Baseline: match general sens via scope multiplier
-            const change = Math.round(((recommended - current) / Math.max(current, 1)) * 100);
+
+            // Recomendamos que cada mira mantenha a mesma "física" do generalSlider
+            // No PUBG, se você quer que 8x sinta igual a 1x (focal scaling), 
+            // você geralmente mantém os sliders próximos se a engine for linear, 
+            // mas como o PUBG tem multipliers internos, o ideal é o 1:1 físico.
+            const recommended = generalSlider;
 
             return {
                 scopeName: scope.name,
                 current: asSensitivity(current),
                 recommended: asSensitivity(recommended),
-                changePercent: change,
+                changePercent: Math.round(((recommended - current) / Math.max(current, 1)) * 100),
             };
         });
 
@@ -144,8 +150,8 @@ function buildProfile(
         type,
         label,
         description,
-        general: asSensitivity(Math.round(generalSens * 100) / 100),
-        ads: asSensitivity(Math.round(adsSens * 100) / 100),
+        general: asSensitivity(generalSlider),
+        ads: asSensitivity(adsSlider),
         scopes: scopeEntries,
         cmPer360: asCentimeters(Math.round(targetCm360 * 100) / 100),
     };
@@ -189,10 +195,10 @@ export function generateSensitivityRecommendation(
     let recommended: ProfileType = 'balanced';
     const dominant = diagnoses[0]; // Highest severity
     if (dominant) {
-        if (dominant.type === 'overpull' || dominant.type === 'excessive_jitter') {
-            recommended = 'high'; // Needs higher sens (less pulldown required)
+        if (dominant.type === 'overpull') {
+            recommended = 'high'; // Sens muito baixa (precisa puxar muito) -> recomendar sensi mais alta
         } else if (dominant.type === 'underpull') {
-            recommended = 'low'; // Needs lower sens (more pulldown)
+            recommended = 'low'; // Sens muito alta (puxa pouco e desce muito) -> recomendar sensi mais baixa
         }
     }
 

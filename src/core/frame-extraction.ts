@@ -29,6 +29,8 @@ export type ExtractionProgressCallback = (progress: ExtractionProgress) => void;
 export async function extractFrames(
     videoUrl: string,
     fps: number = 30,
+    startTime: number = 0,
+    durationSecs: number = 0, // 0 = complete video
     onProgress?: ExtractionProgressCallback
 ): Promise<ExtractedFrame[]> {
     const video = document.createElement('video');
@@ -49,13 +51,14 @@ export async function extractFrames(
     if (!ctx) throw new Error('Canvas 2D context não disponível');
 
     const duration = video.duration;
+    const actualDuration = durationSecs > 0 ? Math.min(durationSecs, duration - startTime) : (duration - startTime);
     const frameInterval = 1 / fps;
-    const totalFrames = Math.floor(duration * fps);
+    const totalFrames = Math.floor(actualDuration * fps);
     const frames: ExtractedFrame[] = [];
 
     // Extrair usando seek-based approach para garantir timestamps precisos
     for (let i = 0; i < totalFrames; i++) {
-        const timestamp = i * frameInterval;
+        const timestamp = startTime + (i * frameInterval);
 
         // Seek para o timestamp
         await seekToTime(video, timestamp);

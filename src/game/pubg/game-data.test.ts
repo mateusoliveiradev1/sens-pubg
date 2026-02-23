@@ -9,9 +9,10 @@ import {
     WEAPON_LIST,
     SCOPE_LIST,
     calculateCmPer360,
-    sensFromCmPer360,
+    internalFromCmPer360,
     calculateEffectiveSensitivity,
     getJitterThreshold,
+    sliderToInternal,
 } from '@/game/pubg';
 
 describe('Weapon Database', () => {
@@ -50,7 +51,7 @@ describe('Scope Data', () => {
     });
 
     it('hip fire should have 1x magnification', () => {
-        const hip = SCOPE_LIST.find(s => s.id === 'hip');
+        const hip = SCOPE_LIST.find((s: { id: string }) => s.id === 'hip');
         expect(hip).toBeDefined();
         expect(hip!.magnification).toBe(1);
     });
@@ -58,22 +59,28 @@ describe('Scope Data', () => {
 
 describe('Sensitivity Calculations', () => {
     it('should calculate cm/360° correctly', () => {
-        // At 800 DPI, 50 sens → known value
-        const cm = calculateCmPer360(800, 50);
-        expect(cm).toBeGreaterThan(0);
-        expect(cm).toBeLessThan(200); // reasonable range
+        // At 800 DPI, 50 sens (internal 1.0) → known ground truth ~22.86
+        const cm = calculateCmPer360(800, sliderToInternal(50));
+        expect(cm).toBeCloseTo(22.86, 1);
+    });
+
+    it('should calculate 1x scope (Red Dot) correctly', () => {
+        // 1x multiplier is 0.777
+        const internal = sliderToInternal(50) * 0.777;
+        const cm = calculateCmPer360(800, internal);
+        expect(cm).toBeCloseTo(29.4, 1);
     });
 
     it('should be inverse: higher sens = lower cm/360°', () => {
-        const lowSens = calculateCmPer360(800, 30);
-        const highSens = calculateCmPer360(800, 70);
+        const lowSens = calculateCmPer360(800, sliderToInternal(30));
+        const highSens = calculateCmPer360(800, sliderToInternal(70));
         expect(lowSens).toBeGreaterThan(highSens);
     });
 
-    it('should round-trip cm/360° → sens → cm/360°', () => {
+    it('should round-trip cm/360° → internal multiplier → cm/360°', () => {
         const originalCm = 35;
-        const sens = sensFromCmPer360(800, originalCm);
-        const reconstructedCm = calculateCmPer360(800, sens);
+        const internal = internalFromCmPer360(800, originalCm);
+        const reconstructedCm = calculateCmPer360(800, internal);
         expect(reconstructedCm).toBeCloseTo(originalCm, 0);
     });
 });

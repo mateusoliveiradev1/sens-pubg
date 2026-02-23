@@ -167,6 +167,7 @@ export interface AnalysisResult {
     readonly diagnoses: readonly Diagnosis[];
     readonly sensitivity: SensitivityRecommendation;
     readonly coaching: readonly CoachFeedback[];
+    readonly subSessions?: readonly AnalysisResult[];
 }
 
 // ═══════════════════════════════════════════

@@ -21,7 +21,7 @@ export {
 export {
     trackCrosshair,
     type TrackingResult,
-    type CrosshairConfig,
+    type TemplateMatchingConfig,
 } from './crosshair-tracking';
 
 export {

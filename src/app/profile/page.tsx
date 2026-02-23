@@ -5,6 +5,7 @@
 
 import { Header } from '@/ui/components/header';
 import { ProfileWizard } from './profile-wizard';
+import { getProfile } from '@/actions/profile';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
     description: 'Configure seu perfil completo de hardware para diagnósticos precisos da IA.',
 };
 
-export default function ProfilePage(): React.JSX.Element {
+export default async function ProfilePage(): Promise<React.JSX.Element> {
     return (
         <>
             <Header />
@@ -24,7 +25,7 @@ export default function ProfilePage(): React.JSX.Element {
                             Quanto mais detalhes sobre seu hardware, mais preciso será o diagnóstico da IA.
                             Cada campo ajuda a calcular a sensibilidade ideal para o SEU setup específico.
                         </p>
-                        <ProfileWizard />
+                        <ProfileWizard initialData={await getProfile()} />
                     </div>
                 </div>
             </div>

@@ -4,6 +4,7 @@
  */
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { auth, signOut } from '@/auth';
 import styles from './header.module.css';
 
@@ -32,7 +33,7 @@ export async function Header(): Promise<React.JSX.Element> {
                     {user ? (
                         <div className={styles.userMenu}>
                             {user.image ? (
-                                <img
+                                <Image
                                     src={user.image}
                                     alt={user.name ?? 'Avatar'}
                                     className={styles.avatar}

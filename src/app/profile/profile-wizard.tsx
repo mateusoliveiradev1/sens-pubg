@@ -5,9 +5,10 @@
 
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { saveProfile } from '@/actions/profile';
 import type { ProfileActionResult } from '@/actions/profile';
+import type { playerProfiles } from '@/db/schema';
 import styles from './profile-wizard.module.css';
 
 // ═══════════════════════════════════════════
@@ -58,9 +59,56 @@ const DEFAULT_FORM: FormState = {
 // Component
 // ═══════════════════════════════════════════
 
-export function ProfileWizard(): React.JSX.Element {
+interface Props {
+    readonly initialData?: typeof playerProfiles.$inferSelect | null;
+}
+
+export function ProfileWizard({ initialData }: Props): React.JSX.Element {
     const [step, setStep] = useState(0);
-    const [form, setForm] = useState<FormState>(DEFAULT_FORM);
+
+    // Hydrate form from initialData or use defaults
+    const hydratedForm = useMemo((): FormState => {
+        if (!initialData) return DEFAULT_FORM;
+
+        return {
+            mouse: {
+                model: initialData.mouseModel,
+                sensor: initialData.mouseSensor,
+                dpi: initialData.mouseDpi,
+                pollingRate: initialData.mousePollingRate,
+                weightGrams: initialData.mouseWeight,
+                liftOffDistance: initialData.mouseLod,
+            },
+            mousepad: {
+                model: initialData.mousepadModel,
+                widthCm: initialData.mousepadWidth,
+                heightCm: initialData.mousepadHeight,
+                type: initialData.mousepadType,
+                material: initialData.mousepadMaterial,
+            },
+            gripStyle: initialData.gripStyle,
+            playStyle: initialData.playStyle,
+            monitor: {
+                resolution: initialData.monitorResolution,
+                refreshRate: initialData.monitorRefreshRate,
+                panelType: initialData.monitorPanel,
+            },
+            pubgSettings: {
+                generalSens: initialData.generalSens,
+                adsSens: initialData.adsSens,
+                fov: initialData.fov,
+                verticalMultiplier: initialData.verticalMultiplier,
+                mouseAcceleration: initialData.mouseAcceleration,
+                scopeSens: initialData.scopeSens as Record<string, number>,
+            },
+            physical: {
+                armLength: initialData.armLength as any,
+                deskSpaceCm: initialData.deskSpace,
+            },
+        };
+    }, [initialData]);
+
+    const [form, setForm] = useState<FormState>(hydratedForm);
     const [saving, setSaving] = useState(false);
     const [result, setResult] = useState<ProfileActionResult | null>(null);
 

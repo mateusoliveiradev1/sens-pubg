@@ -47,7 +47,7 @@ export async function saveAnalysisResult(
             diagnoses,
             // Only keeping limited JSON to avoid large payloads if needed, but we can store everything
             coachingData: result.coaching as unknown as Record<string, unknown>[],
-            fullResult: result as any, // Save the entire diagnostic payload for 1:1 identical historic viewing
+            fullResult: result, // Save the entire diagnostic payload for 1:1 identical historic viewing
         }).returning({ id: analysisSessions.id });
 
         const sessionId = insertedSession[0]!.id;
@@ -57,9 +57,11 @@ export async function saveAnalysisResult(
             userId: session.user!.id!,
             sessionId: sessionId,
             profileType: p.type,
-            generalSens: (p.general as any).value ?? p.general,
-            adsSens: (p.ads as any).value ?? p.ads,
-            scopeSens: Array.isArray(p.scopes) ? p.scopes.reduce((acc: any, s: any) => ({ ...acc, [s.scopeId]: s.value }), {}) : p.scopes,
+            generalSens: p.general as number,
+            adsSens: p.ads as number,
+            scopeSens: Array.isArray(p.scopes)
+                ? p.scopes.reduce((acc: Record<string, number>, s) => ({ ...acc, [s.scopeName]: s.recommended as number }), {})
+                : p.scopes,
             applied: p.type === result.sensitivity.recommended, // mark recommended as auto-applied conceptually
         }));
 

@@ -1,38 +1,37 @@
-/**
- * Coach Engine — Gera feedback personalizado baseado nos diagnósticos.
- * Cada diagnóstico → feedback com: what, why, fix, test, adaptation time.
- */
-
 import type { Diagnosis, CoachFeedback } from '@/types/engine';
+
+// ═══════════════════════════════════════════
+// PUBG Mechanics Constants
+// ═══════════════════════════════════════════
+
+const ATTACHMENTS = {
+    vertical: { name: 'Vertical Grip', bonus: 'Reduz o recuo vertical em 15%. Ideal para quem tem dificuldades com pulldown.' },
+    half: { name: 'Halfgrip', bonus: 'Reduz recuo vertical e horizontal em 8%, aumenta estabilidade. Melhor custo-benefício para sprays longos.' },
+    angled: { name: 'Angled Grip', bonus: 'Reduz recuo horizontal em 15% e aumenta velocidade de ADS. Essencial para corrigir Drifts laterais.' },
+    thumb: { name: 'Thumb Grip', bonus: 'Aumenta muito a velocidade de ADS e reduz levemente o recuo vertical inicial.' },
+    lightweight: { name: 'Lightweight Grip', bonus: 'Reduz o "kick" do primeiro tiro e melhora a recuperação de mira. Ótimo para Taps e Rajadas.' },
+    compensator: { name: 'Compensador', bonus: 'O item mais importante. Reduz o padrão de recuo em 25%.' },
+} as const;
+
+const DRILLS: Record<string, string> = {
+    overpull: '**O Drill da Janela (30m)**: Vá ao Training Mode e escolha uma janela pequena. Faça sprays de 10 balas focando em manter TODO o spray dentro do buraco, sem deixar a mira descer. Se a mira descer, sua mão está sendo "pesada" demais.',
+    underpull: '**Drill de Pulldown Gradual**: Atire em uma parede limpa a 50m. Tente fazer um "ponto" de impactos. Se o spray subir, force o mouse para baixo de forma contínua, não apenas no início.',
+    late_compensation: '**The Flash Pull**: Foque no SOM do primeiro tiro. O movimento de descida do mouse deve iniciar EXATAMENTE junto com o áudio do disparo. Pratique sprays de 3 balas resetando a mira rapidamente.',
+    excessive_jitter: '**Drill Vertical Puro**: Faça sprays ignorando o horizontal. Deixe a mira balançar para os lados, mas mantenha a altura PERFEITA. Quando o vertical estiver automático, comece a pinçar o horizontal levemente.',
+    horizontal_drift: '**Linha de Tracejo**: Siga uma linha vertical na parede (como a quina de um prédio) enquanto faz o spray. Se a mira fugir da linha para o mesmo lado sempre, ajuste a posição do seu braço/mousepad.',
+    inconsistency: '**Drill dos 20 Sprays**: Faça 20 sprays na mesma parede. Eles devem ser gêmeos. Se cada um for diferente, foque em relaxar o braço e repetir exatamente o mesmo movimento muscular.',
+};
 
 // ═══════════════════════════════════════════
 // Adaptation Time Estimator
 // ═══════════════════════════════════════════
 
 function estimateAdaptationDays(severity: number): number {
-    // Higher severity = more time to adapt
-    switch (severity) {
-        case 1: return 1;
-        case 2: return 2;
-        case 3: return 3;
-        case 4: return 5;
-        case 5: return 7;
-        default: return 3;
-    }
+    if (severity >= 5) return 7;
+    if (severity >= 4) return 5;
+    if (severity >= 3) return 3;
+    return 1;
 }
-
-// ═══════════════════════════════════════════
-// Testing Instructions
-// ═══════════════════════════════════════════
-
-const TEST_INSTRUCTIONS: Record<string, string> = {
-    overpull: 'Vá ao Training Mode, pegue a arma que analisou e faça 10 sprays de 15 balas em parede a ~30m. O spray deve manter a posição inicial, sem descer abaixo do ponto de mira.',
-    underpull: 'Training Mode → spray de 15 balas a ~30m. Foque em puxar o mouse para baixo de forma contínua e gradual. O spray deve ficar concentrado, não subindo.',
-    late_compensation: 'Pratique sprays curtos (3-5 balas) focando em iniciar o pulldown JUNTO com o primeiro tiro. Use a cadência como referência: tiro = puxar.',
-    excessive_jitter: 'Spray de 15 balas SEM tentar controlar o horizontal — foque APENAS no vertical. Depois, adicione controle horizontal gradualmente.',
-    horizontal_drift: 'Fique de frente para uma parede, alinhe a mira em uma marca e faça 10 sprays. Observe se o grupo de tiros sempre pende para o mesmo lado.',
-    inconsistency: 'Faça 20 sprays consecutivos com a mesma arma, mesma distância. Compare os padrões. Busque repetir o mesmo movimento toda vez.',
-};
 
 // ═══════════════════════════════════════════
 // Main: Generate Coaching
@@ -40,14 +39,29 @@ const TEST_INSTRUCTIONS: Record<string, string> = {
 
 export function generateCoaching(diagnoses: readonly Diagnosis[]): CoachFeedback[] {
     return diagnoses.map((diagnosis): CoachFeedback => {
-        const testInstructions = TEST_INSTRUCTIONS[diagnosis.type] ?? 'Repita a análise após praticar os ajustes sugeridos.';
+        let whatToAdjust = diagnosis.remediation;
+        let whyItHappens = diagnosis.cause;
+
+        // Injetar recomendações de attachments específicas baseadas no diagnóstico
+        if (diagnosis.type === 'overpull') {
+            whatToAdjust += ` Dica: Experimente usar o ${ATTACHMENTS.lightweight.name} para suavizar o kick inicial.`;
+        } else if (diagnosis.type === 'underpull') {
+            whatToAdjust += ` Dica: O ${ATTACHMENTS.vertical.name} e o ${ATTACHMENTS.compensator.name} são obrigatórios para seu caso.`;
+        } else if (diagnosis.type === 'horizontal_drift' || diagnosis.type === 'excessive_jitter') {
+            whatToAdjust += ` Dica: O ${ATTACHMENTS.angled.name} ou ${ATTACHMENTS.half.name} ajudarão a conter a oscilação lateral.`;
+        }
+
+        // Dica de Stance (Matemática do PUBG)
+        if (diagnosis.severity >= 3) {
+            whatToAdjust += ` Lembre-se: Agachar (Crouch) reduz o recuo em cerca de 20%. Use isso a seu favor em sprays longos.`;
+        }
 
         return {
             diagnosis,
             whatIsWrong: diagnosis.description,
-            whyItHappens: diagnosis.cause,
-            whatToAdjust: diagnosis.remediation,
-            howToTest: testInstructions,
+            whyItHappens,
+            whatToAdjust,
+            howToTest: DRILLS[diagnosis.type] ?? 'Pratique no Training Mode focando na consistência mecânica.',
             adaptationTimeDays: estimateAdaptationDays(diagnosis.severity),
         };
     });

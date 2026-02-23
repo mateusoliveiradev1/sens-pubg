@@ -66,7 +66,7 @@ function resampleToFireRate(points: readonly TrackingPoint[], msPerShot: number)
         const y = Number(left.y) + (Number(right.y) - Number(left.y)) * ratio;
 
         resampled.push({
-            frame: Math.round(targetTime / (msPerShot / resampled.length || 1)), // approximate relative frame
+            frame: resampled.length, // Linear index representing the exact bullet number
             x: asPixels(x),
             y: asPixels(y),
             timestamp: asMilliseconds(targetTime),

@@ -12,45 +12,20 @@ import type { ExtractedFrame } from './frame-extraction';
 // Configuration
 // ═══════════════════════════════════════════
 
-export interface CrosshairConfig {
-    /** Cor alvo em RGB (padrão: branca do PUBG) */
-    readonly targetColor: readonly [number, number, number];
-    /** Tolerância de cor (0-255) */
-    readonly colorTolerance: number;
-    /** Região de interesse (% do centro da tela) */
-    readonly roiPercent: number;
-    /** Mínimo de pixels para considerar um cluster válido */
-    readonly minClusterSize: number;
-    /** Se verdadeiro, usa busca adaptativa que expande o ROI se necessário */
-    readonly adaptive: boolean;
+export interface TemplateMatchingConfig {
+    /** Tamanho do template central em Frame 0 (pixel width/height). Pre-defined to 64x64. */
+    readonly templateSize: number;
+    /** O quão longe do local anterior procuramos o novo match (px) */
+    readonly searchRadius: number;
 }
 
-const DEFAULT_CONFIG: CrosshairConfig = {
-    targetColor: [255, 255, 255],
-    colorTolerance: 40,
-    roiPercent: 0.3, // 30% central
-    minClusterSize: 4,
-    adaptive: true,
+const DEFAULT_CONFIG: TemplateMatchingConfig = {
+    templateSize: 64,   // 64x64 center extraction
+    searchRadius: 100,  // Procura até 100px pra cima/baixo/lados do ponto antigo
 } as const;
 
 // ═══════════════════════════════════════════
-// Color Distance
-// ═══════════════════════════════════════════
-
-function colorDistance(
-    r: number, g: number, b: number,
-    tr: number, tg: number, tb: number
-): number {
-    // Euclidean distance in RGB space (fast approximation)
-    return Math.sqrt(
-        (r - tr) ** 2 +
-        (g - tg) ** 2 +
-        (b - tb) ** 2
-    );
-}
-
-// ═══════════════════════════════════════════
-// Crosshair Detection
+// Template Matching (SAD)
 // ═══════════════════════════════════════════
 
 interface DetectionResult {
@@ -58,75 +33,85 @@ interface DetectionResult {
     readonly x: number;
     readonly y: number;
     readonly confidence: number;
-    readonly clusterSize: number;
 }
 
 /**
- * Detecta a posição do crosshair em um frame usando color filtering.
- * Processa apenas a ROI central para performance.
+ * Calcula a Soma das Diferenças Absolutas (SAD) entre duas regiões.
+ * Quanto menor o score, mais perfeito é o match.
  */
-function detectCrosshair(
-    imageData: ImageData,
-    config: CrosshairConfig = DEFAULT_CONFIG
+function calculateSAD(
+    template: Uint8ClampedArray,
+    templateW: number,
+    templateH: number,
+    searchData: Uint8ClampedArray,
+    searchW: number,
+    startX: number,
+    startY: number
+): number {
+    let sad = 0;
+    // Iterating per pixel (4 channels: RGBA)
+    for (let y = 0; y < templateH; y++) {
+        for (let x = 0; x < templateW; x++) {
+            const tIdx = (y * templateW + x) * 4;
+            const sIdx = ((startY + y) * searchW + (startX + x)) * 4;
+
+            // Only compare RGB (ignore A)
+            sad += Math.abs((template[tIdx] ?? 0) - (searchData[sIdx] ?? 0));
+            sad += Math.abs((template[tIdx + 1] ?? 0) - (searchData[sIdx + 1] ?? 0));
+            sad += Math.abs((template[tIdx + 2] ?? 0) - (searchData[sIdx + 2] ?? 0));
+        }
+    }
+    return sad;
+}
+
+/**
+ * Encontra um Template 64x64 dentro de uma área de busca (frame atual).
+ */
+function matchTemplate(
+    templateData: Uint8ClampedArray,
+    templateSize: number,
+    frameData: ImageData,
+    lastX: number,
+    lastY: number,
+    searchRadius: number
 ): DetectionResult {
-    const { width, height, data } = imageData;
-    const [tr, tg, tb] = config.targetColor;
+    const { width: fw, height: fh, data: fdata } = frameData;
 
-    // Define ROI
-    const roiW = Math.floor(width * config.roiPercent);
-    const roiH = Math.floor(height * config.roiPercent);
-    const roiX = Math.floor((width - roiW) / 2);
-    const roiY = Math.floor((height - roiH) / 2);
+    // Define ROI (Bounding Box of the search)
+    // We search around the PREVIOUS known position 'lastX', 'lastY'
+    const startSearchX = Math.max(0, Math.floor(lastX - searchRadius));
+    const startSearchY = Math.max(0, Math.floor(lastY - searchRadius));
+    const endSearchX = Math.min(fw - templateSize, Math.floor(lastX + searchRadius));
+    const endSearchY = Math.min(fh - templateSize, Math.floor(lastY + searchRadius));
 
-    // Acumular posições dos pixels que match
-    let sumX = 0;
-    let sumY = 0;
-    let matchCount = 0;
+    let bestSad = Infinity;
+    let bestX = lastX;
+    let bestY = lastY;
 
-    for (let y = roiY; y < roiY + roiH; y++) {
-        for (let x = roiX; x < roiX + roiW; x++) {
-            const idx = (y * width + x) * 4;
-            const r = data[idx] ?? 0;
-            const g = data[idx + 1] ?? 0;
-            const b = data[idx + 2] ?? 0;
+    // Slide the template over the search area
+    // Optimizer: Instead of checking every single pixel (slow), we can check every 2nd or 3rd pixel for speed,
+    // but SAD is fairly fast for a ~200x200 area on modern engines. We'll do strict per-2-pixel sliding for web performance.
+    for (let y = startSearchY; y <= endSearchY; y += 2) {
+        for (let x = startSearchX; x <= endSearchX; x += 2) {
+            const sad = calculateSAD(templateData, templateSize, templateSize, fdata, fw, x, y);
 
-            if (tr !== undefined && tg !== undefined && tb !== undefined) {
-                const dist = colorDistance(r, g, b, tr, tg, tb);
-                if (dist <= config.colorTolerance) {
-                    sumX += x;
-                    sumY += y;
-                    matchCount++;
-                }
+            if (sad < bestSad) {
+                bestSad = sad;
+                bestX = x + (templateSize / 2); // Center of the matched template
+                bestY = y + (templateSize / 2);
             }
         }
     }
 
-    if (matchCount < config.minClusterSize) {
-        // Adaptive: try with larger tolerance if enabled
-        if (config.adaptive && config.colorTolerance < 80) {
-            return detectCrosshair(imageData, {
-                ...config,
-                colorTolerance: config.colorTolerance + 15,
-                adaptive: false, // prevent recursion
-            });
-        }
-        return { found: false, x: width / 2, y: height / 2, confidence: 0, clusterSize: 0 };
-    }
-
-    const centroidX = sumX / matchCount;
-    const centroidY = sumY / matchCount;
-
-    // Confidence based on cluster compactness
-    let spreadSum = 0;
-    // Sample check (full computation would be expensive)
-    const confidence = Math.min(1, matchCount / (config.minClusterSize * 10));
+    // Determine confidence based on SAD score (Perfect match = 0).
+    const maxPossibleSAD = templateSize * templateSize * 3 * 255;
+    const confidence = 1 - (bestSad / maxPossibleSAD);
 
     return {
         found: true,
-        x: centroidX,
-        y: centroidY,
-        confidence,
-        clusterSize: matchCount,
+        x: bestX,
+        y: bestY,
+        confidence: confidence > 0.85 ? confidence : Math.max(0, (confidence - 0.5) * 2), // Boost the penalty on bad matches
     };
 }
 
@@ -147,16 +132,56 @@ export interface TrackingResult {
  */
 export function trackCrosshair(
     frames: readonly ExtractedFrame[],
-    config?: Partial<CrosshairConfig>
+    config?: Partial<TemplateMatchingConfig>
 ): TrackingResult {
     const fullConfig = { ...DEFAULT_CONFIG, ...config };
     const points: TrackingPoint[] = [];
     let framesLost = 0;
 
-    for (const frame of frames) {
-        const result = detectCrosshair(frame.imageData, fullConfig);
+    if (frames.length === 0) return { points: [], trackingQuality: 0, framesTracked: 0, framesLost: 0 };
 
-        if (result.found) {
+    const firstFrame = frames[0]!;
+    const fw = firstFrame.imageData.width;
+    const fh = firstFrame.imageData.height;
+
+    // Center starting point
+    let lastX = fw / 2;
+    let lastY = fh / 2;
+
+    // Extract the Template from Frame 0
+    // To do this natively without Canvas ctx, we manually copy the ArrayBuffer slice
+    const tSize = fullConfig.templateSize;
+    const tStartX = Math.floor(lastX - (tSize / 2));
+    const tStartY = Math.floor(lastY - (tSize / 2));
+
+    const templateData = new Uint8ClampedArray(tSize * tSize * 4);
+    for (let ty = 0; ty < tSize; ty++) {
+        for (let tx = 0; tx < tSize; tx++) {
+            const frameIdx = ((tStartY + ty) * fw + (tStartX + tx)) * 4;
+            const tplIdx = (ty * tSize + tx) * 4;
+            templateData[tplIdx] = firstFrame.imageData.data[frameIdx] ?? 0;
+            templateData[tplIdx + 1] = firstFrame.imageData.data[frameIdx + 1] ?? 0;
+            templateData[tplIdx + 2] = firstFrame.imageData.data[frameIdx + 2] ?? 0;
+            templateData[tplIdx + 3] = 255;
+        }
+    }
+
+    // Force frame 0 point exactly at center
+    points.push({
+        frame: firstFrame.index,
+        timestamp: asMilliseconds(firstFrame.timestamp),
+        x: asPixels(lastX),
+        y: asPixels(lastY),
+        confidence: 1.0,
+    });
+
+    for (let i = 1; i < frames.length; i++) {
+        const frame = frames[i]!;
+
+        // Match the background pattern
+        const result = matchTemplate(templateData, tSize, frame.imageData, lastX, lastY, fullConfig.searchRadius);
+
+        if (result.confidence > 0.4) {
             points.push({
                 frame: frame.index,
                 timestamp: asMilliseconds(frame.timestamp),
@@ -164,16 +189,16 @@ export function trackCrosshair(
                 y: asPixels(result.y),
                 confidence: result.confidence,
             });
+            lastX = result.x;
+            lastY = result.y; // Clean tracking without artificial recoil bias
         } else {
             framesLost++;
-            // Use último ponto conhecido ou centro
-            const lastPoint = points[points.length - 1];
             points.push({
                 frame: frame.index,
                 timestamp: asMilliseconds(frame.timestamp),
-                x: lastPoint ? lastPoint.x : asPixels(frame.imageData.width / 2),
-                y: lastPoint ? lastPoint.y : asPixels(frame.imageData.height / 2),
-                confidence: 0,
+                x: asPixels(lastX),
+                y: asPixels(lastY),
+                confidence: result.confidence,
             });
         }
     }
