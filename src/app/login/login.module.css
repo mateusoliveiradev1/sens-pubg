@@ -1,5 +1,7 @@
+/* Login Page Styles */
+
 .loginCard {
-    max-width: 420px;
+    max-width: 440px;
     width: 100%;
     text-align: center;
     background: var(--glass-bg);
@@ -8,23 +10,66 @@
     border-radius: var(--radius-xl);
     padding: var(--space-3xl) var(--space-2xl);
     animation: scaleIn 0.4s ease-out;
+    position: relative;
+    overflow: hidden;
 }
+
+/* Subtle top border glow */
+.loginCard::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 20%;
+    right: 20%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--color-accent-primary), transparent);
+}
+
+/* ─── Icon ─── */
 
 .loginIcon {
-    font-size: 3rem;
-    color: var(--color-accent-primary);
-    filter: drop-shadow(0 0 15px rgba(255, 107, 0, 0.4));
-    margin-bottom: var(--space-lg);
+    position: relative;
+    width: 64px;
+    height: 64px;
+    margin: 0 auto var(--space-xl);
 }
 
+.iconRing {
+    position: absolute;
+    inset: 0;
+    border: 2px solid var(--color-accent-primary);
+    border-radius: 50%;
+    opacity: 0.4;
+    animation: pulse 3s ease-in-out infinite;
+}
+
+.iconDot {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 10px;
+    height: 10px;
+    background: var(--color-accent-primary);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 20px rgba(255, 107, 0, 0.5);
+}
+
+/* ─── Text ─── */
+
 .loginTitle {
+    font-size: var(--text-2xl);
     margin-bottom: var(--space-sm);
 }
 
 .loginSubtitle {
     font-size: var(--text-sm);
+    color: var(--color-text-muted);
     margin-bottom: var(--space-2xl);
+    line-height: 1.6;
 }
+
+/* ─── Provider Buttons ─── */
 
 .providers {
     display: flex;
@@ -33,13 +78,17 @@
     margin-bottom: var(--space-xl);
 }
 
+.providers form {
+    width: 100%;
+}
+
 .providerBtn {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: var(--space-md);
     width: 100%;
-    padding: var(--space-md) var(--space-lg);
+    padding: 14px var(--space-lg);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     font-family: var(--font-sans);
@@ -50,30 +99,37 @@
     color: var(--color-text-primary);
 }
 
-.discord {
-    background: rgba(88, 101, 242, 0.15);
-    border-color: rgba(88, 101, 242, 0.3);
-}
-
-.discord:hover {
-    background: rgba(88, 101, 242, 0.25);
-    box-shadow: 0 0 20px rgba(88, 101, 242, 0.2);
+.providerSvg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
 }
 
 .google {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.04);
 }
 
 .google:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: var(--color-border-hover);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-.providerIcon {
-    font-size: var(--text-xl);
+.discord {
+    background: rgba(88, 101, 242, 0.1);
+    border-color: rgba(88, 101, 242, 0.25);
+}
+
+.discord:hover {
+    background: rgba(88, 101, 242, 0.2);
+    border-color: rgba(88, 101, 242, 0.4);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(88, 101, 242, 0.15);
 }
 
 .terms {
     font-size: var(--text-xs);
     color: var(--color-text-muted);
+    line-height: 1.5;
 }
