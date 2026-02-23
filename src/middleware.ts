@@ -1,21 +1,29 @@
 /**
- * Middleware — Auth.js route protection + security headers + rate limiting.
+ * Middleware — Security headers + rate limiting + route protection.
+ * 
+ * Route protection uses Auth.js session cookies.
+ * Protected routes redirect to /login when not authenticated.
  */
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { checkRateLimit, AUTH_RATE_LIMIT } from '@/lib/rate-limit';
 
-// Routes that require authentication
-const PROTECTED_ROUTES = ['/profile', '/analyze', '/history'];
-const AUTH_PAGES = ['/login'];
+// Routes that REQUIRE authentication (redirect to /login if no session)
+const PROTECTED_ROUTES = ['/profile', '/history'];
 
 function isProtectedRoute(pathname: string): boolean {
     return PROTECTED_ROUTES.some(route => pathname.startsWith(route));
 }
 
-function isAuthPage(pathname: string): boolean {
-    return AUTH_PAGES.some(route => pathname.startsWith(route));
+// Check all possible Auth.js session cookie names
+function hasSessionCookie(request: NextRequest): boolean {
+    return !!(
+        request.cookies.get('authjs.session-token') ||
+        request.cookies.get('__Secure-authjs.session-token') ||
+        request.cookies.get('next-auth.session-token') ||
+        request.cookies.get('__Secure-next-auth.session-token')
+    );
 }
 
 // CSP Nonce generator
@@ -28,22 +36,11 @@ function generateNonce(): string {
 export function middleware(request: NextRequest): NextResponse {
     const { pathname } = request.nextUrl;
 
-    // ═══ Auth Protection ═══
-    // Check for Auth.js session token cookie
-    const sessionToken = request.cookies.get('authjs.session-token')
-        ?? request.cookies.get('__Secure-authjs.session-token');
-    const isAuthenticated = !!sessionToken;
-
-    // Redirect unauthenticated users to login
-    if (isProtectedRoute(pathname) && !isAuthenticated) {
+    // ═══ Auth Protection (protected routes only) ═══
+    if (isProtectedRoute(pathname) && !hasSessionCookie(request)) {
         const loginUrl = new URL('/login', request.url);
         loginUrl.searchParams.set('callbackUrl', pathname);
         return NextResponse.redirect(loginUrl);
-    }
-
-    // Redirect authenticated users away from login page
-    if (isAuthPage(pathname) && isAuthenticated) {
-        return NextResponse.redirect(new URL('/analyze', request.url));
     }
 
     const response = NextResponse.next();
