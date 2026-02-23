@@ -1,6 +1,7 @@
 /**
  * Auth.js v5 Configuration — Discord + Google providers.
- * Drizzle adapter para Neon PostgreSQL.
+ * Uses JWT sessions for reliability (no DB writes on sign-in).
+ * Drizzle adapter stores user/account data only.
  */
 
 import NextAuth from 'next-auth';
@@ -36,6 +37,7 @@ function getProviders() {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+    trustHost: true,
     adapter: DrizzleAdapter(db, {
         usersTable: users,
         accountsTable: accounts,
@@ -48,14 +50,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         error: '/login',
     },
     session: {
-        strategy: 'database',
+        strategy: 'jwt',
         maxAge: 30 * 24 * 60 * 60, // 30 dias
-        updateAge: 24 * 60 * 60,   // refresh a cada 24h
     },
     callbacks: {
-        session({ session, user }) {
-            if (session.user) {
-                session.user.id = user.id;
+        jwt({ token, user }) {
+            if (user) {
+                token.id = user.id;
+            }
+            return token;
+        },
+        session({ session, token }) {
+            if (session.user && token.id) {
+                session.user.id = token.id as string;
             }
             return session;
         },
