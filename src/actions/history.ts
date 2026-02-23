@@ -70,3 +70,29 @@ export async function saveAnalysisResult(
         return { success: false, error: 'Erro ao salvar histórico.' };
     }
 }
+
+export async function getHistorySessions() {
+    const session = await auth();
+    if (!session?.user?.id) return [];
+
+    try {
+        const result = await db
+            .select({
+                id: analysisSessions.id,
+                weaponId: analysisSessions.weaponId,
+                scopeId: analysisSessions.scopeId,
+                stabilityScore: analysisSessions.stabilityScore,
+                verticalControl: analysisSessions.verticalControl,
+                horizontalNoise: analysisSessions.horizontalNoise,
+                createdAt: analysisSessions.createdAt,
+            })
+            .from(analysisSessions)
+            .where(eq(analysisSessions.userId, session.user.id))
+            .orderBy(analysisSessions.createdAt);
+
+        return result;
+    } catch (err) {
+        console.error('[getHistorySessions] Error:', err);
+        return [];
+    }
+}

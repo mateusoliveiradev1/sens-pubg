@@ -87,7 +87,7 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
             setPhase('calculating');
             const weapon = getWeapon(weaponId);
             if (!weapon) throw new Error('Arma não encontrada');
-            const trajectory = buildTrajectory(tracking, weaponId);
+            const trajectory = buildTrajectory(tracking, weapon);
             const metrics = calculateSprayMetrics(trajectory, weapon);
             setProgress(80);
 

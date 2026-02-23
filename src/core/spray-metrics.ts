@@ -22,6 +22,64 @@ import type { TrackingResult } from './crosshair-tracking';
 import type { WeaponData, RecoilVector } from '@/game/pubg/weapon-data';
 
 // ═══════════════════════════════════════════
+// FPS-to-RPM Resampling Engine
+// ═══════════════════════════════════════════
+
+/**
+ * Realinha matematicamente os frames de vídeo (30fps/60fps) com o Fire Rate (RPM) da arma.
+ * Isso garante que o cálculo de recoil bata perfeitamente com a compensação esperada.
+ */
+function resampleToFireRate(points: readonly TrackingPoint[], msPerShot: number): TrackingPoint[] {
+    if (points.length < 2) return [...points];
+
+    const resampled: TrackingPoint[] = [];
+    const firstTime = Number(points[0]!.timestamp);
+    const lastTime = Number(points[points.length - 1]!.timestamp);
+
+    let targetTime = firstTime;
+
+    // Interpola a mira (X,Y) exatamente no milissegundo em que cada tiro acontece
+    while (targetTime <= lastTime) {
+        let leftIdx = 0;
+        let rightIdx = points.length - 1;
+
+        for (let i = 0; i < points.length - 1; i++) {
+            if (Number(points[i]!.timestamp) <= targetTime && Number(points[i + 1]!.timestamp) >= targetTime) {
+                leftIdx = i;
+                rightIdx = i + 1;
+                break;
+            }
+        }
+
+        const left = points[leftIdx]!;
+        const right = points[rightIdx]!;
+
+        const t0 = Number(left.timestamp);
+        const t1 = Number(right.timestamp);
+
+        let ratio = 0;
+        if (t1 > t0) {
+            ratio = (targetTime - t0) / (t1 - t0);
+        }
+
+        const x = Number(left.x) + (Number(right.x) - Number(left.x)) * ratio;
+        const y = Number(left.y) + (Number(right.y) - Number(left.y)) * ratio;
+
+        resampled.push({
+            frame: Math.round(targetTime / (msPerShot / resampled.length || 1)), // approximate relative frame
+            x: asPixels(x),
+            y: asPixels(y),
+            timestamp: asMilliseconds(targetTime),
+            confidence: left.confidence,
+        });
+
+        targetTime += msPerShot;
+    }
+
+    return resampled;
+}
+
+// ═══════════════════════════════════════════
 // Trajectory Builder
 // ═══════════════════════════════════════════
 
@@ -50,26 +108,31 @@ export function buildDisplacements(
 }
 
 /**
- * Constrói a trajetória completa do spray.
+ * Constrói a trajetória completa do spray após resample para o BPM (RPM) da arma.
  */
 export function buildTrajectory(
     tracking: TrackingResult,
-    weaponId: string
+    weapon: WeaponData
 ): SprayTrajectory {
-    const displacements = buildDisplacements(tracking.points);
-    const firstPoint = tracking.points[0];
-    const lastPoint = tracking.points[tracking.points.length - 1];
+    // 1. Resample dos frames crus do Canvas para Tiros da Arma (interpolação P(t))
+    const resampledPoints = resampleToFireRate(tracking.points, weapon.msPerShot);
+
+    // 2. Transforma as posições em deltas entre tiros
+    const displacements = buildDisplacements(resampledPoints);
+
+    const firstPoint = resampledPoints[0];
+    const lastPoint = resampledPoints[resampledPoints.length - 1];
 
     return {
-        points: tracking.points,
+        points: resampledPoints, // save the resampled points
         displacements,
-        totalFrames: tracking.points.length,
+        totalFrames: resampledPoints.length,
         durationMs: asMilliseconds(
             (lastPoint && firstPoint)
                 ? Number(lastPoint.timestamp) - Number(firstPoint.timestamp)
                 : 0
         ),
-        weaponId,
+        weaponId: weapon.id,
     };
 }
 
