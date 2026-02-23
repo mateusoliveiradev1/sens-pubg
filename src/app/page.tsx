@@ -5,6 +5,7 @@
 
 import Link from 'next/link';
 import { Header } from '@/ui/components/header';
+import { FaqAccordion } from '@/ui/components/faq-accordion';
 import styles from './page.module.css';
 
 export default function HomePage(): React.JSX.Element {
@@ -144,24 +145,7 @@ export default function HomePage(): React.JSX.Element {
             <h2 className={styles.sectionTitle}>Perguntas Frequentes</h2>
             <p className={styles.sectionSubtitle}>Tudo o que você precisa saber sobre o PUBG Aim Analyzer</p>
 
-            <div className={styles.faqGrid}>
-              <div className={`glass-card ${styles.faqItem}`}>
-                <h3>A análise de vídeo dá ban no PUBG?</h3>
-                <p>Não. Nossa ferramenta trabalha 100% no seu navegador lendo um arquivo de vídeo (VOD). Não interagimos com os arquivos do jogo ou memória. É seguro e em conformidade com os termos da KRAFTON.</p>
-              </div>
-              <div className={`glass-card ${styles.faqItem}`}>
-                <h3>Preciso enviar meu vídeo para algum servidor?</h3>
-                <p>Não. Processamos os quadros diretamente usando WebAssembly e HTML5 Canvas no seu próprio navegador. Seu vídeo nunca sai do seu computador, garantindo privacidade e velocidade.</p>
-              </div>
-              <div className={`glass-card ${styles.faqItem}`}>
-                <h3>Como o app descobre minha sensibilidade?</h3>
-                <p>O app solicita configurações básicas do seu hardware (Mouse, DPI, Grip, Mousepad). A Engine de IA usa os dados do spray analisado (pixel drift) somado a sua configuração para calcular o cm/360° perfeito para sua pegada.</p>
-              </div>
-              <div className={`glass-card ${styles.faqItem}`}>
-                <h3>Funciona com qualquer arma do PUBG?</h3>
-                <p>Atualmente suportamos as 14 armas mais populares do meta do PUBG M416, Beryl M762, AUG, ACE32, entre outras, calculando padrões de Recoil precisos gravados diretamente dos servidores oficiais.</p>
-              </div>
-            </div>
+            <FaqAccordion />
           </div>
         </section>
 

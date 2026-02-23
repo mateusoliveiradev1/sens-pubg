@@ -30,18 +30,17 @@ export interface ProPlayer {
 }
 
 /**
- * Get specs.gg player image URL.
- * specs.gg serves player images at a predictable CDN path.
+ * Get local player image URL.
  */
 export function getPlayerImageUrl(name: string): string {
-    return `https://specs.gg/api/players/${encodeURIComponent(name)}/image`;
+    return `/images/pros/${name.toLowerCase()}.png`;
 }
 
 /**
- * Get team logo URL from specs.gg.
+ * Get local team logo URL.
  */
 export function getTeamLogoUrl(teamSlug: string): string {
-    return `https://specs.gg/api/teams/${teamSlug}/logo`;
+    return `/images/teams/${teamSlug}.png`;
 }
 
 // Team slug mapping for specs.gg CDN

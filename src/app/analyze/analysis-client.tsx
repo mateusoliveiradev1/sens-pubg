@@ -10,12 +10,18 @@ import type { VideoMetadata } from '@/core';
 import type { AnalysisResult } from '@/types/engine';
 import { WEAPON_LIST, getWeapon, SCOPE_LIST } from '@/game/pubg';
 import { ResultsDashboard } from './results-dashboard';
+import { saveAnalysisResult } from '@/actions/history';
+import type { PlayerProfile } from '@/db/schema';
 import styles from './analysis.module.css';
 
 type AnalysisStep = 'upload' | 'settings' | 'processing' | 'done' | 'error';
 type ProcessingPhase = 'extracting' | 'tracking' | 'calculating' | 'diagnosing' | 'done';
 
-export function AnalysisClient(): React.JSX.Element {
+interface Props {
+    readonly profile: PlayerProfile;
+}
+
+export function AnalysisClient({ profile }: Props): React.JSX.Element {
     const [step, setStep] = useState<AnalysisStep>('upload');
     const [video, setVideo] = useState<VideoMetadata | null>(null);
     const [weaponId, setWeaponId] = useState('m416');
@@ -89,14 +95,18 @@ export function AnalysisClient(): React.JSX.Element {
             setPhase('diagnosing');
             const diagnoses = runDiagnostics(metrics, weapon.category);
             const sensitivity = generateSensitivityRecommendation(
-                metrics, diagnoses, 800, 'hybrid', 'claw', 45,
-                { 'red-dot': 50, '2x': 50, '3x': 50, '4x': 50, '6x': 50, '8x': 50 }
+                metrics, diagnoses,
+                profile.mouseDpi,
+                profile.playStyle as 'arm' | 'wrist' | 'hybrid',
+                profile.gripStyle as 'palm' | 'claw' | 'fingertip' | 'hybrid',
+                profile.generalSens,
+                profile.scopeSens as Record<string, number>
             );
             const coaching = generateCoaching(diagnoses);
             setProgress(100);
 
             setPhase('done');
-            setResult({
+            const finalResult = {
                 id: crypto.randomUUID(),
                 timestamp: new Date(),
                 trajectory,
@@ -104,7 +114,16 @@ export function AnalysisClient(): React.JSX.Element {
                 diagnoses,
                 sensitivity,
                 coaching,
-            });
+            };
+
+            try {
+                // Save to database
+                await saveAnalysisResult(finalResult, weaponId, scopeId, distance);
+            } catch (err) {
+                console.error('[saveAnalysisResult]', err);
+            }
+
+            setResult(finalResult);
             setStep('done');
         } catch (err) {
             console.error('[Analysis Error]:', err);

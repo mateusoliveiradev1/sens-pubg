@@ -173,6 +173,28 @@ const ACE32: WeaponData = {
     ],
 } as const;
 
+const AUG: WeaponData = {
+    id: 'aug',
+    name: 'AUG',
+    category: 'ar',
+    fireRateRPM: 720,
+    msPerShot: rpmToMs(720),
+    magazineSize: 30,
+    damage: 41,
+    horizontalNoiseBase: 1.8,
+    verticalRecoilBase: 160,
+    recoilPattern: [
+        { dx: 0, dy: 6 }, { dx: 1, dy: 8 }, { dx: -1, dy: 7 }, { dx: 1, dy: 9 },
+        { dx: -1, dy: 8 }, { dx: 0, dy: 7 }, { dx: 1, dy: 6 }, { dx: -1, dy: 6 },
+        { dx: 1, dy: 5 }, { dx: 0, dy: 5 }, { dx: -1, dy: 5 }, { dx: 1, dy: 4 },
+        { dx: -1, dy: 4 }, { dx: 0, dy: 4 }, { dx: 1, dy: 4 }, { dx: -1, dy: 3 },
+        { dx: 0, dy: 4 }, { dx: 1, dy: 3 }, { dx: -1, dy: 3 }, { dx: 0, dy: 3 },
+        { dx: 1, dy: 2 }, { dx: -1, dy: 3 }, { dx: 0, dy: 2 }, { dx: 1, dy: 2 },
+        { dx: -1, dy: 2 }, { dx: 0, dy: 2 }, { dx: 1, dy: 1 }, { dx: -1, dy: 2 },
+        { dx: 0, dy: 1 }, { dx: 1, dy: 1 },
+    ],
+} as const;
+
 // ═══════════════════════════════════════════
 // SMGs
 // ═══════════════════════════════════════════
@@ -362,6 +384,7 @@ export const WEAPONS = {
     'm416': M416,
     'akm': AKM,
     'scar-l': SCARL,
+    'aug': AUG,
     'beryl-m762': BERYLM762,
     'g36c': G36C,
     'ace32': ACE32,
