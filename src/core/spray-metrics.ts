@@ -108,14 +108,59 @@ export function buildDisplacements(
 }
 
 /**
+ * Removes 1-frame jitter/spikes caused by video compression and muzzle flash.
+ * Applies a Simple Moving Average (SMA) but rejects low-confidence outlier frames.
+ */
+function smoothTrackingSignal(points: readonly TrackingPoint[], windowSize: number = 3): TrackingPoint[] {
+    if (points.length < windowSize) return [...points];
+
+    const smoothed: TrackingPoint[] = [];
+    const halfWindow = Math.floor(windowSize / 2);
+
+    for (let i = 0; i < points.length; i++) {
+        let sumX = 0;
+        let sumY = 0;
+        let count = 0;
+
+        for (let j = -halfWindow; j <= halfWindow; j++) {
+            const idx = i + j;
+            if (idx >= 0 && idx < points.length) {
+                const pt = points[idx];
+                // Reject low confidence frames (e.g. muzzle flash occlusion)
+                if (pt && pt.confidence >= 0.7) {
+                    sumX += Number(pt.x);
+                    sumY += Number(pt.y);
+                    count++;
+                }
+            }
+        }
+
+        const orig = points[i]!;
+        if (count > 0) {
+            smoothed.push({
+                ...orig,
+                x: asPixels(sumX / count),
+                y: asPixels(sumY / count),
+            });
+        } else {
+            smoothed.push({ ...orig });
+        }
+    }
+    return smoothed;
+}
+
+/**
  * Constrói a trajetória completa do spray após resample para o BPM (RPM) da arma.
  */
 export function buildTrajectory(
     tracking: TrackingResult,
     weapon: WeaponData
 ): SprayTrajectory {
+    // 0. Smooth tracking signal -> Reject low confidence + moving average
+    const smoothedRawPoints = smoothTrackingSignal(tracking.points);
+
     // 1. Resample dos frames crus do Canvas para Tiros da Arma (interpolação P(t))
-    const resampledPoints = resampleToFireRate(tracking.points, weapon.msPerShot);
+    const resampledPoints = resampleToFireRate(smoothedRawPoints, weapon.msPerShot);
 
     // 2. Transforma as posições em deltas entre tiros
     const displacements = buildDisplacements(resampledPoints);
@@ -176,16 +221,17 @@ function calculateStability(displacements: readonly DisplacementVector[]): Score
  */
 function calculateVerticalControl(
     displacements: readonly DisplacementVector[],
-    weaponRecoil: readonly RecoilVector[]
+    weaponRecoil: readonly RecoilVector[],
+    pixelToDegree: number
 ): number {
     if (displacements.length === 0 || weaponRecoil.length === 0) return 1.0;
 
-    // Soma total do recoil esperado (vertical)
-    const expectedVertical = weaponRecoil.reduce((sum, r) => sum + r.dy, 0);
+    // Soma total do recoil esperado (vertical) em Graus
+    const expectedVertical = weaponRecoil.reduce((sum, r) => sum + r.pitch, 0);
     if (expectedVertical === 0) return 1.0;
 
-    // Soma total do deslocamento vertical observado (dy positivo = jogador NÃO compensou)
-    const observedVertical = displacements.reduce((sum, d) => sum + d.dy, 0);
+    // Soma total do deslocamento vertical observado convertido para Graus
+    const observedVertical = displacements.reduce((sum, d) => sum + (d.dy * pixelToDegree), 0);
 
     // Se observado é próximo de 0, jogador compensou perfeitamente.
     // Ratio: (expectedVertical - observedVertical) / expectedVertical
@@ -205,15 +251,17 @@ function calculateVerticalControl(
  * Valor baixo = spray horizontal limpo.
  */
 function calculateHorizontalNoise(
-    displacements: readonly DisplacementVector[]
+    displacements: readonly DisplacementVector[],
+    pixelToDegree: number
 ): number {
     if (displacements.length === 0) return 0;
 
-    const dxValues = displacements.map(d => d.dx);
-    const mean = dxValues.reduce((a, b) => a + b, 0) / dxValues.length;
-    const variance = dxValues.reduce((sum, dx) => sum + (dx - mean) ** 2, 0) / dxValues.length;
+    // Converte os pixels registrados no video em in-game degrees (Yaw)
+    const yawValues = displacements.map(d => d.dx * pixelToDegree);
+    const mean = yawValues.reduce((a, b) => a + b, 0) / yawValues.length;
+    const variance = yawValues.reduce((sum, yaw) => sum + (yaw - mean) ** 2, 0) / yawValues.length;
 
-    return Math.round(Math.sqrt(variance) * 100) / 100;
+    return Math.round(Math.sqrt(variance) * 1000) / 1000;
 }
 
 // ═══════════════════════════════════════════
@@ -320,14 +368,15 @@ function calculateConsistency(
 
 export function calculateSprayMetrics(
     trajectory: SprayTrajectory,
-    weapon: WeaponData
+    weapon: WeaponData,
+    pixelToDegree: number = 0.046875 // Default 1080p 90 FOV
 ): SprayMetrics {
     const { displacements } = trajectory;
 
     return {
         stabilityScore: calculateStability(displacements),
-        verticalControlIndex: calculateVerticalControl(displacements, weapon.recoilPattern),
-        horizontalNoiseIndex: calculateHorizontalNoise(displacements),
+        verticalControlIndex: calculateVerticalControl(displacements, weapon.recoilPattern, pixelToDegree),
+        horizontalNoiseIndex: calculateHorizontalNoise(displacements, pixelToDegree),
         initialRecoilResponseMs: calculateRecoilResponseTime(displacements),
         driftDirectionBias: calculateDriftBias(displacements),
         consistencyScore: calculateConsistency(displacements),

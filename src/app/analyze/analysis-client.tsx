@@ -88,7 +88,12 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
             const weapon = getWeapon(weaponId);
             if (!weapon) throw new Error('Arma não encontrada');
             const trajectory = buildTrajectory(tracking, weapon);
-            const metrics = calculateSprayMetrics(trajectory, weapon);
+
+            // Extrair Resolução e FOV do hardware físico do jogador para precisão perfeita (Pixels -> Angular Yaw/Pitch)
+            const monitorWidth = parseInt(profile.monitorResolution.split('x')[0] || '1920', 10);
+            const pixelToDegree = profile.fov / monitorWidth;
+
+            const metrics = calculateSprayMetrics(trajectory, weapon, pixelToDegree);
             setProgress(80);
 
             // Step 4: Run diagnostics + sensitivity + coaching

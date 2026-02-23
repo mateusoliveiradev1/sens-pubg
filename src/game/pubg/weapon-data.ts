@@ -9,8 +9,8 @@
 // ═══════════════════════════════════════════
 
 export interface RecoilVector {
-    readonly dx: number; // Deslocamento horizontal (px a 1080p). Positivo = direita.
-    readonly dy: number; // Deslocamento vertical (px a 1080p). Positivo = cima (recoil sobe).
+    readonly yaw: number;   // Horizontal recoil in Degrees. Positive = right.
+    readonly pitch: number; // Vertical recoil in Degrees. Positive = up.
 }
 
 export type WeaponCategory = 'ar' | 'smg' | 'dmr' | 'lmg' | 'sr' | 'shotgun' | 'pistol';
@@ -51,14 +51,14 @@ const M416: WeaponData = {
     horizontalNoiseBase: 2.5,
     verticalRecoilBase: 180,
     recoilPattern: [
-        { dx: 0, dy: 8 }, { dx: 1, dy: 10 }, { dx: -1, dy: 9 }, { dx: 2, dy: 11 },
-        { dx: -1, dy: 10 }, { dx: 0, dy: 9 }, { dx: 1, dy: 8 }, { dx: -2, dy: 7 },
-        { dx: 2, dy: 6 }, { dx: -1, dy: 7 }, { dx: 1, dy: 6 }, { dx: -2, dy: 5 },
-        { dx: 2, dy: 5 }, { dx: 0, dy: 6 }, { dx: -1, dy: 5 }, { dx: 1, dy: 4 },
-        { dx: -2, dy: 5 }, { dx: 2, dy: 4 }, { dx: 0, dy: 5 }, { dx: -1, dy: 4 },
-        { dx: 1, dy: 3 }, { dx: -2, dy: 4 }, { dx: 2, dy: 3 }, { dx: 0, dy: 4 },
-        { dx: -1, dy: 3 }, { dx: 1, dy: 3 }, { dx: -2, dy: 3 }, { dx: 2, dy: 2 },
-        { dx: 0, dy: 3 }, { dx: -1, dy: 2 },
+        { yaw: 0.00, pitch: 0.36 }, { yaw: 0.05, pitch: 0.45 }, { yaw: -0.05, pitch: 0.41 }, { yaw: 0.09, pitch: 0.50 },
+        { yaw: -0.05, pitch: 0.45 }, { yaw: 0.00, pitch: 0.41 }, { yaw: 0.05, pitch: 0.36 }, { yaw: -0.09, pitch: 0.32 },
+        { yaw: 0.09, pitch: 0.27 }, { yaw: -0.05, pitch: 0.32 }, { yaw: 0.05, pitch: 0.27 }, { yaw: -0.09, pitch: 0.23 },
+        { yaw: 0.09, pitch: 0.23 }, { yaw: 0.00, pitch: 0.27 }, { yaw: -0.05, pitch: 0.23 }, { yaw: 0.05, pitch: 0.18 },
+        { yaw: -0.09, pitch: 0.23 }, { yaw: 0.09, pitch: 0.18 }, { yaw: 0.00, pitch: 0.23 }, { yaw: -0.05, pitch: 0.18 },
+        { yaw: 0.05, pitch: 0.14 }, { yaw: -0.09, pitch: 0.18 }, { yaw: 0.09, pitch: 0.14 }, { yaw: 0.00, pitch: 0.18 },
+        { yaw: -0.05, pitch: 0.14 }, { yaw: 0.05, pitch: 0.14 }, { yaw: -0.09, pitch: 0.14 }, { yaw: 0.09, pitch: 0.09 },
+        { yaw: 0.00, pitch: 0.14 }, { yaw: -0.05, pitch: 0.09 },
     ],
 } as const;
 
@@ -73,14 +73,14 @@ const AKM: WeaponData = {
     horizontalNoiseBase: 4.0,
     verticalRecoilBase: 240,
     recoilPattern: [
-        { dx: 0, dy: 12 }, { dx: 2, dy: 14 }, { dx: -3, dy: 13 }, { dx: 3, dy: 15 },
-        { dx: -2, dy: 12 }, { dx: 1, dy: 11 }, { dx: -3, dy: 10 }, { dx: 3, dy: 9 },
-        { dx: -1, dy: 8 }, { dx: 2, dy: 7 }, { dx: -3, dy: 8 }, { dx: 3, dy: 7 },
-        { dx: -2, dy: 6 }, { dx: 1, dy: 7 }, { dx: -3, dy: 6 }, { dx: 2, dy: 5 },
-        { dx: -1, dy: 6 }, { dx: 3, dy: 5 }, { dx: -2, dy: 5 }, { dx: 1, dy: 4 },
-        { dx: -3, dy: 5 }, { dx: 2, dy: 4 }, { dx: -1, dy: 4 }, { dx: 3, dy: 3 },
-        { dx: -2, dy: 4 }, { dx: 1, dy: 3 }, { dx: -3, dy: 3 }, { dx: 2, dy: 3 },
-        { dx: -1, dy: 2 }, { dx: 1, dy: 2 },
+        { yaw: 0.00, pitch: 0.54 }, { yaw: 0.09, pitch: 0.63 }, { yaw: -0.14, pitch: 0.59 }, { yaw: 0.14, pitch: 0.68 },
+        { yaw: -0.09, pitch: 0.54 }, { yaw: 0.05, pitch: 0.50 }, { yaw: -0.14, pitch: 0.45 }, { yaw: 0.14, pitch: 0.41 },
+        { yaw: -0.05, pitch: 0.36 }, { yaw: 0.09, pitch: 0.32 }, { yaw: -0.14, pitch: 0.36 }, { yaw: 0.14, pitch: 0.32 },
+        { yaw: -0.09, pitch: 0.27 }, { yaw: 0.05, pitch: 0.32 }, { yaw: -0.14, pitch: 0.27 }, { yaw: 0.09, pitch: 0.23 },
+        { yaw: -0.05, pitch: 0.27 }, { yaw: 0.14, pitch: 0.23 }, { yaw: -0.09, pitch: 0.23 }, { yaw: 0.05, pitch: 0.18 },
+        { yaw: -0.14, pitch: 0.23 }, { yaw: 0.09, pitch: 0.18 }, { yaw: -0.05, pitch: 0.18 }, { yaw: 0.14, pitch: 0.14 },
+        { yaw: -0.09, pitch: 0.18 }, { yaw: 0.05, pitch: 0.14 }, { yaw: -0.14, pitch: 0.14 }, { yaw: 0.09, pitch: 0.14 },
+        { yaw: -0.05, pitch: 0.09 }, { yaw: 0.05, pitch: 0.09 },
     ],
 } as const;
 
@@ -95,14 +95,14 @@ const SCARL: WeaponData = {
     horizontalNoiseBase: 2.0,
     verticalRecoilBase: 170,
     recoilPattern: [
-        { dx: 0, dy: 7 }, { dx: 1, dy: 9 }, { dx: -1, dy: 8 }, { dx: 1, dy: 10 },
-        { dx: -1, dy: 9 }, { dx: 0, dy: 8 }, { dx: 1, dy: 7 }, { dx: -1, dy: 7 },
-        { dx: 1, dy: 6 }, { dx: 0, dy: 6 }, { dx: -1, dy: 6 }, { dx: 1, dy: 5 },
-        { dx: -1, dy: 5 }, { dx: 0, dy: 5 }, { dx: 1, dy: 5 }, { dx: -1, dy: 4 },
-        { dx: 0, dy: 5 }, { dx: 1, dy: 4 }, { dx: -1, dy: 4 }, { dx: 0, dy: 4 },
-        { dx: 1, dy: 3 }, { dx: -1, dy: 4 }, { dx: 0, dy: 3 }, { dx: 1, dy: 3 },
-        { dx: -1, dy: 3 }, { dx: 0, dy: 3 }, { dx: 1, dy: 2 }, { dx: -1, dy: 3 },
-        { dx: 0, dy: 2 }, { dx: 1, dy: 2 },
+        { yaw: 0.00, pitch: 0.32 }, { yaw: 0.04, pitch: 0.40 }, { yaw: -0.04, pitch: 0.36 }, { yaw: 0.04, pitch: 0.45 },
+        { yaw: -0.04, pitch: 0.40 }, { yaw: 0.00, pitch: 0.36 }, { yaw: 0.04, pitch: 0.32 }, { yaw: -0.04, pitch: 0.32 },
+        { yaw: 0.04, pitch: 0.27 }, { yaw: 0.00, pitch: 0.27 }, { yaw: -0.04, pitch: 0.27 }, { yaw: 0.04, pitch: 0.22 },
+        { yaw: -0.04, pitch: 0.22 }, { yaw: 0.00, pitch: 0.22 }, { yaw: 0.04, pitch: 0.22 }, { yaw: -0.04, pitch: 0.18 },
+        { yaw: 0.00, pitch: 0.22 }, { yaw: 0.04, pitch: 0.18 }, { yaw: -0.04, pitch: 0.18 }, { yaw: 0.00, pitch: 0.18 },
+        { yaw: 0.04, pitch: 0.14 }, { yaw: -0.04, pitch: 0.18 }, { yaw: 0.00, pitch: 0.14 }, { yaw: 0.04, pitch: 0.14 },
+        { yaw: -0.04, pitch: 0.14 }, { yaw: 0.00, pitch: 0.14 }, { yaw: 0.04, pitch: 0.09 }, { yaw: -0.04, pitch: 0.14 },
+        { yaw: 0.00, pitch: 0.09 }, { yaw: 0.04, pitch: 0.09 },
     ],
 } as const;
 
@@ -117,14 +117,14 @@ const BERYLM762: WeaponData = {
     horizontalNoiseBase: 5.0,
     verticalRecoilBase: 260,
     recoilPattern: [
-        { dx: 0, dy: 14 }, { dx: 3, dy: 16 }, { dx: -4, dy: 15 }, { dx: 4, dy: 17 },
-        { dx: -3, dy: 14 }, { dx: 2, dy: 13 }, { dx: -4, dy: 11 }, { dx: 3, dy: 10 },
-        { dx: -2, dy: 9 }, { dx: 4, dy: 8 }, { dx: -3, dy: 9 }, { dx: 3, dy: 7 },
-        { dx: -2, dy: 7 }, { dx: 4, dy: 6 }, { dx: -3, dy: 7 }, { dx: 2, dy: 6 },
-        { dx: -4, dy: 5 }, { dx: 3, dy: 5 }, { dx: -2, dy: 5 }, { dx: 4, dy: 4 },
-        { dx: -3, dy: 5 }, { dx: 2, dy: 4 }, { dx: -4, dy: 4 }, { dx: 3, dy: 3 },
-        { dx: -2, dy: 4 }, { dx: 4, dy: 3 }, { dx: -3, dy: 3 }, { dx: 2, dy: 3 },
-        { dx: -4, dy: 2 }, { dx: 3, dy: 2 },
+        { yaw: 0.00, pitch: 0.63 }, { yaw: 0.14, pitch: 0.72 }, { yaw: -0.18, pitch: 0.67 }, { yaw: 0.18, pitch: 0.77 },
+        { yaw: -0.14, pitch: 0.63 }, { yaw: 0.09, pitch: 0.58 }, { yaw: -0.18, pitch: 0.49 }, { yaw: 0.14, pitch: 0.45 },
+        { yaw: -0.09, pitch: 0.40 }, { yaw: 0.18, pitch: 0.36 }, { yaw: -0.14, pitch: 0.40 }, { yaw: 0.14, pitch: 0.32 },
+        { yaw: -0.09, pitch: 0.32 }, { yaw: 0.18, pitch: 0.27 }, { yaw: -0.14, pitch: 0.32 }, { yaw: 0.09, pitch: 0.27 },
+        { yaw: -0.18, pitch: 0.22 }, { yaw: 0.14, pitch: 0.22 }, { yaw: -0.09, pitch: 0.22 }, { yaw: 0.18, pitch: 0.18 },
+        { yaw: -0.14, pitch: 0.22 }, { yaw: 0.09, pitch: 0.18 }, { yaw: -0.18, pitch: 0.18 }, { yaw: 0.14, pitch: 0.14 },
+        { yaw: -0.09, pitch: 0.18 }, { yaw: 0.18, pitch: 0.14 }, { yaw: -0.14, pitch: 0.14 }, { yaw: 0.09, pitch: 0.14 },
+        { yaw: -0.18, pitch: 0.09 }, { yaw: 0.14, pitch: 0.09 },
     ],
 } as const;
 
@@ -139,14 +139,14 @@ const G36C: WeaponData = {
     horizontalNoiseBase: 2.2,
     verticalRecoilBase: 175,
     recoilPattern: [
-        { dx: 0, dy: 8 }, { dx: 1, dy: 10 }, { dx: -1, dy: 9 }, { dx: 2, dy: 10 },
-        { dx: -1, dy: 9 }, { dx: 0, dy: 8 }, { dx: 1, dy: 7 }, { dx: -2, dy: 7 },
-        { dx: 1, dy: 6 }, { dx: -1, dy: 6 }, { dx: 2, dy: 5 }, { dx: -1, dy: 6 },
-        { dx: 1, dy: 5 }, { dx: 0, dy: 5 }, { dx: -1, dy: 5 }, { dx: 1, dy: 4 },
-        { dx: -1, dy: 4 }, { dx: 2, dy: 4 }, { dx: -1, dy: 4 }, { dx: 0, dy: 4 },
-        { dx: 1, dy: 3 }, { dx: -1, dy: 4 }, { dx: 1, dy: 3 }, { dx: 0, dy: 3 },
-        { dx: -1, dy: 3 }, { dx: 1, dy: 3 }, { dx: -1, dy: 2 }, { dx: 0, dy: 3 },
-        { dx: 1, dy: 2 }, { dx: -1, dy: 2 },
+        { yaw: 0.00, pitch: 0.36 }, { yaw: 0.04, pitch: 0.45 }, { yaw: -0.04, pitch: 0.40 }, { yaw: 0.09, pitch: 0.45 },
+        { yaw: -0.04, pitch: 0.40 }, { yaw: 0.00, pitch: 0.36 }, { yaw: 0.04, pitch: 0.32 }, { yaw: -0.09, pitch: 0.32 },
+        { yaw: 0.04, pitch: 0.27 }, { yaw: -0.04, pitch: 0.27 }, { yaw: 0.09, pitch: 0.22 }, { yaw: -0.04, pitch: 0.27 },
+        { yaw: 0.04, pitch: 0.22 }, { yaw: 0.00, pitch: 0.22 }, { yaw: -0.04, pitch: 0.22 }, { yaw: 0.04, pitch: 0.18 },
+        { yaw: -0.04, pitch: 0.18 }, { yaw: 0.09, pitch: 0.18 }, { yaw: -0.04, pitch: 0.18 }, { yaw: 0.00, pitch: 0.18 },
+        { yaw: 0.04, pitch: 0.14 }, { yaw: -0.04, pitch: 0.18 }, { yaw: 0.04, pitch: 0.14 }, { yaw: 0.00, pitch: 0.14 },
+        { yaw: -0.04, pitch: 0.14 }, { yaw: 0.04, pitch: 0.14 }, { yaw: -0.04, pitch: 0.09 }, { yaw: 0.00, pitch: 0.14 },
+        { yaw: 0.04, pitch: 0.09 }, { yaw: -0.04, pitch: 0.09 },
     ],
 } as const;
 
@@ -161,15 +161,15 @@ const ACE32: WeaponData = {
     horizontalNoiseBase: 2.8,
     verticalRecoilBase: 190,
     recoilPattern: [
-        { dx: 0, dy: 9 }, { dx: 1, dy: 11 }, { dx: -2, dy: 10 }, { dx: 2, dy: 12 },
-        { dx: -1, dy: 10 }, { dx: 1, dy: 9 }, { dx: -2, dy: 8 }, { dx: 2, dy: 7 },
-        { dx: -1, dy: 7 }, { dx: 1, dy: 6 }, { dx: -2, dy: 6 }, { dx: 2, dy: 5 },
-        { dx: -1, dy: 6 }, { dx: 1, dy: 5 }, { dx: -2, dy: 5 }, { dx: 2, dy: 4 },
-        { dx: -1, dy: 5 }, { dx: 1, dy: 4 }, { dx: -2, dy: 4 }, { dx: 2, dy: 3 },
-        { dx: -1, dy: 4 }, { dx: 1, dy: 3 }, { dx: -2, dy: 3 }, { dx: 2, dy: 3 },
-        { dx: -1, dy: 3 }, { dx: 1, dy: 2 }, { dx: -2, dy: 3 }, { dx: 2, dy: 2 },
-        { dx: -1, dy: 2 }, { dx: 1, dy: 2 }, { dx: -2, dy: 2 }, { dx: 2, dy: 1 },
-        { dx: -1, dy: 2 }, { dx: 1, dy: 1 }, { dx: 0, dy: 1 },
+        { yaw: 0.00, pitch: 0.40 }, { yaw: 0.04, pitch: 0.49 }, { yaw: -0.09, pitch: 0.45 }, { yaw: 0.09, pitch: 0.54 },
+        { yaw: -0.04, pitch: 0.45 }, { yaw: 0.04, pitch: 0.40 }, { yaw: -0.09, pitch: 0.36 }, { yaw: 0.09, pitch: 0.32 },
+        { yaw: -0.04, pitch: 0.32 }, { yaw: 0.04, pitch: 0.27 }, { yaw: -0.09, pitch: 0.27 }, { yaw: 0.09, pitch: 0.22 },
+        { yaw: -0.04, pitch: 0.27 }, { yaw: 0.04, pitch: 0.22 }, { yaw: -0.09, pitch: 0.22 }, { yaw: 0.09, pitch: 0.18 },
+        { yaw: -0.04, pitch: 0.22 }, { yaw: 0.04, pitch: 0.18 }, { yaw: -0.09, pitch: 0.18 }, { yaw: 0.09, pitch: 0.14 },
+        { yaw: -0.04, pitch: 0.18 }, { yaw: 0.04, pitch: 0.14 }, { yaw: -0.09, pitch: 0.14 }, { yaw: 0.09, pitch: 0.14 },
+        { yaw: -0.04, pitch: 0.14 }, { yaw: 0.04, pitch: 0.09 }, { yaw: -0.09, pitch: 0.14 }, { yaw: 0.09, pitch: 0.09 },
+        { yaw: -0.04, pitch: 0.09 }, { yaw: 0.04, pitch: 0.09 }, { yaw: -0.09, pitch: 0.09 }, { yaw: 0.09, pitch: 0.04 },
+        { yaw: -0.04, pitch: 0.09 }, { yaw: 0.04, pitch: 0.04 }, { yaw: 0.00, pitch: 0.04 },
     ],
 } as const;
 
@@ -184,14 +184,14 @@ const AUG: WeaponData = {
     horizontalNoiseBase: 1.8,
     verticalRecoilBase: 160,
     recoilPattern: [
-        { dx: 0, dy: 6 }, { dx: 1, dy: 8 }, { dx: -1, dy: 7 }, { dx: 1, dy: 9 },
-        { dx: -1, dy: 8 }, { dx: 0, dy: 7 }, { dx: 1, dy: 6 }, { dx: -1, dy: 6 },
-        { dx: 1, dy: 5 }, { dx: 0, dy: 5 }, { dx: -1, dy: 5 }, { dx: 1, dy: 4 },
-        { dx: -1, dy: 4 }, { dx: 0, dy: 4 }, { dx: 1, dy: 4 }, { dx: -1, dy: 3 },
-        { dx: 0, dy: 4 }, { dx: 1, dy: 3 }, { dx: -1, dy: 3 }, { dx: 0, dy: 3 },
-        { dx: 1, dy: 2 }, { dx: -1, dy: 3 }, { dx: 0, dy: 2 }, { dx: 1, dy: 2 },
-        { dx: -1, dy: 2 }, { dx: 0, dy: 2 }, { dx: 1, dy: 1 }, { dx: -1, dy: 2 },
-        { dx: 0, dy: 1 }, { dx: 1, dy: 1 },
+        { yaw: 0.00, pitch: 0.27 }, { yaw: 0.04, pitch: 0.36 }, { yaw: -0.04, pitch: 0.32 }, { yaw: 0.04, pitch: 0.40 },
+        { yaw: -0.04, pitch: 0.36 }, { yaw: 0.00, pitch: 0.32 }, { yaw: 0.04, pitch: 0.27 }, { yaw: -0.04, pitch: 0.27 },
+        { yaw: 0.04, pitch: 0.22 }, { yaw: 0.00, pitch: 0.22 }, { yaw: -0.04, pitch: 0.22 }, { yaw: 0.04, pitch: 0.18 },
+        { yaw: -0.04, pitch: 0.18 }, { yaw: 0.00, pitch: 0.18 }, { yaw: 0.04, pitch: 0.18 }, { yaw: -0.04, pitch: 0.14 },
+        { yaw: 0.00, pitch: 0.18 }, { yaw: 0.04, pitch: 0.14 }, { yaw: -0.04, pitch: 0.14 }, { yaw: 0.00, pitch: 0.14 },
+        { yaw: 0.04, pitch: 0.09 }, { yaw: -0.04, pitch: 0.14 }, { yaw: 0.00, pitch: 0.09 }, { yaw: 0.04, pitch: 0.09 },
+        { yaw: -0.04, pitch: 0.09 }, { yaw: 0.00, pitch: 0.09 }, { yaw: 0.04, pitch: 0.04 }, { yaw: -0.04, pitch: 0.09 },
+        { yaw: 0.00, pitch: 0.04 }, { yaw: 0.04, pitch: 0.04 },
     ],
 } as const;
 
@@ -210,13 +210,13 @@ const UMP45: WeaponData = {
     horizontalNoiseBase: 1.8,
     verticalRecoilBase: 140,
     recoilPattern: [
-        { dx: 0, dy: 6 }, { dx: 1, dy: 7 }, { dx: -1, dy: 7 }, { dx: 1, dy: 8 },
-        { dx: -1, dy: 7 }, { dx: 0, dy: 6 }, { dx: 1, dy: 5 }, { dx: -1, dy: 5 },
-        { dx: 1, dy: 5 }, { dx: 0, dy: 4 }, { dx: -1, dy: 4 }, { dx: 1, dy: 4 },
-        { dx: 0, dy: 4 }, { dx: -1, dy: 3 }, { dx: 1, dy: 3 }, { dx: 0, dy: 3 },
-        { dx: -1, dy: 3 }, { dx: 1, dy: 3 }, { dx: 0, dy: 3 }, { dx: -1, dy: 2 },
-        { dx: 1, dy: 2 }, { dx: 0, dy: 2 }, { dx: -1, dy: 2 }, { dx: 1, dy: 2 },
-        { dx: 0, dy: 2 },
+        { yaw: 0.00, pitch: 0.27 }, { yaw: 0.04, pitch: 0.32 }, { yaw: -0.04, pitch: 0.32 }, { yaw: 0.04, pitch: 0.36 },
+        { yaw: -0.04, pitch: 0.32 }, { yaw: 0.00, pitch: 0.27 }, { yaw: 0.04, pitch: 0.22 }, { yaw: -0.04, pitch: 0.22 },
+        { yaw: 0.04, pitch: 0.22 }, { yaw: 0.00, pitch: 0.18 }, { yaw: -0.04, pitch: 0.18 }, { yaw: 0.04, pitch: 0.18 },
+        { yaw: 0.00, pitch: 0.18 }, { yaw: -0.04, pitch: 0.14 }, { yaw: 0.04, pitch: 0.14 }, { yaw: 0.00, pitch: 0.14 },
+        { yaw: -0.04, pitch: 0.14 }, { yaw: 0.04, pitch: 0.14 }, { yaw: 0.00, pitch: 0.14 }, { yaw: -0.04, pitch: 0.09 },
+        { yaw: 0.04, pitch: 0.09 }, { yaw: 0.00, pitch: 0.09 }, { yaw: -0.04, pitch: 0.09 }, { yaw: 0.04, pitch: 0.09 },
+        { yaw: 0.00, pitch: 0.09 },
     ],
 } as const;
 
@@ -231,13 +231,13 @@ const VECTOR: WeaponData = {
     horizontalNoiseBase: 1.5,
     verticalRecoilBase: 120,
     recoilPattern: [
-        { dx: 0, dy: 5 }, { dx: 1, dy: 6 }, { dx: -1, dy: 5 }, { dx: 1, dy: 6 },
-        { dx: 0, dy: 5 }, { dx: -1, dy: 5 }, { dx: 1, dy: 4 }, { dx: -1, dy: 4 },
-        { dx: 0, dy: 4 }, { dx: 1, dy: 3 }, { dx: -1, dy: 3 }, { dx: 0, dy: 3 },
-        { dx: 1, dy: 3 }, { dx: -1, dy: 2 }, { dx: 0, dy: 3 }, { dx: 1, dy: 2 },
-        { dx: -1, dy: 2 }, { dx: 0, dy: 2 }, { dx: 1, dy: 2 }, { dx: -1, dy: 2 },
-        { dx: 0, dy: 1 }, { dx: 1, dy: 2 }, { dx: -1, dy: 1 }, { dx: 0, dy: 1 },
-        { dx: 1, dy: 1 },
+        { yaw: 0.00, pitch: 0.22 }, { yaw: 0.04, pitch: 0.27 }, { yaw: -0.04, pitch: 0.22 }, { yaw: 0.04, pitch: 0.27 },
+        { yaw: 0.00, pitch: 0.22 }, { yaw: -0.04, pitch: 0.22 }, { yaw: 0.04, pitch: 0.18 }, { yaw: -0.04, pitch: 0.18 },
+        { yaw: 0.00, pitch: 0.18 }, { yaw: 0.04, pitch: 0.14 }, { yaw: -0.04, pitch: 0.14 }, { yaw: 0.00, pitch: 0.14 },
+        { yaw: 0.04, pitch: 0.14 }, { yaw: -0.04, pitch: 0.09 }, { yaw: 0.00, pitch: 0.14 }, { yaw: 0.04, pitch: 0.09 },
+        { yaw: -0.04, pitch: 0.09 }, { yaw: 0.00, pitch: 0.09 }, { yaw: 0.04, pitch: 0.09 }, { yaw: -0.04, pitch: 0.09 },
+        { yaw: 0.00, pitch: 0.04 }, { yaw: 0.04, pitch: 0.09 }, { yaw: -0.04, pitch: 0.04 }, { yaw: 0.00, pitch: 0.04 },
+        { yaw: 0.04, pitch: 0.04 },
     ],
 } as const;
 
@@ -252,14 +252,14 @@ const MP5K: WeaponData = {
     horizontalNoiseBase: 1.5,
     verticalRecoilBase: 130,
     recoilPattern: [
-        { dx: 0, dy: 5 }, { dx: 1, dy: 6 }, { dx: -1, dy: 6 }, { dx: 1, dy: 7 },
-        { dx: -1, dy: 6 }, { dx: 0, dy: 5 }, { dx: 1, dy: 5 }, { dx: -1, dy: 4 },
-        { dx: 1, dy: 4 }, { dx: 0, dy: 4 }, { dx: -1, dy: 3 }, { dx: 1, dy: 3 },
-        { dx: 0, dy: 3 }, { dx: -1, dy: 3 }, { dx: 1, dy: 2 }, { dx: 0, dy: 3 },
-        { dx: -1, dy: 2 }, { dx: 1, dy: 2 }, { dx: 0, dy: 2 }, { dx: -1, dy: 2 },
-        { dx: 1, dy: 2 }, { dx: 0, dy: 1 }, { dx: -1, dy: 2 }, { dx: 1, dy: 1 },
-        { dx: 0, dy: 1 }, { dx: -1, dy: 1 }, { dx: 1, dy: 1 }, { dx: 0, dy: 1 },
-        { dx: -1, dy: 1 }, { dx: 1, dy: 1 },
+        { yaw: 0.00, pitch: 0.22 }, { yaw: 0.04, pitch: 0.27 }, { yaw: -0.04, pitch: 0.27 }, { yaw: 0.04, pitch: 0.32 },
+        { yaw: -0.04, pitch: 0.27 }, { yaw: 0.00, pitch: 0.22 }, { yaw: 0.04, pitch: 0.22 }, { yaw: -0.04, pitch: 0.18 },
+        { yaw: 0.04, pitch: 0.18 }, { yaw: 0.00, pitch: 0.18 }, { yaw: -0.04, pitch: 0.14 }, { yaw: 0.04, pitch: 0.14 },
+        { yaw: 0.00, pitch: 0.14 }, { yaw: -0.04, pitch: 0.14 }, { yaw: 0.04, pitch: 0.09 }, { yaw: 0.00, pitch: 0.14 },
+        { yaw: -0.04, pitch: 0.09 }, { yaw: 0.04, pitch: 0.09 }, { yaw: 0.00, pitch: 0.09 }, { yaw: -0.04, pitch: 0.09 },
+        { yaw: 0.04, pitch: 0.09 }, { yaw: 0.00, pitch: 0.04 }, { yaw: -0.04, pitch: 0.09 }, { yaw: 0.04, pitch: 0.04 },
+        { yaw: 0.00, pitch: 0.04 }, { yaw: -0.04, pitch: 0.04 }, { yaw: 0.04, pitch: 0.04 }, { yaw: 0.00, pitch: 0.04 },
+        { yaw: -0.04, pitch: 0.04 }, { yaw: 0.04, pitch: 0.04 },
     ],
 } as const;
 
@@ -278,18 +278,18 @@ const DP28: WeaponData = {
     horizontalNoiseBase: 2.0,
     verticalRecoilBase: 200,
     recoilPattern: [
-        { dx: 0, dy: 10 }, { dx: 1, dy: 12 }, { dx: -1, dy: 11 }, { dx: 1, dy: 12 },
-        { dx: -1, dy: 10 }, { dx: 0, dy: 9 }, { dx: 1, dy: 8 }, { dx: -1, dy: 7 },
-        { dx: 1, dy: 7 }, { dx: 0, dy: 6 }, { dx: -1, dy: 5 }, { dx: 1, dy: 5 },
-        { dx: 0, dy: 5 }, { dx: -1, dy: 4 }, { dx: 1, dy: 4 }, { dx: 0, dy: 3 },
-        { dx: -1, dy: 3 }, { dx: 1, dy: 3 }, { dx: 0, dy: 3 }, { dx: -1, dy: 2 },
-        { dx: 1, dy: 2 }, { dx: 0, dy: 2 }, { dx: -1, dy: 2 }, { dx: 1, dy: 2 },
-        { dx: 0, dy: 2 }, { dx: -1, dy: 1 }, { dx: 1, dy: 1 }, { dx: 0, dy: 1 },
-        { dx: -1, dy: 1 }, { dx: 1, dy: 1 }, { dx: 0, dy: 1 }, { dx: -1, dy: 1 },
-        { dx: 1, dy: 1 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 1, dy: 0 },
-        { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 1, dy: 0 }, { dx: 0, dy: 0 },
-        { dx: -1, dy: 0 }, { dx: 1, dy: 0 }, { dx: 0, dy: 0 }, { dx: -1, dy: 0 },
-        { dx: 1, dy: 0 }, { dx: 0, dy: 0 }, { dx: -1, dy: 0 },
+        { yaw: 0.00, pitch: 0.45 }, { yaw: 0.04, pitch: 0.54 }, { yaw: -0.04, pitch: 0.49 }, { yaw: 0.04, pitch: 0.54 },
+        { yaw: -0.04, pitch: 0.45 }, { yaw: 0.00, pitch: 0.40 }, { yaw: 0.04, pitch: 0.36 }, { yaw: -0.04, pitch: 0.32 },
+        { yaw: 0.04, pitch: 0.32 }, { yaw: 0.00, pitch: 0.27 }, { yaw: -0.04, pitch: 0.22 }, { yaw: 0.04, pitch: 0.22 },
+        { yaw: 0.00, pitch: 0.22 }, { yaw: -0.04, pitch: 0.18 }, { yaw: 0.04, pitch: 0.18 }, { yaw: 0.00, pitch: 0.14 },
+        { yaw: -0.04, pitch: 0.14 }, { yaw: 0.04, pitch: 0.14 }, { yaw: 0.00, pitch: 0.14 }, { yaw: -0.04, pitch: 0.09 },
+        { yaw: 0.04, pitch: 0.09 }, { yaw: 0.00, pitch: 0.09 }, { yaw: -0.04, pitch: 0.09 }, { yaw: 0.04, pitch: 0.09 },
+        { yaw: 0.00, pitch: 0.09 }, { yaw: -0.04, pitch: 0.04 }, { yaw: 0.04, pitch: 0.04 }, { yaw: 0.00, pitch: 0.04 },
+        { yaw: -0.04, pitch: 0.04 }, { yaw: 0.04, pitch: 0.04 }, { yaw: 0.00, pitch: 0.04 }, { yaw: -0.04, pitch: 0.04 },
+        { yaw: 0.04, pitch: 0.04 }, { yaw: 0.00, pitch: 0.04 }, { yaw: -0.04, pitch: 0.00 }, { yaw: 0.04, pitch: 0.00 },
+        { yaw: 0.00, pitch: 0.04 }, { yaw: -0.04, pitch: 0.00 }, { yaw: 0.04, pitch: 0.00 }, { yaw: 0.00, pitch: 0.00 },
+        { yaw: -0.04, pitch: 0.00 }, { yaw: 0.04, pitch: 0.00 }, { yaw: 0.00, pitch: 0.00 }, { yaw: -0.04, pitch: 0.00 },
+        { yaw: 0.04, pitch: 0.00 }, { yaw: 0.00, pitch: 0.00 }, { yaw: -0.04, pitch: 0.00 },
     ],
 } as const;
 
@@ -304,14 +304,14 @@ const M249: WeaponData = {
     horizontalNoiseBase: 3.5,
     verticalRecoilBase: 220,
     recoilPattern: [
-        { dx: 0, dy: 11 }, { dx: 2, dy: 13 }, { dx: -2, dy: 12 }, { dx: 3, dy: 14 },
-        { dx: -2, dy: 11 }, { dx: 1, dy: 10 }, { dx: -3, dy: 9 }, { dx: 2, dy: 8 },
-        { dx: -1, dy: 7 }, { dx: 3, dy: 7 }, { dx: -2, dy: 6 }, { dx: 1, dy: 6 },
-        { dx: -3, dy: 5 }, { dx: 2, dy: 5 }, { dx: -1, dy: 4 }, { dx: 3, dy: 4 },
-        { dx: -2, dy: 4 }, { dx: 1, dy: 3 }, { dx: -3, dy: 3 }, { dx: 2, dy: 3 },
-        { dx: -1, dy: 2 }, { dx: 3, dy: 2 }, { dx: -2, dy: 2 }, { dx: 1, dy: 2 },
-        { dx: -3, dy: 1 }, { dx: 2, dy: 1 }, { dx: -1, dy: 1 }, { dx: 3, dy: 1 },
-        { dx: -2, dy: 1 }, { dx: 1, dy: 0 },
+        { yaw: 0.00, pitch: 0.49 }, { yaw: 0.09, pitch: 0.58 }, { yaw: -0.09, pitch: 0.54 }, { yaw: 0.14, pitch: 0.63 },
+        { yaw: -0.09, pitch: 0.49 }, { yaw: 0.04, pitch: 0.45 }, { yaw: -0.14, pitch: 0.40 }, { yaw: 0.09, pitch: 0.36 },
+        { yaw: -0.04, pitch: 0.32 }, { yaw: 0.14, pitch: 0.32 }, { yaw: -0.09, pitch: 0.27 }, { yaw: 0.04, pitch: 0.27 },
+        { yaw: -0.14, pitch: 0.22 }, { yaw: 0.09, pitch: 0.22 }, { yaw: -0.04, pitch: 0.18 }, { yaw: 0.14, pitch: 0.18 },
+        { yaw: -0.09, pitch: 0.18 }, { yaw: 0.04, pitch: 0.14 }, { yaw: -0.14, pitch: 0.14 }, { yaw: 0.09, pitch: 0.14 },
+        { yaw: -0.04, pitch: 0.09 }, { yaw: 0.14, pitch: 0.09 }, { yaw: -0.09, pitch: 0.09 }, { yaw: 0.04, pitch: 0.09 },
+        { yaw: -0.14, pitch: 0.04 }, { yaw: 0.09, pitch: 0.04 }, { yaw: -0.04, pitch: 0.04 }, { yaw: 0.14, pitch: 0.04 },
+        { yaw: -0.09, pitch: 0.04 }, { yaw: 0.04, pitch: 0.00 },
     ],
 } as const;
 
@@ -330,11 +330,11 @@ const MINI14: WeaponData = {
     horizontalNoiseBase: 1.0,
     verticalRecoilBase: 100,
     recoilPattern: [
-        { dx: 0, dy: 12 }, { dx: 1, dy: 10 }, { dx: -1, dy: 8 }, { dx: 1, dy: 7 },
-        { dx: 0, dy: 6 }, { dx: -1, dy: 5 }, { dx: 1, dy: 4 }, { dx: 0, dy: 4 },
-        { dx: -1, dy: 3 }, { dx: 1, dy: 3 }, { dx: 0, dy: 2 }, { dx: -1, dy: 2 },
-        { dx: 1, dy: 2 }, { dx: 0, dy: 1 }, { dx: -1, dy: 1 }, { dx: 1, dy: 1 },
-        { dx: 0, dy: 1 }, { dx: -1, dy: 1 }, { dx: 1, dy: 0 }, { dx: 0, dy: 0 },
+        { yaw: 0.00, pitch: 0.54 }, { yaw: 0.04, pitch: 0.45 }, { yaw: -0.04, pitch: 0.36 }, { yaw: 0.04, pitch: 0.32 },
+        { yaw: 0.00, pitch: 0.27 }, { yaw: -0.04, pitch: 0.22 }, { yaw: 0.04, pitch: 0.18 }, { yaw: 0.00, pitch: 0.18 },
+        { yaw: -0.04, pitch: 0.14 }, { yaw: 0.04, pitch: 0.14 }, { yaw: 0.00, pitch: 0.09 }, { yaw: -0.04, pitch: 0.09 },
+        { yaw: 0.04, pitch: 0.09 }, { yaw: 0.00, pitch: 0.04 }, { yaw: -0.04, pitch: 0.04 }, { yaw: 0.04, pitch: 0.04 },
+        { yaw: 0.00, pitch: 0.04 }, { yaw: -0.04, pitch: 0.04 }, { yaw: 0.04, pitch: 0.00 }, { yaw: 0.00, pitch: 0.00 },
     ],
 } as const;
 
@@ -349,11 +349,11 @@ const SKS: WeaponData = {
     horizontalNoiseBase: 2.0,
     verticalRecoilBase: 150,
     recoilPattern: [
-        { dx: 0, dy: 18 }, { dx: 2, dy: 15 }, { dx: -2, dy: 12 }, { dx: 2, dy: 10 },
-        { dx: -1, dy: 8 }, { dx: 1, dy: 7 }, { dx: -2, dy: 6 }, { dx: 2, dy: 5 },
-        { dx: -1, dy: 4 }, { dx: 1, dy: 3 }, { dx: 0, dy: 3 }, { dx: -1, dy: 2 },
-        { dx: 1, dy: 2 }, { dx: 0, dy: 2 }, { dx: -1, dy: 1 }, { dx: 1, dy: 1 },
-        { dx: 0, dy: 1 }, { dx: -1, dy: 1 }, { dx: 1, dy: 0 }, { dx: 0, dy: 0 },
+        { yaw: 0.00, pitch: 0.81 }, { yaw: 0.09, pitch: 0.67 }, { yaw: -0.09, pitch: 0.54 }, { yaw: 0.09, pitch: 0.45 },
+        { yaw: -0.04, pitch: 0.36 }, { yaw: 0.04, pitch: 0.32 }, { yaw: -0.09, pitch: 0.27 }, { yaw: 0.09, pitch: 0.22 },
+        { yaw: -0.04, pitch: 0.18 }, { yaw: 0.04, pitch: 0.14 }, { yaw: 0.00, pitch: 0.14 }, { yaw: -0.04, pitch: 0.09 },
+        { yaw: 0.04, pitch: 0.09 }, { yaw: 0.00, pitch: 0.09 }, { yaw: -0.04, pitch: 0.04 }, { yaw: 0.04, pitch: 0.04 },
+        { yaw: 0.00, pitch: 0.04 }, { yaw: -0.04, pitch: 0.04 }, { yaw: 0.04, pitch: 0.00 }, { yaw: 0.00, pitch: 0.00 },
     ],
 } as const;
 
@@ -368,11 +368,11 @@ const SLR: WeaponData = {
     horizontalNoiseBase: 2.5,
     verticalRecoilBase: 180,
     recoilPattern: [
-        { dx: 0, dy: 22 }, { dx: 2, dy: 18 }, { dx: -3, dy: 15 }, { dx: 3, dy: 12 },
-        { dx: -2, dy: 10 }, { dx: 1, dy: 8 }, { dx: -2, dy: 7 }, { dx: 2, dy: 5 },
-        { dx: -1, dy: 4 }, { dx: 1, dy: 3 }, { dx: 0, dy: 3 }, { dx: -1, dy: 2 },
-        { dx: 1, dy: 2 }, { dx: 0, dy: 2 }, { dx: -1, dy: 1 }, { dx: 1, dy: 1 },
-        { dx: 0, dy: 1 }, { dx: -1, dy: 1 }, { dx: 1, dy: 0 }, { dx: 0, dy: 0 },
+        { yaw: 0.00, pitch: 0.99 }, { yaw: 0.09, pitch: 0.81 }, { yaw: -0.14, pitch: 0.67 }, { yaw: 0.14, pitch: 0.54 },
+        { yaw: -0.09, pitch: 0.45 }, { yaw: 0.04, pitch: 0.36 }, { yaw: -0.09, pitch: 0.32 }, { yaw: 0.09, pitch: 0.22 },
+        { yaw: -0.04, pitch: 0.18 }, { yaw: 0.04, pitch: 0.14 }, { yaw: 0.00, pitch: 0.14 }, { yaw: -0.04, pitch: 0.09 },
+        { yaw: 0.04, pitch: 0.09 }, { yaw: 0.00, pitch: 0.09 }, { yaw: -0.04, pitch: 0.04 }, { yaw: 0.04, pitch: 0.04 },
+        { yaw: 0.00, pitch: 0.04 }, { yaw: -0.04, pitch: 0.04 }, { yaw: 0.04, pitch: 0.00 }, { yaw: 0.00, pitch: 0.00 },
     ],
 } as const;
 
@@ -410,15 +410,15 @@ export function getWeaponsByCategory(category: WeaponCategory): readonly WeaponD
     return WEAPON_LIST.filter(w => w.category === category);
 }
 
-/** Calcula a jitter threshold baseada na categoria da arma */
+/** Calcula a jitter threshold baseada na categoria da arma (Angular Degrees) */
 export function getJitterThreshold(category: WeaponCategory): number {
     switch (category) {
-        case 'ar': return 4.0;
-        case 'smg': return 3.0;
-        case 'lmg': return 5.0;
-        case 'dmr': return 3.5;
-        case 'sr': return 6.0;
-        case 'shotgun': return 8.0;
-        case 'pistol': return 5.0;
+        case 'ar': return 0.18;
+        case 'smg': return 0.13;
+        case 'lmg': return 0.22;
+        case 'dmr': return 0.15;
+        case 'sr': return 0.27;
+        case 'shotgun': return 0.36;
+        case 'pistol': return 0.22;
     }
 }

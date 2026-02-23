@@ -46,40 +46,42 @@ export default async function HistoryPage() {
                                 const weapon = getWeapon(s.weaponId);
                                 const scope = SCOPE_LIST.find(sc => sc.id === s.scopeId);
                                 return (
-                                    <div key={s.id} className={`glass-card animate-fade-in-up stagger-${Math.min(i + 1, 5)}`} style={{ padding: 'var(--space-lg)', display: 'flex', flexWrap: 'wrap', gap: 'var(--space-xl)', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-lg)', minWidth: 200 }}>
-                                            <div style={{ fontSize: '2rem' }}>{weapon?.category === 'ar' ? '🔫' : '🎯'}</div>
-                                            <div>
-                                                <h3 style={{ margin: 0, fontSize: 'var(--text-lg)' }}>{weapon?.name || s.weaponId}</h3>
-                                                <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>
-                                                    Mira: {scope?.name || s.scopeId} • {new Date(s.createdAt).toLocaleDateString('pt-BR')}
-                                                </p>
+                                    <Link href={`/history/${s.id}`} key={s.id} style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}>
+                                        <div className={`glass-card animate-fade-in-up stagger-${Math.min(i + 1, 5)}`} style={{ padding: 'var(--space-lg)', display: 'flex', flexWrap: 'wrap', gap: 'var(--space-xl)', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-lg)', minWidth: 200 }}>
+                                                <div style={{ fontSize: '2rem' }}>{weapon?.category === 'ar' ? '🔫' : '🎯'}</div>
+                                                <div>
+                                                    <h3 style={{ margin: 0, fontSize: 'var(--text-lg)' }}>{weapon?.name || s.weaponId}</h3>
+                                                    <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>
+                                                        Mira: {scope?.name || s.scopeId} • {new Date(s.createdAt).toLocaleDateString('pt-BR')}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <div style={{ display: 'flex', gap: 'var(--space-xl)', flexWrap: 'wrap' }}>
+                                                <div style={{ textAlign: 'center' }}>
+                                                    <div style={{ fontSize: 'var(--text-2xl)', fontFamily: 'var(--font-mono)', fontWeight: 700, color: s.stabilityScore >= 70 ? 'var(--color-success)' : s.stabilityScore >= 40 ? 'var(--color-warning)' : 'var(--color-error)' }}>
+                                                        {Math.round(s.stabilityScore)}
+                                                    </div>
+                                                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>ESTABILIDADE</div>
+                                                </div>
+
+                                                <div style={{ textAlign: 'center' }}>
+                                                    <div style={{ fontSize: 'var(--text-2xl)', fontFamily: 'var(--font-mono)', fontWeight: 700, color: Math.abs(s.verticalControl - 1) < 0.15 ? 'var(--color-success)' : 'var(--color-warning)' }}>
+                                                        {s.verticalControl.toFixed(2)}x
+                                                    </div>
+                                                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>RECOIL VERT.</div>
+                                                </div>
+
+                                                <div style={{ textAlign: 'center' }}>
+                                                    <div style={{ fontSize: 'var(--text-2xl)', fontFamily: 'var(--font-mono)', fontWeight: 700, color: s.horizontalNoise <= 0.20 ? 'var(--color-success)' : 'var(--color-error)' }}>
+                                                        {s.horizontalNoise.toFixed(2)}°
+                                                    </div>
+                                                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>RUÍDO (YAW)</div>
+                                                </div>
                                             </div>
                                         </div>
-
-                                        <div style={{ display: 'flex', gap: 'var(--space-xl)', flexWrap: 'wrap' }}>
-                                            <div style={{ textAlign: 'center' }}>
-                                                <div style={{ fontSize: 'var(--text-2xl)', fontFamily: 'var(--font-mono)', fontWeight: 700, color: s.stabilityScore >= 70 ? 'var(--color-success)' : s.stabilityScore >= 40 ? 'var(--color-warning)' : 'var(--color-error)' }}>
-                                                    {Math.round(s.stabilityScore)}
-                                                </div>
-                                                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>ESTABILIDADE</div>
-                                            </div>
-
-                                            <div style={{ textAlign: 'center' }}>
-                                                <div style={{ fontSize: 'var(--text-2xl)', fontFamily: 'var(--font-mono)', fontWeight: 700, color: Math.abs(s.verticalControl - 1) < 0.15 ? 'var(--color-success)' : 'var(--color-warning)' }}>
-                                                    {s.verticalControl.toFixed(2)}x
-                                                </div>
-                                                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>RECOIL VERT.</div>
-                                            </div>
-
-                                            <div style={{ textAlign: 'center' }}>
-                                                <div style={{ fontSize: 'var(--text-2xl)', fontFamily: 'var(--font-mono)', fontWeight: 700, color: s.horizontalNoise <= 3 ? 'var(--color-success)' : 'var(--color-error)' }}>
-                                                    {s.horizontalNoise.toFixed(1)}
-                                                </div>
-                                                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>RUÍDO (px)</div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    </Link>
                                 );
                             })}
                         </div>

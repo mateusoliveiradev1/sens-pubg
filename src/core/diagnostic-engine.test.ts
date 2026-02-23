@@ -13,7 +13,7 @@ function makeMetrics(overrides: Partial<SprayMetrics> = {}): SprayMetrics {
     return {
         stabilityScore: asScore(70),
         verticalControlIndex: 1.0,
-        horizontalNoiseIndex: 2.0,
+        horizontalNoiseIndex: 0.1, // Angular Degrees (AR Threshold is 0.18)
         initialRecoilResponseMs: asMilliseconds(100),
         driftDirectionBias: { direction: 'neutral', magnitude: 0 },
         consistencyScore: asScore(70),
