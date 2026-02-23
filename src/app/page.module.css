@@ -381,6 +381,40 @@
   margin: 0 auto var(--space-xl);
 }
 
+/* ─── FAQ Section ─── */
+.faq {
+  padding: var(--space-4xl) 0;
+  position: relative;
+}
+
+.faqGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--space-xl);
+  margin-top: var(--space-2xl);
+}
+
+.faqItem {
+  padding: var(--space-2xl);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+}
+
+.faqItem h3 {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.faqItem p {
+  color: var(--color-text-muted);
+  line-height: 1.7;
+}
+
 /* ═══════════════════════════════════════════
    ANIMATIONS
    ═══════════════════════════════════════════ */

@@ -117,14 +117,14 @@ export function ProsClient({ players, stats }: ProsClientProps) {
                             <div key={player.id} className={styles.compareCard}>
                                 <div className={styles.compareHeader}>
                                     <div className={styles.comparePhotoWrapper}>
-                                        <img src={PLAYER_IMG(player.name)} alt={player.name} className={styles.playerPhoto} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                                        <img src={PLAYER_IMG(player.name)} alt={player.name} className={styles.playerPhoto} onError={(e) => { e.currentTarget.style.display = 'none'; }} referrerPolicy="no-referrer" />
                                     </div>
                                     <div className={styles.compareNameWrapper}>
                                         <img src={FLAG_URL(player.countryCode)} alt={player.countryCode} className={styles.flagImg} />
                                         <strong>{player.name}</strong>
                                     </div>
                                     {TEAM_LOGO(player.team) ? (
-                                        <img src={TEAM_LOGO(player.team)!} alt={player.team} className={styles.compareTeamLogo} onError={(e) => { e.currentTarget.style.display = 'none'; }} title={player.team} />
+                                        <img src={TEAM_LOGO(player.team)!} alt={player.team} className={styles.compareTeamLogo} onError={(e) => { e.currentTarget.style.display = 'none'; }} title={player.team} referrerPolicy="no-referrer" />
                                     ) : (
                                         <span className={styles.compareTeam}>{player.team}</span>
                                     )}
@@ -203,7 +203,7 @@ export function ProsClient({ players, stats }: ProsClientProps) {
                                 <div className={styles.cardHeader}>
                                     <div className={styles.cardPlayer}>
                                         <div className={styles.playerPhotoWrapper}>
-                                            <img src={PLAYER_IMG(player.name)} alt={player.name} className={styles.playerPhoto} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                                            <img src={PLAYER_IMG(player.name)} alt={player.name} className={styles.playerPhoto} onError={(e) => { e.currentTarget.style.display = 'none'; }} referrerPolicy="no-referrer" />
                                         </div>
                                         <div className={styles.cardNameGroup}>
                                             <div className={styles.cardNameRow}>
@@ -218,7 +218,7 @@ export function ProsClient({ players, stats }: ProsClientProps) {
                                             </div>
                                             <div className={styles.cardTeamRow}>
                                                 {TEAM_LOGO(player.team) && (
-                                                    <img src={TEAM_LOGO(player.team)!} alt={player.team} className={styles.teamLogoImg} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                                                    <img src={TEAM_LOGO(player.team)!} alt={player.team} className={styles.teamLogoImg} onError={(e) => { e.currentTarget.style.display = 'none'; }} referrerPolicy="no-referrer" />
                                                 )}
                                                 <span className={styles.cardTeam}>{player.team}</span>
                                             </div>
