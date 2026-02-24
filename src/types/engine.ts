@@ -11,9 +11,9 @@ import type { Score, Milliseconds, DPI, Sensitivity, Centimeters, Pixels } from 
 
 export type PlayerStance = 'standing' | 'crouching' | 'prone';
 
-export type MuzzleAttachment = 'none' | 'compensator' | 'flash_hider' | 'suppressor';
-export type GripAttachment = 'none' | 'vertical' | 'angled' | 'half' | 'thumb' | 'lightweight' | 'laser';
-export type StockAttachment = 'none' | 'tactical' | 'heavy' | 'folding';
+export type MuzzleAttachment = 'none' | 'compensator' | 'flash_hider' | 'suppressor' | 'muzzle_brake' | 'choke' | 'duckbill';
+export type GripAttachment = 'none' | 'vertical' | 'angled' | 'half' | 'thumb' | 'lightweight' | 'laser' | 'ergonomic';
+export type StockAttachment = 'none' | 'tactical' | 'heavy' | 'folding' | 'cheek_pad';
 
 export interface WeaponLoadout {
     readonly stance: PlayerStance;

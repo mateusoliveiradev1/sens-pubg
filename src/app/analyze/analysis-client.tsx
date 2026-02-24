@@ -5,7 +5,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useMemo } from 'react';
-import { validateAndPrepareVideo, releaseVideoUrl, extractFrames, trackCrosshair, buildTrajectory, calculateSprayMetrics, runDiagnostics, generateSensitivityRecommendation, generateCoaching } from '@/core';
+import { validateAndPrepareVideo, releaseVideoUrl, extractFrames, trackCrosshair, buildTrajectory, calculateSprayMetrics, runDiagnostics, generateSensitivityRecommendation, generateCoaching, scanInventory } from '@/core';
 import type { VideoMetadata } from '@/core';
 import type { AnalysisResult, PlayerStance, MuzzleAttachment, GripAttachment, StockAttachment, WeaponLoadout } from '@/types/engine';
 import { WEAPON_LIST, getWeapon, SCOPE_LIST } from '@/game/pubg';
@@ -13,6 +13,10 @@ import { ResultsDashboard } from './results-dashboard';
 import { saveAnalysisResult } from '@/actions/history';
 import type { PlayerProfile } from '@/db/schema';
 import styles from './analysis.module.css';
+
+const MUZZLE_LABELS: Record<MuzzleAttachment, string> = { none: 'Nenhum', compensator: 'Compensator', flash_hider: 'Flash Hider', suppressor: 'Suppressor', muzzle_brake: 'Muzzle Brake', choke: 'Choke', duckbill: 'Duckbill' };
+const GRIP_LABELS: Record<GripAttachment, string> = { none: 'Nenhum', vertical: 'Vertical Grip', angled: 'Angled Grip', half: 'Half Grip', thumb: 'Thumb Grip', lightweight: 'Lightweight Grip', laser: 'Laser Sight', ergonomic: 'Ergonomic Grip' };
+const STOCK_LABELS: Record<StockAttachment, string> = { none: 'Nenhuma', tactical: 'Tactical Stock', heavy: 'Heavy Stock', folding: 'Folding Stock', cheek_pad: 'Cheek Pad' };
 
 type AnalysisStep = 'upload' | 'settings' | 'processing' | 'done' | 'error';
 type ProcessingPhase = 'extracting' | 'tracking' | 'calculating' | 'diagnosing' | 'done';
@@ -51,14 +55,30 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
 
     const handleFile = useCallback(async (file: File) => {
         setError(null);
+        setStep('processing'); // Show loading briefly during OCR
+        setPhase('extracting');
+
         const result = await validateAndPrepareVideo(file);
         if (!result.valid) {
             setError(result.error.message);
+            setStep('error');
             return;
         }
+
         setVideo(result.metadata);
         setMarkers([{ id: crypto.randomUUID(), time: 0 }]);
         setStep('settings');
+
+        // Fire & Forget OCR Scanner (non-blocking)
+        extractFrames(result.metadata.url, Math.min(result.metadata.fps, 30), 0, 2).then(async (frames) => {
+            if (frames.length > 0) {
+                const scan = await scanInventory(frames);
+                if (scan.found && scan.weaponId) {
+                    setWeaponId(scan.weaponId);
+                }
+            }
+        }).catch(err => console.error('Auto-Detect Failed:', err));
+
     }, []);
 
     const addMarker = useCallback(() => {
@@ -313,29 +333,26 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
                         </div>
                         <div className={styles.field}>
                             <label className="input-label" htmlFor="muzzle">Ponta (Muzzle)</label>
-                            <select id="muzzle" className="input select" value={muzzle} onChange={e => setMuzzle(e.target.value as MuzzleAttachment)} disabled={!getWeapon(weaponId)?.supportedAttachments?.muzzle}>
-                                <option value="none">Nenhuma</option>
-                                <option value="flash_hider">Flash Hider</option>
-                                <option value="compensator">Compensator</option>
+                            <select id="muzzle" className="input select" value={muzzle} onChange={e => setMuzzle(e.target.value as MuzzleAttachment)} disabled={!getWeapon(weaponId)?.supportedAttachments?.muzzle || getWeapon(weaponId)!.supportedAttachments.muzzle.length <= 1}>
+                                {getWeapon(weaponId)?.supportedAttachments.muzzle.map(m => (
+                                    <option key={m} value={m}>{MUZZLE_LABELS[m]}</option>
+                                ))}
                             </select>
                         </div>
                         <div className={styles.field}>
                             <label className="input-label" htmlFor="grip">Empunhadura (Grip)</label>
-                            <select id="grip" className="input select" value={grip} onChange={e => setGrip(e.target.value as GripAttachment)} disabled={!getWeapon(weaponId)?.supportedAttachments?.grip}>
-                                <option value="none">Nenhum</option>
-                                <option value="vertical">Vertical Grip</option>
-                                <option value="angled">Angled Grip</option>
-                                <option value="half">Half Grip</option>
-                                <option value="thumb">Thumb Grip</option>
-                                <option value="lightweight">Lightweight Grip</option>
+                            <select id="grip" className="input select" value={grip} onChange={e => setGrip(e.target.value as GripAttachment)} disabled={!getWeapon(weaponId)?.supportedAttachments?.grip || getWeapon(weaponId)!.supportedAttachments.grip.length <= 1}>
+                                {getWeapon(weaponId)?.supportedAttachments.grip.map(g => (
+                                    <option key={g} value={g}>{GRIP_LABELS[g]}</option>
+                                ))}
                             </select>
                         </div>
                         <div className={styles.field}>
                             <label className="input-label" htmlFor="stock">Coronha (Stock)</label>
-                            <select id="stock" className="input select" value={stock} onChange={e => setStock(e.target.value as StockAttachment)} disabled={!getWeapon(weaponId)?.supportedAttachments?.stock}>
-                                <option value="none">Nenhuma</option>
-                                <option value="tactical">Tactical Stock</option>
-                                <option value="heavy">Heavy Stock</option>
+                            <select id="stock" className="input select" value={stock} onChange={e => setStock(e.target.value as StockAttachment)} disabled={!getWeapon(weaponId)?.supportedAttachments?.stock || getWeapon(weaponId)!.supportedAttachments.stock.length <= 1}>
+                                {getWeapon(weaponId)?.supportedAttachments.stock.map(s => (
+                                    <option key={s} value={s}>{STOCK_LABELS[s]}</option>
+                                ))}
                             </select>
                         </div>
                         <div className={styles.field} style={{ gridColumn: '1 / -1' }}>
