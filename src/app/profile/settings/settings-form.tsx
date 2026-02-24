@@ -133,6 +133,24 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
         });
     };
 
+    const onError = (errors: any) => {
+        setNotification({ type: 'error', message: 'Por favor, revise os campos marcados em vermelho nas abas de configuração.' });
+
+        // Find the first tab that has an error and switch to it
+        if (errors.identity) {
+            setActiveTab('identity');
+        } else if (errors.mouse || errors.monitor || errors.gripStyle || errors.playStyle) {
+            setActiveTab('mouse');
+        } else if (errors.mousepad || errors.physical) {
+            setActiveTab('mousepad');
+        } else if (errors.pubgSettings) {
+            setActiveTab('ingame');
+        }
+
+        // Scroll to top of form area for visibility on mobile
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
     const handleDeleteAccount = async () => {
         if (!confirm('🚨 Atenção! Esta ação apagará SUA CONTA, TODOS os seus relatórios e vídeos e NÃO TEM VOLTA. Confirmar?')) return;
 
@@ -192,7 +210,7 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
             </aside>
 
             {/* CONTENT AREA */}
-            <form id="settings-form" onSubmit={handleSubmit(onSubmit)} className={styles.contentArea}>
+            <form id="settings-form" onSubmit={handleSubmit(onSubmit, onError)} className={styles.contentArea}>
 
                 {/* TAB: IDENTITY */}
                 <div className={`${styles.tabPane} ${activeTab === 'identity' ? styles.tabPaneActive : ''}`}>

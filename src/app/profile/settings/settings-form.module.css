@@ -91,15 +91,16 @@
         min-width: 100%;
         flex-direction: row;
         overflow-x: auto;
-        position: sticky;
-        top: 64px;
-        /* Exact Header height */
-        background: var(--color-bg-primary);
-        /* Solid background to prevent overlap transparency */
-        padding: var(--space-sm) 0;
-        z-index: 50;
-        border-bottom: 1px solid var(--color-border);
+        position: relative;
+        /* Remove sticky to avoid overlap bugs while rethinking */
+        top: 0;
+        background: transparent;
+        padding: var(--space-sm) 0 var(--space-lg) 0;
+        z-index: 10;
+        border-bottom: none;
         -webkit-overflow-scrolling: touch;
+        display: inline-flex;
+        gap: var(--space-sm);
         scrollbar-width: none;
     }
 
@@ -109,28 +110,40 @@
 
     .tabBtn {
         white-space: nowrap;
-        padding: var(--space-sm) var(--space-lg);
+        padding: 10px 18px;
         font-size: 0.85rem;
         flex-shrink: 0;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-full);
+        color: var(--color-text-secondary);
+    }
+
+    .tabActive {
+        background: var(--color-primary) !important;
+        color: var(--color-background) !important;
+        border-color: var(--color-primary) !important;
     }
 
     .dangerTabBtn {
         margin-top: 0;
+        border-color: rgba(255, 74, 74, 0.3);
     }
 
     .contentArea {
         width: 100%;
         max-width: 100%;
         flex-grow: 0;
-        margin-top: var(--space-md);
-        /* Add clearance for sticky bar */
+        margin-top: 0;
+        /* Position relative sidebar doesn't need gap */
     }
 
     .sectionTitle {
-        font-size: 1.15rem;
-        /* Smoother scaling */
+        font-size: 1.25rem;
+        /* Slightly larger Title now that Nav is relative */
         word-wrap: break-word;
-        margin-bottom: var(--space-sm);
+        margin-bottom: var(--space-xs);
+        color: var(--color-text);
     }
 
     .grid2 {
@@ -184,15 +197,21 @@
         margin-bottom: var(--space-lg);
         background: transparent;
         border-bottom: none;
+        padding: var(--space-xs) 0 var(--space-md) 0;
     }
 
     .tabBtn {
-        padding: 6px 12px;
-        font-size: 0.75rem;
+        padding: 8px 14px;
+        font-size: 0.8rem;
     }
 
     .sectionTitle {
-        font-size: 1rem !important;
+        font-size: 1.1rem !important;
+    }
+
+    .sectionDesc {
+        font-size: 0.85rem;
+        margin-bottom: var(--space-md) !important;
     }
 }
 
