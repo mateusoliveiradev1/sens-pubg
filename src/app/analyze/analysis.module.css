@@ -352,6 +352,9 @@
     font-size: var(--text-xs);
     margin-bottom: var(--space-lg);
     color: var(--color-text-muted);
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    line-height: 1.5;
 }
 
 .profileStats {
@@ -627,9 +630,22 @@
     }
 
     .profileStats {
-        flex-direction: column;
-        gap: var(--space-md);
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--space-sm);
         align-items: center;
+        width: 100%;
+    }
+
+    .profileValue {
+        font-size: var(--text-lg);
+        /* Scale down from 2xl */
+    }
+
+    .profileDesc {
+        font-size: var(--text-xs);
+        line-height: 1.4;
+        margin-bottom: var(--space-md);
     }
 
     .scopeTableContainer {

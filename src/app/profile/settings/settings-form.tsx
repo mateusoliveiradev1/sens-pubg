@@ -18,6 +18,19 @@ const MONITOR_PANELS = ['ips', 'tn', 'va'];
 
 type ProfileFormValues = z.infer<typeof playerProfileSchema>;
 
+// Sub-component for performance optimization: Only re-renders when DPI or Sensitivity changes
+function Cm360Badge({ control }: { control: any }) {
+    const currentDpi = useWatch({ control, name: 'mouse.dpi' }) || 800;
+    const currentSens = useWatch({ control, name: 'pubgSettings.generalSens' }) || 35;
+    const calculatedCm360 = Math.round(((800 / currentDpi) * (35 / currentSens) * 43.2) * 10) / 10;
+
+    return (
+        <div className={styles.cmBadge}>
+            {calculatedCm360} cm/360°
+        </div>
+    );
+}
+
 export function SettingsForm({ initialData }: { initialData: typeof playerProfiles.$inferSelect | null }) {
     const [isPending, startTransition] = useTransition();
     const [isDeleting, setIsDeleting] = useState(false);
@@ -81,15 +94,6 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
         mode: 'onChange' // To keep isDirty up to date easily
     });
 
-    // Real-time CM/360 Calculation (Estimate 800 DPI 35 Sens = 43_cm/360 approx in PUBG)
-    // Formula for PUBG (example approximation): cm/360 = (1 / DPI) * (Constant / Sens) * 360... 
-    // Simplified robust approximation for display proxy: Base is 43.2cm for 800/35.
-    const currentDpi = useWatch({ control, name: 'mouse.dpi' }) || 800;
-    const currentSens = useWatch({ control, name: 'pubgSettings.generalSens' }) || 35;
-
-    // Exact Formula logic (mocked for simplicity here):
-    // Real PUBG formula requires interpolation. We'll use a dynamic proxy formula that looks cool.
-    const calculatedCm360 = Math.round(((800 / currentDpi) * (35 / currentSens) * 43.2) * 10) / 10;
 
     const syncAllScopes = () => {
         // Get current ADS value from the form
@@ -349,9 +353,7 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
                             <h2 className={styles.sectionTitle}>In-Game (PUBG)</h2>
                             <p className={styles.sectionDesc}>Configurações brutas do jogo.</p>
                         </div>
-                        <div className={styles.cmBadge}>
-                            {calculatedCm360} cm/360°
-                        </div>
+                        <Cm360Badge control={control} />
                     </div>
 
                     <div className="glass-card">

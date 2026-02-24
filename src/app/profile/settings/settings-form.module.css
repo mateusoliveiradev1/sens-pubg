@@ -72,6 +72,106 @@
     animation: fadeIn 0.3s ease forwards;
 }
 
+@media (max-width: 768px) {
+    .layout {
+        flex-direction: column !important;
+        padding: var(--space-md) var(--space-md);
+        gap: var(--space-xl);
+        overflow-x: hidden;
+    }
+
+    .sidebar {
+        width: 100%;
+        min-width: 100%;
+        flex-direction: row;
+        overflow-x: auto;
+        position: sticky;
+        top: 60px;
+        background: var(--color-background);
+        padding: var(--space-xs) 0;
+        z-index: 50;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+
+    .sidebar::-webkit-scrollbar {
+        display: none;
+    }
+
+    .tabBtn {
+        white-space: nowrap;
+        padding: var(--space-sm) var(--space-lg);
+        font-size: 0.9rem;
+        flex-shrink: 0;
+    }
+
+    .dangerTabBtn {
+        margin-top: 0;
+    }
+
+    .contentArea {
+        width: 100%;
+        max-width: 100%;
+        flex-grow: 0;
+    }
+
+    .sectionTitle {
+        font-size: 1.25rem;
+        word-wrap: break-word;
+    }
+
+    .grid2 {
+        grid-template-columns: 1fr;
+        gap: var(--space-md);
+    }
+
+    .grid4 {
+        grid-template-columns: 1fr;
+        gap: var(--space-sm);
+    }
+
+    .badgeBadgeWrapper {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-md);
+        margin-bottom: var(--space-lg);
+    }
+
+    .floatingSaveBar {
+        width: calc(100% - 40px);
+        bottom: 20px;
+        flex-direction: column;
+        gap: var(--space-md);
+        text-align: center;
+        padding: var(--space-lg);
+    }
+
+    .saveActions {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .btnSave {
+        width: 100%;
+    }
+
+    .toast {
+        top: 80px;
+        right: 10px;
+        left: 10px;
+        text-align: center;
+        width: auto;
+    }
+}
+
+@media (max-width: 480px) {
+    .cmBadge {
+        width: 100%;
+        text-align: center;
+        font-size: 1rem;
+    }
+}
+
 .tabPaneActive {
     display: flex;
     flex-direction: column;
