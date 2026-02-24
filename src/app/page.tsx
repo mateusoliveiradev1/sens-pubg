@@ -6,11 +6,44 @@
 import Link from 'next/link';
 import { Header } from '@/ui/components/header';
 import { FaqAccordion } from '@/ui/components/faq-accordion';
+import { JsonLd } from '@/ui/components/seo/json-ld';
 import styles from './page.module.css';
 
 export default function HomePage(): React.JSX.Element {
+  const faqLd = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: [
+      {
+        '@type': 'Question',
+        name: 'Como funciona a análise de spray?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'O PUBG Aim Analyzer utiliza visão computacional via Canvas API para rastrear o deslocamento do seu retículo em clips de gameplay reais, calculando 6 métricas de precisão diferentes.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'É necessário fazer upload do vídeo para um servidor?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Não. Toda a análise é processada localmente no seu navegador através de Web Workers e GPU, garantindo privacidade e velocidade instantânea.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'O sistema suporta quais armas do PUBG?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Suportamos todas as armas automáticas principais (ARs, SMGs, LMGs), incluindo Beryl M762, M416, AUG, ACE32, entre outras, com seus respectivos padrões de recuo dataminados.',
+        },
+      },
+    ],
+  };
+
   return (
     <>
+      <JsonLd data={faqLd} />
       <Header />
 
       <div className={styles.page}>
