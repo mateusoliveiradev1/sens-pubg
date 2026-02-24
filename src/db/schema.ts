@@ -118,6 +118,11 @@ export const playerProfiles = pgTable('player_profiles', {
     armLength: text('arm_length').notNull(), // short | medium | long
     deskSpace: real('desk_space').notNull(), // cm
 
+    // Identity & Social
+    bio: text('bio'),
+    twitter: text('twitter'),
+    twitch: text('twitch'),
+
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
 });

@@ -6,7 +6,7 @@
 'use server';
 
 import { db } from '@/db';
-import { playerProfiles } from '@/db/schema';
+import { playerProfiles, analysisSessions, sessions as authSessions, users } from '@/db/schema';
 import { auth } from '@/auth';
 import { playerProfileSchema } from '@/types/schemas';
 import { eq } from 'drizzle-orm';
@@ -70,6 +70,9 @@ export async function saveProfile(
             mouseAcceleration: data.pubgSettings.mouseAcceleration,
             armLength: data.physical.armLength,
             deskSpace: data.physical.deskSpaceCm,
+            bio: data.identity?.bio ?? null,
+            twitter: data.identity?.twitter ?? null,
+            twitch: data.identity?.twitch ?? null,
             updatedAt: new Date(),
         };
 
@@ -101,4 +104,33 @@ export async function getProfile(): Promise<typeof playerProfiles.$inferSelect |
         .limit(1);
 
     return results[0] ?? null;
+}
+
+export async function deleteUserAccount(): Promise<ProfileActionResult> {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return { success: false, error: 'Você precisa estar logado para realizar esta ação.' };
+    }
+
+    try {
+        const userId = session.user.id;
+
+        // Execute sequentially to respect foreign constraints or lack thereof.
+        // First delete analysis sessions
+        await db.delete(analysisSessions).where(eq(analysisSessions.userId, userId));
+
+        // Then delete the player profile
+        await db.delete(playerProfiles).where(eq(playerProfiles.userId, userId));
+
+        // Ensure any Auth.js sessions attached to this user are terminated
+        await db.delete(authSessions).where(eq(authSessions.userId, userId));
+
+        // Finally delete the Auth.js core user object
+        await db.delete(users).where(eq(users.id, userId));
+
+        return { success: true };
+    } catch (err) {
+        console.error('[deleteUserAccount] Error:', err);
+        return { success: false, error: 'Falha crítica ao deletar conta. Contate o suporte.' };
+    }
 }

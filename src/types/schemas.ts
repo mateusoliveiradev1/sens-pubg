@@ -74,6 +74,11 @@ export const playerProfileSchema = z.object({
     monitor: monitorSchema,
     pubgSettings: pubgSettingsSchema,
     physical: physicalSchema,
+    identity: z.object({
+        bio: z.string().max(300, 'Bio muito longa').optional().nullable(),
+        twitter: z.string().optional().nullable(),
+        twitch: z.string().optional().nullable(),
+    }).optional(),
 });
 
 export type PlayerProfileInput = z.infer<typeof playerProfileSchema>;

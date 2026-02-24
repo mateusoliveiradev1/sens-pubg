@@ -4,8 +4,8 @@
  */
 
 import Link from 'next/link';
-import Image from 'next/image';
-import { auth, signOut } from '@/auth';
+import { auth } from '@/auth';
+import { UserDropdown } from './user-dropdown';
 import styles from './header.module.css';
 
 export async function Header(): Promise<React.JSX.Element> {
@@ -26,37 +26,11 @@ export async function Header(): Promise<React.JSX.Element> {
                     <li><Link href="/analyze" className={styles.link}>Analisar</Link></li>
                     <li><Link href="/pros" className={styles.link}>Pros</Link></li>
                     <li><Link href="/history" className={styles.link}>Histórico</Link></li>
-                    <li><Link href="/profile" className={styles.link}>Perfil</Link></li>
                 </ul>
 
                 <div className={styles.actions}>
                     {user ? (
-                        <div className={styles.userMenu}>
-                            {user.image ? (
-                                <Image
-                                    src={user.image}
-                                    alt={user.name ?? 'Avatar'}
-                                    className={styles.avatar}
-                                    width={32}
-                                    height={32}
-                                />
-                            ) : (
-                                <div className={styles.avatarFallback}>
-                                    {(user.name ?? 'U').charAt(0).toUpperCase()}
-                                </div>
-                            )}
-                            <span className={styles.userName}>{user.name}</span>
-                            <form
-                                action={async () => {
-                                    'use server';
-                                    await signOut({ redirectTo: '/' });
-                                }}
-                            >
-                                <button type="submit" className={styles.signOutBtn} title="Sair">
-                                    Sair
-                                </button>
-                            </form>
-                        </div>
+                        <UserDropdown user={user} />
                     ) : (
                         <Link href="/login" className="btn btn-primary">
                             Entrar
