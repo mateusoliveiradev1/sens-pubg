@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { handleSignOut } from '@/actions/auth';
 import styles from './user-dropdown.module.css';
 
 interface UserDropdownProps {
@@ -71,7 +72,7 @@ export function UserDropdown({ user }: UserDropdownProps) {
 
                     <div className={styles.divider} />
 
-                    <form action="/api/auth/signout" method="POST">
+                    <form action={handleSignOut}>
                         <button type="submit" className={styles.menuItemDanger}>
                             <span className={styles.icon}>🚪</span>
                             Sair
