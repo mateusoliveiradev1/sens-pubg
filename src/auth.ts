@@ -3,24 +3,34 @@
  * Pure JWT sessions — no database required for auth.
  */
 
-import NextAuth from 'next-auth';
+import NextAuth, { type DefaultSession } from 'next-auth';
 import Discord from 'next-auth/providers/discord';
 import Google from 'next-auth/providers/google';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { env } from '@/env';
+
+declare module 'next-auth' {
+    interface Session extends DefaultSession {
+        user: {
+            id: string;
+            provider?: string;
+        } & DefaultSession['user'];
+    }
+}
 
 // We remove the internal checking because if the variables are missing on Vercel,
 // we want NextAuth to loud-fail instead of silently hiding the provider (resulting in a default signin redirect).
 function getProviders() {
     return [
         Discord({
-            clientId: process.env.AUTH_DISCORD_ID || '',
-            clientSecret: process.env.AUTH_DISCORD_SECRET || '',
+            clientId: env.AUTH_DISCORD_ID,
+            clientSecret: env.AUTH_DISCORD_SECRET,
         }),
         Google({
-            clientId: process.env.AUTH_GOOGLE_ID || '',
-            clientSecret: process.env.AUTH_GOOGLE_SECRET || '',
+            clientId: env.AUTH_GOOGLE_ID,
+            clientSecret: env.AUTH_GOOGLE_SECRET,
         })
     ];
 }
@@ -39,12 +49,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     cookies: {
         sessionToken: {
-            name: process.env.NODE_ENV === 'production' ? '__Secure-authjs.session-token' : 'authjs.session-token',
+            name: env.NODE_ENV === 'production' ? '__Secure-authjs.session-token' : 'authjs.session-token',
             options: {
                 httpOnly: true,
                 sameSite: 'lax',
                 path: '/',
-                secure: process.env.NODE_ENV === 'production',
+                secure: env.NODE_ENV === 'production',
             },
         },
     },
@@ -92,8 +102,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
                 // Add meta info for debugging
                 if (token.provider) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    (session as any).provider = token.provider;
+                    session.user.provider = token.provider as string;
                 }
             }
             return session;

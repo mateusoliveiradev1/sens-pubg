@@ -29,11 +29,11 @@ export async function setLocale(locale: Locale): Promise<void> {
     }
 }
 
-export function t(key: string, params?: Record<string, string | number>): string {
-    const value = currentTranslations[key];
+export function t(key: TranslationKeys, params?: Record<string, string | number>): string {
+    const value = currentTranslations[key as string];
     if (value === undefined) {
         console.warn(`[i18n] Chave não encontrada: "${key}" no locale "${currentLocale}"`);
-        return key;
+        return key as string;
     }
 
     if (typeof value !== 'string') {

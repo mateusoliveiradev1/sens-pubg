@@ -1,26 +1,14 @@
-/**
- * Zod Schemas — Validação runtime em todas as fronteiras.
- * Formulários, Server Actions, API params, env vars.
- */
-
 import { z } from 'zod';
+import { createInsertSchema } from 'drizzle-zod';
+import { playerProfiles } from '@/db/schema';
 
 // ═══════════════════════════════════════════
-// Environment Variables
+// Player Profile Form (Drizzle Integrated)
 // ═══════════════════════════════════════════
 
-export const envSchema = z.object({
-    DATABASE_URL: z.string().url('DATABASE_URL deve ser uma URL válida'),
-    AUTH_SECRET: z.string().min(1, 'AUTH_SECRET é obrigatório'),
-    AUTH_URL: z.string().url('AUTH_URL deve ser uma URL válida'),
-    AUTH_DISCORD_ID: z.string().optional(),
-    AUTH_DISCORD_SECRET: z.string().optional(),
-    AUTH_GOOGLE_ID: z.string().optional(),
-    AUTH_GOOGLE_SECRET: z.string().optional(),
-    NEXT_PUBLIC_APP_URL: z.string().url('NEXT_PUBLIC_APP_URL deve ser uma URL válida'),
-});
-
-export type EnvVars = z.infer<typeof envSchema>;
+// The database schema is our single source of truth.
+// We use createInsertSchema to get a Zod schema matching the DB table.
+export const playerProfilesBaseSchema = createInsertSchema(playerProfiles);
 
 // ═══════════════════════════════════════════
 // Player Profile Form
@@ -28,18 +16,18 @@ export type EnvVars = z.infer<typeof envSchema>;
 
 // Helper for consistent numeric fields with nice error messages
 const numericField = (label: string, min?: number, max?: number, isInt = false) => {
-    let schema = z.coerce.number().refine(v => !isNaN(v), { message: `${label} deve ser um número` });
+    let schema = z.coerce.number().refine((v: number) => !isNaN(v), { message: `${label} deve ser um número` });
 
     if (isInt) {
-        schema = schema.refine(v => Number.isInteger(v), { message: `${label} deve ser um número inteiro` });
+        schema = schema.refine((v: number) => Number.isInteger(v), { message: `${label} deve ser um número inteiro` });
     }
 
     if (min !== undefined) {
-        schema = schema.refine(v => v >= min, { message: `Mínimo: ${min}` });
+        schema = schema.refine((v: number) => v >= min, { message: `Mínimo: ${min}` });
     }
 
     if (max !== undefined) {
-        schema = schema.refine(v => v <= max, { message: `Máximo: ${max}` });
+        schema = schema.refine((v: number) => v <= max, { message: `Máximo: ${max}` });
     }
 
     return schema;

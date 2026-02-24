@@ -8,10 +8,8 @@ export type {
     PlayerProfileInput,
     ClipUploadInput,
     SensitivityApplyInput,
-    EnvVars,
 } from './schemas';
 export {
-    envSchema,
     playerProfileSchema,
     clipUploadSchema,
     sensitivityApplySchema,
