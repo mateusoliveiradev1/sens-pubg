@@ -115,6 +115,18 @@
     gap: var(--space-lg);
 }
 
+.grid4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-md);
+}
+
+@media (max-width: 768px) {
+    .grid4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
 /* CM/360 BADGE */
 .badgeBadgeWrapper {
     display: flex;

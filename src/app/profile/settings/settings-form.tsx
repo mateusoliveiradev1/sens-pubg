@@ -91,6 +91,30 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
     // Real PUBG formula requires interpolation. We'll use a dynamic proxy formula that looks cool.
     const calculatedCm360 = Math.round(((800 / currentDpi) * (35 / currentSens) * 43.2) * 10) / 10;
 
+    const syncAllScopes = () => {
+        // Get current ADS value from the form
+        const currentAds = control._formValues?.pubgSettings?.adsSens || 30;
+
+        // Update all scope values
+        const newScopes = {
+            '1x': currentAds,
+            '2x': currentAds,
+            '3x': currentAds,
+            '4x': currentAds,
+            '6x': currentAds,
+            '8x': currentAds,
+            '15x': currentAds,
+        };
+
+        reset({
+            ...(control._formValues as any),
+            pubgSettings: {
+                ...(control._formValues?.pubgSettings as any),
+                scopeSens: newScopes
+            }
+        });
+    };
+
     const onSubmit = (data: ProfileFormValues) => {
         setNotification(null);
         startTransition(async () => {
@@ -350,7 +374,35 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
                             </div>
                         </div>
 
-                        {/* Extra Scopes can be hidden in an accordion or grid 3, but let's keep it simple for now */}
+                        <hr style={{ margin: 'var(--space-xl) 0', border: 'none', borderTop: '1px solid rgba(255,255,255,0.05)' }} />
+
+                        <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)' }}>
+                                <h3 style={{ fontSize: '1.1rem', margin: 0, color: 'var(--color-text)' }}>Sensibilidade por Mira (Scopes)</h3>
+                                <button
+                                    type="button"
+                                    className="btn btn-secondary btn-sm"
+                                    onClick={syncAllScopes}
+                                    style={{ fontSize: '0.75rem', padding: '4px 12px' }}
+                                >
+                                    🔄 Sincronizar todas com ADS
+                                </button>
+                            </div>
+                            <div className={styles.grid4}>
+                                {(['1x', '2x', '3x', '4x', '6x', '8x', '15x'] as const).map((scope) => (
+                                    <div className="field" key={scope}>
+                                        <label className="input-label" htmlFor={`sens-${scope}`}>Mira {scope}</label>
+                                        <input
+                                            id={`sens-${scope}`}
+                                            type="number"
+                                            step="0.1"
+                                            className="input"
+                                            {...register(`pubgSettings.scopeSens.${scope}` as const, { valueAsNumber: true })}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
