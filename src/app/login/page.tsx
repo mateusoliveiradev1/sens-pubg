@@ -3,7 +3,8 @@
  */
 
 import { Header } from '@/ui/components/header';
-import { signIn } from '@/auth';
+import { signIn, auth } from '@/auth';
+import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import styles from './login.module.css';
 
@@ -12,10 +13,17 @@ export const metadata: Metadata = {
     description: 'Conecte-se para salvar suas análises e acompanhar seu progresso.',
 };
 
-// Force dynamic because Header reads session
+// Force dynamic because Header and auth() read session
 export const dynamic = 'force-dynamic';
 
-export default function LoginPage(): React.JSX.Element {
+export default async function LoginPage() {
+    const session = await auth();
+
+    // If already logged in, go straight to the app
+    if (session) {
+        redirect('/analyze');
+    }
+
     return (
         <>
             <Header />

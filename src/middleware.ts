@@ -16,13 +16,16 @@ function isProtectedRoute(pathname: string): boolean {
     return PROTECTED_ROUTES.some(route => pathname.startsWith(route));
 }
 
-// Check all possible Auth.js session cookie names
+// Check all possible Auth.js/NextAuth session cookie names
 function hasSessionCookie(request: NextRequest): boolean {
+    const cookies = request.cookies;
     return !!(
-        request.cookies.get('authjs.session-token') ||
-        request.cookies.get('__Secure-authjs.session-token') ||
-        request.cookies.get('next-auth.session-token') ||
-        request.cookies.get('__Secure-next-auth.session-token')
+        cookies.get('authjs.session-token') ||
+        cookies.get('__Secure-authjs.session-token') ||
+        cookies.get('next-auth.session-token') ||
+        cookies.get('__Secure-next-auth.session-token') ||
+        cookies.get('__Host-next-auth.session-token') ||
+        cookies.get('__Host-authjs.session-token')
     );
 }
 

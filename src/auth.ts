@@ -35,9 +35,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     session: {
         strategy: 'jwt',
         maxAge: 30 * 24 * 60 * 60, // 30 dias
+        updateAge: 24 * 60 * 60,   // Atualiza o cookie a cada 24h
+    },
+    cookies: {
+        sessionToken: {
+            name: process.env.NODE_ENV === 'production' ? '__Secure-authjs.session-token' : 'authjs.session-token',
+            options: {
+                httpOnly: true,
+                sameSite: 'lax',
+                path: '/',
+                secure: process.env.NODE_ENV === 'production',
+            },
+        },
     },
     callbacks: {
-        async jwt({ token, user }) {
+        async jwt({ token, user, account, trigger }) {
+            if (trigger === 'signIn' || trigger === 'signUp') {
+                console.log(`[AUTH] User signing in via ${account?.provider}: ${user?.email}`);
+            }
+
             if (user && user.email) {
                 try {
                     // Sync user to neon database to get a valid UUID for foreign key constraints
@@ -57,12 +73,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                         token.id = res[0]!.id;
                     }
                 } catch (err) {
-                    console.error('Failed to sync user to database:', err);
+                    console.error('[AUTH] Failed to sync user to database:', err);
                     token.id = user.id; // fallback to provider ID
                 }
                 token.name = user.name ?? null;
                 token.email = user.email ?? null;
                 token.picture = user.image ?? null;
+                token.provider = account?.provider ?? token.provider;
             }
             return token;
         },
@@ -72,6 +89,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 session.user.name = (token.name as string) ?? null;
                 session.user.email = (token.email as string) ?? null;
                 session.user.image = (token.picture as string) ?? null;
+
+                // Add meta info for debugging
+                if (token.provider) {
+                    (session as any).provider = token.provider;
+                }
             }
             return session;
         },
