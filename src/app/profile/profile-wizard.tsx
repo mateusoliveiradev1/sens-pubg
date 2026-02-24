@@ -30,16 +30,16 @@ const STEPS = [
 
 interface FormState {
     mouse: { model: string; sensor: string; dpi: number; pollingRate: number; weightGrams: number; liftOffDistance: number };
-    mousepad: { model: string; widthCm: number; heightCm: number; type: string; material: string };
-    gripStyle: string;
-    playStyle: string;
-    monitor: { resolution: string; refreshRate: number; panelType: string };
+    mousepad: { model: string; widthCm: number; heightCm: number; type: 'hybrid' | 'speed' | 'control'; material: 'cloth' | 'hard' | 'glass' };
+    gripStyle: 'palm' | 'claw' | 'fingertip' | 'hybrid';
+    playStyle: 'arm' | 'wrist' | 'hybrid';
+    monitor: { resolution: string; refreshRate: number; panelType: 'ips' | 'tn' | 'va' };
     pubgSettings: {
         generalSens: number; adsSens: number; fov: number;
         verticalMultiplier: number; mouseAcceleration: boolean;
         scopeSens: Record<string, number>;
     };
-    physical: { armLength: string; deskSpaceCm: number };
+    physical: { armLength: 'short' | 'medium' | 'long'; deskSpaceCm: number };
 }
 
 const DEFAULT_FORM: FormState = {
@@ -83,15 +83,15 @@ export function ProfileWizard({ initialData }: Props): React.JSX.Element {
                 model: initialData.mousepadModel,
                 widthCm: initialData.mousepadWidth,
                 heightCm: initialData.mousepadHeight,
-                type: initialData.mousepadType,
-                material: initialData.mousepadMaterial,
+                type: initialData.mousepadType as 'hybrid' | 'speed' | 'control',
+                material: initialData.mousepadMaterial as 'cloth' | 'hard' | 'glass',
             },
-            gripStyle: initialData.gripStyle,
-            playStyle: initialData.playStyle,
+            gripStyle: initialData.gripStyle as 'palm' | 'claw' | 'fingertip' | 'hybrid',
+            playStyle: initialData.playStyle as 'arm' | 'wrist' | 'hybrid',
             monitor: {
                 resolution: initialData.monitorResolution,
                 refreshRate: initialData.monitorRefreshRate,
-                panelType: initialData.monitorPanel,
+                panelType: initialData.monitorPanel as 'ips' | 'tn' | 'va',
             },
             pubgSettings: {
                 generalSens: initialData.generalSens,
@@ -110,7 +110,7 @@ export function ProfileWizard({ initialData }: Props): React.JSX.Element {
 
     const [form, setForm] = useState<FormState>(hydratedForm);
     const [saving, setSaving] = useState(false);
-    const [result, setResult] = useState<ProfileActionResult | null>(null);
+    const [result, setResult] = useState<{ success: boolean; error?: string } | null>(null);
 
     const updateField = useCallback(<K extends keyof FormState>(
         section: K,
@@ -140,7 +140,17 @@ export function ProfileWizard({ initialData }: Props): React.JSX.Element {
         setSaving(true);
         setResult(null);
         const res = await saveProfile(form);
-        setResult(res);
+
+        if (res?.data?.success) {
+            setResult({ success: true });
+        } else if (res?.serverError) {
+            setResult({ success: false, error: res.serverError });
+        } else if (res?.validationErrors) {
+            setResult({ success: false, error: 'Erro de validação, verifique os campos.' });
+        } else {
+            setResult({ success: false, error: 'Erro desconhecido ao salvar o perfil.' });
+        }
+
         setSaving(false);
     }, [form]);
 

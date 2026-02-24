@@ -8,6 +8,9 @@ import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import styles from './login.module.css';
 
+import { loginSearchParamsCache } from './search-params';
+import { SearchParams } from 'nuqs/server';
+
 export const metadata: Metadata = {
     title: 'Entrar',
     description: 'Conecte-se para salvar suas análises e acompanhar seu progresso.',
@@ -19,14 +22,16 @@ export const dynamic = 'force-dynamic';
 export default async function LoginPage({
     searchParams,
 }: {
-    searchParams: Promise<{ callbackUrl?: string }>;
+    searchParams: Promise<SearchParams>;
 }) {
-    const { callbackUrl } = await searchParams;
+    // Search params are cached and inherently typed with the default '/analyze' via nuqs.
+    const { callbackUrl } = await loginSearchParamsCache.parse(searchParams);
+
     const session = await auth();
 
     // If already logged in, go straight to the app
     if (session) {
-        redirect(callbackUrl ?? '/analyze');
+        redirect(callbackUrl);
     }
 
     return (
@@ -49,7 +54,7 @@ export default async function LoginPage({
                         <form
                             action={async () => {
                                 'use server';
-                                await signIn('google', { redirectTo: callbackUrl ?? '/analyze' });
+                                await signIn('google', { redirectTo: callbackUrl });
                             }}
                         >
                             <button type="submit" className={`${styles.providerBtn} ${styles.google}`}>
@@ -66,7 +71,7 @@ export default async function LoginPage({
                         <form
                             action={async () => {
                                 'use server';
-                                await signIn('discord', { redirectTo: callbackUrl ?? '/analyze' });
+                                await signIn('discord', { redirectTo: callbackUrl });
                             }}
                         >
                             <button type="submit" className={`${styles.providerBtn} ${styles.discord}`}>

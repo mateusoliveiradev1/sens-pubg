@@ -96,7 +96,7 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
     };
 
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const { register, handleSubmit, formState: { errors, isDirty }, control, reset, setValue, getValues } = useForm<ProfileFormValues>({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resolver: zodResolver(playerProfileSchema) as any,
@@ -136,12 +136,17 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
         setNotification(null);
         startTransition(async () => {
             const result = await saveProfile(data);
-            if (result.success) {
+
+            if (result?.data?.success) {
                 setNotification({ type: 'success', message: 'Configurações salvas com sucesso!' });
                 reset(data); // Resets isDirty
                 setTimeout(() => setNotification(null), 3000);
+            } else if (result?.serverError) {
+                setNotification({ type: 'error', message: result.serverError });
+            } else if (result?.validationErrors) {
+                setNotification({ type: 'error', message: 'Erro de validação, verifique os campos.' });
             } else {
-                setNotification({ type: 'error', message: result.error || 'Erro desconhecido' });
+                setNotification({ type: 'error', message: 'Erro desconhecido ao salvar o perfil.' });
             }
         });
     };
