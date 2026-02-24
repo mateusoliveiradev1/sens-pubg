@@ -1,12 +1,5 @@
-/**
- * Middleware — Security headers + rate limiting + route protection.
- * 
- * Route protection uses Auth.js session cookies.
- * Protected routes redirect to /login when not authenticated.
- */
-
 import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { auth } from '@/auth';
 import { checkRateLimit, AUTH_RATE_LIMIT } from '@/lib/rate-limit';
 
 // Routes that REQUIRE authentication (redirect to /login if no session)
@@ -16,19 +9,6 @@ function isProtectedRoute(pathname: string): boolean {
     return PROTECTED_ROUTES.some(route => pathname.startsWith(route));
 }
 
-// Check all possible Auth.js/NextAuth session cookie names
-function hasSessionCookie(request: NextRequest): boolean {
-    const cookies = request.cookies;
-    return !!(
-        cookies.get('authjs.session-token') ||
-        cookies.get('__Secure-authjs.session-token') ||
-        cookies.get('next-auth.session-token') ||
-        cookies.get('__Secure-next-auth.session-token') ||
-        cookies.get('__Host-next-auth.session-token') ||
-        cookies.get('__Host-authjs.session-token')
-    );
-}
-
 // CSP Nonce generator
 function generateNonce(): string {
     const array = new Uint8Array(16);
@@ -36,12 +16,13 @@ function generateNonce(): string {
     return Buffer.from(array).toString('base64');
 }
 
-export function middleware(request: NextRequest): NextResponse {
-    const { pathname } = request.nextUrl;
+export default auth((req) => {
+    const { pathname } = req.nextUrl;
+    const isLoggedIn = !!req.auth;
 
     // ═══ Auth Protection (protected routes only) ═══
-    if (isProtectedRoute(pathname) && !hasSessionCookie(request)) {
-        const loginUrl = new URL('/login', request.url);
+    if (isProtectedRoute(pathname) && !isLoggedIn) {
+        const loginUrl = new URL('/login', req.url);
         loginUrl.searchParams.set('callbackUrl', pathname);
         return NextResponse.redirect(loginUrl);
     }
@@ -77,8 +58,8 @@ export function middleware(request: NextRequest): NextResponse {
     response.headers.set('x-nonce', nonce);
 
     // ═══ Rate Limiting ═══
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-        ?? request.headers.get('x-real-ip')
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+        ?? req.headers.get('x-real-ip')
         ?? 'anonymous';
 
     if (pathname.startsWith('/api/auth')) {
@@ -100,7 +81,7 @@ export function middleware(request: NextRequest): NextResponse {
     }
 
     return response;
-}
+});
 
 export const config = {
     matcher: [
