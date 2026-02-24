@@ -26,6 +26,11 @@ export interface WeaponData {
     readonly recoilPattern: readonly RecoilVector[];  // Vetor por tiro
     readonly horizontalNoiseBase: number; // Ruído horizontal base (desvio padrão)
     readonly verticalRecoilBase: number;  // Recoil vertical base (soma total)
+    readonly supportedAttachments: {
+        readonly muzzle: boolean;
+        readonly grip: boolean;
+        readonly stock: boolean;
+    };
 }
 
 // ═══════════════════════════════════════════
@@ -60,6 +65,7 @@ const M416: WeaponData = {
         { yaw: -0.05, pitch: 0.14 }, { yaw: 0.05, pitch: 0.14 }, { yaw: -0.09, pitch: 0.14 }, { yaw: 0.09, pitch: 0.09 },
         { yaw: 0.00, pitch: 0.14 }, { yaw: -0.05, pitch: 0.09 },
     ],
+    supportedAttachments: { muzzle: true, grip: true, stock: true },
 } as const;
 
 const AKM: WeaponData = {
@@ -82,6 +88,7 @@ const AKM: WeaponData = {
         { yaw: -0.09, pitch: 0.18 }, { yaw: 0.05, pitch: 0.14 }, { yaw: -0.14, pitch: 0.14 }, { yaw: 0.09, pitch: 0.14 },
         { yaw: -0.05, pitch: 0.09 }, { yaw: 0.05, pitch: 0.09 },
     ],
+    supportedAttachments: { muzzle: true, grip: false, stock: false },
 } as const;
 
 const SCARL: WeaponData = {
@@ -104,6 +111,7 @@ const SCARL: WeaponData = {
         { yaw: -0.04, pitch: 0.14 }, { yaw: 0.00, pitch: 0.14 }, { yaw: 0.04, pitch: 0.09 }, { yaw: -0.04, pitch: 0.14 },
         { yaw: 0.00, pitch: 0.09 }, { yaw: 0.04, pitch: 0.09 },
     ],
+    supportedAttachments: { muzzle: true, grip: true, stock: false },
 } as const;
 
 const BERYLM762: WeaponData = {
@@ -126,6 +134,7 @@ const BERYLM762: WeaponData = {
         { yaw: -0.09, pitch: 0.18 }, { yaw: 0.18, pitch: 0.14 }, { yaw: -0.14, pitch: 0.14 }, { yaw: 0.09, pitch: 0.14 },
         { yaw: -0.18, pitch: 0.09 }, { yaw: 0.14, pitch: 0.09 },
     ],
+    supportedAttachments: { muzzle: true, grip: true, stock: false },
 } as const;
 
 const G36C: WeaponData = {
@@ -148,6 +157,7 @@ const G36C: WeaponData = {
         { yaw: -0.04, pitch: 0.14 }, { yaw: 0.04, pitch: 0.14 }, { yaw: -0.04, pitch: 0.09 }, { yaw: 0.00, pitch: 0.14 },
         { yaw: 0.04, pitch: 0.09 }, { yaw: -0.04, pitch: 0.09 },
     ],
+    supportedAttachments: { muzzle: true, grip: true, stock: false },
 } as const;
 
 const ACE32: WeaponData = {
@@ -171,6 +181,7 @@ const ACE32: WeaponData = {
         { yaw: -0.04, pitch: 0.09 }, { yaw: 0.04, pitch: 0.09 }, { yaw: -0.09, pitch: 0.09 }, { yaw: 0.09, pitch: 0.04 },
         { yaw: -0.04, pitch: 0.09 }, { yaw: 0.04, pitch: 0.04 }, { yaw: 0.00, pitch: 0.04 },
     ],
+    supportedAttachments: { muzzle: true, grip: true, stock: true },
 } as const;
 
 const AUG: WeaponData = {
@@ -193,6 +204,7 @@ const AUG: WeaponData = {
         { yaw: -0.04, pitch: 0.09 }, { yaw: 0.00, pitch: 0.09 }, { yaw: 0.04, pitch: 0.04 }, { yaw: -0.04, pitch: 0.09 },
         { yaw: 0.00, pitch: 0.04 }, { yaw: 0.04, pitch: 0.04 },
     ],
+    supportedAttachments: { muzzle: true, grip: true, stock: false },
 } as const;
 
 // ═══════════════════════════════════════════
@@ -218,6 +230,7 @@ const UMP45: WeaponData = {
         { yaw: 0.04, pitch: 0.09 }, { yaw: 0.00, pitch: 0.09 }, { yaw: -0.04, pitch: 0.09 }, { yaw: 0.04, pitch: 0.09 },
         { yaw: 0.00, pitch: 0.09 },
     ],
+    supportedAttachments: { muzzle: true, grip: true, stock: false },
 } as const;
 
 const VECTOR: WeaponData = {
@@ -239,6 +252,7 @@ const VECTOR: WeaponData = {
         { yaw: 0.00, pitch: 0.04 }, { yaw: 0.04, pitch: 0.09 }, { yaw: -0.04, pitch: 0.04 }, { yaw: 0.00, pitch: 0.04 },
         { yaw: 0.04, pitch: 0.04 },
     ],
+    supportedAttachments: { muzzle: true, grip: true, stock: true },
 } as const;
 
 const MP5K: WeaponData = {
@@ -261,6 +275,7 @@ const MP5K: WeaponData = {
         { yaw: 0.00, pitch: 0.04 }, { yaw: -0.04, pitch: 0.04 }, { yaw: 0.04, pitch: 0.04 }, { yaw: 0.00, pitch: 0.04 },
         { yaw: -0.04, pitch: 0.04 }, { yaw: 0.04, pitch: 0.04 },
     ],
+    supportedAttachments: { muzzle: true, grip: true, stock: true },
 } as const;
 
 // ═══════════════════════════════════════════
@@ -291,6 +306,7 @@ const DP28: WeaponData = {
         { yaw: -0.04, pitch: 0.00 }, { yaw: 0.04, pitch: 0.00 }, { yaw: 0.00, pitch: 0.00 }, { yaw: -0.04, pitch: 0.00 },
         { yaw: 0.04, pitch: 0.00 }, { yaw: 0.00, pitch: 0.00 }, { yaw: -0.04, pitch: 0.00 },
     ],
+    supportedAttachments: { muzzle: false, grip: false, stock: false },
 } as const;
 
 const M249: WeaponData = {
@@ -313,6 +329,7 @@ const M249: WeaponData = {
         { yaw: -0.14, pitch: 0.04 }, { yaw: 0.09, pitch: 0.04 }, { yaw: -0.04, pitch: 0.04 }, { yaw: 0.14, pitch: 0.04 },
         { yaw: -0.09, pitch: 0.04 }, { yaw: 0.04, pitch: 0.00 },
     ],
+    supportedAttachments: { muzzle: false, grip: false, stock: true },
 } as const;
 
 // ═══════════════════════════════════════════
@@ -336,6 +353,7 @@ const MINI14: WeaponData = {
         { yaw: 0.04, pitch: 0.09 }, { yaw: 0.00, pitch: 0.04 }, { yaw: -0.04, pitch: 0.04 }, { yaw: 0.04, pitch: 0.04 },
         { yaw: 0.00, pitch: 0.04 }, { yaw: -0.04, pitch: 0.04 }, { yaw: 0.04, pitch: 0.00 }, { yaw: 0.00, pitch: 0.00 },
     ],
+    supportedAttachments: { muzzle: true, grip: false, stock: false },
 } as const;
 
 const SKS: WeaponData = {
@@ -355,6 +373,7 @@ const SKS: WeaponData = {
         { yaw: 0.04, pitch: 0.09 }, { yaw: 0.00, pitch: 0.09 }, { yaw: -0.04, pitch: 0.04 }, { yaw: 0.04, pitch: 0.04 },
         { yaw: 0.00, pitch: 0.04 }, { yaw: -0.04, pitch: 0.04 }, { yaw: 0.04, pitch: 0.00 }, { yaw: 0.00, pitch: 0.00 },
     ],
+    supportedAttachments: { muzzle: true, grip: true, stock: true },
 } as const;
 
 const SLR: WeaponData = {
@@ -374,6 +393,7 @@ const SLR: WeaponData = {
         { yaw: 0.04, pitch: 0.09 }, { yaw: 0.00, pitch: 0.09 }, { yaw: -0.04, pitch: 0.04 }, { yaw: 0.04, pitch: 0.04 },
         { yaw: 0.00, pitch: 0.04 }, { yaw: -0.04, pitch: 0.04 }, { yaw: 0.04, pitch: 0.00 }, { yaw: 0.00, pitch: 0.00 },
     ],
+    supportedAttachments: { muzzle: true, grip: false, stock: true },
 } as const;
 
 // ═══════════════════════════════════════════

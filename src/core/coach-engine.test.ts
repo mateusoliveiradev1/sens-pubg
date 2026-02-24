@@ -4,12 +4,19 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { generateCoaching } from '@/core/coach-engine';
-import type { Diagnosis } from '@/types/engine';
+import { generateCoaching } from './coach-engine';
+import type { Diagnosis, WeaponLoadout } from '../types/engine';
+
+const defaultLoadout: WeaponLoadout = {
+    stance: 'standing',
+    muzzle: 'none',
+    grip: 'none',
+    stock: 'none',
+};
 
 describe('generateCoaching', () => {
     it('should return empty array for no diagnoses', () => {
-        const coaching = generateCoaching([]);
+        const coaching = generateCoaching([], defaultLoadout);
         expect(coaching).toHaveLength(0);
     });
 
@@ -34,7 +41,7 @@ describe('generateCoaching', () => {
             },
         ];
 
-        const coaching = generateCoaching(diagnoses);
+        const coaching = generateCoaching(diagnoses, defaultLoadout);
         expect(coaching).toHaveLength(2);
     });
 
@@ -49,7 +56,7 @@ describe('generateCoaching', () => {
             remediation: 'Relaxe o grip',
         }];
 
-        const coaching = generateCoaching(diagnoses);
+        const coaching = generateCoaching(diagnoses, defaultLoadout);
         const feedback = coaching[0]!;
 
         expect(feedback.whatIsWrong).toBe('Jitter excessivo');
@@ -74,8 +81,8 @@ describe('generateCoaching', () => {
             description: 'test', cause: 'test', remediation: 'test',
         }];
 
-        const mildCoaching = generateCoaching(mild);
-        const severeCoaching = generateCoaching(severe);
+        const mildCoaching = generateCoaching(mild, defaultLoadout);
+        const severeCoaching = generateCoaching(severe, defaultLoadout);
 
         expect(severeCoaching[0]!.adaptationTimeDays).toBeGreaterThan(mildCoaching[0]!.adaptationTimeDays);
     });

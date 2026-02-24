@@ -15,6 +15,7 @@ import type {
     SprayTrajectory,
     SprayMetrics,
     DriftBias,
+    WeaponLoadout,
 } from '@/types/engine';
 import type { Milliseconds, Score } from '@/types/branded';
 import { asMilliseconds, asScore, asPixels } from '@/types/branded';
@@ -364,7 +365,8 @@ function calculateConsistency(
     const sensitivity = 0.5; // Ajuste para calibração
     const normalized = 100 / (1 + Math.exp(Math.sqrt(varOfVar) * sensitivity - 5));
 
-    return asScore(Math.round(normalized));
+    // Math floor to prevent absolute 0 scores
+    return asScore(Math.max(15, Math.round(normalized)));
 }
 
 // ═══════════════════════════════════════════
@@ -374,28 +376,81 @@ function calculateConsistency(
 export function calculateSprayMetrics(
     trajectory: SprayTrajectory,
     weapon: WeaponData,
+    loadout: WeaponLoadout,
     pixelToDegree: number = 0.046875 // Default 1080p 90 FOV
 ): SprayMetrics {
     const { displacements, points } = trajectory;
     const firstTimestamp = points.length > 0 ? Number(points[0]!.timestamp) : 0;
+
+    // Calculate Multipliers based on Stance and Attachments
+    let verticalMult = 1.0;
+    let horizontalMult = 1.0;
+
+    // Stance multipliers
+    if (loadout.stance === 'crouching') {
+        verticalMult *= 0.8;
+        horizontalMult *= 0.8;
+    } else if (loadout.stance === 'prone') {
+        verticalMult *= 0.6; // Prone is massive recoil redc.
+        horizontalMult *= 0.6;
+    }
+
+    // Muzzle multipliers
+    if (loadout.muzzle === 'compensator') {
+        verticalMult *= 0.90;   // -10% vertical
+        horizontalMult *= 0.85; // -15% horizontal
+    } else if (loadout.muzzle === 'flash_hider') {
+        verticalMult *= 0.95;   // -5%
+        horizontalMult *= 0.90; // -10%
+    }
+
+    // Grip multipliers
+    if (loadout.grip === 'vertical') {
+        verticalMult *= 0.85; // -15% vertical
+    } else if (loadout.grip === 'angled') {
+        horizontalMult *= 0.80; // -20% horiz
+        verticalMult *= 0.95;
+    } else if (loadout.grip === 'half') {
+        verticalMult *= 0.92;
+        horizontalMult *= 0.92;
+    } else if (loadout.grip === 'thumb') {
+        verticalMult *= 0.95;
+    } else if (loadout.grip === 'lightweight') {
+        verticalMult *= 0.80;
+    }
+
+    // Stock multipliers
+    if (loadout.stock === 'tactical') {
+        verticalMult *= 0.90;
+        horizontalMult *= 0.90;
+    } else if (loadout.stock === 'heavy') {
+        verticalMult *= 0.95;
+        horizontalMult *= 0.95;
+    }
+
+    // Apply multiplier to weapon's base pattern
+    const modifiedRecoilPattern = weapon.recoilPattern.map(r => ({
+        yaw: r.yaw * horizontalMult,
+        pitch: r.pitch * verticalMult
+    }));
 
     // Phases definition
     const burstDisplacements = displacements.slice(0, 10);
     const sustainedDisplacements = displacements.slice(10, 20);
     const fatigueDisplacements = displacements.slice(20);
 
-    const burstRecoil = weapon.recoilPattern.slice(0, 10);
-    const sustainedRecoil = weapon.recoilPattern.slice(10, 20);
-    const fatigueRecoil = weapon.recoilPattern.slice(20, displacements.length);
+    const burstRecoil = modifiedRecoilPattern.slice(0, 10);
+    const sustainedRecoil = modifiedRecoilPattern.slice(10, 20);
+    const fatigueRecoil = modifiedRecoilPattern.slice(20, displacements.length);
 
     return {
         stabilityScore: calculateStability(displacements),
-        verticalControlIndex: calculateVerticalControl(displacements, weapon.recoilPattern, pixelToDegree),
+        verticalControlIndex: calculateVerticalControl(displacements, modifiedRecoilPattern, pixelToDegree),
         horizontalNoiseIndex: calculateHorizontalNoise(displacements, pixelToDegree),
         initialRecoilResponseMs: calculateRecoilResponseTime(displacements, firstTimestamp),
         driftDirectionBias: calculateDriftBias(displacements),
         consistencyScore: calculateConsistency(displacements),
-        // Phase-based metrics
+        // Phase-based metrics evaluated against modified expected recoil!
         burstVCI: calculateVerticalControl(burstDisplacements, burstRecoil, pixelToDegree),
         sustainedVCI: calculateVerticalControl(sustainedDisplacements, sustainedRecoil, pixelToDegree),
         fatigueVCI: calculateVerticalControl(fatigueDisplacements, fatigueRecoil, pixelToDegree),

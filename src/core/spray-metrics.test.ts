@@ -4,10 +4,17 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { buildDisplacements, buildTrajectory, calculateSprayMetrics } from '@/core/spray-metrics';
-import { getWeapon } from '@/game/pubg';
-import type { TrackingPoint } from '@/types/engine';
-import { asPixels, asMilliseconds, asScore } from '@/types/branded';
+import { buildDisplacements, buildTrajectory, calculateSprayMetrics } from './spray-metrics';
+import { getWeapon } from '../game/pubg';
+import type { TrackingPoint, WeaponLoadout } from '../types/engine';
+import { asPixels, asMilliseconds, asScore } from '../types/branded';
+
+const defaultLoadout: WeaponLoadout = {
+    stance: 'standing',
+    muzzle: 'none',
+    grip: 'none',
+    stock: 'none',
+};
 
 // Helper: generate tracking points simulating a spray
 function generateTrackingPoints(count: number, options?: {
@@ -66,8 +73,8 @@ describe('calculateSprayMetrics', () => {
 
     it('should return all 6 metrics', () => {
         const points = generateTrackingPoints(30, { verticalDrift: 1 });
-        const trajectory = buildTrajectory({ points, averageConfidence: asScore(90), lostFrames: 0 }, weapon);
-        const metrics = calculateSprayMetrics(trajectory, weapon);
+        const trajectory = buildTrajectory({ points, trackingQuality: asScore(90), framesTracked: 30, framesLost: 0 }, weapon);
+        const metrics = calculateSprayMetrics(trajectory, weapon, defaultLoadout);
 
         expect(metrics).toHaveProperty('stabilityScore');
         expect(metrics).toHaveProperty('verticalControlIndex');
@@ -79,8 +86,8 @@ describe('calculateSprayMetrics', () => {
 
     it('should give high stability for static spray', () => {
         const points = generateTrackingPoints(30, { verticalDrift: 0, horizontalNoise: 0 });
-        const trajectory = buildTrajectory({ points, averageConfidence: asScore(90), lostFrames: 0 }, weapon);
-        const metrics = calculateSprayMetrics(trajectory, weapon);
+        const trajectory = buildTrajectory({ points, trackingQuality: asScore(90), framesTracked: 30, framesLost: 0 }, weapon);
+        const metrics = calculateSprayMetrics(trajectory, weapon, defaultLoadout);
 
         // Perfect spray = high stability
         expect(Number(metrics.stabilityScore)).toBeGreaterThanOrEqual(90);
@@ -88,8 +95,8 @@ describe('calculateSprayMetrics', () => {
 
     it('should detect neutral drift for centered spray', () => {
         const points = generateTrackingPoints(30, { verticalDrift: 1, horizontalNoise: 0 });
-        const trajectory = buildTrajectory({ points, averageConfidence: asScore(90), lostFrames: 0 }, weapon);
-        const metrics = calculateSprayMetrics(trajectory, weapon);
+        const trajectory = buildTrajectory({ points, trackingQuality: asScore(90), framesTracked: 30, framesLost: 0 }, weapon);
+        const metrics = calculateSprayMetrics(trajectory, weapon, defaultLoadout);
 
         expect(metrics.driftDirectionBias.direction).toBe('neutral');
     });

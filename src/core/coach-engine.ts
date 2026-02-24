@@ -1,4 +1,4 @@
-import type { Diagnosis, CoachFeedback } from '@/types/engine';
+import type { Diagnosis, CoachFeedback, WeaponLoadout } from '@/types/engine';
 
 // ═══════════════════════════════════════════
 // PUBG Mechanics Constants
@@ -37,22 +37,35 @@ function estimateAdaptationDays(severity: number): number {
 // Main: Generate Coaching
 // ═══════════════════════════════════════════
 
-export function generateCoaching(diagnoses: readonly Diagnosis[]): CoachFeedback[] {
+export function generateCoaching(diagnoses: readonly Diagnosis[], loadout: WeaponLoadout): CoachFeedback[] {
     return diagnoses.map((diagnosis): CoachFeedback => {
         let whatToAdjust = diagnosis.remediation;
         const whyItHappens = diagnosis.cause;
 
-        // Injetar recomendações de attachments específicas baseadas no diagnóstico
+        // Injetar recomendações de attachments específicas baseadas no diagnóstico e no loadout atual
         if (diagnosis.type === 'overpull') {
-            whatToAdjust += ` Dica: Experimente usar o ${ATTACHMENTS.lightweight.name} para suavizar o kick inicial.`;
+            if (loadout.grip !== 'lightweight') {
+                whatToAdjust += ` Dica: Experimente usar o ${ATTACHMENTS.lightweight.name} para suavizar o kick inicial.`;
+            }
         } else if (diagnosis.type === 'underpull') {
-            whatToAdjust += ` Dica: O ${ATTACHMENTS.vertical.name} e o ${ATTACHMENTS.compensator.name} são obrigatórios para seu caso.`;
+            const needsVert = loadout.grip !== 'vertical';
+            const needsComp = loadout.muzzle !== 'compensator';
+
+            if (needsVert && needsComp) {
+                whatToAdjust += ` Dica: O ${ATTACHMENTS.vertical.name} e o ${ATTACHMENTS.compensator.name} são obrigatórios para seu caso.`;
+            } else if (needsVert) {
+                whatToAdjust += ` Dica: O ${ATTACHMENTS.vertical.name} é obrigatório para seu caso.`;
+            } else if (needsComp) {
+                whatToAdjust += ` Dica: O ${ATTACHMENTS.compensator.name} é obrigatório para seu caso.`;
+            }
         } else if (diagnosis.type === 'horizontal_drift' || diagnosis.type === 'excessive_jitter') {
-            whatToAdjust += ` Dica: O ${ATTACHMENTS.angled.name} ou ${ATTACHMENTS.half.name} ajudarão a conter a oscilação lateral.`;
+            if (loadout.grip !== 'angled' && loadout.grip !== 'half') {
+                whatToAdjust += ` Dica: O ${ATTACHMENTS.angled.name} ou ${ATTACHMENTS.half.name} ajudarão a conter a oscilação lateral.`;
+            }
         }
 
         // Dica de Stance (Matemática do PUBG)
-        if (diagnosis.severity >= 3) {
+        if (diagnosis.severity >= 3 && loadout.stance === 'standing') {
             whatToAdjust += ` Lembre-se: Agachar (Crouch) reduz o recuo em cerca de 20%. Use isso a seu favor em sprays longos.`;
         }
 

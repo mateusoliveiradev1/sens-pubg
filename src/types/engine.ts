@@ -6,6 +6,23 @@
 import type { Score, Milliseconds, DPI, Sensitivity, Centimeters, Pixels } from './branded';
 
 // ═══════════════════════════════════════════
+// Posture & Attachments
+// ═══════════════════════════════════════════
+
+export type PlayerStance = 'standing' | 'crouching' | 'prone';
+
+export type MuzzleAttachment = 'none' | 'compensator' | 'flash_hider' | 'suppressor';
+export type GripAttachment = 'none' | 'vertical' | 'angled' | 'half' | 'thumb' | 'lightweight' | 'laser';
+export type StockAttachment = 'none' | 'tactical' | 'heavy' | 'folding';
+
+export interface WeaponLoadout {
+    readonly stance: PlayerStance;
+    readonly muzzle: MuzzleAttachment;
+    readonly grip: GripAttachment;
+    readonly stock: StockAttachment;
+}
+
+// ═══════════════════════════════════════════
 // Tracking & Trajectory
 // ═══════════════════════════════════════════
 
@@ -171,6 +188,7 @@ export interface AnalysisResult {
     readonly id: string;
     readonly timestamp: Date;
     readonly trajectory: SprayTrajectory;
+    readonly loadout: WeaponLoadout;
     readonly metrics: SprayMetrics;
     readonly diagnoses: readonly Diagnosis[];
     readonly sensitivity: SensitivityRecommendation;
@@ -234,6 +252,12 @@ export interface AnalysisSession {
     readonly userId: string;
     readonly weaponId: string;
     readonly scopeId: string;
+    readonly stance: PlayerStance;
+    readonly attachments: {
+        readonly muzzle: MuzzleAttachment;
+        readonly grip: GripAttachment;
+        readonly stock: StockAttachment;
+    };
     readonly distance: number;
     readonly metrics: SprayMetrics;
     readonly diagnoses: readonly DiagnosisType[];

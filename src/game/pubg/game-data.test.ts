@@ -12,7 +12,7 @@ import {
     internalFromCmPer360,
     getJitterThreshold,
     sliderToInternal,
-} from '@/game/pubg';
+} from '.';
 
 describe('Weapon Database', () => {
     it('should have at least 14 weapons', () => {

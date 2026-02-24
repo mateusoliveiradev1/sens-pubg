@@ -38,6 +38,12 @@ export async function saveAnalysisResult(
             weaponId,
             scopeId,
             distance,
+            stance: result.loadout.stance,
+            attachments: {
+                muzzle: result.loadout.muzzle,
+                grip: result.loadout.grip,
+                stock: result.loadout.stock,
+            },
             stabilityScore: metrics.stabilityScore,
             verticalControl: metrics.verticalControlIndex,
             horizontalNoise: metrics.horizontalNoiseIndex,

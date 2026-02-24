@@ -133,6 +133,8 @@ export const analysisSessions = pgTable('analysis_sessions', {
         .references(() => users.id, { onDelete: 'cascade' }),
     weaponId: text('weapon_id').notNull(),
     scopeId: text('scope_id').notNull(),
+    stance: text('stance').notNull().default('standing'),
+    attachments: jsonb('attachments').notNull().default('{}').$type<{ muzzle: string; grip: string; stock: string }>(),
     distance: integer('distance').notNull(),
 
     // Metrics snapshot

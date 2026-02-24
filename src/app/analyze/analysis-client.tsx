@@ -5,9 +5,9 @@
 'use client';
 
 import { useState, useCallback, useRef, useMemo } from 'react';
-import { validateAndPrepareVideo, releaseVideoUrl, extractFrames, trackCrosshair, buildTrajectory, calculateSprayMetrics, runDiagnostics, generateSensitivityRecommendation, generateCoaching, scanInventory } from '@/core';
+import { validateAndPrepareVideo, releaseVideoUrl, extractFrames, trackCrosshair, buildTrajectory, calculateSprayMetrics, runDiagnostics, generateSensitivityRecommendation, generateCoaching } from '@/core';
 import type { VideoMetadata } from '@/core';
-import type { AnalysisResult } from '@/types/engine';
+import type { AnalysisResult, PlayerStance, MuzzleAttachment, GripAttachment, StockAttachment, WeaponLoadout } from '@/types/engine';
 import { WEAPON_LIST, getWeapon, SCOPE_LIST } from '@/game/pubg';
 import { ResultsDashboard } from './results-dashboard';
 import { saveAnalysisResult } from '@/actions/history';
@@ -27,6 +27,10 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
     const [weaponId, setWeaponId] = useState('m416');
     const [scopeId, setScopeId] = useState('red-dot');
     const [distance, setDistance] = useState(30);
+    const [stance, setStance] = useState<PlayerStance>('standing');
+    const [muzzle, setMuzzle] = useState<MuzzleAttachment>('none');
+    const [grip, setGrip] = useState<GripAttachment>('none');
+    const [stock, setStock] = useState<StockAttachment>('none');
     const [markers, setMarkers] = useState<{ id: string, time: number }[]>([{ id: crypto.randomUUID(), time: 0 }]);
     const videoRef = useRef<HTMLVideoElement>(null);
     const [phase, setPhase] = useState<ProcessingPhase>('extracting');
@@ -92,14 +96,7 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
             const weapon = getWeapon(weaponId);
             if (!weapon) throw new Error('Arma não encontrada');
 
-            // 1. [Elite Workflow] Scan for Inventory (Tab) in the first 2 seconds
-            // This helps auto-detect attachments and active slot.
-            const scanFrames = await extractFrames(video.url, 10, 0, 2);
-            const invResult = scanInventory(scanFrames);
-            if (invResult.found) {
-                console.log('Inventory detected!', invResult);
-                // Implementation for auto-updating weapon/attachments will follow
-            }
+            // The scanning was moved to handleFile to pre-fill the UI!
 
             const subSessions: AnalysisResult[] = [];
             const stepIncrement = 100 / markers.length;
@@ -123,7 +120,8 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
                 const trajectory = buildTrajectory(tracking, weapon);
                 const monitorWidth = parseInt(profile.monitorResolution.split('x')[0] || '1920', 10);
                 const pixelToDegree = profile.fov / monitorWidth;
-                const metrics = calculateSprayMetrics(trajectory, weapon, pixelToDegree);
+                const loadout: WeaponLoadout = { stance, muzzle, grip, stock };
+                const metrics = calculateSprayMetrics(trajectory, weapon, loadout, pixelToDegree);
 
                 setPhase('diagnosing');
                 const diagnoses = runDiagnostics(metrics, weapon.category);
@@ -136,12 +134,13 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
                     profile.scopeSens as Record<string, number>,
                     profile.verticalMultiplier
                 );
-                const coaching = generateCoaching(diagnoses);
+                const coaching = generateCoaching(diagnoses, loadout);
 
                 subSessions.push({
                     id: crypto.randomUUID(),
                     timestamp: new Date(),
                     trajectory,
+                    loadout,
                     metrics,
                     diagnoses,
                     sensitivity,
@@ -192,10 +191,11 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
                 id: crypto.randomUUID(),
                 timestamp: new Date(),
                 trajectory: subSessions[0]!.trajectory, // Use first as preview
+                loadout: { stance, muzzle, grip, stock },
                 metrics: finalMetrics,
                 diagnoses: finalDiagnoses,
                 sensitivity: finalSens,
-                coaching: generateCoaching(finalDiagnoses),
+                coaching: generateCoaching(finalDiagnoses, { stance, muzzle, grip, stock }),
                 subSessions,
             };
 
@@ -212,7 +212,7 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
             setError(err instanceof Error ? err.message : 'Erro na análise');
             setStep('error');
         }
-    }, [video, weaponId, markers, profile, scopeId, distance]);
+    }, [video, weaponId, markers, profile, scopeId, distance, stance, grip, muzzle, stock]);
 
     const handleReset = useCallback(() => {
         if (video) releaseVideoUrl(video.url);
@@ -300,6 +300,43 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
                                 <input id="dist" type="range" className="slider" min={10} max={300} value={distance} onChange={e => setDistance(Number(e.target.value))} />
                                 <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-accent-primary)', minWidth: '40px' }}>{distance}m</span>
                             </div>
+                        </div>
+
+                        {/* Stance and Loadout Row */}
+                        <div className={styles.field}>
+                            <label className="input-label" htmlFor="stance">Postura *</label>
+                            <select id="stance" className="input select" value={stance} onChange={e => setStance(e.target.value as PlayerStance)}>
+                                <option value="standing">Em pé</option>
+                                <option value="crouching">Agachado</option>
+                                <option value="prone">Deitado</option>
+                            </select>
+                        </div>
+                        <div className={styles.field}>
+                            <label className="input-label" htmlFor="muzzle">Ponta (Muzzle)</label>
+                            <select id="muzzle" className="input select" value={muzzle} onChange={e => setMuzzle(e.target.value as MuzzleAttachment)} disabled={!getWeapon(weaponId)?.supportedAttachments?.muzzle}>
+                                <option value="none">Nenhuma</option>
+                                <option value="flash_hider">Flash Hider</option>
+                                <option value="compensator">Compensator</option>
+                            </select>
+                        </div>
+                        <div className={styles.field}>
+                            <label className="input-label" htmlFor="grip">Empunhadura (Grip)</label>
+                            <select id="grip" className="input select" value={grip} onChange={e => setGrip(e.target.value as GripAttachment)} disabled={!getWeapon(weaponId)?.supportedAttachments?.grip}>
+                                <option value="none">Nenhum</option>
+                                <option value="vertical">Vertical Grip</option>
+                                <option value="angled">Angled Grip</option>
+                                <option value="half">Half Grip</option>
+                                <option value="thumb">Thumb Grip</option>
+                                <option value="lightweight">Lightweight Grip</option>
+                            </select>
+                        </div>
+                        <div className={styles.field}>
+                            <label className="input-label" htmlFor="stock">Coronha (Stock)</label>
+                            <select id="stock" className="input select" value={stock} onChange={e => setStock(e.target.value as StockAttachment)} disabled={!getWeapon(weaponId)?.supportedAttachments?.stock}>
+                                <option value="none">Nenhuma</option>
+                                <option value="tactical">Tactical Stock</option>
+                                <option value="heavy">Heavy Stock</option>
+                            </select>
                         </div>
                         <div className={styles.field} style={{ gridColumn: '1 / -1' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
