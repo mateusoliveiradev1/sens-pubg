@@ -437,11 +437,17 @@
 
 @media (max-width: 767px) {
   .heroStats {
+    flex-wrap: wrap;
     gap: var(--space-md);
+    justify-content: center;
+  }
+
+  .stat {
+    flex: 1 1 120px;
   }
 
   .statDivider {
-    height: 24px;
+    display: none;
   }
 
   .featureGrid {
@@ -450,10 +456,26 @@
 
   .heroCta {
     flex-direction: column;
+    width: 100%;
+    padding: 0 var(--space-xl);
+  }
+
+  .heroCta>* {
+    width: 100%;
   }
 
   .crosshair {
     width: 250px;
     height: 250px;
+  }
+}
+
+@media (max-width: 500px) {
+  .heroLine2 {
+    font-size: 3.5rem;
+  }
+
+  .heroLine3 {
+    font-size: 1.2rem;
   }
 }

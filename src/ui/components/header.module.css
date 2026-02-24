@@ -152,10 +152,14 @@
     }
 
     .logoText {
-        font-size: var(--text-sm);
+        font-size: var(--text-base);
     }
 
     .userName {
         display: none;
+    }
+
+    .actions {
+        gap: var(--space-sm);
     }
 }

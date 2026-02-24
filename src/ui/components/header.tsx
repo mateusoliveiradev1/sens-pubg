@@ -6,6 +6,7 @@
 import Link from 'next/link';
 import { auth } from '@/auth';
 import { UserDropdown } from './user-dropdown';
+import { MobileNav } from './mobile-nav';
 import styles from './header.module.css';
 
 export async function Header(): Promise<React.JSX.Element> {
@@ -14,18 +15,18 @@ export async function Header(): Promise<React.JSX.Element> {
 
     return (
         <header className={styles.header} role="banner">
-            <nav className={`${styles.nav} container`} aria-label="Navegação principal">
-                <Link href="/" className={styles.logo} aria-label="PUBG Aim Analyzer - Início">
+            <nav className={`${styles.nav} container`} role="navigation" aria-label="Navegação Principal">
+                <Link href="/" className={styles.logo} aria-label="SENS-PUBG Início">
                     <span className={styles.logoIcon}>◎</span>
                     <span className={styles.logoText}>
                         AIM<span className={styles.logoAccent}>ANALYZER</span>
                     </span>
                 </Link>
 
-                <ul className={styles.links} role="list">
-                    <li><Link href="/analyze" className={styles.link}>Analisar</Link></li>
-                    <li><Link href="/pros" className={styles.link}>Pros</Link></li>
-                    <li><Link href="/history" className={styles.link}>Histórico</Link></li>
+                <ul className={styles.links} role="menubar">
+                    <li role="none"><Link href="/analyze" className={styles.link} role="menuitem">Analisar</Link></li>
+                    <li role="none"><Link href="/pros" className={styles.link} role="menuitem">Pros</Link></li>
+                    <li role="none"><Link href="/history" className={styles.link} role="menuitem">Histórico</Link></li>
                 </ul>
 
                 <div className={styles.actions}>
@@ -36,6 +37,7 @@ export async function Header(): Promise<React.JSX.Element> {
                             Entrar
                         </Link>
                     )}
+                    <MobileNav user={user} />
                 </div>
             </nav>
         </header>

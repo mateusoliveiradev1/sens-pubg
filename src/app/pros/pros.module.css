@@ -835,28 +835,33 @@
 }
 
 /* ─── Responsive ─── */
+@media (max-width: 1024px) {
+  .playerGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 @media (max-width: 767px) {
   .hero {
-    padding: var(--space-2xl) var(--space-md) var(--space-xl);
+    padding: var(--space-3xl) var(--space-md) var(--space-xl);
   }
 
   .statsGrid {
     grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
   }
 
   .comparatorInner {
     flex-direction: column;
     padding: var(--space-lg);
-    gap: var(--space-lg);
+    gap: var(--space-xl);
+  }
+
+  .comparatorLeft {
+    text-align: center;
   }
 
   .comparatorInputs {
-    width: 100%;
-  }
-
-  .input {
-    width: 100%;
+    justify-content: center;
   }
 
   .compareGrid {

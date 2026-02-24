@@ -211,3 +211,44 @@
     line-height: 1.6;
     margin: 0;
 }
+
+@media (max-width: 768px) {
+    .identitySection {
+        flex-direction: column;
+        text-align: center;
+        gap: var(--space-xl);
+        padding: var(--space-xl);
+    }
+
+    .headerActions {
+        margin: 0;
+        align-self: center;
+    }
+
+    .userInfo h1 {
+        font-size: 2rem;
+    }
+
+    .userRole {
+        font-size: 0.9rem;
+        letter-spacing: 2px;
+    }
+
+    .socials {
+        justify-content: center;
+    }
+
+    .bio {
+        font-size: 0.9rem;
+        margin-top: var(--space-md);
+    }
+
+    .grid3 {
+        grid-template-columns: 1fr;
+    }
+
+    .sectionTitle {
+        font-size: 1.5rem;
+        justify-content: center;
+    }
+}

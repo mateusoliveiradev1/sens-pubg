@@ -65,15 +65,15 @@ export default auth((req) => {
     if (pathname.startsWith('/api/auth')) {
         const result = checkRateLimit(`auth:${ip}`, AUTH_RATE_LIMIT);
         if (!result.success) {
-            return new NextResponse('Muitas tentativas. Tente novamente em breve.', {
+            return new NextResponse('Muitas tentativas de login. Tente novamente em 15 minutos.', {
                 status: 429,
                 headers: { 'Retry-After': String(Math.ceil(result.resetMs / 1000)) },
             });
         }
-    } else if (pathname.startsWith('/api')) {
+    } else if (pathname.startsWith('/api') || pathname.startsWith('/actions')) {
         const result = checkRateLimit(`api:${ip}`);
         if (!result.success) {
-            return new NextResponse('Rate limit excedido.', {
+            return new NextResponse('Limite de requisições excedido. Aguarde um momento.', {
                 status: 429,
                 headers: { 'Retry-After': String(Math.ceil(result.resetMs / 1000)) },
             });
