@@ -102,8 +102,6 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
             const weapon = getWeapon(weaponId);
             if (!weapon) throw new Error('Arma não encontrada');
 
-            // The scanning was moved to handleFile to pre-fill the UI!
-
             const subSessions: AnalysisResult[] = [];
             const stepIncrement = 100 / markers.length;
 
