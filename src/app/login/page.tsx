@@ -16,12 +16,17 @@ export const metadata: Metadata = {
 // Force dynamic because Header and auth() read session
 export const dynamic = 'force-dynamic';
 
-export default async function LoginPage() {
+export default async function LoginPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ callbackUrl?: string }>;
+}) {
+    const { callbackUrl } = await searchParams;
     const session = await auth();
 
     // If already logged in, go straight to the app
     if (session) {
-        redirect('/analyze');
+        redirect(callbackUrl ?? '/analyze');
     }
 
     return (
@@ -44,7 +49,7 @@ export default async function LoginPage() {
                         <form
                             action={async () => {
                                 'use server';
-                                await signIn('google', { redirectTo: '/analyze' });
+                                await signIn('google', { redirectTo: callbackUrl ?? '/analyze' });
                             }}
                         >
                             <button type="submit" className={`${styles.providerBtn} ${styles.google}`}>
@@ -61,7 +66,7 @@ export default async function LoginPage() {
                         <form
                             action={async () => {
                                 'use server';
-                                await signIn('discord', { redirectTo: '/analyze' });
+                                await signIn('discord', { redirectTo: callbackUrl ?? '/analyze' });
                             }}
                         >
                             <button type="submit" className={`${styles.providerBtn} ${styles.discord}`}>
