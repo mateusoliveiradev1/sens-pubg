@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition, useEffect } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { Control, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { playerProfileSchema } from '@/types/schemas';
 import type { z } from 'zod';
@@ -19,6 +19,7 @@ const MONITOR_PANELS = ['ips', 'tn', 'va'];
 type ProfileFormValues = z.infer<typeof playerProfileSchema>;
 
 // Sub-component for performance optimization: Only re-renders when DPI or Sensitivity changes
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function Cm360Badge({ control }: { control: any }) {
     const currentDpi = useWatch({ control, name: 'mouse.dpi' }) || 800;
     const currentSens = useWatch({ control, name: 'pubgSettings.generalSens' }) || 35;
@@ -39,9 +40,9 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
 
     const defaultValues: Partial<ProfileFormValues> = initialData ? {
         identity: {
-            bio: initialData.bio,
-            twitter: initialData.twitter,
-            twitch: initialData.twitch,
+            bio: initialData.bio || '',
+            twitter: initialData.twitter || '',
+            twitch: initialData.twitch || '',
         },
         mouse: {
             model: initialData.mouseModel || '',
@@ -55,29 +56,34 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
             model: initialData.mousepadModel || '',
             widthCm: initialData.mousepadWidth || 45,
             heightCm: initialData.mousepadHeight || 40,
-            type: initialData.mousepadType as any || 'control',
-            material: initialData.mousepadMaterial as any || 'cloth',
+            type: (initialData.mousepadType as 'hybrid' | 'speed' | 'control') || 'control',
+            material: (initialData.mousepadMaterial as 'cloth' | 'hard' | 'glass') || 'cloth',
         },
-        gripStyle: initialData.gripStyle as any || 'palm',
-        playStyle: initialData.playStyle as any || 'arm',
+        gripStyle: (initialData.gripStyle as 'palm' | 'claw' | 'fingertip' | 'hybrid') || 'palm',
+        playStyle: (initialData.playStyle as 'arm' | 'wrist' | 'hybrid') || 'arm',
         monitor: {
             resolution: initialData.monitorResolution || '1920x1080',
             refreshRate: initialData.monitorRefreshRate || 144,
-            panelType: initialData.monitorPanel as any || 'ips',
+            panelType: (initialData.monitorPanel as 'ips' | 'tn' | 'va') || 'ips',
         },
         pubgSettings: {
             generalSens: initialData.generalSens || 35,
             adsSens: initialData.adsSens || 30,
-            scopeSens: initialData.scopeSens || { '1x': 30, '2x': 30, '3x': 30, '4x': 30, '6x': 30, '8x': 30, '15x': 30 },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            scopeSens: (initialData.scopeSens as any) || { '1x': 30, '2x': 30, '3x': 30, '4x': 30, '6x': 30, '8x': 30, '15x': 30 },
             fov: initialData.fov || 90,
             verticalMultiplier: initialData.verticalMultiplier || 1.0,
             mouseAcceleration: initialData.mouseAcceleration || false,
         },
         physical: {
-            armLength: initialData.armLength as any || 'medium',
+            armLength: (initialData.armLength as 'short' | 'medium' | 'long') || 'medium',
             deskSpaceCm: initialData.deskSpace || 60,
         },
     } : {
+        identity: { bio: '', twitter: '', twitch: '' },
+        mouse: { model: '', sensor: '', dpi: 800, pollingRate: 1000, weightGrams: 60, liftOffDistance: 1.0 },
+        mousepad: { model: '', widthCm: 45, heightCm: 40, type: 'control', material: 'cloth' },
+        monitor: { resolution: '1920x1080', refreshRate: 144, panelType: 'ips' },
         pubgSettings: {
             generalSens: 35,
             adsSens: 30,
@@ -85,21 +91,30 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
             fov: 90,
             verticalMultiplier: 1.0,
             mouseAcceleration: false,
-        }
+        },
+        physical: { armLength: 'medium', deskSpaceCm: 60 }
     };
 
-    const { register, handleSubmit, formState: { errors, isDirty }, control, reset } = useForm<ProfileFormValues>({
-        resolver: zodResolver(playerProfileSchema),
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { register, handleSubmit, formState: { errors, isDirty }, control, reset, setValue, getValues } = useForm<ProfileFormValues>({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        resolver: zodResolver(playerProfileSchema) as any,
         defaultValues,
-        mode: 'onChange' // To keep isDirty up to date easily
+        mode: 'onChange'
     });
+
+    // Sync form with initialData if it changes without full unmount
+    useEffect(() => {
+        if (initialData) {
+            reset(defaultValues);
+        }
+    }, [initialData]);
 
 
     const syncAllScopes = () => {
-        // Get current ADS value from the form
-        const currentAds = control._formValues?.pubgSettings?.adsSens || 30;
+        const currentAds = getValues('pubgSettings.adsSens') || 30;
 
-        // Update all scope values
         const newScopes = {
             '1x': currentAds,
             '2x': currentAds,
@@ -110,12 +125,10 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
             '15x': currentAds,
         };
 
-        reset({
-            ...(control._formValues as any),
-            pubgSettings: {
-                ...(control._formValues?.pubgSettings as any),
-                scopeSens: newScopes
-            }
+        setValue('pubgSettings.scopeSens', newScopes, {
+            shouldDirty: true,
+            shouldValidate: true,
+            shouldTouch: true
         });
     };
 
@@ -133,6 +146,7 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
         });
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const onError = (errors: any) => {
         setNotification({ type: 'error', message: 'Por favor, revise os campos marcados em vermelho nas abas de configuração.' });
 
@@ -264,12 +278,12 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
                             </div>
                             <div className="field">
                                 <label className="input-label" htmlFor="mouse-dpi">DPI *</label>
-                                <input id="mouse-dpi" type="number" className={`input ${errors.mouse?.dpi ? styles.inputError : ''}`} {...register('mouse.dpi', { valueAsNumber: true })} />
+                                <input id="mouse-dpi" type="number" className={`input ${errors.mouse?.dpi ? styles.inputError : ''}`} {...register('mouse.dpi')} />
                                 {errors.mouse?.dpi && <span className={styles.errorText}>{errors.mouse.dpi.message}</span>}
                             </div>
                             <div className="field">
                                 <label className="input-label" htmlFor="mouse-polling">Polling Rate (Hz) *</label>
-                                <select id="mouse-polling" className="input select" {...register('mouse.pollingRate', { valueAsNumber: true })}>
+                                <select id="mouse-polling" className="input select" {...register('mouse.pollingRate')}>
                                     <option value="125">125 Hz</option>
                                     <option value="500">500 Hz</option>
                                     <option value="1000">1000 Hz</option>
@@ -280,11 +294,11 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
                             </div>
                             <div className="field">
                                 <label className="input-label" htmlFor="mouse-weight">Peso (gramas) *</label>
-                                <input id="mouse-weight" type="number" className={`input ${errors.mouse?.weightGrams ? styles.inputError : ''}`} {...register('mouse.weightGrams', { valueAsNumber: true })} />
+                                <input id="mouse-weight" type="number" className={`input ${errors.mouse?.weightGrams ? styles.inputError : ''}`} {...register('mouse.weightGrams')} />
                             </div>
                             <div className="field">
                                 <label className="input-label" htmlFor="mouse-lod">Lift-Off Distance (mm) *</label>
-                                <input id="mouse-lod" type="number" step="0.1" className={`input ${errors.mouse?.liftOffDistance ? styles.inputError : ''}`} {...register('mouse.liftOffDistance', { valueAsNumber: true })} />
+                                <input id="mouse-lod" type="number" step="0.1" className={`input ${errors.mouse?.liftOffDistance ? styles.inputError : ''}`} {...register('mouse.liftOffDistance')} />
                             </div>
                         </div>
 
@@ -298,7 +312,7 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
                             </div>
                             <div className="field">
                                 <label className="input-label" htmlFor="monitor-refresh">Refresh Rate (Hz) *</label>
-                                <input id="monitor-refresh" type="number" className={`input ${errors.monitor?.refreshRate ? styles.inputError : ''}`} {...register('monitor.refreshRate', { valueAsNumber: true })} />
+                                <input id="monitor-refresh" type="number" className={`input ${errors.monitor?.refreshRate ? styles.inputError : ''}`} {...register('monitor.refreshRate')} />
                             </div>
                         </div>
                     </div>
@@ -358,7 +372,7 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
                             </div>
                             <div className="field">
                                 <label className="input-label" htmlFor="deskspace">Espaço Livre no Setup (cm) *</label>
-                                <input id="deskspace" type="number" className="input" {...register('physical.deskSpaceCm', { valueAsNumber: true })} />
+                                <input id="deskspace" type="number" className="input" {...register('physical.deskSpaceCm')} />
                             </div>
                         </div>
                     </div>
@@ -378,19 +392,19 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
                         <div className={styles.grid2}>
                             <div className="field">
                                 <label className="input-label" htmlFor="gen-sens">Sensibilidade Geral *</label>
-                                <input id="gen-sens" type="number" step="0.1" className={`input ${errors.pubgSettings?.generalSens ? styles.inputError : ''}`} {...register('pubgSettings.generalSens', { valueAsNumber: true })} />
+                                <input id="gen-sens" type="number" step="0.1" className={`input ${errors.pubgSettings?.generalSens ? styles.inputError : ''}`} {...register('pubgSettings.generalSens')} />
                             </div>
                             <div className="field">
                                 <label className="input-label" htmlFor="ads-sens">Sensibilidade ADS (Mira) *</label>
-                                <input id="ads-sens" type="number" step="0.1" className="input" {...register('pubgSettings.adsSens', { valueAsNumber: true })} />
+                                <input id="ads-sens" type="number" step="0.1" className="input" {...register('pubgSettings.adsSens')} />
                             </div>
                             <div className="field">
                                 <label className="input-label" htmlFor="vert-mult">Multiplicador Vertical *</label>
-                                <input id="vert-mult" type="number" step="0.01" className="input" {...register('pubgSettings.verticalMultiplier', { valueAsNumber: true })} />
+                                <input id="vert-mult" type="number" step="0.01" className="input" {...register('pubgSettings.verticalMultiplier')} />
                             </div>
                             <div className="field">
                                 <label className="input-label" htmlFor="fov">FOV (Campo de Visão) *</label>
-                                <input id="fov" type="number" className="input" {...register('pubgSettings.fov', { valueAsNumber: true })} />
+                                <input id="fov" type="number" className="input" {...register('pubgSettings.fov')} />
                             </div>
                         </div>
 
@@ -417,7 +431,7 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
                                             type="number"
                                             step="0.1"
                                             className="input"
-                                            {...register(`pubgSettings.scopeSens.${scope}` as const, { valueAsNumber: true })}
+                                            {...register(`pubgSettings.scopeSens.${scope}` as const)}
                                         />
                                     </div>
                                 ))}

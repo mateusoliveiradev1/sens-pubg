@@ -2,7 +2,6 @@ import { Header } from '@/ui/components/header';
 import { SettingsForm } from './settings-form';
 import { getProfile } from '@/actions/profile';
 import styles from './settings-form.module.css';
-import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {

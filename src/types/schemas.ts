@@ -26,44 +26,63 @@ export type EnvVars = z.infer<typeof envSchema>;
 // Player Profile Form
 // ═══════════════════════════════════════════
 
+// Helper for consistent numeric fields with nice error messages
+const numericField = (label: string, min?: number, max?: number, isInt = false) => {
+    let schema = z.coerce.number().refine(v => !isNaN(v), { message: `${label} deve ser um número` });
+
+    if (isInt) {
+        schema = schema.refine(v => Number.isInteger(v), { message: `${label} deve ser um número inteiro` });
+    }
+
+    if (min !== undefined) {
+        schema = schema.refine(v => v >= min, { message: `Mínimo: ${min}` });
+    }
+
+    if (max !== undefined) {
+        schema = schema.refine(v => v <= max, { message: `Máximo: ${max}` });
+    }
+
+    return schema;
+};
+
 export const mouseSchema = z.object({
     model: z.string().min(1, 'Modelo do mouse é obrigatório'),
     sensor: z.string().min(1, 'Sensor é obrigatório'),
-    dpi: z.number().int().min(100).max(25600),
-    pollingRate: z.number().int().refine(
+    dpi: numericField('DPI', 100, 25600, true),
+    pollingRate: z.coerce.number().int().refine(
         (v) => [125, 250, 500, 1000, 2000, 4000, 8000].includes(v),
         'Polling rate inválido'
     ),
-    weightGrams: z.number().min(30).max(200),
-    liftOffDistance: z.number().min(0.5).max(3),
+    weightGrams: numericField('Peso', 30, 200),
+    liftOffDistance: numericField('LOD', 0.5, 3),
 });
 
 export const mousepadSchema = z.object({
     model: z.string().min(1, 'Modelo do mousepad é obrigatório'),
-    widthCm: z.number().min(10).max(120),
-    heightCm: z.number().min(10).max(60),
+    widthCm: numericField('Largura', 10, 120),
+    heightCm: numericField('Altura', 10, 60),
     type: z.enum(['speed', 'control', 'hybrid']),
     material: z.enum(['cloth', 'hard', 'glass']),
 });
 
 export const monitorSchema = z.object({
     resolution: z.string().min(1, 'Resolução é obrigatória'),
-    refreshRate: z.number().int().min(60).max(500),
+    refreshRate: numericField('Refresh Rate', 60, 500, true),
     panelType: z.enum(['ips', 'tn', 'va']),
 });
 
 export const pubgSettingsSchema = z.object({
-    generalSens: z.number().min(0.01).max(100),
-    adsSens: z.number().min(0.01).max(100),
-    scopeSens: z.record(z.string(), z.number().min(0.01).max(100)),
-    fov: z.number().int().min(80).max(103),
-    verticalMultiplier: z.number().min(0.5).max(1.5),
+    generalSens: numericField('Sensibilidade', 0.01, 100),
+    adsSens: numericField('Sensibilidade ADS', 0.01, 100),
+    scopeSens: z.record(z.string(), z.coerce.number().min(0.01).max(100)),
+    fov: numericField('FOV', 80, 103, true),
+    verticalMultiplier: numericField('Multiplicador Vertical', 0.5, 1.5),
     mouseAcceleration: z.boolean(),
 });
 
 export const physicalSchema = z.object({
     armLength: z.enum(['short', 'medium', 'long']),
-    deskSpaceCm: z.number().min(20).max(200),
+    deskSpaceCm: numericField('Espaço na Mesa', 20, 200),
 });
 
 export const playerProfileSchema = z.object({

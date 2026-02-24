@@ -92,6 +92,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
                 // Add meta info for debugging
                 if (token.provider) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     (session as any).provider = token.provider;
                 }
             }
