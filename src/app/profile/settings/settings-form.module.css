@@ -1,10 +1,16 @@
-.layout {
-    display: flex;
-    gap: var(--space-2xl);
-    align-items: flex-start;
-    padding: var(--space-xl) 0;
-    width: 100%;
-    min-height: 70vh;
+.pageDesc {
+    margin-bottom: var(--space-xl) !important;
+}
+
+@media (max-width: 360px) {
+    .pageTitle {
+        font-size: 1.5rem !important;
+    }
+
+    .pageDesc {
+        font-size: 0.85rem;
+        margin-bottom: var(--space-lg) !important;
+    }
 }
 
 /* SIDEBAR */
@@ -86,10 +92,13 @@
         flex-direction: row;
         overflow-x: auto;
         position: sticky;
-        top: 60px;
-        background: var(--color-background);
-        padding: var(--space-xs) 0;
+        top: 64px;
+        /* Exact Header height */
+        background: var(--color-bg-primary);
+        /* Solid background to prevent overlap transparency */
+        padding: var(--space-sm) 0;
         z-index: 50;
+        border-bottom: 1px solid var(--color-border);
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
     }
@@ -101,7 +110,7 @@
     .tabBtn {
         white-space: nowrap;
         padding: var(--space-sm) var(--space-lg);
-        font-size: 0.9rem;
+        font-size: 0.85rem;
         flex-shrink: 0;
     }
 
@@ -113,11 +122,15 @@
         width: 100%;
         max-width: 100%;
         flex-grow: 0;
+        margin-top: var(--space-md);
+        /* Add clearance for sticky bar */
     }
 
     .sectionTitle {
-        font-size: 1.25rem;
+        font-size: 1.15rem;
+        /* Smoother scaling */
         word-wrap: break-word;
+        margin-bottom: var(--space-sm);
     }
 
     .grid2 {
@@ -161,6 +174,25 @@
         left: 10px;
         text-align: center;
         width: auto;
+    }
+}
+
+@media (max-width: 360px) {
+    .sidebar {
+        position: relative !important;
+        top: 0 !important;
+        margin-bottom: var(--space-lg);
+        background: transparent;
+        border-bottom: none;
+    }
+
+    .tabBtn {
+        padding: 6px 12px;
+        font-size: 0.75rem;
+    }
+
+    .sectionTitle {
+        font-size: 1rem !important;
     }
 }
 

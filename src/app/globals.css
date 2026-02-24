@@ -850,6 +850,33 @@ code,
    ═══════════════════════════════════════════ */
 
 /* Mobile (≤ 767px) */
+@media (max-width: 768px) {
+  .input {
+    padding: 12px 14px;
+    /* Larger touch target */
+    font-size: 16px;
+    /* Prevent iOS zoom */
+  }
+}
+
+@media (max-width: 360px) {
+  h1 {
+    font-size: 1.5rem !important;
+  }
+
+  h2 {
+    font-size: 1.25rem !important;
+  }
+
+  h3 {
+    font-size: 1.1rem !important;
+  }
+
+  .container {
+    padding: 0 var(--space-sm);
+  }
+}
+
 @media (max-width: 767px) {
   :root {
     --text-4xl: 1.75rem;

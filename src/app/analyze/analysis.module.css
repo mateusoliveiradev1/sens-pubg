@@ -632,14 +632,32 @@
     .profileStats {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: var(--space-sm);
+        gap: var(--space-xs);
         align-items: center;
         width: 100%;
     }
 
     .profileValue {
-        font-size: var(--text-lg);
-        /* Scale down from 2xl */
+        font-size: var(--text-base);
+        /* Even smaller for iPhone SE */
+    }
+
+    @media (max-width: 360px) {
+        .sectionTitle {
+            font-size: var(--text-lg);
+        }
+
+        .profileCard {
+            padding: var(--space-md);
+        }
+
+        .profileStats {
+            gap: 2px;
+        }
+
+        .profileValue {
+            font-size: 1rem;
+        }
     }
 
     .profileDesc {
