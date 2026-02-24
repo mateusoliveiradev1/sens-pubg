@@ -6,12 +6,14 @@
     text-align: center;
     background: var(--glass-bg);
     backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: var(--radius-xl);
     padding: var(--space-3xl) var(--space-2xl);
     animation: scaleIn 0.4s ease-out;
     position: relative;
     overflow: hidden;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
 }
 
 /* Subtle top border glow */
@@ -67,6 +69,89 @@
     color: var(--color-text-muted);
     margin-bottom: var(--space-2xl);
     line-height: 1.6;
+}
+
+/* ─── Checkbox de Termos ─── */
+
+.termsCheckboxContainer {
+    margin-bottom: var(--space-xl);
+    text-align: left;
+    background: rgba(0, 0, 0, 0.15);
+    padding: var(--space-md);
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.checkboxLabel {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-sm);
+    cursor: pointer;
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+}
+
+.checkboxInput {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+.checkboxCustom {
+    position: relative;
+    top: 3px;
+    height: 18px;
+    width: 18px;
+    background-color: var(--color-bg-input);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    flex-shrink: 0;
+    transition: all var(--transition-fast);
+}
+
+.checkboxLabel:hover .checkboxInput~.checkboxCustom {
+    border-color: var(--color-accent-primary);
+    box-shadow: 0 0 5px var(--color-accent-glow);
+}
+
+.checkboxInput:checked~.checkboxCustom {
+    background-color: var(--color-accent-primary);
+    border-color: var(--color-accent-primary);
+}
+
+.checkboxCustom:after {
+    content: "";
+    position: absolute;
+    display: none;
+}
+
+.checkboxInput:checked~.checkboxCustom:after {
+    display: block;
+}
+
+.checkboxCustom:after {
+    left: 5px;
+    top: 2px;
+    width: 4px;
+    height: 8px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+.termsText a {
+    color: var(--color-accent-primary);
+    text-decoration: underline;
+    text-decoration-color: rgba(255, 107, 0, 0.3);
+    text-underline-offset: 2px;
+}
+
+.termsText a:hover {
+    color: var(--color-text-primary);
+    text-decoration-color: var(--color-text-primary);
 }
 
 /* ─── Provider Buttons ─── */

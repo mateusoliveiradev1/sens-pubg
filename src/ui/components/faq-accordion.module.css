@@ -34,11 +34,11 @@
     color: var(--color-text-primary);
     cursor: pointer;
     text-align: left;
-    transition: background var(--transition-fast);
+    transition: all var(--transition-fast);
 }
 
 .faqHeader:hover {
-    background: rgba(255, 255, 255, 0.03);
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.05), transparent);
 }
 
 .faqHeader h3 {
@@ -46,6 +46,11 @@
     font-weight: 600;
     margin: 0;
     padding-right: var(--space-md);
+    transition: color var(--transition-fast);
+}
+
+.faqHeader:hover h3 {
+    color: var(--color-accent-primary);
 }
 
 .icon {
@@ -55,9 +60,25 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
-    transition: transform var(--transition-base);
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(255, 107, 0, 0.1);
+    transition: all var(--transition-base);
+    box-shadow: 0 0 10px rgba(255, 107, 0, 0);
+}
+
+.faqHeader:hover .icon {
+    background: rgba(255, 107, 0, 0.2);
+    box-shadow: 0 0 15px rgba(255, 107, 0, 0.3);
+    transform: scale(1.1);
+}
+
+.faqItem.open .icon {
+    transform: rotate(180deg);
+    background: var(--color-accent-primary);
+    color: var(--color-background);
+    box-shadow: 0 0 15px rgba(255, 107, 0, 0.4);
 }
 
 .faqBodyWrapper {

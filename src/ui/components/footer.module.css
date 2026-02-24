@@ -20,6 +20,165 @@
     justify-content: space-between;
     gap: var(--space-2xl);
     margin-bottom: var(--space-3xl);
+    padding-top: var(--space-3xl);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* ─── CONTACT SECTION CTA ─── */
+.contactSection {
+    margin-bottom: var(--space-4xl);
+    text-align: center;
+    background: radial-gradient(circle at 50% 50%, rgba(20, 20, 25, 0.4), transparent 80%);
+    padding: var(--space-3xl) 0;
+    border-radius: var(--radius-xl);
+}
+
+.contactHeader {
+    margin-bottom: var(--space-2xl);
+}
+
+.contactHeader h2 {
+    font-size: var(--text-2xl);
+    font-weight: 800;
+    margin-bottom: var(--space-xs);
+    background: linear-gradient(135deg, #fff, var(--color-text-secondary));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.contactHeader p {
+    color: var(--color-text-muted);
+}
+
+.contactCards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--space-xl);
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.contactCard {
+    display: flex;
+    align-items: center;
+    gap: var(--space-lg);
+    padding: var(--space-xl);
+    text-decoration: none;
+    border-radius: var(--radius-xl);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    transition: all var(--transition-spring);
+    position: relative;
+    overflow: hidden;
+    text-align: left;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.contactCard::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0.5;
+    transition: opacity var(--transition-base);
+    pointer-events: none;
+}
+
+.contactCard:hover {
+    transform: translateY(-8px) scale(1.02);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+}
+
+.contactCard:hover::before {
+    opacity: 1;
+}
+
+.cardIcon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: transform var(--transition-spring);
+}
+
+.contactCard:hover .cardIcon {
+    transform: scale(1.15) rotate(-5deg);
+}
+
+.cardIcon svg {
+    width: 28px;
+    height: 28px;
+}
+
+.cardContent h3 {
+    margin: 0 0 4px 0;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--color-text-primary);
+    letter-spacing: -0.01em;
+}
+
+.cardContent span {
+    font-size: 0.9rem;
+    color: var(--color-text-secondary);
+    line-height: 1.4;
+}
+
+/* Discord Specific Card */
+.discordCard::before {
+    background: radial-gradient(circle at 10% 50%, rgba(88, 101, 242, 0.15), transparent 70%);
+}
+
+.discordCard {
+    border-color: rgba(88, 101, 242, 0.3);
+}
+
+.discordCard:hover {
+    border-color: rgba(88, 101, 242, 0.6);
+    box-shadow: 0 15px 40px rgba(88, 101, 242, 0.25);
+}
+
+.discordCard .cardIcon {
+    background: rgba(88, 101, 242, 0.15);
+    color: #5865F2;
+    box-shadow: 0 0 20px rgba(88, 101, 242, 0.2);
+    border: 1px solid rgba(88, 101, 242, 0.2);
+}
+
+.discordCard:hover .cardIcon {
+    background: rgba(88, 101, 242, 0.25);
+    box-shadow: 0 0 30px rgba(88, 101, 242, 0.4);
+}
+
+/* Email Specific Card */
+.emailCard::before {
+    background: radial-gradient(circle at 10% 50%, rgba(255, 107, 0, 0.15), transparent 70%);
+}
+
+.emailCard {
+    border-color: rgba(255, 107, 0, 0.3);
+}
+
+.emailCard:hover {
+    border-color: rgba(255, 107, 0, 0.6);
+    box-shadow: 0 15px 40px rgba(255, 107, 0, 0.25);
+}
+
+.emailCard .cardIcon {
+    background: rgba(255, 107, 0, 0.15);
+    color: var(--color-accent-primary);
+    box-shadow: 0 0 20px rgba(255, 107, 0, 0.2);
+    border: 1px solid rgba(255, 107, 0, 0.2);
+}
+
+.emailCard:hover .cardIcon {
+    background: rgba(255, 107, 0, 0.25);
+    box-shadow: 0 0 30px rgba(255, 107, 0, 0.4);
 }
 
 .brand {
@@ -113,6 +272,19 @@
 }
 
 @media (max-width: 768px) {
+    .contactSection {
+        padding: var(--space-2xl) var(--space-md);
+        margin-bottom: var(--space-2xl);
+    }
+
+    .contactHeader h2 {
+        font-size: var(--text-xl);
+    }
+
+    .contactCards {
+        grid-template-columns: 1fr;
+    }
+
     .top {
         flex-direction: column;
         gap: var(--space-xl);

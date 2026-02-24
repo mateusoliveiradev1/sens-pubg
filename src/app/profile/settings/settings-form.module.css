@@ -44,19 +44,20 @@
     gap: var(--space-sm);
     padding: var(--space-md);
     background: transparent;
-    border: none;
+    border: 1px solid transparent;
     text-align: left;
     color: var(--color-text-muted);
     font-size: 1rem;
     font-weight: 500;
     border-radius: var(--radius-md);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all var(--transition-base);
 }
 
 .tabBtn:hover {
     background: rgba(255, 255, 255, 0.05);
-    color: var(--color-text);
+    color: var(--color-text-primary);
+    border-color: rgba(255, 255, 255, 0.1);
 }
 
 .tabActive {
@@ -330,17 +331,18 @@
     bottom: var(--space-2xl);
     left: 50%;
     transform: translateX(-50%) translateY(100px);
-    background: rgba(20, 20, 25, 0.85);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(100, 100, 255, 0.3);
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--color-accent-primary);
     padding: var(--space-md) var(--space-xl);
     border-radius: var(--radius-lg);
     display: flex;
     align-items: center;
     gap: var(--space-xl);
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), 0 0 20px rgba(100, 100, 255, 0.2);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(255, 107, 0, 0.2);
     z-index: 1000;
-    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition: transform var(--transition-spring), opacity var(--transition-base);
     opacity: 0;
     visibility: hidden;
 }
