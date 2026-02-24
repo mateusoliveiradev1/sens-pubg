@@ -12,6 +12,7 @@ import { WEAPON_LIST, getWeapon, SCOPE_LIST } from '@/game/pubg';
 import { ResultsDashboard } from './results-dashboard';
 import { saveAnalysisResult } from '@/actions/history';
 import type { PlayerProfile } from '@/db/schema';
+import { AnalysisGuide } from './analysis-guide';
 import styles from './analysis.module.css';
 
 const MUZZLE_LABELS: Record<MuzzleAttachment, string> = { none: 'Nenhum', compensator: 'Compensator', flash_hider: 'Flash Hider', suppressor: 'Suppressor', muzzle_brake: 'Muzzle Brake', choke: 'Choke', duckbill: 'Duckbill' };
@@ -40,8 +41,10 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
     const [phase, setPhase] = useState<ProcessingPhase>('extracting');
     const [progress, setProgress] = useState(0);
     const [error, setError] = useState<string | null>(null);
+    const [qualityWarning, setQualityWarning] = useState<string | null>(null);
     const [result, setResult] = useState<AnalysisResult | null>(null);
     const [dragActive, setDragActive] = useState(false);
+    const [isGuideOpen, setIsGuideOpen] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const weaponsByCategory = useMemo(() => {
@@ -55,11 +58,19 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
 
     const handleFile = useCallback(async (file: File) => {
         setError(null);
+        setQualityWarning(null);
 
         const result = await validateAndPrepareVideo(file);
         if (!result.valid) {
             setError(result.error.message);
             return;
+        }
+
+        // Logic check for Resolution & FPS warnings
+        if (result.metadata.height < 1080) {
+            setQualityWarning(`Resolução detectada: ${result.metadata.height}p. Recomendamos 1080p para maior precisão.`);
+        } else if (result.metadata.fps < 59) {
+            setQualityWarning(`Framerate detectado: ${Math.round(result.metadata.fps)} FPS. Recomendamos 60 FPS para capturar cada micro-ajuste.`);
         }
 
         setVideo(result.metadata);
@@ -262,6 +273,18 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
                     />
                 </div>
                 {error && <div className={styles.error}>❌ {error}</div>}
+
+                <div style={{ textAlign: 'center', marginTop: 'var(--space-xl)' }}>
+                    <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => setIsGuideOpen(true)}
+                        style={{ color: 'var(--color-accent-primary)' }}
+                    >
+                        📚 Como gravar o clipe perfeito?
+                    </button>
+                </div>
+
+                <AnalysisGuide isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
             </div>
         );
     }
@@ -278,6 +301,15 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
                         <span className="badge badge-info">{video.fps} FPS</span>
                     </div>
                 </div>
+
+                {qualityWarning && (
+                    <div className={styles.qualityWarning}>
+                        <span className={styles.warningIcon}>⚠️</span>
+                        <div className={styles.warningText}>
+                            <strong>Aviso de Qualidade:</strong> {qualityWarning}
+                        </div>
+                    </div>
+                )}
 
                 <div className={`glass-card ${styles.settingsForm}`}>
                     <h3>Configurações da Análise</h3>

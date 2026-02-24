@@ -44,6 +44,39 @@
 
 /* ═══ Video Preview ═══ */
 
+.qualityWarning {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: var(--radius-lg);
+    padding: var(--space-md) var(--space-lg);
+    margin-bottom: var(--space-lg);
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    animation: slideInDown 0.4s ease-out;
+}
+
+.warningIcon {
+    font-size: 1.2rem;
+}
+
+.warningText {
+    font-size: 0.9rem;
+    color: #fbbf24;
+}
+
+@keyframes slideInDown {
+    from {
+        transform: translateY(-10px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
 .videoPreview {
     margin-bottom: var(--space-lg);
 }
