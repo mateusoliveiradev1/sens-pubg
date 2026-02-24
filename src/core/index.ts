@@ -33,4 +33,3 @@ export {
 export { runDiagnostics } from './diagnostic-engine';
 export { generateSensitivityRecommendation } from './sensitivity-engine';
 export { generateCoaching } from './coach-engine';
-export { scanInventory, type InventoryScanResult } from './inventory-scanner';

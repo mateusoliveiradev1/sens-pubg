@@ -5,7 +5,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useMemo } from 'react';
-import { validateAndPrepareVideo, releaseVideoUrl, extractFrames, trackCrosshair, buildTrajectory, calculateSprayMetrics, runDiagnostics, generateSensitivityRecommendation, generateCoaching, scanInventory } from '@/core';
+import { validateAndPrepareVideo, releaseVideoUrl, extractFrames, trackCrosshair, buildTrajectory, calculateSprayMetrics, runDiagnostics, generateSensitivityRecommendation, generateCoaching } from '@/core';
 import type { VideoMetadata } from '@/core';
 import type { AnalysisResult, PlayerStance, MuzzleAttachment, GripAttachment, StockAttachment, WeaponLoadout } from '@/types/engine';
 import { WEAPON_LIST, getWeapon, SCOPE_LIST } from '@/game/pubg';
@@ -55,30 +55,16 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
 
     const handleFile = useCallback(async (file: File) => {
         setError(null);
-        setStep('processing'); // Show loading briefly during OCR
-        setPhase('extracting');
 
         const result = await validateAndPrepareVideo(file);
         if (!result.valid) {
             setError(result.error.message);
-            setStep('error');
             return;
         }
 
         setVideo(result.metadata);
         setMarkers([{ id: crypto.randomUUID(), time: 0 }]);
         setStep('settings');
-
-        // Fire & Forget OCR Scanner (non-blocking)
-        extractFrames(result.metadata.url, Math.min(result.metadata.fps, 30), 0, 2).then(async (frames) => {
-            if (frames.length > 0) {
-                const scan = await scanInventory(frames);
-                if (scan.found && scan.weaponId) {
-                    setWeaponId(scan.weaponId);
-                }
-            }
-        }).catch(err => console.error('Auto-Detect Failed:', err));
-
     }, []);
 
     const addMarker = useCallback(() => {
