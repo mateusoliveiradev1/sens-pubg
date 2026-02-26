@@ -79,8 +79,12 @@ export const saveProfile = authActionClient
             return { success: true };
         } catch (err) {
             console.error('[saveProfile] CRITICAL ERROR:', err);
-            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-            throw new Error(`Erro ao salvar o perfil: ${errorMessage}`);
+            // If it's a database error, Drizzle/Postgres usually has a detailed message
+            let detail = 'Unknown error';
+            if (err instanceof Error) {
+                detail = (err as Record<string, unknown>).detail as string || err.message;
+            }
+            throw new Error(`Erro ao salvar no banco: ${detail}`);
         }
     });
 

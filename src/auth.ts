@@ -93,8 +93,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                         token.id = res[0]!.id;
                     }
                 } catch (err) {
-                    console.error('[AUTH] Failed to sync user to database:', err);
-                    token.id = user.id; // fallback to provider ID
+                    console.error('[AUTH] CRITICAL: Failed to sync user to database:', err);
+                    // Fallback to provider ID, but this will cause FK issues in profiles
+                    token.id = user.id;
                 }
                 token.name = user.name ?? null;
                 token.email = user.email ?? null;
