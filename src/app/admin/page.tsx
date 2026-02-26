@@ -2,7 +2,6 @@ import Image from 'next/image';
 import { db } from '@/db';
 import { users, analysisSessions } from '@/db/schema';
 import { count, desc, sql } from 'drizzle-orm';
-import { env } from '@/env';
 import styles from './admin.module.css';
 
 async function getBotStatus() {
@@ -123,6 +122,46 @@ export default async function AdminDashboard() {
                     )}
                 </div>
             </section>
+
+            <section className={styles.quickActions}>
+                <div className={styles.sectionHeader}>
+                    <h2>Ações Rápidas</h2>
+                </div>
+                <div className={styles.actionGrid}>
+                    <div className={styles.actionCard}>
+                        <div className={styles.actionIcon}>📝</div>
+                        <div className={styles.actionInfo}>
+                            <strong>Ver Logs do Bot</strong>
+                            <p>Últimas interações do sistema.</p>
+                        </div>
+                    </div>
+                    <div className={styles.actionCard}>
+                        <div className={styles.actionIcon}>📁</div>
+                        <div className={styles.actionInfo}>
+                            <strong>Exportar Dados</strong>
+                            <p>Baixar lista de usuários (CSV).</p>
+                        </div>
+                    </div>
+                    <div className={styles.actionCard}>
+                        <div className={styles.actionIcon}>⚙️</div>
+                        <div className={styles.actionInfo}>
+                            <strong>Configurações Globais</strong>
+                            <p>Manutenção e variáveis.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <footer className={styles.dashboardFooter}>
+                <div className={styles.footerLeft}>
+                    <span>SENS-PUBG Admin v1.2.0</span>
+                    <span className={styles.footerDot}>•</span>
+                    <span>Database: Neon PostgreSQL</span>
+                </div>
+                <div className={styles.footerRight}>
+                    <a href="mailto:contato@sens-pubg.com">Suporte Técnico</a>
+                </div>
+            </footer>
         </div>
     );
 }

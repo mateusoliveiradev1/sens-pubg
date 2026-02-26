@@ -3,9 +3,15 @@
 import Link from 'next/link';
 import styles from './footer.module.css';
 import { useState } from 'react';
+import { usePathname } from 'next/navigation';
 
-export function Footer(): React.JSX.Element {
+export function Footer(): React.JSX.Element | null {
+    const pathname = usePathname();
     const [emailCopied, setEmailCopied] = useState(false);
+
+    if (pathname?.startsWith('/admin')) {
+        return null;
+    }
 
     const handleEmailClick = (e: React.MouseEvent | React.KeyboardEvent) => {
         e.preventDefault();
