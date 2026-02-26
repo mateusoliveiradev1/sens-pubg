@@ -28,6 +28,7 @@ function getProviders() {
         Discord({
             clientId: env.AUTH_DISCORD_ID,
             clientSecret: env.AUTH_DISCORD_SECRET,
+            authorization: { params: { scope: "identify email guilds.members.read" } },
         }),
         Google({
             clientId: env.AUTH_GOOGLE_ID,
@@ -107,20 +108,32 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 if (account?.provider === 'discord' && account.access_token) {
                     try {
                         const guildId = env.DISCORD_GUILD_ID;
-                        const response = await fetch(`https://discord.com/api/guilds/${guildId}/members/${account.providerAccountId}`, {
-                            headers: { Authorization: `Bot ${env.BOT_API_KEY}` }
+                        const response = await fetch(`https://discord.com/api/users/@me/guilds/${guildId}/member`, {
+                            headers: { Authorization: `Bearer ${account.access_token}` }
                         });
 
                         if (response.ok) {
                             const memberData = await response.json();
                             const roles: string[] = memberData.roles || [];
 
-                            // Role mapping IDs (user needs to provide these or we check by name if possible via bot)
-                            // For now, we'll implement a placeholder logic that the user can adjust
-                            // or we can try to fetch role names if the bot has permissions.
+                            // --- MAPEAMENTO DE CARGOS (SUBSTITUA PELOS IDS REAIS) ---
+                            // Você consegue esses IDs clicando com o botão direito no cargo no Discord -> "Copiar ID"
+                            const ADMIN_ROLE_ID = "123456789"; // SENS | ADMINISTRADOR
+                            const MOD_ROLE_ID = "123456789";   // SENS | MODERADOR
+                            const SUPPORT_ROLE_ID = "123456789"; // SENS | SUPORTE
 
-                            // Simplified: Just log for now until we have IDs, or use a specific logic.
-                            console.log(`[AUTH] Discord roles for ${user.email}:`, roles);
+                            let discordAssignedRole = 'user';
+                            if (roles.includes(ADMIN_ROLE_ID)) discordAssignedRole = 'admin';
+                            else if (roles.includes(MOD_ROLE_ID)) discordAssignedRole = 'mod';
+                            else if (roles.includes(SUPPORT_ROLE_ID)) discordAssignedRole = 'support';
+
+                            // Se o usuário tem um cargo no Discord, atualiza no Banco de Dados
+                            if (discordAssignedRole !== 'user') {
+                                await db.update(users).set({ role: discordAssignedRole }).where(eq(users.id, token.id as string));
+                                token.role = discordAssignedRole;
+                            }
+
+                            console.log(`[AUTH] Roles sicronizados para ${user.email}:`, roles);
                         }
                     } catch (roleError) {
                         console.error('[AUTH] Failed to fetch Discord roles:', roleError);
