@@ -19,9 +19,17 @@ async function getStatsByDay() {
         ORDER BY MIN(created_at) ASC
     `)) as unknown as { day: string; count: number }[];
 
+    interface StatRow {
+        day: string;
+        count: number;
+    }
+
+    // Safety check for driver return type differences in production
+    const rows = (Array.isArray(stats) ? stats : (stats as unknown as { rows: StatRow[] }).rows || []) as StatRow[];
+
     return {
-        labels: stats.map(s => s.day),
-        data: stats.map(s => s.count)
+        labels: rows.map(s => s.day),
+        data: rows.map(s => s.count)
     };
 }
 
