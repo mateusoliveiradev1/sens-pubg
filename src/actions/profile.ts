@@ -78,8 +78,9 @@ export const saveProfile = authActionClient
             revalidatePath('/profile');
             return { success: true };
         } catch (err) {
-            console.error('[saveProfile] Error:', err);
-            throw new Error('Erro ao salvar o perfil. Tente novamente.');
+            console.error('[saveProfile] CRITICAL ERROR:', err);
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+            throw new Error(`Erro ao salvar o perfil: ${errorMessage}`);
         }
     });
 
