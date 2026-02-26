@@ -7,11 +7,15 @@ import styles from './admin.module.css';
 
 async function getBotStatus() {
     try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/bot/health`, {
-            headers: { 'x-bot-api-key': env.BOT_API_KEY || '' },
-            next: { revalidate: 60 } // Cache for 1 min
+        const status = await db.query.botHeartbeat.findFirst({
+            where: (heartbeat, { eq }) => eq(heartbeat.id, 'main_bot'),
         });
-        return response.ok;
+
+        if (!status) return false;
+
+        // Define "online" as seen in the last 5 minutes
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+        return status.lastSeen > fiveMinutesAgo;
     } catch {
         return false;
     }

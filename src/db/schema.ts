@@ -220,6 +220,15 @@ export const sensitivityHistoryRelations = relations(sensitivityHistory, ({ one 
 }));
 
 // ═══════════════════════════════════════════
+// System / Bot Status
+// ═══════════════════════════════════════════
+
+export const botHeartbeat = pgTable('bot_heartbeat', {
+    id: text('id').primaryKey().default('main_bot'),
+    lastSeen: timestamp('last_seen', { mode: 'date' }).defaultNow().notNull(),
+});
+
+// ═══════════════════════════════════════════
 // Inferred Types (auto-generated from schema)
 // ═══════════════════════════════════════════
 
