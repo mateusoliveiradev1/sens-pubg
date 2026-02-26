@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import styles from '../admin.module.css';
+import styles from '@/app/admin/admin.module.css';
 
 export function GlobalSearch() {
     const [query, setQuery] = useState('');

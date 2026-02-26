@@ -1,9 +1,9 @@
 export const dynamic = 'force-dynamic';
 
-import { db } from '../../../db';
-import { auditLogs } from '../../../db/schema';
+import { db } from '@/db';
+import { auditLogs } from '@/db/schema';
 import { desc } from 'drizzle-orm';
-import styles from '../admin.module.css';
+import styles from '@/app/admin/admin.module.css';
 
 export default async function AuditLogsPage() {
     const logs = await db.query.auditLogs.findMany({

@@ -1,5 +1,5 @@
-import { db } from '../../../db';
-import styles from '../admin.module.css';
+import { db } from '@/db';
+import styles from '@/app/admin/admin.module.css';
 
 async function getDetailedBotStatus() {
     try {

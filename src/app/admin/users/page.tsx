@@ -1,9 +1,9 @@
-import { db } from '../../../db';
-import { users, type User } from '../../../db/schema';
+import { db } from '@/db';
+import { users, type User } from '@/db/schema';
 import { desc } from 'drizzle-orm';
 import Image from 'next/image';
-import { RoleSelector } from './role-selector';
-import styles from '../admin.module.css';
+import { RoleSelector } from '@/app/admin/users/role-selector';
+import styles from '@/app/admin/admin.module.css';
 
 export default async function UserManagementPage() {
     const allUsers: User[] = await db.query.users.findMany({

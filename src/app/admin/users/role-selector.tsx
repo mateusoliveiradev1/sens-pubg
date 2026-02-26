@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { updateUserRole } from '../../../actions/admin';
-import styles from '../admin.module.css';
+import { updateUserRole } from '@/actions/admin';
+import styles from '@/app/admin/admin.module.css';
 
 interface RoleSelectorProps {
     userId: string;

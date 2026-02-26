@@ -30,8 +30,8 @@ export async function recordAuditLog(
         await db.insert(auditLogs).values({
             adminId,
             action,
-            target,
-            details,
+            target: target ?? null,
+            details: details ?? null,
         });
     } catch (error) {
         console.error('[AuditLog] Failed to record log:', error);

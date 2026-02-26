@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { auth } from '../../auth';
-import styles from './admin.module.css';
+import { auth } from '@/auth';
+import styles from '@/app/admin/admin.module.css';
 
 export default async function AdminLayout({
     children,
