@@ -1,11 +1,11 @@
 'use server';
 
-import { db } from '@/db';
-import { users } from '@/db/schema';
+import { db } from '../db';
+import { users } from '../db/schema';
 import { eq } from 'drizzle-orm';
-import { auth } from '@/auth';
+import { auth } from '../auth';
 import { revalidatePath } from 'next/cache';
-import { recordAuditLog } from '@/db/audit-log';
+import { recordAuditLog } from '../db/audit-log';
 
 export async function updateUserRole(userId: string, newRole: string) {
     const session = await auth();

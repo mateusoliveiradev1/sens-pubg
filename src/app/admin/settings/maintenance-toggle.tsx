@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { toggleMaintenanceMode } from '@/actions/settings';
-import styles from '../admin.module.css';
+import styles from '@/app/admin/admin.module.css';
 
 interface MaintenanceToggleProps {
     initialValue: boolean;
@@ -21,7 +21,7 @@ export function MaintenanceToggle({ initialValue }: MaintenanceToggleProps) {
             } else {
                 alert('Erro ao alterar modo de manutenção');
             }
-        } catch (error) {
+        } catch {
             alert('Erro de conexão');
         } finally {
             setLoading(false);

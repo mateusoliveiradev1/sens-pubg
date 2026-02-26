@@ -260,6 +260,17 @@
     color: var(--text-tertiary);
 }
 
+.settingsSection {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.settingsInfo p {
+    margin: 0;
+    font-weight: 600;
+}
+
 .settingsCard {
     background: var(--bg-primary);
     border: 1px solid var(--border-subtle);

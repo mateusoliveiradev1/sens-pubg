@@ -1,9 +1,9 @@
 'use server';
 
-import { db } from '@/db';
-import { systemSettings } from '@/db/schema';
-import { auth } from '@/auth';
-import { recordAuditLog } from '@/db/audit-log';
+import { db } from '../db';
+import { systemSettings } from '../db/schema';
+import { auth } from '../auth';
+import { recordAuditLog } from '../db/audit-log';
 import { revalidatePath } from 'next/cache';
 
 export async function toggleMaintenanceMode(enabled: boolean) {

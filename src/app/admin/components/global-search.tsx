@@ -51,7 +51,7 @@ export function GlobalSearch() {
             {isOpen && query.length >= 2 && (
                 <div className={styles.searchResults}>
                     <div className={styles.searchHint}>
-                        Pressione <strong>Enter</strong> para pesquisar por "{query}"
+                        Pressione <strong>Enter</strong> para pesquisar por &quot;{query}&quot;
                     </div>
                 </div>
             )}

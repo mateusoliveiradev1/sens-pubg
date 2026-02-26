@@ -1,15 +1,18 @@
 export const dynamic = 'force-dynamic';
 
-import styles from '../admin.module.css';
+import styles from '@/app/admin/admin.module.css';
 import { db } from '@/db';
-import { MaintenanceToggle } from './maintenance-toggle';
+import { systemSettings } from '@/db/schema';
+import { eq } from 'drizzle-orm';
+import { MaintenanceToggle } from '@/app/admin/settings/maintenance-toggle';
 
 export default async function SettingsPage() {
-    const maintenanceSetting = await db.query.systemSettings.findFirst({
-        where: (fields, { eq }) => eq(fields.key, 'maintenance_mode'),
-    }) as { value: { enabled: boolean } } | undefined;
+    const [maintenanceSetting] = await db
+        .select()
+        .from(systemSettings)
+        .where(eq(systemSettings.key, 'maintenance_mode'));
 
-    const isMaintenance = maintenanceSetting?.value?.enabled ?? false;
+    const isMaintenance = (maintenanceSetting?.value as { enabled: boolean })?.enabled ?? false;
 
     return (
         <div className={styles.dashboard}>

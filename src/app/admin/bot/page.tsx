@@ -1,5 +1,4 @@
-import { db } from '@/db';
-import { botHeartbeat } from '@/db/schema';
+import { db } from '../../../db';
 import styles from '../admin.module.css';
 
 async function getDetailedBotStatus() {

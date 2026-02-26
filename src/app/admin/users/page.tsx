@@ -1,5 +1,5 @@
-import { db } from '@/db';
-import { users, type User } from '@/db/schema';
+import { db } from '../../../db';
+import { users, type User } from '../../../db/schema';
 import { desc } from 'drizzle-orm';
 import Image from 'next/image';
 import { RoleSelector } from './role-selector';

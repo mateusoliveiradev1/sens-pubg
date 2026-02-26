@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { updateUserRole } from '@/actions/admin';
+import { updateUserRole } from '../../../actions/admin';
 import styles from '../admin.module.css';
 
 interface RoleSelectorProps {

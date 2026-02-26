@@ -16,11 +16,11 @@ import type {
     SprayMetrics,
     DriftBias,
     WeaponLoadout,
-} from '@/types/engine';
-import type { Milliseconds, Score } from '@/types/branded';
-import { asMilliseconds, asScore, asPixels } from '@/types/branded';
+} from '../types/engine';
+import type { Milliseconds, Score } from '../types/branded';
+import { asMilliseconds, asScore, asPixels } from '../types/branded';
 import type { TrackingResult } from './crosshair-tracking';
-import type { WeaponData, RecoilVector } from '@/game/pubg/weapon-data';
+import type { WeaponData, RecoilVector } from '../game/pubg/weapon-data';
 
 // ═══════════════════════════════════════════
 // FPS-to-RPM Resampling Engine

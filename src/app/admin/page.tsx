@@ -1,8 +1,8 @@
 export const dynamic = 'force-dynamic';
 
 import Image from 'next/image';
-import { db } from '@/db';
-import { users, analysisSessions } from '@/db/schema';
+import { db } from '../../db';
+import { users, analysisSessions } from '../../db/schema';
 import { count, desc, sql } from 'drizzle-orm';
 import { EngagementChart } from './components/engagement-chart';
 import { GlobalSearch } from './components/global-search';
