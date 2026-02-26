@@ -82,7 +82,8 @@ export const saveProfile = authActionClient
             // If it's a database error, Drizzle/Postgres usually has a detailed message
             let detail = 'Unknown error';
             if (err instanceof Error) {
-                detail = (err as Record<string, unknown>).detail as string || err.message;
+                const dbError = err as Error & { detail?: string };
+                detail = dbError.detail || err.message;
             }
             throw new Error(`Erro ao salvar no banco: ${detail}`);
         }
