@@ -28,6 +28,7 @@ export const users = pgTable('users', {
     image: text('image'),
     language: text('language').default('pt-BR').notNull(),
     discordId: text('discord_id').unique(),
+    role: text('role').default('user').notNull(),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
 });

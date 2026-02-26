@@ -8,6 +8,7 @@ interface MobileNavProps {
     readonly user?: {
         name?: string | null;
         image?: string | null;
+        role?: string;
     } | null | undefined;
 }
 
@@ -57,6 +58,13 @@ export function MobileNav({ user }: MobileNavProps) {
                         </div>
 
                         <ul className={styles.links} role="menu">
+                            {(['admin', 'mod', 'support'].includes(user?.role || '')) && (
+                                <li role="none">
+                                    <Link href="/admin" className={styles.link} style={{ color: 'var(--accent-primary)' }} onClick={closeMenu} role="menuitem">
+                                        <span className={styles.icon} aria-hidden="true">🛡️</span> Painel Admin
+                                    </Link>
+                                </li>
+                            )}
                             <li role="none">
                                 <Link href="/analyze" className={styles.link} onClick={closeMenu} role="menuitem">
                                     <span className={styles.icon} aria-hidden="true">📊</span> Analisar

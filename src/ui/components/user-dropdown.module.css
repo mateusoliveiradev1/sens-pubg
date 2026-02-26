@@ -114,6 +114,15 @@
     transform: translateX(4px);
 }
 
+.adminLink {
+    color: var(--color-primary) !important;
+    font-weight: 700;
+}
+
+.adminLink:hover {
+    background: rgba(var(--color-primary-rgb), 0.1) !important;
+}
+
 .menuItemDanger {
     color: #ef4444;
 }

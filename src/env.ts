@@ -9,6 +9,7 @@ export const env = createEnv({
         AUTH_GOOGLE_SECRET: z.string().min(1),
         AUTH_DISCORD_ID: z.string().min(1),
         AUTH_DISCORD_SECRET: z.string().min(1),
+        DISCORD_GUILD_ID: z.string().min(1),
         BOT_API_KEY: z.string().min(1),
         NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     },

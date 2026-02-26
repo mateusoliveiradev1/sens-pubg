@@ -10,6 +10,7 @@ interface UserDropdownProps {
     user: {
         name?: string | null;
         image?: string | null;
+        role?: string;
     };
 }
 
@@ -55,10 +56,24 @@ export function UserDropdown({ user }: UserDropdownProps) {
                 <div className={`${styles.menu} animate-scale-in`}>
                     <div className={styles.userInfo}>
                         <p className={styles.userName}>{user.name}</p>
-                        <p className={styles.userRole}>Pro Player</p>
+                        <p className={styles.userRole}>
+                            {user.role === 'admin' ? 'Administrador' :
+                                user.role === 'mod' ? 'Moderador' :
+                                    user.role === 'support' ? 'Suporte' : 'Pro Player'}
+                        </p>
                     </div>
 
                     <div className={styles.divider} />
+
+                    {(['admin', 'mod', 'support'].includes(user.role || '')) && (
+                        <>
+                            <Link href="/admin" className={`${styles.menuItem} ${styles.adminLink}`} onClick={() => setIsOpen(false)}>
+                                <span className={styles.icon}>🛡️</span>
+                                Painel Admin
+                            </Link>
+                            <div className={styles.divider} />
+                        </>
+                    )}
 
                     <Link href="/profile" className={styles.menuItem} onClick={() => setIsOpen(false)}>
                         <span className={styles.icon}>🎯</span>

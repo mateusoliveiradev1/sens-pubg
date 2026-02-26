@@ -15,6 +15,7 @@ declare module 'next-auth' {
     interface Session extends DefaultSession {
         user: {
             id: string;
+            role: string;
             provider?: string;
         } & DefaultSession['user'];
     }
@@ -101,12 +102,41 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 token.email = user.email ?? null;
                 token.picture = user.image ?? null;
                 token.provider = account?.provider ?? token.provider;
+
+                // --- DISCORD ROLE SYNC ---
+                if (account?.provider === 'discord' && account.access_token) {
+                    try {
+                        const guildId = env.DISCORD_GUILD_ID;
+                        const response = await fetch(`https://discord.com/api/guilds/${guildId}/members/${account.providerAccountId}`, {
+                            headers: { Authorization: `Bot ${env.BOT_API_KEY}` }
+                        });
+
+                        if (response.ok) {
+                            const memberData = await response.json();
+                            const roles: string[] = memberData.roles || [];
+
+                            // Role mapping IDs (user needs to provide these or we check by name if possible via bot)
+                            // For now, we'll implement a placeholder logic that the user can adjust
+                            // or we can try to fetch role names if the bot has permissions.
+
+                            // Simplified: Just log for now until we have IDs, or use a specific logic.
+                            console.log(`[AUTH] Discord roles for ${user.email}:`, roles);
+                        }
+                    } catch (roleError) {
+                        console.error('[AUTH] Failed to fetch Discord roles:', roleError);
+                    }
+                }
+
+                // Fetch final role from DB to put in token
+                const dbUser = await db.select({ role: users.role }).from(users).where(eq(users.id, token.id as string)).limit(1);
+                token.role = dbUser[0]?.role || 'user';
             }
             return token;
         },
         session({ session, token }) {
             if (session.user) {
                 session.user.id = (token.id as string) ?? '';
+                session.user.role = (token.role as string) ?? 'user';
                 session.user.name = (token.name as string) ?? null;
                 session.user.email = (token.email as string) ?? null;
                 session.user.image = (token.picture as string) ?? null;
