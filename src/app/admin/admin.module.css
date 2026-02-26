@@ -392,3 +392,135 @@
         padding: 1.5rem;
     }
 }
+
+/* Bot Status Page Styles */
+.botStatusPage {
+    max-width: 800px;
+}
+
+.statusDetailCard {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 1.5rem;
+    padding: 2.5rem;
+    margin-top: 2rem;
+}
+
+.statusIndicator {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 2.5rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.statusDot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+.online .statusDot {
+    background: #10b981;
+    box-shadow: 0 0 10px #10b981;
+}
+
+.offline .statusDot {
+    background: #ef4444;
+    box-shadow: 0 0 10px #ef4444;
+}
+
+.online {
+    color: #10b981;
+}
+
+.offline {
+    color: #ef4444;
+}
+
+.detailsGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+}
+
+.detailItem {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.detailLabel {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.detailValue {
+    font-size: 1.125rem;
+}
+
+.detailCode {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    width: fit-content;
+    font-family: monospace;
+}
+
+.alertBox {
+    margin-top: 2rem;
+    background: rgba(239, 68, 68, 0.05);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    padding: 1.5rem;
+    border-radius: 1rem;
+    color: #ef4444;
+}
+
+.alertBox h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1rem;
+}
+
+.alertBox p {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.infoSection {
+    margin-top: 4rem;
+}
+
+.stepList {
+    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.stepItem {
+    display: flex;
+    gap: 1.5rem;
+}
+
+.stepNumber {
+    background: var(--accent-primary);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    flex-shrink: 0;
+}
+
+.stepItem p {
+    color: var(--text-secondary);
+    margin: 0.25rem 0 0 0;
+    font-size: 0.9rem;
+}

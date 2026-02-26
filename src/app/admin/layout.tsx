@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { auth } from '@/auth';
 import styles from './admin.module.css';
 
@@ -25,15 +26,15 @@ export default async function AdminLayout({
                     <h2 className={styles.sidebarTitle}>Painel de Controle</h2>
                 </div>
                 <nav className={styles.sidebarNav}>
-                    <a href="/admin" className={`${styles.navItem} ${styles.active}`}>
+                    <Link href="/admin" className={`${styles.navItem} ${styles.active}`}>
                         <span className={styles.navIcon}>🏠</span> Geral
-                    </a>
-                    <a href="/admin/users" className={styles.navItem}>
+                    </Link>
+                    <Link href="/admin/users" className={styles.navItem}>
                         <span className={styles.navIcon}>👥</span> Usuários
-                    </a>
-                    <a href="/admin/bot" className={styles.navItem}>
+                    </Link>
+                    <Link href="/admin/bot" className={styles.navItem}>
                         <span className={styles.navIcon}>🤖</span> Bot Status
-                    </a>
+                    </Link>
                 </nav>
             </aside>
             <main className={styles.mainContent}>
