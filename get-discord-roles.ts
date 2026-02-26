@@ -1,5 +1,8 @@
 import { config } from 'dotenv';
-config({ path: '.env.local' });
+import { resolve } from 'path';
+
+// Force load environment variables FIRST
+config({ path: resolve(process.cwd(), '.env.local') });
 
 interface DiscordRole {
     id: string;
@@ -37,4 +40,4 @@ async function getRoles() {
     }
 }
 
-getRoles();
+getRoles().catch(console.error);

@@ -1,8 +1,8 @@
 import { config } from 'dotenv';
-import { db } from './src/db';
-import { users } from './src/db/schema';
-import { eq } from 'drizzle-orm';
-config({ path: '.env.local' });
+import { resolve } from 'path';
+
+// Load environment variables IMMEDIATELY
+config({ path: resolve(process.cwd(), '.env.local') });
 
 async function setAdmin() {
     const email = process.argv[2];
@@ -12,6 +12,11 @@ async function setAdmin() {
     }
 
     try {
+        // Dynamic imports to prevent early validation of src/env.ts
+        const { db } = await import('./src/db');
+        const { users } = await import('./src/db/schema');
+        const { eq } = await import('drizzle-orm');
+
         const result = await db.update(users)
             .set({ role: 'admin' })
             .where(eq(users.email, email))

@@ -1,13 +1,31 @@
 import Image from 'next/image';
 import { db } from '@/db';
 import { users, analysisSessions } from '@/db/schema';
-import { count, desc } from 'drizzle-orm';
+import { count, desc, sql } from 'drizzle-orm';
+import { env } from '@/env';
 import styles from './admin.module.css';
+
+async function getBotStatus() {
+    try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/bot/health`, {
+            headers: { 'x-bot-api-key': env.BOT_API_KEY || '' },
+            next: { revalidate: 60 } // Cache for 1 min
+        });
+        return response.ok;
+    } catch {
+        return false;
+    }
+}
 
 export default async function AdminDashboard() {
     // Fetch basic stats
     const [totalUsers] = await db.select({ value: count() }).from(users);
     const [totalAnalyses] = await db.select({ value: count() }).from(analysisSessions);
+
+    // Fetch analyses in last 24h
+    const [analysesLast24h] = await db.select({ value: count() })
+        .from(analysisSessions)
+        .where(sql`${analysisSessions.createdAt} > NOW() - INTERVAL '24 hours'`);
 
     // Fetch recent analyses
     const recentAnalyses = await db.query.analysisSessions.findMany({
@@ -17,6 +35,8 @@ export default async function AdminDashboard() {
             user: true,
         },
     });
+
+    const isBotOnline = await getBotStatus();
 
     return (
         <div className={styles.dashboard}>
@@ -37,8 +57,16 @@ export default async function AdminDashboard() {
                 <div className={styles.statCard}>
                     <div className={styles.statIcon}>📊</div>
                     <div className={styles.statInfo}>
-                        <span className={styles.statLabel}>Análises Realizadas</span>
+                        <span className={styles.statLabel}>Total de Análises</span>
                         <h2 className={styles.statValue}>{totalAnalyses?.value || 0}</h2>
+                    </div>
+                </div>
+
+                <div className={styles.statCard}>
+                    <div className={styles.statIcon}>🔥</div>
+                    <div className={styles.statInfo}>
+                        <span className={styles.statLabel}>Últimas 24h</span>
+                        <h2 className={styles.statValue}>{analysesLast24h?.value || 0}</h2>
                     </div>
                 </div>
 
@@ -46,7 +74,9 @@ export default async function AdminDashboard() {
                     <div className={styles.statIcon}>🤖</div>
                     <div className={styles.statInfo}>
                         <span className={styles.statLabel}>Status do Bot</span>
-                        <h2 className={styles.statValue} style={{ color: '#10b981' }}>ONLINE</h2>
+                        <h2 className={styles.statValue} style={{ color: isBotOnline ? '#10b981' : '#ef4444' }}>
+                            {isBotOnline ? 'ONLINE' : 'OFFLINE'}
+                        </h2>
                     </div>
                 </div>
             </div>
@@ -71,7 +101,7 @@ export default async function AdminDashboard() {
                                                 height={40}
                                             />
                                         ) : (
-                                            <span>U</span>
+                                            <span>{analysis.user?.name?.charAt(0) || 'U'}</span>
                                         )}
                                     </div>
                                     <div>
