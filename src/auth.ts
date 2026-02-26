@@ -70,15 +70,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     const existing = await db.select({ id: users.id, image: users.image, name: users.name }).from(users).where(eq(users.email, user.email)).limit(1);
                     if (existing[0]) {
                         token.id = existing[0].id;
-                        // update latest image/name if needed (optional)
-                        if (user.image !== existing[0].image) {
-                            await db.update(users).set({ image: user.image ?? '', name: user.name ?? '' }).where(eq(users.email, user.email));
+                        // update latest image/name or discordId if needed
+                        const updates: Partial<typeof users.$inferInsert> = {};
+                        if (user.image !== existing[0].image) updates.image = user.image ?? '';
+                        if (user.name !== existing[0].name) updates.name = user.name ?? 'Player';
+
+                        // If logging in via discord, ensure discordId is synced
+                        if (account?.provider === 'discord' && account.providerAccountId) {
+                            updates.discordId = account.providerAccountId;
+                        }
+
+                        if (Object.keys(updates).length > 0) {
+                            await db.update(users).set(updates).where(eq(users.email, user.email));
                         }
                     } else {
                         const res = await db.insert(users).values({
                             name: user.name ?? 'Player',
                             email: user.email,
                             image: user.image ?? '',
+                            discordId: account?.provider === 'discord' ? account.providerAccountId : null,
                         }).returning({ id: users.id });
                         token.id = res[0]!.id;
                     }
