@@ -118,9 +118,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
                             // --- MAPEAMENTO DE CARGOS (SUBSTITUA PELOS IDS REAIS) ---
                             // Você consegue esses IDs clicando com o botão direito no cargo no Discord -> "Copiar ID"
-                            const ADMIN_ROLE_ID = "123456789"; // SENS | ADMINISTRADOR
-                            const MOD_ROLE_ID = "123456789";   // SENS | MODERADOR
-                            const SUPPORT_ROLE_ID = "123456789"; // SENS | SUPORTE
+                            const ADMIN_ROLE_ID = "1476431666292588655"; // SENS | ADMINISTRADOR
+                            const MOD_ROLE_ID = "1476431667739758868";   // SENS | MODERADOR
+                            const SUPPORT_ROLE_ID = "1476431668826083421"; // SENS | SUPORTE
 
                             let discordAssignedRole = 'user';
                             if (roles.includes(ADMIN_ROLE_ID)) discordAssignedRole = 'admin';
