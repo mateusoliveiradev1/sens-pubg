@@ -14,6 +14,7 @@ import {
     uuid,
     primaryKey,
 } from 'drizzle-orm/pg-core';
+import { relations } from 'drizzle-orm';
 import type { AdapterAccount } from '@auth/core/adapters';
 
 // ═══════════════════════════════════════════
@@ -32,6 +33,15 @@ export const users = pgTable('users', {
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
 });
+
+export const usersRelations = relations(users, ({ one, many }) => ({
+    profile: one(playerProfiles, {
+        fields: [users.id],
+        references: [playerProfiles.userId],
+    }),
+    analyses: many(analysisSessions),
+    sensitivityHistory: many(sensitivityHistory),
+}));
 
 export const accounts = pgTable(
     'accounts',
@@ -129,6 +139,13 @@ export const playerProfiles = pgTable('player_profiles', {
     updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
 });
 
+export const playerProfilesRelations = relations(playerProfiles, ({ one }) => ({
+    user: one(users, {
+        fields: [playerProfiles.userId],
+        references: [users.id],
+    }),
+}));
+
 // ═══════════════════════════════════════════
 // Analysis Sessions
 // ═══════════════════════════════════════════
@@ -163,6 +180,14 @@ export const analysisSessions = pgTable('analysis_sessions', {
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
 });
 
+export const analysisSessionsRelations = relations(analysisSessions, ({ one, many }) => ({
+    user: one(users, {
+        fields: [analysisSessions.userId],
+        references: [users.id],
+    }),
+    sensitivityHistory: many(sensitivityHistory),
+}));
+
 // ═══════════════════════════════════════════
 // Sensitivity History
 // ═══════════════════════════════════════════
@@ -182,6 +207,17 @@ export const sensitivityHistory = pgTable('sensitivity_history', {
     applied: boolean('applied').notNull().default(false),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
 });
+
+export const sensitivityHistoryRelations = relations(sensitivityHistory, ({ one }) => ({
+    user: one(users, {
+        fields: [sensitivityHistory.userId],
+        references: [users.id],
+    }),
+    session: one(analysisSessions, {
+        fields: [sensitivityHistory.sessionId],
+        references: [analysisSessions.id],
+    }),
+}));
 
 // ═══════════════════════════════════════════
 // Inferred Types (auto-generated from schema)
