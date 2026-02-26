@@ -11,7 +11,13 @@ export async function GET(
     { params }: { params: Promise<{ discordId: string }> }
 ) {
     const { discordId } = await params;
-    const apiKey = request.headers.get('x-bot-api-key');
+    const authHeader = request.headers.get('authorization');
+    const xApiKey = request.headers.get('x-bot-api-key');
+    let apiKey = xApiKey;
+
+    if (authHeader?.startsWith('Bearer ')) {
+        apiKey = authHeader.substring(7);
+    }
 
     // Security check
     if (apiKey !== env.BOT_API_KEY) {
