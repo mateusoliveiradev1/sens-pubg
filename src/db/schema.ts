@@ -229,6 +229,34 @@ export const botHeartbeat = pgTable('bot_heartbeat', {
 });
 
 // ═══════════════════════════════════════════
+// Admin & System Management
+// ═══════════════════════════════════════════
+
+export const auditLogs = pgTable('audit_logs', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    adminId: uuid('admin_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    action: text('action').notNull(), // e.g., 'CHANGE_ROLE', 'TOGGLE_MAINTENANCE'
+    target: text('target'), // e.g., 'user_id', 'main_bot'
+    details: jsonb('details').$type<Record<string, unknown>>(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+});
+
+export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+    admin: one(users, {
+        fields: [auditLogs.adminId],
+        references: [users.id],
+    }),
+}));
+
+export const systemSettings = pgTable('system_settings', {
+    key: text('key').primaryKey(), // e.g., 'maintenance_mode', 'site_version'
+    value: jsonb('value').$type<Record<string, unknown>>().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+});
+
+// ═══════════════════════════════════════════
 // Inferred Types (auto-generated from schema)
 // ═══════════════════════════════════════════
 

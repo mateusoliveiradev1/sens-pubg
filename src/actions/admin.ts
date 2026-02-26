@@ -5,6 +5,7 @@ import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { auth } from '@/auth';
 import { revalidatePath } from 'next/cache';
+import { recordAuditLog } from '@/db/audit-log';
 
 export async function updateUserRole(userId: string, newRole: string) {
     const session = await auth();
@@ -19,7 +20,11 @@ export async function updateUserRole(userId: string, newRole: string) {
             .set({ role: newRole })
             .where(eq(users.id, userId));
 
+        // Record Audit Log
+        await recordAuditLog('CHANGE_ROLE', userId, { newRole });
+
         revalidatePath('/admin/users');
+        revalidatePath('/admin/logs');
         return { success: true };
     } catch (error) {
         console.error('Failed to update user role:', error);

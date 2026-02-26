@@ -207,9 +207,113 @@
 }
 
 .statValue {
-    font-size: 1.75rem;
+    font-size: 1.5rem;
     font-weight: 800;
     margin: 0;
+}
+
+.pageHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2.5rem;
+}
+
+.topSearch {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-subtle);
+    color: white;
+    padding: 0.75rem 1.25rem;
+    border-radius: 0.75rem;
+    width: 300px;
+    font-size: 0.9rem;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.topSearch:focus {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px rgba(var(--accent-primary-rgb), 0.1);
+}
+
+.searchWrapper {
+    position: relative;
+}
+
+.searchResults {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    width: 300px;
+    background: #1a1a1a;
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.75rem;
+    margin-top: 0.5rem;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    z-index: 100;
+    padding: 0.5rem;
+}
+
+.searchHint {
+    padding: 0.75rem;
+    font-size: 0.85rem;
+    color: var(--text-tertiary);
+}
+
+.settingsCard {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-subtle);
+    padding: 2rem;
+    border-radius: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 2rem;
+}
+
+.toggleButton {
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.75rem;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    background: #333;
+    color: white;
+    transition: all 0.2s ease;
+}
+
+.toggleButton.active {
+    background: var(--accent-primary);
+}
+
+.toggleButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.mainGrid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 2.5rem;
+    align-items: start;
+}
+
+.leftCol {
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+}
+
+.chartSection {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-subtle);
+    padding: 2rem;
+    border-radius: 1.5rem;
+}
+
+.chartContainer {
+    height: 300px;
+    margin-top: 1rem;
 }
 
 .recentActivity {
@@ -217,6 +321,7 @@
     border: 1px solid var(--border-subtle);
     border-radius: 1.5rem;
     padding: 2rem;
+    height: 100%;
 }
 
 .sectionHeader {

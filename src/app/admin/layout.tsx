@@ -39,6 +39,9 @@ export default async function AdminLayout({
                     <Link href="/admin/logs" className={styles.navItem}>
                         <span className={styles.navIcon}>📝</span> Logs de Auditoria
                     </Link>
+                    <Link href="/admin/settings" className={styles.navItem}>
+                        <span className={styles.navIcon}>⚙️</span> Configurações
+                    </Link>
                     <Link href="/" className={`${styles.navItem} ${styles.backToSite}`}>
                         <span className={styles.navIcon}>🌐</span> Voltar ao Site
                     </Link>
