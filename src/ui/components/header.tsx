@@ -24,6 +24,7 @@ export async function Header(): Promise<React.JSX.Element> {
                 </Link>
 
                 <ul className={styles.links} role="menubar">
+                    <li role="none"><Link href="/dashboard" className={styles.link} role="menuitem">Dashboard</Link></li>
                     <li role="none"><Link href="/analyze" className={styles.link} role="menuitem">Analisar</Link></li>
                     <li role="none"><Link href="/pros" className={styles.link} role="menuitem">Pros</Link></li>
                     <li role="none"><Link href="/history" className={styles.link} role="menuitem">Histórico</Link></li>

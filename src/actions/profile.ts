@@ -89,17 +89,18 @@ export const saveProfile = authActionClient
         }
     });
 
-export async function getProfile(): Promise<typeof playerProfiles.$inferSelect | null> {
+export async function getProfile() {
     const session = await auth();
     if (!session?.user?.id) return null;
 
-    const results = await db
-        .select()
-        .from(playerProfiles)
-        .where(eq(playerProfiles.userId, session.user.id))
-        .limit(1);
+    const result = await db.query.users.findFirst({
+        where: eq(users.id, session.user.id),
+        with: {
+            profile: true,
+        }
+    });
 
-    return results[0] ?? null;
+    return result ?? null;
 }
 
 export async function deleteUserAccount(): Promise<ProfileActionResult> {

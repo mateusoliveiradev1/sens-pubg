@@ -7,6 +7,9 @@ import { AnalysisClient } from './analysis-client';
 import { getProfile } from '@/actions/profile';
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { db } from '@/db';
+import { weaponProfiles, users } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 
 export const metadata: Metadata = {
     title: 'Analisar Clip',
@@ -15,6 +18,10 @@ export const metadata: Metadata = {
 
 export default async function AnalyzePage() {
     const profile = await getProfile();
+    const dbWeaponProfiles = await db.query.weaponProfiles.findMany({
+        orderBy: (wp, { asc }) => [asc(wp.name)],
+    });
+
     return (
         <>
             <Header />
@@ -26,19 +33,20 @@ export default async function AnalyzePage() {
                         rastrear sua mira e calcular todas as métricas em tempo real.
                     </p>
 
-                    {!profile ? (
+                    {!profile || !profile.fov ? (
                         <div className="glass-card" style={{ textAlign: 'center', padding: 'var(--space-4xl) var(--space-xl)' }}>
                             <div style={{ fontSize: '48px', marginBottom: 'var(--space-md)' }}>⚠️</div>
-                            <h2 style={{ marginBottom: 'var(--space-md)' }}>Perfil Incompleto</h2>
+                            <h2 style={{ marginBottom: 'var(--space-md)' }}>Configuração de Setup Requerida</h2>
                             <p style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--space-xl)', maxWidth: 500, margin: '0 auto var(--space-xl)' }}>
-                                Para que a Inteligência Artificial calcule sua sensibilidade exata em cm/360°, precisamos conhecer os detalhes físicos do seu setup (Mouse, DPI, Grip, Mousepad).
+                                Para que a Inteligência Artificial calcule sua sensibilidade exata,
+                                precisamos conhecer sua resolução, FOV e DPI atual.
                             </p>
-                            <Link href="/profile" className="btn btn-primary btn-lg">
-                                Configurar Perfil de Hardware
+                            <Link href="/setup" className="btn btn-primary btn-lg">
+                                Iniciar Assistente de Setup
                             </Link>
                         </div>
                     ) : (
-                        <AnalysisClient profile={profile} />
+                        <AnalysisClient profile={profile as any} dbWeapons={dbWeaponProfiles} />
                     )}
                 </div>
             </div>

@@ -7,7 +7,6 @@
 import { asPixels, asMilliseconds } from '../types/branded';
 import type { Pixels, Milliseconds } from '../types/branded';
 import type { TrackingPoint } from '../types/engine';
-import type { WeaponData } from '../game/pubg/weapon-data';
 import type { ExtractedFrame } from './frame-extraction';
 
 // ═══════════════════════════════════════════

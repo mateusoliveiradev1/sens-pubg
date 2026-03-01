@@ -26,12 +26,15 @@ export type ExtractionProgressCallback = (progress: ExtractionProgress) => void;
  * @param onProgress - Callback de progresso
  * @returns Array de frames extraídos
  */
+export type FrameCallback = (frame: ExtractedFrame) => void;
+
 export async function extractFrames(
     videoUrl: string,
     fps: number = 30,
     startTime: number = 0,
-    durationSecs: number = 0, // 0 = complete video
-    onProgress?: ExtractionProgressCallback
+    durationSecs: number = 0,
+    onProgress?: ExtractionProgressCallback,
+    onFrame?: FrameCallback
 ): Promise<ExtractedFrame[]> {
     const video = document.createElement('video');
     video.src = videoUrl;
@@ -67,11 +70,14 @@ export async function extractFrames(
         ctx.drawImage(video, 0, 0);
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-        frames.push({
+        const frame: ExtractedFrame = {
             index: i,
-            timestamp: timestamp * 1000, // Convert to ms
+            timestamp: timestamp * 1000,
             imageData,
-        });
+        };
+
+        frames.push(frame);
+        if (onFrame) onFrame(frame);
 
         if (onProgress) {
             onProgress({

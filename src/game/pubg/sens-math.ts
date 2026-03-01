@@ -34,3 +34,29 @@ export function internalToSlider(internal: number): number {
  * cm/360 = (360 * 2.54) / (DPI * PUBG_BASE_ROTATION_CONSTANT * internalSens)
  */
 export const PUBG_BASE_ROTATION_CONSTANT = 0.05;
+
+/**
+ * Calcula a escala de Pixel para Grau (Angular) baseada no FOV e Resolução.
+ * @param fov FOV horizontal do jogo (ex: 90)
+ * @param resolutionY Resolução vertical (ex: 1080)
+ * @returns Razão de graus por pixel (deg/px)
+ */
+export function getPixelToDegree(fov: number, resolutionY: number): number {
+    // Para simplificação, usamos o FOV vertical derivado da proporção.
+    // Tan(FovV/2) = Tan(FovH/2) / AspectRatio
+    const aspectRatio = 16 / 9; // Padrao
+    const fovHRad = (fov * Math.PI) / 180;
+    const fovVRad = 2 * Math.atan(Math.tan(fovHRad / 2) / aspectRatio);
+    const fovV = (fovVRad * 180) / Math.PI;
+
+    return fovV / resolutionY;
+}
+
+/**
+ * Retorna o multiplicador de compensação vertical (VSM).
+ * O VSM do PUBG afeta apenas o movimento vertical do mouse.
+ */
+export function applyVerticalMultiplier(recoil: number, vsm: number): number {
+    return recoil * vsm;
+}
+

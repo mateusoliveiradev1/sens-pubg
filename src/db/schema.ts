@@ -30,6 +30,16 @@ export const users = pgTable('users', {
     language: text('language').default('pt-BR').notNull(),
     discordId: text('discord_id').unique(),
     role: text('role').default('user').notNull(),
+
+    // Player Settings (Added in Phase 1)
+    fov: integer('fov').default(90).notNull(),
+    resolution: text('resolution').default('1920x1080').notNull(),
+    mouseDpi: integer('mouse_dpi').default(800).notNull(),
+    sensGeneral: real('sens_general').default(50).notNull(),
+    sens1x: real('sens_1x').default(50).notNull(),
+    sens3x: real('sens_3x').default(50).notNull(),
+    sens4x: real('sens_4x').default(50).notNull(),
+
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
 });
@@ -177,6 +187,9 @@ export const analysisSessions = pgTable('analysis_sessions', {
     coachingData: jsonb('coaching_data').$type<Record<string, unknown>[]>(),
     fullResult: jsonb('full_result').$type<Record<string, unknown>>(), // Stores the complete AnalysisResult
 
+    // Scoring (Added in Phase 1)
+    sprayScore: integer('spray_score').default(0).notNull(),
+
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
 });
 
@@ -218,6 +231,35 @@ export const sensitivityHistoryRelations = relations(sensitivityHistory, ({ one 
         references: [analysisSessions.id],
     }),
 }));
+
+// ═══════════════════════════════════════════
+// Weapon Profiles (Added in Phase 1)
+// ═══════════════════════════════════════════
+
+export const weaponProfiles = pgTable('weapon_profiles', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    name: text('name').unique().notNull(),
+    category: text('category').notNull(), // AR | SMG | DMR
+    baseVerticalRecoil: real('base_vertical_recoil').notNull(),
+    baseHorizontalRng: real('base_horizontal_rng').notNull(),
+    fireRateMs: integer('fire_rate_ms').notNull(),
+
+    // Multipliers for attachments: muzzle_brake, compensator, heavy_stock, grips
+    multipliers: jsonb('multipliers').notNull().default('{}').$type<{
+        muzzle_brake?: number;
+        compensator?: number;
+        heavy_stock?: number;
+        vertical_grip?: { vertical: number; horizontal: number };
+        half_grip?: { vertical: number; horizontal: number };
+        [key: string]: unknown;
+    }>(),
+
+    // Compatible attachments list (optional, but keep for consistency)
+    attachments: jsonb('attachments').notNull().default('[]').$type<string[]>(),
+
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+});
 
 // ═══════════════════════════════════════════
 // System / Bot Status
@@ -268,3 +310,5 @@ export type AnalysisSessionRow = typeof analysisSessions.$inferSelect;
 export type NewAnalysisSession = typeof analysisSessions.$inferInsert;
 export type SensitivityHistoryRow = typeof sensitivityHistory.$inferSelect;
 export type NewSensitivityHistory = typeof sensitivityHistory.$inferInsert;
+export type WeaponProfile = typeof weaponProfiles.$inferSelect;
+export type NewWeaponProfile = typeof weaponProfiles.$inferInsert;

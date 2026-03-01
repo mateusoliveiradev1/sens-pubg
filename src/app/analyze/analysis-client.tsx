@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { validateAndPrepareVideo, releaseVideoUrl, extractFrames, trackCrosshair, buildTrajectory, calculateSprayMetrics, runDiagnostics, generateSensitivityRecommendation, generateCoaching } from '@/core';
 import type { VideoMetadata } from '@/core';
 import type { AnalysisResult, PlayerStance, MuzzleAttachment, GripAttachment, StockAttachment, WeaponLoadout } from '@/types/engine';
@@ -14,6 +14,13 @@ import { saveAnalysisResult } from '@/actions/history';
 import type { PlayerProfile } from '@/db/schema';
 import { AnalysisGuide } from './analysis-guide';
 import styles from './analysis.module.css';
+import type { weaponProfiles } from '@/db/schema';
+
+// Worker type helper
+interface WorkerMessage {
+    type: string;
+    payload: any;
+}
 
 const MUZZLE_LABELS: Record<MuzzleAttachment, string> = { none: 'Nenhum', compensator: 'Compensator', flash_hider: 'Flash Hider', suppressor: 'Suppressor', muzzle_brake: 'Muzzle Brake', choke: 'Choke', duckbill: 'Duckbill' };
 const GRIP_LABELS: Record<GripAttachment, string> = { none: 'Nenhum', vertical: 'Vertical Grip', angled: 'Angled Grip', half: 'Half Grip', thumb: 'Thumb Grip', lightweight: 'Lightweight Grip', laser: 'Laser Sight', ergonomic: 'Ergonomic Grip' };
@@ -21,21 +28,24 @@ const STOCK_LABELS: Record<StockAttachment, string> = { none: 'Nenhuma', tactica
 
 type AnalysisStep = 'upload' | 'settings' | 'processing' | 'done' | 'error';
 type ProcessingPhase = 'extracting' | 'tracking' | 'calculating' | 'diagnosing' | 'done';
+type CrosshairColor = 'RED' | 'GREEN';
 
 interface Props {
-    readonly profile: PlayerProfile;
+    readonly profile: any; // Using any temporarily for combined type
+    readonly dbWeapons: (typeof weaponProfiles.$inferSelect)[];
 }
 
-export function AnalysisClient({ profile }: Props): React.JSX.Element {
+export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element {
     const [step, setStep] = useState<AnalysisStep>('upload');
     const [video, setVideo] = useState<VideoMetadata | null>(null);
-    const [weaponId, setWeaponId] = useState('m416');
+    const [weaponId, setWeaponId] = useState('beryl-m762'); // Default to a common weapon
     const [scopeId, setScopeId] = useState('red-dot');
     const [distance, setDistance] = useState(30);
     const [stance, setStance] = useState<PlayerStance>('standing');
     const [muzzle, setMuzzle] = useState<MuzzleAttachment>('none');
     const [grip, setGrip] = useState<GripAttachment>('none');
     const [stock, setStock] = useState<StockAttachment>('none');
+    const [crosshairColor, setCrosshairColor] = useState<CrosshairColor>('RED');
     const [markers, setMarkers] = useState<{ id: string, time: number }[]>([{ id: crypto.randomUUID(), time: 0 }]);
     const videoRef = useRef<HTMLVideoElement>(null);
     const [phase, setPhase] = useState<ProcessingPhase>('extracting');
@@ -46,15 +56,30 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
     const [dragActive, setDragActive] = useState(false);
     const [isGuideOpen, setIsGuideOpen] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [worker, setWorker] = useState<Worker | null>(null);
+
+    // Initialize Worker
+    useEffect(() => {
+        const w = new Worker(new URL('../../workers/aimAnalyzer.worker.ts', import.meta.url));
+        setWorker(w);
+        return () => w.terminate();
+    }, []);
 
     const weaponsByCategory = useMemo(() => {
-        const grouped: Record<string, typeof WEAPON_LIST[number][]> = {};
-        for (const w of WEAPON_LIST) {
+        const grouped: Record<string, (typeof weaponProfiles.$inferSelect)[]> = {};
+        for (const w of dbWeapons) {
             if (!grouped[w.category]) grouped[w.category] = [];
             grouped[w.category]!.push(w);
         }
         return grouped;
-    }, []);
+    }, [dbWeapons]);
+
+    const currentDbWeapon = useMemo(() =>
+        dbWeapons.find(w => w.id === weaponId || w.name.toLowerCase().replace(' ', '-') === weaponId),
+        [dbWeapons, weaponId]);
+
+    const hasAttachment = (type: string) => currentDbWeapon?.attachments?.includes(type);
+
 
     const handleFile = useCallback(async (file: File) => {
         setError(null);
@@ -104,14 +129,14 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
     }, [handleFile]);
 
     const handleAnalyze = useCallback(async () => {
-        if (!video) return;
+        if (!video || !worker) return;
         setStep('processing');
         setPhase('extracting');
         setProgress(0);
 
         try {
-            const weapon = getWeapon(weaponId);
-            if (!weapon) throw new Error('Arma não encontrada');
+            const dbWeapon = dbWeapons.find(w => w.id === weaponId);
+            if (!dbWeapon) throw new Error('Arma não encontrada no banco');
 
             const subSessions: AnalysisResult[] = [];
             const stepIncrement = 100 / markers.length;
@@ -121,27 +146,89 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
                 const startTime = marker.time;
 
                 setPhase('extracting');
-                // Calculate EXACT spray duration
-                const expectedDurationSecs = (weapon.magazineSize * weapon.msPerShot / 1000) + 0.5;
+                const expectedDurationSecs = (30 * 0.086) + 0.5; // TODO: Get from DB weapon profile
 
-                const frames = await extractFrames(video.url, Math.min(video.fps, 30), startTime, expectedDurationSecs, (p) => {
-                    setProgress((i * stepIncrement) + (p.percent * 0.3 * (stepIncrement / 100)));
-                });
+                // Prepare Worker for this segment
+                worker.postMessage({ type: 'START_ANALYSIS', payload: { startX: video.width / 2, startY: video.height / 2 } });
 
-                setPhase('tracking');
-                const tracking = trackCrosshair(frames);
+                // Multipliers Logic
+                const currentMultipliers = {
+                    vertical: (dbWeapon.multipliers as any)[muzzle] || 1.0,
+                    horizontal: 1.0 // TODO: Add logic for all attachments
+                };
+
+                const context = {
+                    fov: profile.fov || 90,
+                    resolutionY: parseInt(profile.resolution.split('x')[1] || '1080', 10),
+                    weapon: {
+                        id: dbWeapon.id,
+                        name: dbWeapon.name,
+                        category: dbWeapon.category,
+                        baseVerticalRecoil: dbWeapon.baseVerticalRecoil,
+                        baseHorizontalRng: dbWeapon.baseHorizontalRng,
+                        fireRateMs: dbWeapon.fireRateMs,
+                        multipliers: dbWeapon.multipliers
+                    },
+                    multipliers: currentMultipliers,
+                    vsm: profile.sensVerticalMultiplier || 1.0,
+                    crosshairColor: crosshairColor
+                };
+
+                // Frame-by-frame loop with streaming to Worker
+                const frames = await extractFrames(
+                    video.url,
+                    Math.min(video.fps, 60),
+                    startTime,
+                    expectedDurationSecs,
+                    (p) => {
+                        setProgress((i * stepIncrement) + (p.percent * 0.5 * (stepIncrement / 100)));
+                    },
+                    (frame) => {
+                        // Send frame to worker for background processing
+                        worker.postMessage(
+                            { type: 'PROCESS_FRAME', payload: { imageData: frame.imageData, context } },
+                            [frame.imageData.data.buffer] // Transferable!
+                        );
+                    }
+                );
 
                 setPhase('calculating');
-                const trajectory = buildTrajectory(tracking, weapon);
-                const monitorWidth = parseInt(profile.monitorResolution.split('x')[0] || '1920', 10);
-                const pixelToDegree = profile.fov / monitorWidth;
-                const loadout: WeaponLoadout = { stance, muzzle, grip, stock };
-                const metrics = calculateSprayMetrics(trajectory, weapon, loadout, pixelToDegree);
+                // Wait for worker results
+                const workerResult = await new Promise<any>((resolve) => {
+                    const handler = (e: MessageEvent) => {
+                        if (e.data.type === 'RESULT') {
+                            worker.removeEventListener('message', handler);
+                            resolve(e.data.payload);
+                        }
+                    };
+                    worker.addEventListener('message', handler);
+                    worker.postMessage({ type: 'FINISH_ANALYSIS' });
+                });
 
-                setPhase('diagnosing');
-                const diagnoses = runDiagnostics(metrics, weapon.category);
+                // Map Worker result to Engine Types for Dashboard compatibility
+                const trajectory = buildTrajectory({
+                    points: [],
+                    trackingQuality: 1.0,
+                    framesTracked: frames.length,
+                    framesLost: 0
+                }, getWeapon(weaponId)!);
+
+                const mockMetrics = {
+                    stabilityScore: workerResult.score,
+                    verticalControlIndex: 1.0, // TODO: Map back from vError
+                    horizontalNoiseIndex: workerResult.metrics.jitter,
+                    initialRecoilResponseMs: 100 as any,
+                    driftDirectionBias: { direction: 'neutral' as const, magnitude: workerResult.metrics.drift },
+                    consistencyScore: workerResult.score,
+                    burstVCI: 1.0, sustainedVCI: 1.0, fatigueVCI: 1.0,
+                    burstHNI: 1.0, sustainedHNI: 1.0, fatigueHNI: 1.0,
+                    sprayScore: workerResult.score,
+                };
+
+                const loadout: WeaponLoadout = { stance, muzzle, grip, stock };
+                const diagnoses = runDiagnostics(mockMetrics as any, dbWeapon.category as any);
                 const sensitivity = generateSensitivityRecommendation(
-                    metrics, diagnoses,
+                    mockMetrics as any, diagnoses,
                     profile.mouseDpi,
                     profile.playStyle,
                     profile.gripStyle,
@@ -149,17 +236,16 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
                     profile.scopeSens as Record<string, number>,
                     profile.verticalMultiplier
                 );
-                const coaching = generateCoaching(diagnoses, loadout);
 
                 subSessions.push({
                     id: crypto.randomUUID(),
                     timestamp: new Date(),
                     trajectory,
                     loadout,
-                    metrics,
+                    metrics: mockMetrics as any,
                     diagnoses,
                     sensitivity,
-                    coaching,
+                    coaching: generateCoaching(diagnoses, loadout),
                 });
 
                 setProgress((i + 1) * stepIncrement);
@@ -191,7 +277,7 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
                 fatigueVCI: avgFatigueVCI,
             };
 
-            const finalDiagnoses = runDiagnostics(finalMetrics, weapon.category);
+            const finalDiagnoses = runDiagnostics(finalMetrics as any, dbWeapon.category as any);
             const finalSens = generateSensitivityRecommendation(
                 finalMetrics, finalDiagnoses,
                 profile.mouseDpi,
@@ -349,26 +435,33 @@ export function AnalysisClient({ profile }: Props): React.JSX.Element {
                         </div>
                         <div className={styles.field}>
                             <label className="input-label" htmlFor="muzzle">Ponta (Muzzle)</label>
-                            <select id="muzzle" className="input select" value={muzzle} onChange={e => setMuzzle(e.target.value as MuzzleAttachment)} disabled={!getWeapon(weaponId)?.supportedAttachments?.muzzle || getWeapon(weaponId)!.supportedAttachments.muzzle.length <= 1}>
-                                {getWeapon(weaponId)?.supportedAttachments.muzzle.map(m => (
-                                    <option key={m} value={m}>{MUZZLE_LABELS[m]}</option>
+                            <select id="muzzle" className="input select" value={muzzle} onChange={e => setMuzzle(e.target.value as MuzzleAttachment)} disabled={!hasAttachment('muzzle')}>
+                                {['none', 'compensator', 'flash_hider', 'suppressor', 'muzzle_brake'].map(m => (
+                                    <option key={m} value={m}>{MUZZLE_LABELS[m as MuzzleAttachment]}</option>
                                 ))}
                             </select>
                         </div>
                         <div className={styles.field}>
                             <label className="input-label" htmlFor="grip">Empunhadura (Grip)</label>
-                            <select id="grip" className="input select" value={grip} onChange={e => setGrip(e.target.value as GripAttachment)} disabled={!getWeapon(weaponId)?.supportedAttachments?.grip || getWeapon(weaponId)!.supportedAttachments.grip.length <= 1}>
-                                {getWeapon(weaponId)?.supportedAttachments.grip.map(g => (
-                                    <option key={g} value={g}>{GRIP_LABELS[g]}</option>
+                            <select id="grip" className="input select" value={grip} onChange={e => setGrip(e.target.value as GripAttachment)} disabled={!hasAttachment('grip')}>
+                                {['none', 'vertical', 'angled', 'half', 'thumb', 'lightweight', 'laser', 'ergonomic'].map(g => (
+                                    <option key={g} value={g}>{GRIP_LABELS[g as GripAttachment]}</option>
                                 ))}
                             </select>
                         </div>
                         <div className={styles.field}>
                             <label className="input-label" htmlFor="stock">Coronha (Stock)</label>
-                            <select id="stock" className="input select" value={stock} onChange={e => setStock(e.target.value as StockAttachment)} disabled={!getWeapon(weaponId)?.supportedAttachments?.stock || getWeapon(weaponId)!.supportedAttachments.stock.length <= 1}>
-                                {getWeapon(weaponId)?.supportedAttachments.stock.map(s => (
-                                    <option key={s} value={s}>{STOCK_LABELS[s]}</option>
+                            <select id="stock" className="input select" value={stock} onChange={e => setStock(e.target.value as StockAttachment)} disabled={!hasAttachment('stock')}>
+                                {['none', 'tactical', 'heavy', 'folding', 'cheek_pad'].map(s => (
+                                    <option key={s} value={s}>{STOCK_LABELS[s as StockAttachment]}</option>
                                 ))}
+                            </select>
+                        </div>
+                        <div className={styles.field}>
+                            <label className="input-label" htmlFor="xhair">Cor do Retículo *</label>
+                            <select id="xhair" className="input select" value={crosshairColor} onChange={e => setCrosshairColor(e.target.value as CrosshairColor)}>
+                                <option value="RED">Vermelho (Padrão)</option>
+                                <option value="GREEN">Verde Neon</option>
                             </select>
                         </div>
                         <div className={styles.field} style={{ gridColumn: '1 / -1' }}>

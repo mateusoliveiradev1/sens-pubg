@@ -1,5 +1,8 @@
+@import "tailwindcss";
+@config "../../tailwind.config.ts";
+
 /**
- * PUBG Aim Analyzer — Design System
+ * PUBG Aim Analyzer — Design Design
  * Premium dark theme, glassmorphism, PUBG-inspired palette.
  * Mobile-first, responsive 360px → 4K.
  */

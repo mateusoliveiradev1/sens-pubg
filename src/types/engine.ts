@@ -67,6 +67,7 @@ export interface SprayMetrics {
     readonly burstHNI: number;
     readonly sustainedHNI: number;
     readonly fatigueHNI: number;
+    readonly sprayScore: number;
 }
 
 export interface DriftBias {

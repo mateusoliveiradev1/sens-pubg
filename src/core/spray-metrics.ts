@@ -443,7 +443,7 @@ export function calculateSprayMetrics(
     const sustainedRecoil = modifiedRecoilPattern.slice(10, 20);
     const fatigueRecoil = modifiedRecoilPattern.slice(20, displacements.length);
 
-    return {
+    const metrics: Omit<SprayMetrics, 'sprayScore'> = {
         stabilityScore: calculateStability(displacements),
         verticalControlIndex: calculateVerticalControl(displacements, modifiedRecoilPattern, pixelToDegree),
         horizontalNoiseIndex: calculateHorizontalNoise(displacements, pixelToDegree),
@@ -457,5 +457,20 @@ export function calculateSprayMetrics(
         burstHNI: calculateHorizontalNoise(burstDisplacements, pixelToDegree),
         sustainedHNI: calculateHorizontalNoise(sustainedDisplacements, pixelToDegree),
         fatigueHNI: calculateHorizontalNoise(fatigueDisplacements, pixelToDegree),
+    };
+
+    // Calculate final unified sprayScore (0-100)
+    // Formula: 40% Stability + 40% Control + 20% Consistency
+    // Control is normalized: 1.0 = 100%, 0.5 or 1.5 = 50%, 0 or 2 = 0%
+    const normalizedControl = Math.max(0, 100 - Math.abs(1 - metrics.verticalControlIndex) * 100);
+    const sprayScore = Math.round(
+        (Number(metrics.stabilityScore) * 0.4) +
+        (normalizedControl * 0.4) +
+        (Number(metrics.consistencyScore) * 0.2)
+    );
+
+    return {
+        ...metrics,
+        sprayScore,
     };
 }

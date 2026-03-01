@@ -50,6 +50,7 @@ export async function saveAnalysisResult(
             recoilResponseMs: metrics.initialRecoilResponseMs,
             driftBias: metrics.driftDirectionBias,
             consistencyScore: metrics.consistencyScore,
+            sprayScore: metrics.sprayScore || 0,
             diagnoses,
             // Only keeping limited JSON to avoid large payloads if needed, but we can store everything
             coachingData: result.coaching as unknown as Record<string, unknown>[],

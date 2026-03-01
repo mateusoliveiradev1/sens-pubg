@@ -23,7 +23,7 @@ export default async function SettingsPage() {
                             Atualize seu hardware. Isso impactará o simulador matemático de física em análises futuras.
                         </p>
 
-                        <SettingsForm initialData={profile} />
+                        <SettingsForm initialData={profile?.profile ?? null} />
                     </div>
                 </div>
             </main>

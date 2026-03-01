@@ -74,18 +74,18 @@ export default async function ProfilePage() {
                                 <div className={styles.userRole}>Recruit</div>
                                 <h1>{user.name}</h1>
 
-                                {profile?.bio && (
-                                    <p className={styles.bio}>{profile.bio}</p>
+                                {profile?.profile?.bio && (
+                                    <p className={styles.bio}>{profile.profile.bio}</p>
                                 )}
 
                                 <div className={styles.socials}>
-                                    {profile?.twitter && (
-                                        <a href={profile.twitter} target="_blank" rel="noreferrer" className={styles.socialBtn} aria-label="Twitter">
+                                    {profile?.profile?.twitter && (
+                                        <a href={profile.profile.twitter} target="_blank" rel="noreferrer" className={styles.socialBtn} aria-label="Twitter">
                                             <TwitterIcon />
                                         </a>
                                     )}
-                                    {profile?.twitch && (
-                                        <a href={profile.twitch} target="_blank" rel="noreferrer" className={styles.socialBtn} aria-label="Twitch">
+                                    {profile?.profile?.twitch && (
+                                        <a href={profile.profile.twitch} target="_blank" rel="noreferrer" className={styles.socialBtn} aria-label="Twitch">
                                             <TwitchIcon />
                                         </a>
                                     )}
@@ -103,7 +103,7 @@ export default async function ProfilePage() {
                         <section>
                             <h2 className={styles.sectionTitle}><span>⚙️</span> Hardware & In-Game</h2>
 
-                            {!profile ? (
+                            {!profile?.profile ? (
                                 <div className={`glass-card ${styles.emptyState}`}>
                                     <h2>Setup Desconhecido</h2>
                                     <p>O seu cartão de identidade está vazio. A IA de análise precisa dos detalhes do seu mouse e monitor para extrapolar distâncias de pixels e fricção.</p>
@@ -120,19 +120,19 @@ export default async function ProfilePage() {
                                         <div className={styles.cardBody}>
                                             <div className={styles.statRow}>
                                                 <span className={styles.statLabel}>Mouse</span>
-                                                <span className={styles.statValue}>{profile.mouseModel || 'N/A'}</span>
+                                                <span className={styles.statValue}>{profile.profile.mouseModel || 'N/A'}</span>
                                             </div>
                                             <div className={styles.statRow}>
                                                 <span className={styles.statLabel}>Sensor</span>
-                                                <span className={styles.statValue}>{profile.mouseSensor || 'N/A'}</span>
+                                                <span className={styles.statValue}>{profile.profile.mouseSensor || 'N/A'}</span>
                                             </div>
                                             <div className={styles.statRow}>
                                                 <span className={styles.statLabel}>DPI</span>
-                                                <span className={styles.statValue}>{profile.mouseDpi}</span>
+                                                <span className={styles.statValue}>{profile.profile.mouseDpi}</span>
                                             </div>
                                             <div className={styles.statRow}>
                                                 <span className={styles.statLabel}>Polling</span>
-                                                <span className={styles.statValue}>{profile.mousePollingRate} Hz</span>
+                                                <span className={styles.statValue}>{profile.profile.mousePollingRate} Hz</span>
                                             </div>
                                         </div>
                                     </div>
@@ -144,19 +144,19 @@ export default async function ProfilePage() {
                                         <div className={styles.cardBody}>
                                             <div className={styles.statRow}>
                                                 <span className={styles.statLabel}>Pad</span>
-                                                <span className={styles.statValue}>{profile.mousepadModel || 'N/A'}</span>
+                                                <span className={styles.statValue}>{profile.profile.mousepadModel || 'N/A'}</span>
                                             </div>
                                             <div className={styles.statRow}>
                                                 <span className={styles.statLabel}>Fricção</span>
-                                                <span className={styles.statValue} style={{ textTransform: 'capitalize' }}>{profile.mousepadType || 'N/A'}</span>
+                                                <span className={styles.statValue} style={{ textTransform: 'capitalize' }}>{profile.profile.mousepadType || 'N/A'}</span>
                                             </div>
                                             <div className={styles.statRow}>
                                                 <span className={styles.statLabel}>Grip</span>
-                                                <span className={styles.statValue} style={{ textTransform: 'capitalize' }}>{profile.gripStyle || 'N/A'}</span>
+                                                <span className={styles.statValue} style={{ textTransform: 'capitalize' }}>{profile.profile.gripStyle || 'N/A'}</span>
                                             </div>
                                             <div className={styles.statRow}>
                                                 <span className={styles.statLabel}>Pivot</span>
-                                                <span className={styles.statValue} style={{ textTransform: 'capitalize' }}>{profile.playStyle || 'N/A'}</span>
+                                                <span className={styles.statValue} style={{ textTransform: 'capitalize' }}>{profile.profile.playStyle || 'N/A'}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -168,19 +168,19 @@ export default async function ProfilePage() {
                                         <div className={styles.cardBody}>
                                             <div className={styles.statRow}>
                                                 <span className={styles.statLabel}>General</span>
-                                                <span className={styles.statValue}>{profile.generalSens}</span>
+                                                <span className={styles.statValue}>{profile.profile.generalSens}</span>
                                             </div>
                                             <div className={styles.statRow}>
                                                 <span className={styles.statLabel}>ADS</span>
-                                                <span className={styles.statValue}>{profile.adsSens}</span>
+                                                <span className={styles.statValue}>{profile.profile.adsSens}</span>
                                             </div>
                                             <div className={styles.statRow}>
                                                 <span className={styles.statLabel}>Vert. Mult</span>
-                                                <span className={styles.statValue}>{profile.verticalMultiplier}x</span>
+                                                <span className={styles.statValue}>{profile.profile.verticalMultiplier}x</span>
                                             </div>
                                             <div className={styles.statRow}>
                                                 <span className={styles.statLabel}>FOV</span>
-                                                <span className={styles.statValue}>{profile.fov}</span>
+                                                <span className={styles.statValue}>{profile.profile.fov}</span>
                                             </div>
                                         </div>
                                     </div>

@@ -16,18 +16,18 @@ export const playerProfilesBaseSchema = createInsertSchema(playerProfiles);
 
 // Helper for consistent numeric fields with nice error messages
 const numericField = (label: string, min?: number, max?: number, isInt = false) => {
-    let schema = z.coerce.number().refine((v: number) => !isNaN(v), { message: `${label} deve ser um número` });
+    let schema = z.coerce.number();
 
     if (isInt) {
-        schema = schema.refine((v: number) => Number.isInteger(v), { message: `${label} deve ser um número inteiro` });
+        schema = schema.int({ message: `${label} deve ser um número inteiro` });
     }
 
     if (min !== undefined) {
-        schema = schema.refine((v: number) => v >= min, { message: `Mínimo: ${min}` });
+        schema = schema.min(min, { message: `Mínimo: ${min}` });
     }
 
     if (max !== undefined) {
-        schema = schema.refine((v: number) => v <= max, { message: `Máximo: ${max}` });
+        schema = schema.max(max, { message: `Máximo: ${max}` });
     }
 
     return schema;
@@ -97,10 +97,31 @@ export type PlayerProfileInput = z.infer<typeof playerProfileSchema>;
 export const clipUploadSchema = z.object({
     weaponId: z.string().min(1, 'Selecione uma arma'),
     scopeId: z.string().min(1, 'Selecione uma mira'),
+    attachments: z.object({
+        muzzle: z.string().default('none'),
+        grip: z.string().default('none'),
+        stock: z.string().default('none'),
+    }),
     distance: z.number().int().min(10).max(500),
 });
 
 export type ClipUploadInput = z.infer<typeof clipUploadSchema>;
+
+// ═══════════════════════════════════════════
+// Setup Wizard Form (Added in Phase 2)
+// ═══════════════════════════════════════════
+
+export const setupWizardSchema = z.object({
+    resolution: z.string().min(1, 'Resolução é obrigatória'),
+    fov: numericField('FOV', 80, 103, true),
+    mouseDpi: numericField('DPI', 100, 25600, true),
+    sensGeneral: numericField('Sensibilidade Geral', 0.01, 100),
+    sens1x: numericField('Sensibilidade 1x', 0.01, 100),
+    sens3x: numericField('Sensibilidade 3x', 0.01, 100),
+    sens4x: numericField('Sensibilidade 4x', 0.01, 100),
+});
+
+export type SetupWizardInput = z.infer<typeof setupWizardSchema>;
 
 // ═══════════════════════════════════════════
 // Sensitivity Adjustment Form
