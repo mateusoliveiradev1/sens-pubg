@@ -1,7 +1,0 @@
-{
-    "buildCommand": "npx next build",
-    "devCommand": "npx next dev",
-    "installCommand": "npm ci",
-    "framework": "nextjs",
-    "outputDirectory": ".next"
-}
