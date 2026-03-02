@@ -53,7 +53,7 @@ export function UserDropdown({ user }: UserDropdownProps) {
             </button>
 
             {isOpen && (
-                <div className={`${styles.menu} animate-scale-in`}>
+                <div className={`${styles.menu} ${styles.animateScaleIn}`}>
                     <div className={styles.userInfo}>
                         <p className={styles.userName}>{user.name}</p>
                         <p className={styles.userRole}>
