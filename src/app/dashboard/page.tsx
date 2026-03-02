@@ -118,9 +118,10 @@ export default async function DashboardPage() {
                                         {stats.weaponStats.length > 0 ? stats.weaponStats.map((w) => (
                                             <div key={w.weaponId} className="group">
                                                 <div className="flex justify-between items-end mb-2">
-                                                    <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-base opacity-60">🔫</span>
                                                         <span className="text-xs font-black uppercase tracking-widest italic">{w.weaponName}</span>
-                                                        <span className="text-[10px] text-zinc-600 font-mono ml-2">{w.count}x</span>
+                                                        <span className="text-[10px] text-zinc-600 font-mono">{w.count}x</span>
                                                     </div>
                                                     <span className={`text-lg font-black font-mono ${w.avgScore >= 50 ? 'text-green-500' : w.avgScore >= 25 ? 'text-cyan-500' : 'text-orange-500'}`}>
                                                         {w.avgScore}%

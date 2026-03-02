@@ -458,14 +458,23 @@
 }
 
 .profileRecommended {
-    border-color: rgba(0, 230, 118, 0.4);
-    box-shadow: 0 0 30px rgba(0, 230, 118, 0.15);
-    background: linear-gradient(135deg, rgba(0, 230, 118, 0.05) 0%, var(--glass-bg) 100%);
+    border-color: rgba(0, 230, 118, 0.5);
+    box-shadow: 0 0 30px rgba(0, 230, 118, 0.15), 0 0 60px rgba(0, 230, 118, 0.05);
+    background: linear-gradient(135deg, rgba(0, 230, 118, 0.08) 0%, rgba(0, 230, 118, 0.02) 50%, var(--glass-bg) 100%);
+    animation: profileGlow 3s ease-in-out infinite;
+    opacity: 1 !important;
+    transform: scale(1.02);
+}
+
+@keyframes profileGlow {
+    0%, 100% { box-shadow: 0 0 20px rgba(0, 230, 118, 0.15), 0 0 40px rgba(0, 230, 118, 0.05); }
+    50% { box-shadow: 0 0 30px rgba(0, 230, 118, 0.25), 0 0 60px rgba(0, 230, 118, 0.1); }
 }
 
 .profileRecommended:hover {
     border-color: var(--color-success);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 230, 118, 0.3);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 40px rgba(0, 230, 118, 0.35);
+    transform: scale(1.04) translateY(-4px);
 }
 
 .recommendedBadge {

@@ -46,6 +46,7 @@ export default async function AnalyzePage() {
                             </Link>
                         </div>
                     ) : (
+                        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
                         <AnalysisClient profile={profile as any} dbWeapons={dbWeaponProfiles} />
                     )}
                 </div>

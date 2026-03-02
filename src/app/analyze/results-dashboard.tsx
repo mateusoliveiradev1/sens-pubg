@@ -10,6 +10,42 @@ import type { AnalysisResult } from '@/types/engine';
 import { SprayVisualization } from './spray-visualization';
 import styles from './analysis.module.css';
 
+// ═══ Radial Gauge Component ═══
+function RadialGauge({ value, max = 100, label, color }: { value: number; max?: number; label: string; color: string }) {
+    const pct = Math.min(Math.max(value / max, 0), 1);
+    const r = 40;
+    const circ = 2 * Math.PI * r;
+    const offset = circ * (1 - pct);
+    const bgColor = 'rgba(255,255,255,0.06)';
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            <svg width="100" height="100" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
+                <circle cx="50" cy="50" r={r} fill="none" stroke={bgColor} strokeWidth="8" />
+                <circle
+                    cx="50" cy="50" r={r} fill="none"
+                    stroke={color}
+                    strokeWidth="8"
+                    strokeDasharray={circ}
+                    strokeDashoffset={offset}
+                    strokeLinecap="round"
+                    style={{ transition: 'stroke-dashoffset 1s ease', filter: `drop-shadow(0 0 6px ${color})` }}
+                />
+                <text
+                    x="50" y="50" textAnchor="middle" dominantBaseline="central"
+                    fill="white" fontSize="20" fontWeight="800" fontFamily="var(--font-mono)"
+                    style={{ transform: 'rotate(90deg)', transformOrigin: '50% 50%' }}
+                >
+                    {Math.round(value)}
+                </text>
+            </svg>
+            <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', fontWeight: 600, textAlign: 'center' }}>
+                {label}
+            </span>
+        </div>
+    );
+}
+
 interface Props {
     readonly result: AnalysisResult;
 }
@@ -86,21 +122,45 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
     const [activeSession, setActiveSession] = useState<AnalysisResult>(result);
     const [expandedDiag, setExpandedDiag] = useState<number | null>(null);
     const [showAllScopes, setShowAllScopes] = useState<Record<string, boolean>>({});
+    const [expandedCoach, setExpandedCoach] = useState<number | null>(null);
+    const [showMinorDiags, setShowMinorDiags] = useState(false);
     const isAggregated = activeSession.id === result.id;
 
     const { metrics, diagnoses, sensitivity, coaching } = activeSession;
 
+    const stabilityVal = Number(metrics.stabilityScore);
+    const consistencyVal = Number(metrics.consistencyScore);
+    const stabilityColor = stabilityVal >= 70 ? '#22c55e' : stabilityVal >= 40 ? '#f59e0b' : '#ef4444';
+    const consistencyColor = consistencyVal >= 65 ? '#22c55e' : consistencyVal >= 40 ? '#f59e0b' : '#ef4444';
+
     const metricCards = [
-        { label: 'Estabilidade', value: Number(metrics.stabilityScore).toFixed(0), unit: '/100', color: Number(metrics.stabilityScore) >= 70 ? 'var(--color-success)' : Number(metrics.stabilityScore) >= 40 ? 'var(--color-warning)' : 'var(--color-error)' },
         { label: 'Controle Vertical', value: metrics.verticalControlIndex.toFixed(2), unit: '× ideal', color: Math.abs(metrics.verticalControlIndex - 1) < 0.15 ? 'var(--color-success)' : 'var(--color-warning)' },
         { label: 'Ruído Horizontal', value: metrics.horizontalNoiseIndex.toFixed(1), unit: 'px/frame', color: metrics.horizontalNoiseIndex <= 3 ? 'var(--color-success)' : 'var(--color-error)' },
         { label: 'Tempo de Resposta', value: Number(metrics.initialRecoilResponseMs).toFixed(0), unit: 'ms', color: Number(metrics.initialRecoilResponseMs) <= 180 ? 'var(--color-success)' : 'var(--color-warning)' },
-        { label: 'Consistência', value: Number(metrics.consistencyScore).toFixed(0), unit: '/100', color: Number(metrics.consistencyScore) >= 65 ? 'var(--color-success)' : Number(metrics.consistencyScore) >= 40 ? 'var(--color-warning)' : 'var(--color-error)' },
         { label: 'VSM Sugerido', value: sensitivity.suggestedVSM?.toFixed(2) ?? '1.00', unit: '', color: sensitivity.suggestedVSM && sensitivity.suggestedVSM !== 1 ? 'var(--color-warning)' : 'var(--color-primary)' },
     ];
 
     // Sort diagnoses by severity (most critical first)
     const sortedDiagnoses = [...diagnoses].sort((a, b) => b.severity - a.severity);
+    const majorDiags = sortedDiagnoses.filter(d => d.severity >= 3);
+    const minorDiags = sortedDiagnoses.filter(d => d.severity < 3);
+
+    // Group coach feedback by similar diagnosis types for deduplication
+    const groupedCoaching = [...coaching].reduce<{ key: string; items: (typeof coaching)[number][] }[]>((acc, c) => {
+        const existing = acc.find(g => g.key === c.diagnosis.type);
+        if (existing) {
+            existing.items.push(c);
+        } else {
+            acc.push({ key: c.diagnosis.type, items: [c] });
+        }
+        return acc;
+    }, []);
+    // Sort groups by max severity
+    groupedCoaching.sort((a, b) => {
+        const maxA = Math.max(...a.items.map(i => i.diagnosis.severity));
+        const maxB = Math.max(...b.items.map(i => i.diagnosis.severity));
+        return maxB - maxA;
+    });
 
     return (
         <div className={styles.dashboard}>
@@ -136,6 +196,14 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
             <div className={styles.vizGrid}>
                 <section className={styles.section}>
                     <h3 className={styles.sectionTitle}>📊 Métricas {isAggregated ? '(Médias)' : ''}</h3>
+
+                    {/* Gauge Charts for key scores */}
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '48px', marginBottom: '24px', padding: '20px 0' }}>
+                        <RadialGauge value={stabilityVal} label="Estabilidade" color={stabilityColor} />
+                        <RadialGauge value={consistencyVal} label="Consistência" color={consistencyColor} />
+                        <RadialGauge value={Number(metrics.sprayScore || 0)} label="Spray Score" color={Number(metrics.sprayScore || 0) >= 60 ? '#22c55e' : Number(metrics.sprayScore || 0) >= 30 ? '#f59e0b' : '#ef4444'} />
+                    </div>
+
                     <div className={styles.metricsGrid}>
                         {metricCards.map((m, i) => (
                             <div key={m.label} className={`glass-card ${styles.metricCard} animate-fade-in-up stagger-${i + 1}`}>
@@ -186,7 +254,8 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                 <section className={styles.section}>
                     <h3 className={styles.sectionTitle}>🩺 Diagnósticos da IA</h3>
                     <div className={styles.diagnosisList}>
-                        {sortedDiagnoses.map((d, i) => {
+                        {/* Major diagnoses (severity >= 3) — always visible */}
+                        {majorDiags.map((d, i) => {
                             const meta = DIAG_META[d.type] || { icon: '⚠️', label: d.type.toUpperCase(), color: '#f59e0b' };
                             const matchingCoach = coaching.find(c => c.diagnosis.type === d.type);
                             const isExpanded = expandedDiag === i;
@@ -198,7 +267,6 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                                     style={{ borderLeftColor: meta.color, cursor: 'pointer' }}
                                     onClick={() => setExpandedDiag(isExpanded ? null : i)}
                                 >
-                                    {/* Header with severity dots + icon */}
                                     <div className={styles.diagnosisHeader}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                             <span style={{ fontSize: '1.4rem' }}>{meta.icon}</span>
@@ -208,63 +276,23 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                                             {meta.label}
                                         </span>
                                     </div>
-
-                                    {/* Description */}
                                     <p className={styles.diagnosisDesc}>{d.description}</p>
-
-                                    {/* Cause & Fix — better separated */}
-                                    <div style={{
-                                        display: 'grid',
-                                        gridTemplateColumns: '1fr 1fr',
-                                        gap: '12px',
-                                        marginTop: '8px',
-                                        padding: '12px',
-                                        background: 'rgba(0,0,0,0.2)',
-                                        borderRadius: '8px',
-                                    }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '8px', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
                                         <div>
-                                            <span style={{ fontSize: '10px', fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                                Por que acontece
-                                            </span>
-                                            <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: 1.5, marginTop: '4px' }}>
-                                                {d.cause}
-                                            </p>
+                                            <span style={{ fontSize: '10px', fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Por que acontece</span>
+                                            <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: 1.5, marginTop: '4px' }}>{d.cause}</p>
                                         </div>
                                         <div>
-                                            <span style={{ fontSize: '10px', fontWeight: 700, color: '#22c55e', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                                Como corrigir
-                                            </span>
-                                            <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: 1.5, marginTop: '4px' }}>
-                                                {d.remediation}
-                                            </p>
+                                            <span style={{ fontSize: '10px', fontWeight: 700, color: '#22c55e', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Como corrigir</span>
+                                            <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: 1.5, marginTop: '4px' }}>{d.remediation}</p>
                                         </div>
                                     </div>
-
-                                    {/* Expandable Drill Section */}
                                     {matchingCoach && (
-                                        <div style={{
-                                            marginTop: '12px',
-                                            overflow: 'hidden',
-                                            maxHeight: isExpanded ? '300px' : '0',
-                                            opacity: isExpanded ? 1 : 0,
-                                            transition: 'all 0.3s ease',
-                                        }}>
-                                            <div style={{
-                                                padding: '12px',
-                                                background: 'rgba(6, 182, 212, 0.05)',
-                                                borderRadius: '8px',
-                                                border: '1px solid rgba(6, 182, 212, 0.15)',
-                                            }}>
-                                                <span style={{ fontSize: '10px', fontWeight: 700, color: '#06b6d4', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                                    🏋️ Drill Profissional
-                                                </span>
-                                                <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: 1.6, marginTop: '6px' }}>
-                                                    {matchingCoach.howToTest}
-                                                </p>
-                                                <div style={{
-                                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                                    marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.05)',
-                                                }}>
+                                        <div style={{ marginTop: '12px', overflow: 'hidden', maxHeight: isExpanded ? '300px' : '0', opacity: isExpanded ? 1 : 0, transition: 'all 0.3s ease' }}>
+                                            <div style={{ padding: '12px', background: 'rgba(6, 182, 212, 0.05)', borderRadius: '8px', border: '1px solid rgba(6, 182, 212, 0.15)' }}>
+                                                <span style={{ fontSize: '10px', fontWeight: 700, color: '#06b6d4', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🏋️ Drill Profissional</span>
+                                                <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: 1.6, marginTop: '6px' }}>{matchingCoach.howToTest}</p>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                                                     <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>⏱️ Adaptação estimada</span>
                                                     <span style={{ fontSize: '14px', fontWeight: 700, color: '#06b6d4', fontFamily: 'var(--font-mono)' }}>
                                                         {matchingCoach.adaptationTimeDays} {matchingCoach.adaptationTimeDays === 1 ? 'dia' : 'dias'}
@@ -273,22 +301,53 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                                             </div>
                                         </div>
                                     )}
-
-                                    {/* Expand hint */}
                                     {matchingCoach && (
-                                        <div style={{
-                                            textAlign: 'center',
-                                            marginTop: '8px',
-                                            fontSize: '10px',
-                                            color: 'var(--color-text-muted)',
-                                            opacity: 0.6,
-                                        }}>
+                                        <div style={{ textAlign: 'center', marginTop: '8px', fontSize: '10px', color: 'var(--color-text-muted)', opacity: 0.6 }}>
                                             {isExpanded ? '▲ Fechar drill' : '▼ Ver drill profissional'}
                                         </div>
                                     )}
                                 </div>
                             );
                         })}
+
+                        {/* Minor diagnoses (severity < 3) — collapsed by default */}
+                        {minorDiags.length > 0 && (
+                            <>
+                                <button
+                                    onClick={() => setShowMinorDiags(prev => !prev)}
+                                    style={{
+                                        width: '100%', padding: '12px', background: 'rgba(255,255,255,0.03)',
+                                        border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '8px',
+                                        color: 'var(--color-text-muted)', fontSize: '12px', cursor: 'pointer',
+                                        fontFamily: 'var(--font-mono)', transition: 'all 0.2s',
+                                    }}
+                                >
+                                    {showMinorDiags ? '▲ Esconder' : '▼ Mostrar'} {minorDiags.length} diagnóstico{minorDiags.length > 1 ? 's' : ''} menor{minorDiags.length > 1 ? 'es' : ''}
+                                </button>
+
+                                {showMinorDiags && minorDiags.map((d, i) => {
+                                    const meta = DIAG_META[d.type] || { icon: '⚠️', label: d.type.toUpperCase(), color: '#f59e0b' };
+                                    const idx = majorDiags.length + i;
+                                    return (
+                                        <div
+                                            key={d.type + idx}
+                                            className={`glass-card ${styles.diagnosisCard}`}
+                                            style={{ borderLeftColor: meta.color, opacity: 0.7 }}
+                                        >
+                                            <div className={styles.diagnosisHeader}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                    <span style={{ fontSize: '1.4rem' }}>{meta.icon}</span>
+                                                    <SeverityDots severity={d.severity} />
+                                                </div>
+                                                <span className={styles.diagnosisType} style={{ color: meta.color }}>{meta.label}</span>
+                                            </div>
+                                            <p className={styles.diagnosisDesc}>{d.description}</p>
+                                            <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', lineHeight: 1.5 }}>{d.remediation}</p>
+                                        </div>
+                                    );
+                                })}
+                            </>
+                        )}
                     </div>
                 </section>
             )}
@@ -396,73 +455,88 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                 </div>
             </section>
 
-            {/* ═══ Coach Feedback — Improved ═══ */}
-            {coaching.length > 0 && (
+            {/* ═══ Coach Feedback — Accordion + Grouped ═══ */}
+            {groupedCoaching.length > 0 && (
                 <section className={styles.section}>
                     <h3 className={styles.sectionTitle}>🏆 Mentor Perfeito (Coach)</h3>
                     <div className={styles.coachList}>
-                        {[...coaching].sort((a, b) => b.diagnosis.severity - a.diagnosis.severity).map((c, i) => {
+                        {groupedCoaching.map((group, gi) => {
+                            const c = group.items[0];
+                            if (!c) return null;
                             const meta = DIAG_META[c.diagnosis.type] || { icon: '⚠️', label: '', color: '#f59e0b' };
-                            const priorityColor = c.diagnosis.severity >= 4 ? '#ef4444' : c.diagnosis.severity >= 3 ? '#f59e0b' : '#22c55e';
-                            const priorityLabel = c.diagnosis.severity >= 4 ? '🔴 CRÍTICO' : c.diagnosis.severity >= 3 ? '🟡 IMPORTANTE' : '🟢 MENOR';
+                            const maxSeverity = Math.max(...group.items.map(i => i.diagnosis.severity));
+                            const priorityColor = maxSeverity >= 4 ? '#ef4444' : maxSeverity >= 3 ? '#f59e0b' : '#22c55e';
+                            const priorityLabel = maxSeverity >= 4 ? '🔴 CRÍTICO' : maxSeverity >= 3 ? '🟡 IMPORTANTE' : '🟢 MENOR';
+                            const isOpen = expandedCoach === gi;
 
                             return (
-                                <div key={i} className={`glass-card ${styles.coachCard}`}>
-                                    {/* Priority Header */}
+                                <div
+                                    key={gi}
+                                    className={`glass-card ${styles.coachCard}`}
+                                    style={{ cursor: 'pointer' }}
+                                    onClick={() => setExpandedCoach(isOpen ? null : gi)}
+                                >
+                                    {/* Accordion Header — always visible */}
                                     <div style={{
                                         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                        marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid rgba(255,255,255,0.05)',
                                     }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                             <span style={{ fontSize: '1.5rem' }}>{meta.icon}</span>
                                             <span style={{ fontSize: '11px', fontWeight: 700, color: priorityColor, fontFamily: 'var(--font-mono)', letterSpacing: '0.05em' }}>
                                                 {priorityLabel}
                                             </span>
+                                            {group.items.length > 1 && (
+                                                <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>
+                                                    ({group.items.length}x)
+                                                </span>
+                                            )}
                                         </div>
-                                        <SeverityDots severity={c.diagnosis.severity} />
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <SeverityDots severity={maxSeverity} />
+                                            <span style={{ fontSize: '12px', color: 'var(--color-text-muted)', transition: 'transform 0.3s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0)' }}>▼</span>
+                                        </div>
                                     </div>
 
-                                    <div className={styles.coachRow}>
-                                        <span className={styles.coachLabel}>O que está falhando</span>
-                                        <p>{c.whatIsWrong}</p>
-                                    </div>
-                                    <div className={styles.coachRow}>
-                                        <span className={styles.coachLabel}>Mecânica do Erro</span>
-                                        <p>{c.whyItHappens}</p>
-                                    </div>
-                                    <div className={styles.coachRow}>
-                                        <span className={styles.coachLabel}>Protocolo de Ajuste</span>
-                                        <p>{c.whatToAdjust}</p>
-                                    </div>
-                                    <div className={styles.coachRow}>
-                                        <span className={styles.coachLabel}>🏋️ Drill Profissional</span>
-                                        <p>{c.howToTest}</p>
-                                    </div>
+                                    {/* Summary always visible */}
+                                    <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '10px', lineHeight: 1.5 }}>
+                                        {c.whatIsWrong}
+                                    </p>
 
-                                    {/* Adaptation bar */}
-                                    <div className={styles.coachAdapt}>
-                                        <div style={{ flex: 1 }}>
-                                            <span>⏱️ Ciclo de Adaptação Estimado</span>
-                                            <div style={{
-                                                height: '4px',
-                                                width: '100%',
-                                                background: 'rgba(255,255,255,0.05)',
-                                                borderRadius: '4px',
-                                                marginTop: '8px',
-                                                overflow: 'hidden',
-                                            }}>
-                                                <div style={{
-                                                    height: '100%',
-                                                    width: `${(c.adaptationTimeDays / 7) * 100}%`,
-                                                    background: 'linear-gradient(90deg, #06b6d4, #0ea5e9)',
-                                                    borderRadius: '4px',
-                                                    transition: 'width 1s ease',
-                                                }} />
+                                    {/* Accordion Body — expandable */}
+                                    <div style={{
+                                        overflow: 'hidden',
+                                        maxHeight: isOpen ? '800px' : '0',
+                                        opacity: isOpen ? 1 : 0,
+                                        transition: 'all 0.4s ease',
+                                        marginTop: isOpen ? '16px' : '0',
+                                    }}>
+                                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '16px' }}>
+                                            <div className={styles.coachRow}>
+                                                <span className={styles.coachLabel}>Mecânica do Erro</span>
+                                                <p>{c.whyItHappens}</p>
+                                            </div>
+                                            <div className={styles.coachRow}>
+                                                <span className={styles.coachLabel}>Protocolo de Ajuste</span>
+                                                <p>{c.whatToAdjust}</p>
+                                            </div>
+                                            <div className={styles.coachRow}>
+                                                <span className={styles.coachLabel}>🏋️ Drill Profissional</span>
+                                                <p>{c.howToTest}</p>
+                                            </div>
+
+                                            {/* Adaptation bar */}
+                                            <div className={styles.coachAdapt}>
+                                                <div style={{ flex: 1 }}>
+                                                    <span>⏱️ Ciclo de Adaptação Estimado</span>
+                                                    <div style={{ height: '4px', width: '100%', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', marginTop: '8px', overflow: 'hidden' }}>
+                                                        <div style={{ height: '100%', width: `${(c.adaptationTimeDays / 7) * 100}%`, background: 'linear-gradient(90deg, #06b6d4, #0ea5e9)', borderRadius: '4px', transition: 'width 1s ease' }} />
+                                                    </div>
+                                                </div>
+                                                <span className={styles.coachDays} style={{ marginLeft: '16px', whiteSpace: 'nowrap' }}>
+                                                    {c.adaptationTimeDays} {c.adaptationTimeDays === 1 ? 'dia' : 'dias'}
+                                                </span>
                                             </div>
                                         </div>
-                                        <span className={styles.coachDays} style={{ marginLeft: '16px', whiteSpace: 'nowrap' }}>
-                                            {c.adaptationTimeDays} {c.adaptationTimeDays === 1 ? 'dia' : 'dias'}
-                                        </span>
                                     </div>
                                 </div>
                             );

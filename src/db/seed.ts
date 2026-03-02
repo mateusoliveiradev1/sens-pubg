@@ -165,6 +165,7 @@ const weapons = [
 async function main() {
     console.log('Seeding weapons...');
     for (const weapon of weapons) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await db.insert(weaponProfiles).values(weapon as any).onConflictDoUpdate({
             target: weaponProfiles.name,
             set: {

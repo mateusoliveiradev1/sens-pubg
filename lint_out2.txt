@@ -1,0 +1,38 @@
+﻿
+C:\Users\Liiiraa\Documents\estudos\sens-pubg\src\app\analyze\analysis-client.tsx
+   8:67  warning  'trackCrosshair' is defined but never used  @typescript-eslint/no-unused-vars
+  12:10  warning  'WEAPON_LIST' is defined but never used     @typescript-eslint/no-unused-vars
+  21:11  warning  'WorkerMessage' is defined but never used   @typescript-eslint/no-unused-vars
+
+C:\Users\Liiiraa\Documents\estudos\sens-pubg\src\app\analyze\page.tsx
+  11:10  warning  'weaponProfiles' is defined but never used  @typescript-eslint/no-unused-vars
+  11:26  warning  'users' is defined but never used           @typescript-eslint/no-unused-vars
+  12:10  warning  'eq' is defined but never used              @typescript-eslint/no-unused-vars
+  49:61  error    Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+
+C:\Users\Liiiraa\Documents\estudos\sens-pubg\src\app\api\bot\health\route.ts
+  5:10  warning  'sql' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Liiiraa\Documents\estudos\sens-pubg\src\app\profile\profile-wizard.tsx
+  10:15  warning  'ProfileActionResult' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Liiiraa\Documents\estudos\sens-pubg\src\app\profile\settings\settings-form.tsx
+  13:7   warning  'GRIP_STYLES' is assigned a value but never used                                                                                                                                                       @typescript-eslint/no-unused-vars
+  14:7   warning  'PLAY_STYLES' is assigned a value but never used                                                                                                                                                       @typescript-eslint/no-unused-vars
+  15:7   warning  'MOUSEPAD_TYPES' is assigned a value but never used                                                                                                                                                    @typescript-eslint/no-unused-vars
+  16:7   warning  'MOUSEPAD_MATERIALS' is assigned a value but never used                                                                                                                                                @typescript-eslint/no-unused-vars
+  17:7   warning  'MONITOR_PANELS' is assigned a value but never used                                                                                                                                                    @typescript-eslint/no-unused-vars
+  40:11  warning  The 'defaultValues' conditional could make the dependencies of useEffect Hook (at line 110) change on every render. To fix this, wrap the initialization of 'defaultValues' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+C:\Users\Liiiraa\Documents\estudos\sens-pubg\src\app\setup\setup-form.tsx
+  43:22  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Liiiraa\Documents\estudos\sens-pubg\src\core\crosshair-tracking.ts
+  8:15  warning  'Pixels' is defined but never used        @typescript-eslint/no-unused-vars
+  8:23  warning  'Milliseconds' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Liiiraa\Documents\estudos\sens-pubg\src\db\seed.ts
+  168:58  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+Ô£û 19 problems (2 errors, 17 warnings)
+
