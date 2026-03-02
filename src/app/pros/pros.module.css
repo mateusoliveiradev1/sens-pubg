@@ -549,9 +549,9 @@
 }
 
 .teamLogoImg {
-  height: 14px;
+  height: 22px;
   width: auto;
-  max-width: 50px;
+  max-width: 60px;
   object-fit: contain;
 }
 

@@ -264,12 +264,20 @@ export function ProsClient({ players, stats }: ProsClientProps) {
                                         <span className={styles.configValue}>{player.inGameSens}</span>
                                     </div>
                                     <div className={styles.configItem}>
-                                        <span className={styles.configLabel}>Mouse</span>
-                                        <span className={styles.configValue}>{player.mouse.split(' ').slice(-2).join(' ')}</span>
+                                        <span className={styles.configLabel}>V. Multiplier</span>
+                                        <span className={styles.configValue}>{player.verticalSensMultiplier.toFixed(2)}</span>
                                     </div>
                                     <div className={styles.configItem}>
                                         <span className={styles.configLabel}>Grip</span>
                                         <span className={styles.configValue}>{player.gripStyle}</span>
+                                    </div>
+                                    <div className={styles.configItem}>
+                                        <span className={styles.configLabel}>Mouse</span>
+                                        <span className={styles.configValue}>{player.mouse.split(' ').slice(-2).join(' ')}</span>
+                                    </div>
+                                    <div className={styles.configItem}>
+                                        <span className={styles.configLabel}>Mousepad</span>
+                                        <span className={styles.configValue}>{player.mousepad.split(' ').slice(-2).join(' ')}</span>
                                     </div>
                                 </div>
 

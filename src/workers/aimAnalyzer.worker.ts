@@ -1,4 +1,4 @@
-/* eslint-disable */
+ 
 /**
  * aimAnalyzer.worker.ts
  * Processamento de vídeo frame-a-frame em segundo plano para análise de recoil.
@@ -15,6 +15,14 @@ type WeaponProfile = {
     readonly baseHorizontalRng: number;
     readonly fireRateMs: number;
     readonly multipliers: Record<string, unknown>;
+};
+
+type TrackingPoint = {
+    readonly frame: number;
+    readonly timestamp: number;
+    readonly x: number;
+    readonly y: number;
+    readonly confidence: number;
 };
 
 type CrosshairColor = 'RED' | 'GREEN';
@@ -40,6 +48,7 @@ let totalJitter = 0;
 let totalDrift = 0;
 let totalVerticalError = 0;
 let frameCount = 0;
+let trackedPoints: TrackingPoint[] = [];
 
 // Pontos de Âncora (Spray Start)
 // let sprayStartX = 0;
@@ -84,13 +93,14 @@ function resetState() {
     totalDrift = 0;
     totalVerticalError = 0;
     frameCount = 0;
+    trackedPoints = [];
 }
 
 /**
  * Processa um único frame (ImageData)
  */
-function handleProcessFrame(payload: { imageData: ImageData, context: AnalysisContext }) {
-    const { imageData, context } = payload;
+function handleProcessFrame(payload: { imageData: ImageData, timestamp: number, context: AnalysisContext }) {
+    const { imageData, timestamp, context } = payload;
 
     // 1. Encontrar o Retículo no frame atual com o algoritmo de Centróide
     const crosshairPos = findCrosshair(imageData, context.crosshairColor || 'RED');
@@ -138,6 +148,15 @@ function handleProcessFrame(payload: { imageData: ImageData, context: AnalysisCo
     // Atualiza estado para o próximo frame
     previousCrosshairX = currentX;
     previousCrosshairY = currentY;
+    // 4. Salvar ponto para trajetória
+    trackedPoints.push({
+        frame: frameCount,
+        timestamp,
+        x: currentX,
+        y: currentY,
+        confidence: 1.0 // Centróide básico assume confiança alta se encontrado
+    });
+
     frameCount++;
 
     // Feedback de progresso
@@ -156,6 +175,7 @@ function handleFinishAnalysis() {
                 drift: totalDrift,
                 vError: totalVerticalError
             },
+            points: trackedPoints,
             suggestion: generateSuggestion(sprayScore, totalVerticalError)
         }
     });

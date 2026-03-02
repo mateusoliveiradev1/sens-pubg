@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition, useEffect } from 'react';
-import { Control, useForm, useWatch } from 'react-hook-form';
+import { Control, useForm, useWatch, FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { playerProfileSchema } from '@/types/schemas';
 import type { z } from 'zod';
@@ -19,8 +19,7 @@ const MONITOR_PANELS = ['ips', 'tn', 'va'];
 type ProfileFormValues = z.infer<typeof playerProfileSchema>;
 
 // Sub-component for performance optimization: Only re-renders when DPI or Sensitivity changes
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function Cm360Badge({ control }: { control: any }) {
+function Cm360Badge({ control }: { control: Control<ProfileFormValues> }) {
     const currentDpi = useWatch({ control, name: 'mouse.dpi' }) || 800;
     const currentSens = useWatch({ control, name: 'pubgSettings.generalSens' }) || 35;
     const calculatedCm360 = Math.round(((800 / currentDpi) * (35 / currentSens) * 43.2) * 10) / 10;
@@ -69,8 +68,7 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
         pubgSettings: {
             generalSens: initialData.generalSens || 35,
             adsSens: initialData.adsSens || 30,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            scopeSens: (initialData.scopeSens as any) || { '1x': 30, '2x': 30, '3x': 30, '4x': 30, '6x': 30, '8x': 30, '15x': 30 },
+            scopeSens: (initialData.scopeSens as Record<string, number>) || { '1x': 30, '2x': 30, '3x': 30, '4x': 30, '6x': 30, '8x': 30, '15x': 30 },
             fov: initialData.fov || 90,
             verticalMultiplier: initialData.verticalMultiplier || 1.0,
             mouseAcceleration: initialData.mouseAcceleration || false,
@@ -96,7 +94,7 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
     };
 
 
-     
+
     const { register, handleSubmit, formState: { errors, isDirty }, control, reset, setValue, getValues } = useForm<ProfileFormValues>({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resolver: zodResolver(playerProfileSchema) as any,
@@ -109,7 +107,7 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
         if (initialData) {
             reset(defaultValues);
         }
-    }, [initialData]);
+    }, [initialData, reset, defaultValues]);
 
 
     const syncAllScopes = () => {
@@ -151,8 +149,7 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
         });
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const onError = (errors: any) => {
+    const onError = (errors: FieldErrors<ProfileFormValues>) => {
         setNotification({ type: 'error', message: 'Por favor, revise os campos marcados em vermelho nas abas de configuração.' });
 
         // Find the first tab that has an error and switch to it

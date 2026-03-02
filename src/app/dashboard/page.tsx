@@ -10,7 +10,6 @@ export default async function DashboardPage() {
         <div className="bg-[#08080c] min-h-screen text-white">
             <Header />
 
-            {/* Standard "page" class handles header clearance automatically */}
             <main className="page">
                 <div className="container" style={{ maxWidth: '1100px' }}>
 
@@ -44,29 +43,46 @@ export default async function DashboardPage() {
                         </div>
                     ) : (
                         <>
-                            {/* Stats Grid */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-16 mb-24">
-                                <div className="glass-card p-12 border hover:border-zinc-700 transition-colors">
-                                    <span className="block text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-4">Sessões</span>
+                            {/* Stats Grid — 4 cards */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-16">
+                                {/* Sessions */}
+                                <div className="glass-card p-8 border hover:border-zinc-700 transition-colors">
+                                    <span className="block text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-3">Sessões</span>
                                     <div className="flex items-baseline gap-2">
-                                        <span className="text-5xl font-black leading-none">{stats.totalSessions}</span>
-                                        <span className="text-xs text-zinc-600 font-mono italic">UNIT</span>
+                                        <span className="text-4xl font-black leading-none">{stats.totalSessions}</span>
+                                        <span className="text-xs text-zinc-600 font-mono italic">TOTAL</span>
                                     </div>
                                 </div>
 
-                                <div className="glass-card p-12 border border-cyan-500/20 hover:border-cyan-500/50 transition-colors shadow-[0_0_30px_rgba(6,182,212,0.05)]">
-                                    <span className="block text-[10px] font-mono text-cyan-500/70 uppercase tracking-widest mb-4">Score Médio</span>
+                                {/* Spray Score */}
+                                <div className="glass-card p-8 border border-green-500/20 hover:border-green-500/50 transition-colors shadow-[0_0_30px_rgba(34,197,94,0.05)]">
+                                    <span className="block text-[10px] font-mono text-green-500/70 uppercase tracking-widest mb-3">Spray Score</span>
+                                    <div className="flex items-baseline gap-1 text-green-500">
+                                        <span className="text-4xl font-black leading-none">{stats.avgSprayScore}</span>
+                                        <span className="text-xl font-black italic">%</span>
+                                    </div>
+                                    {stats.lastSessionDelta !== 0 && (
+                                        <div className={`mt-2 text-xs font-mono font-bold ${stats.lastSessionDelta > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                            {stats.lastSessionDelta > 0 ? '↑' : '↓'} {stats.lastSessionDelta > 0 ? '+' : ''}{stats.lastSessionDelta}%
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Stability Score */}
+                                <div className="glass-card p-8 border border-cyan-500/20 hover:border-cyan-500/50 transition-colors shadow-[0_0_30px_rgba(6,182,212,0.05)]">
+                                    <span className="block text-[10px] font-mono text-cyan-500/70 uppercase tracking-widest mb-3">Estabilidade Média</span>
                                     <div className="flex items-baseline gap-1 text-cyan-500">
-                                        <span className="text-5xl font-black leading-none">{stats.avgStabilityScore}</span>
-                                        <span className="text-2xl font-black italic">%</span>
+                                        <span className="text-4xl font-black leading-none">{stats.avgStabilityScore}</span>
+                                        <span className="text-xl font-black italic">%</span>
                                     </div>
                                 </div>
 
-                                <div className="glass-card p-12 border border-orange-500/20 hover:border-orange-500/50 transition-colors shadow-[0_0_30px_rgba(249,115,22,0.05)]">
-                                    <span className="block text-[10px] font-mono text-orange-500/70 uppercase tracking-widest mb-4">Pico Máximo</span>
+                                {/* Peak Score */}
+                                <div className="glass-card p-8 border border-orange-500/20 hover:border-orange-500/50 transition-colors shadow-[0_0_30px_rgba(249,115,22,0.05)]">
+                                    <span className="block text-[10px] font-mono text-orange-500/70 uppercase tracking-widest mb-3">Pico Máximo</span>
                                     <div className="flex items-baseline gap-1 text-orange-500">
-                                        <span className="text-5xl font-black leading-none">{stats.bestStabilityScore}</span>
-                                        <span className="text-2xl font-black italic">%</span>
+                                        <span className="text-4xl font-black leading-none">{stats.bestSprayScore}</span>
+                                        <span className="text-xl font-black italic">%</span>
                                     </div>
                                 </div>
                             </div>
@@ -74,16 +90,19 @@ export default async function DashboardPage() {
                             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
                                 {/* Chart Section */}
                                 <div className="lg:col-span-8 glass-card p-8 min-h-[400px]">
-                                    <div className="flex items-center gap-2 mb-10">
+                                    <div className="flex items-center gap-2 mb-8">
                                         <div className="w-1.5 h-6 bg-cyan-500" />
-                                        <h2 className="text-xl font-black uppercase tracking-tight">Tendência Semanal</h2>
+                                        <h2 className="text-xl font-black uppercase tracking-tight">Tendência (30 dias)</h2>
                                     </div>
                                     <div className="h-[300px] w-full">
                                         {stats.weeklyTrend.length > 0 ? (
                                             <TrendChart data={stats.weeklyTrend} />
                                         ) : (
-                                            <div className="h-full flex items-center justify-center opacity-30 italic font-mono text-xs">
-                                                Dados insuficientes...
+                                            <div className="h-full flex flex-col items-center justify-center gap-4">
+                                                <div className="text-4xl opacity-20">📈</div>
+                                                <p className="text-zinc-500 font-mono text-xs text-center max-w-xs">
+                                                    Faça mais análises para ver sua tendência de evolução ao longo do tempo.
+                                                </p>
                                             </div>
                                         )}
                                     </div>
@@ -91,25 +110,32 @@ export default async function DashboardPage() {
 
                                 {/* Weapon Progress */}
                                 <div className="lg:col-span-4 glass-card p-8">
-                                    <div className="flex items-center gap-2 mb-10">
+                                    <div className="flex items-center gap-2 mb-8">
                                         <div className="w-1.5 h-6 bg-orange-500" />
                                         <h2 className="text-xl font-black uppercase tracking-tight">Arsenal</h2>
                                     </div>
-                                    <div className="space-y-8">
-                                        {stats.weaponStats.map((w) => (
+                                    <div className="space-y-6">
+                                        {stats.weaponStats.length > 0 ? stats.weaponStats.map((w) => (
                                             <div key={w.weaponId} className="group">
                                                 <div className="flex justify-between items-end mb-2">
-                                                    <span className="text-xs font-black uppercase tracking-widest italic">{w.weaponId}</span>
-                                                    <span className="text-lg font-black font-mono text-cyan-500">{w.avgScore}%</span>
+                                                    <div>
+                                                        <span className="text-xs font-black uppercase tracking-widest italic">{w.weaponName}</span>
+                                                        <span className="text-[10px] text-zinc-600 font-mono ml-2">{w.count}x</span>
+                                                    </div>
+                                                    <span className={`text-lg font-black font-mono ${w.avgScore >= 50 ? 'text-green-500' : w.avgScore >= 25 ? 'text-cyan-500' : 'text-orange-500'}`}>
+                                                        {w.avgScore}%
+                                                    </span>
                                                 </div>
-                                                <div className="h-1 w-full bg-zinc-900 rounded-full overflow-hidden">
+                                                <div className="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden">
                                                     <div
-                                                        className="h-full bg-cyan-500 transition-all duration-1000"
-                                                        style={{ width: `${w.avgScore}%` }}
+                                                        className={`h-full rounded-full transition-all duration-1000 ${w.avgScore >= 50 ? 'bg-green-500' : w.avgScore >= 25 ? 'bg-cyan-500' : 'bg-orange-500'}`}
+                                                        style={{ width: `${Math.max(w.avgScore, 2)}%` }}
                                                     />
                                                 </div>
                                             </div>
-                                        ))}
+                                        )) : (
+                                            <p className="text-zinc-600 font-mono text-xs italic">Nenhuma arma analisada...</p>
+                                        )}
                                     </div>
                                 </div>
                             </div>

@@ -111,7 +111,7 @@ function buildProfile(
         .filter(id => id !== 'hip')
         .map(scopeId => {
             const scope = SCOPES[scopeId];
-            const current = currentScopeSens[scopeId] ?? 50;
+            const current = (currentScopeSens && currentScopeSens[scopeId]) ?? 50;
 
             // Recomendamos que cada mira mantenha a mesma "física" do generalSlider
             // No PUBG, se você quer que 8x sinta igual a 1x (focal scaling), 

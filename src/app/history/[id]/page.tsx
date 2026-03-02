@@ -1,10 +1,9 @@
 import { notFound, redirect } from 'next/navigation';
 import { db } from '@/db';
-import { analysisSessions } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { analysisSessions, weaponProfiles } from '@/db/schema';
+import { eq, and, sql } from 'drizzle-orm';
 import { auth } from '@/auth';
 import Link from 'next/link';
-import { getWeapon } from '@/game/pubg/weapon-data';
 import { SCOPE_LIST } from '@/game/pubg';
 import { ResultsDashboard } from '@/app/analyze/results-dashboard';
 import type { AnalysisResult } from '@/types/engine';
@@ -27,8 +26,17 @@ export default async function HistoryDetailRoute({ params }: Props) {
     }
 
     const [record] = await db
-        .select()
+        .select({
+            id: analysisSessions.id,
+            weaponId: analysisSessions.weaponId,
+            scopeId: analysisSessions.scopeId,
+            distance: analysisSessions.distance,
+            createdAt: analysisSessions.createdAt,
+            fullResult: analysisSessions.fullResult,
+            weaponName: weaponProfiles.name,
+        })
         .from(analysisSessions)
+        .leftJoin(weaponProfiles, sql`CASE WHEN ${analysisSessions.weaponId} ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN ${analysisSessions.weaponId}::uuid ELSE NULL END = ${weaponProfiles.id}`)
         .where(
             and(
                 eq(analysisSessions.id, id),
@@ -41,7 +49,6 @@ export default async function HistoryDetailRoute({ params }: Props) {
         notFound();
     }
 
-    const weapon = getWeapon(record.weaponId);
     const scope = SCOPE_LIST.find(s => s.id === record.scopeId);
 
     // Reconstruct the AnalysisResult package expected by the Dashboard
@@ -56,6 +63,8 @@ export default async function HistoryDetailRoute({ params }: Props) {
             </div>
         );
     }
+
+    const displayName = record.weaponName || record.weaponId;
 
     return (
         <>
@@ -72,7 +81,7 @@ export default async function HistoryDetailRoute({ params }: Props) {
                         </Link>
                         <div style={{ textAlign: 'right' }}>
                             <h1 style={{ margin: 0, fontSize: 'var(--text-3xl)', letterSpacing: '-0.02em', textShadow: '0 0 20px rgba(121, 40, 202, 0.3)' }}>
-                                {weapon?.name || record.weaponId}
+                                {displayName}
                             </h1>
                             <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }}>
                                 {scope?.name || record.scopeId} • {record.distance}m • {new Date(record.createdAt).toLocaleString('pt-BR')}
@@ -88,3 +97,4 @@ export default async function HistoryDetailRoute({ params }: Props) {
         </>
     );
 }
+

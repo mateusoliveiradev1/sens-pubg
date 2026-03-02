@@ -1,10 +1,10 @@
 'use server';
 
 import { db } from '@/db';
-import { analysisSessions, sensitivityHistory, playerProfiles } from '@/db/schema';
+import { analysisSessions, sensitivityHistory, playerProfiles, weaponProfiles } from '@/db/schema';
 import { auth } from '@/auth';
 import type { AnalysisResult } from '@/types/engine';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 export async function saveAnalysisResult(
     result: AnalysisResult,
@@ -95,8 +95,11 @@ export async function getHistorySessions() {
                 verticalControl: analysisSessions.verticalControl,
                 horizontalNoise: analysisSessions.horizontalNoise,
                 createdAt: analysisSessions.createdAt,
+                weaponName: weaponProfiles.name,
+                weaponCategory: weaponProfiles.category,
             })
             .from(analysisSessions)
+            .leftJoin(weaponProfiles, sql`CASE WHEN ${analysisSessions.weaponId} ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN ${analysisSessions.weaponId}::uuid ELSE NULL END = ${weaponProfiles.id}`)
             .where(eq(analysisSessions.userId, session.user.id))
             .orderBy(analysisSessions.createdAt);
 

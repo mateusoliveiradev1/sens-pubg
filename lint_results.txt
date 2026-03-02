@@ -1,0 +1,56 @@
+﻿
+> sens-pubg@0.1.0 lint
+> eslint
+
+
+C:\Users\Liiiraa\Documents\estudos\sens-pubg\src\app\analyze\analysis-client.tsx
+    8:67  warning  'trackCrosshair' is defined but never used                                                                                                        @typescript-eslint/no-unused-vars
+   12:10  warning  'WEAPON_LIST' is defined but never used                                                                                                           @typescript-eslint/no-unused-vars
+   15:15  warning  'PlayerProfile' is defined but never used                                                                                                         @typescript-eslint/no-unused-vars
+   21:11  warning  'WorkerMessage' is defined but never used                                                                                                         @typescript-eslint/no-unused-vars
+   23:14  error    Unexpected any. Specify a different type                                                                                                          @typescript-eslint/no-explicit-any
+   35:23  error    Unexpected any. Specify a different type                                                                                                          @typescript-eslint/no-explicit-any
+  169:56  error    Unexpected any. Specify a different type                                                                                                          @typescript-eslint/no-explicit-any
+  210:56  error    Unexpected any. Specify a different type                                                                                                          @typescript-eslint/no-explicit-any
+  292:67  error    Unexpected any. Specify a different type                                                                                                          @typescript-eslint/no-explicit-any
+  302:33  error    Unexpected any. Specify a different type                                                                                                          @typescript-eslint/no-explicit-any
+  336:8   warning  React Hook useCallback has missing dependencies: 'crosshairColor', 'dbWeapons', and 'worker'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\Liiiraa\Documents\estudos\sens-pubg\src\app\analyze\page.tsx
+  11:10  warning  'weaponProfiles' is defined but never used  @typescript-eslint/no-unused-vars
+  11:26  warning  'users' is defined but never used           @typescript-eslint/no-unused-vars
+  12:10  warning  'eq' is defined but never used              @typescript-eslint/no-unused-vars
+  49:61  error    Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+
+C:\Users\Liiiraa\Documents\estudos\sens-pubg\src\app\api\bot\health\route.ts
+  5:10  warning  'sql' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Liiiraa\Documents\estudos\sens-pubg\src\app\profile\profile-wizard.tsx
+  10:15  warning  'ProfileActionResult' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Liiiraa\Documents\estudos\sens-pubg\src\app\profile\settings\settings-form.tsx
+    4:10  warning  'Control' is defined but never used                                                                                             @typescript-eslint/no-unused-vars
+   13:7   warning  'GRIP_STYLES' is assigned a value but never used                                                                                @typescript-eslint/no-unused-vars
+   14:7   warning  'PLAY_STYLES' is assigned a value but never used                                                                                @typescript-eslint/no-unused-vars
+   15:7   warning  'MOUSEPAD_TYPES' is assigned a value but never used                                                                             @typescript-eslint/no-unused-vars
+   16:7   warning  'MOUSEPAD_MATERIALS' is assigned a value but never used                                                                         @typescript-eslint/no-unused-vars
+   17:7   warning  'MONITOR_PANELS' is assigned a value but never used                                                                             @typescript-eslint/no-unused-vars
+  112:8   warning  React Hook useEffect has missing dependencies: 'defaultValues' and 'reset'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\Liiiraa\Documents\estudos\sens-pubg\src\app\setup\setup-form.tsx
+  32:29  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  44:22  warning  'err' is defined but never used           @typescript-eslint/no-unused-vars
+
+C:\Users\Liiiraa\Documents\estudos\sens-pubg\src\core\crosshair-tracking.ts
+  8:15  warning  'Pixels' is defined but never used        @typescript-eslint/no-unused-vars
+  8:23  warning  'Milliseconds' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Liiiraa\Documents\estudos\sens-pubg\src\db\seed.ts
+  168:58  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Liiiraa\Documents\estudos\sens-pubg\src\workers\aimAnalyzer.worker.ts
+  1:1  warning  Unused eslint-disable directive (no problems were reported)
+
+Ô£û 30 problems (9 errors, 21 warnings)
+  0 errors and 1 warning potentially fixable with the `--fix` option.
+

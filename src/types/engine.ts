@@ -4,6 +4,7 @@
  */
 
 import type { Score, Milliseconds, DPI, Sensitivity, Centimeters, Pixels } from './branded';
+export type { Score, Milliseconds, DPI, Sensitivity, Centimeters, Pixels };
 
 // ═══════════════════════════════════════════
 // Posture & Attachments

@@ -43,15 +43,18 @@ export default async function HistoryPage() {
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
                             {sortedSessions.map((s, i) => {
-                                const weapon = getWeapon(s.weaponId);
                                 const scope = SCOPE_LIST.find(sc => sc.id === s.scopeId);
+                                // Fallback: try static weapon data for legacy slug-based IDs
+                                const staticWeapon = getWeapon(s.weaponId);
+                                const weaponName = s.weaponName || staticWeapon?.name || s.weaponId;
+                                const category = (s.weaponCategory || staticWeapon?.category || '').toLowerCase();
                                 return (
                                     <Link href={`/history/${s.id}`} key={s.id} style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}>
                                         <div className={`glass-card animate-fade-in-up stagger-${Math.min(i + 1, 5)}`} style={{ padding: 'var(--space-lg)', display: 'flex', flexWrap: 'wrap', gap: 'var(--space-lg)', alignItems: 'center', justifyContent: 'space-between' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-lg)', minWidth: 'min(100%, 240px)' }}>
-                                                <div style={{ fontSize: '2rem', flexShrink: 0 }}>{weapon?.category === 'ar' ? '🔫' : '🎯'}</div>
+                                                <div style={{ fontSize: '2rem', flexShrink: 0 }}>{category === 'ar' ? '🔫' : '🎯'}</div>
                                                 <div>
-                                                    <h3 style={{ margin: 0, fontSize: 'var(--text-lg)', lineHeight: 1.2 }}>{weapon?.name || s.weaponId}</h3>
+                                                    <h3 style={{ margin: 0, fontSize: 'var(--text-lg)', lineHeight: 1.2 }}>{weaponName}</h3>
                                                     <p style={{ margin: '4px 0 0 0', fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>
                                                         Mira: {scope?.name || s.scopeId}<br />{new Date(s.createdAt).toLocaleDateString('pt-BR')}
                                                     </p>

@@ -7,7 +7,8 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { validateAndPrepareVideo, releaseVideoUrl, extractFrames, trackCrosshair, buildTrajectory, calculateSprayMetrics, runDiagnostics, generateSensitivityRecommendation, generateCoaching } from '@/core';
 import type { VideoMetadata } from '@/core';
-import type { AnalysisResult, PlayerStance, MuzzleAttachment, GripAttachment, StockAttachment, WeaponLoadout } from '@/types/engine';
+import type { AnalysisResult, PlayerStance, MuzzleAttachment, GripAttachment, StockAttachment, WeaponLoadout, Milliseconds, Pixels, PlayStyle, GripStyle } from '@/types/engine';
+import type { WeaponCategory } from '@/game/pubg/weapon-data';
 import { WEAPON_LIST, getWeapon, SCOPE_LIST } from '@/game/pubg';
 import { ResultsDashboard } from './results-dashboard';
 import { saveAnalysisResult } from '@/actions/history';
@@ -19,7 +20,7 @@ import type { weaponProfiles } from '@/db/schema';
 // Worker type helper
 interface WorkerMessage {
     type: string;
-    payload: any;
+    payload: unknown;
 }
 
 const MUZZLE_LABELS: Record<MuzzleAttachment, string> = { none: 'Nenhum', compensator: 'Compensator', flash_hider: 'Flash Hider', suppressor: 'Suppressor', muzzle_brake: 'Muzzle Brake', choke: 'Choke', duckbill: 'Duckbill' };
@@ -31,14 +32,15 @@ type ProcessingPhase = 'extracting' | 'tracking' | 'calculating' | 'diagnosing' 
 type CrosshairColor = 'RED' | 'GREEN';
 
 interface Props {
-    readonly profile: any; // Using any temporarily for combined type
+    readonly profile: PlayerProfile;
     readonly dbWeapons: (typeof weaponProfiles.$inferSelect)[];
 }
 
 export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element {
     const [step, setStep] = useState<AnalysisStep>('upload');
     const [video, setVideo] = useState<VideoMetadata | null>(null);
-    const [weaponId, setWeaponId] = useState('beryl-m762'); // Default to a common weapon
+    const beryl = dbWeapons.find(w => w.name.toLowerCase().includes('beryl'));
+    const [weaponId, setWeaponId] = useState(beryl?.id || dbWeapons[0]?.id || '');
     const [scopeId, setScopeId] = useState('red-dot');
     const [distance, setDistance] = useState(30);
     const [stance, setStance] = useState<PlayerStance>('standing');
@@ -135,8 +137,19 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
         setProgress(0);
 
         try {
+            // Correctly resolve weapon from DB to local static data
             const dbWeapon = dbWeapons.find(w => w.id === weaponId);
             if (!dbWeapon) throw new Error('Arma não encontrada no banco');
+
+            // Find the corresponding static weapon data for the analysis engine
+            // We try both weaponId (if it's a slug) and dbWeapon.name (cleaned up)
+            const weaponSlug = dbWeapon.name.toLowerCase().replace(' ', '-');
+            const weaponData = getWeapon(weaponId) || getWeapon(weaponSlug);
+
+            if (!weaponData) {
+                console.error('Weapon resolution failed:', { weaponId, weaponSlug });
+                throw new Error(`Configuração técnica da arma "${dbWeapon.name}" não encontrada.`);
+            }
 
             const subSessions: AnalysisResult[] = [];
             const stepIncrement = 100 / markers.length;
@@ -153,13 +166,13 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
 
                 // Multipliers Logic
                 const currentMultipliers = {
-                    vertical: (dbWeapon.multipliers as any)[muzzle] || 1.0,
+                    vertical: (dbWeapon.multipliers as Record<string, number>)[muzzle] || 1.0,
                     horizontal: 1.0 // TODO: Add logic for all attachments
                 };
 
                 const context = {
                     fov: profile.fov || 90,
-                    resolutionY: parseInt(profile.resolution.split('x')[1] || '1080', 10),
+                    resolutionY: parseInt(profile.monitorResolution.split('x')[1] || '1080', 10),
                     weapon: {
                         id: dbWeapon.id,
                         name: dbWeapon.name,
@@ -170,7 +183,7 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                         multipliers: dbWeapon.multipliers
                     },
                     multipliers: currentMultipliers,
-                    vsm: profile.sensVerticalMultiplier || 1.0,
+                    vsm: profile.verticalMultiplier || 1.0,
                     crosshairColor: crosshairColor
                 };
 
@@ -186,7 +199,7 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                     (frame) => {
                         // Send frame to worker for background processing
                         worker.postMessage(
-                            { type: 'PROCESS_FRAME', payload: { imageData: frame.imageData, context } },
+                            { type: 'PROCESS_FRAME', payload: { imageData: frame.imageData, timestamp: frame.timestamp, context } },
                             [frame.imageData.data.buffer] // Transferable!
                         );
                     }
@@ -194,7 +207,7 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
 
                 setPhase('calculating');
                 // Wait for worker results
-                const workerResult = await new Promise<any>((resolve) => {
+                const workerResult = await new Promise<{ points: { x: Pixels; y: Pixels; timestamp: Milliseconds }[] }>((resolve) => {
                     const handler = (e: MessageEvent) => {
                         if (e.data.type === 'RESULT') {
                             worker.removeEventListener('message', handler);
@@ -207,34 +220,31 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
 
                 // Map Worker result to Engine Types for Dashboard compatibility
                 const trajectory = buildTrajectory({
-                    points: [],
+                    points: workerResult.points.map((p, idx) => ({ ...p, frame: idx, confidence: 1.0 })),
                     trackingQuality: 1.0,
                     framesTracked: frames.length,
                     framesLost: 0
-                }, getWeapon(weaponId)!);
-
-                const mockMetrics = {
-                    stabilityScore: workerResult.score,
-                    verticalControlIndex: 1.0, // TODO: Map back from vError
-                    horizontalNoiseIndex: workerResult.metrics.jitter,
-                    initialRecoilResponseMs: 100 as any,
-                    driftDirectionBias: { direction: 'neutral' as const, magnitude: workerResult.metrics.drift },
-                    consistencyScore: workerResult.score,
-                    burstVCI: 1.0, sustainedVCI: 1.0, fatigueVCI: 1.0,
-                    burstHNI: 1.0, sustainedHNI: 1.0, fatigueHNI: 1.0,
-                    sprayScore: workerResult.score,
-                };
+                }, weaponData);
 
                 const loadout: WeaponLoadout = { stance, muzzle, grip, stock };
-                const diagnoses = runDiagnostics(mockMetrics as any, dbWeapon.category as any);
+                const sprayMetrics = calculateSprayMetrics(trajectory, weaponData, loadout);
+                const weaponCategory = (dbWeapon.category || 'ar').toLowerCase() as WeaponCategory;
+                const diagnoses = runDiagnostics(sprayMetrics, weaponCategory);
+                const pMouseDpi = profile.mouseDpi ?? 800;
+                const pPlayStyle = (profile.playStyle as PlayStyle) || 'hybrid';
+                const pGripStyle = (profile.gripStyle as GripStyle) || 'claw';
+                const pMousepadWidth = profile.mousepadWidth ?? 40;
+                const pScopeSens = profile.scopeSens ?? {};
+                const pVerticalMultiplier = profile.verticalMultiplier ?? 1.0;
+
                 const sensitivity = generateSensitivityRecommendation(
-                    mockMetrics as any, diagnoses,
-                    profile.mouseDpi,
-                    profile.playStyle,
-                    profile.gripStyle,
-                    profile.mousepadWidth,
-                    profile.scopeSens as Record<string, number>,
-                    profile.verticalMultiplier
+                    sprayMetrics, diagnoses,
+                    pMouseDpi,
+                    pPlayStyle,
+                    pGripStyle,
+                    pMousepadWidth,
+                    pScopeSens as Record<string, number>,
+                    pVerticalMultiplier
                 );
 
                 subSessions.push({
@@ -242,7 +252,7 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                     timestamp: new Date(),
                     trajectory,
                     loadout,
-                    metrics: mockMetrics as any,
+                    metrics: sprayMetrics,
                     diagnoses,
                     sensitivity,
                     coaching: generateCoaching(diagnoses, loadout),
@@ -277,15 +287,23 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                 fatigueVCI: avgFatigueVCI,
             };
 
-            const finalDiagnoses = runDiagnostics(finalMetrics as any, dbWeapon.category as any);
+            const finalWeaponCategory = (dbWeapon.category || 'ar').toLowerCase() as WeaponCategory;
+            const finalDiagnoses = runDiagnostics(finalMetrics, finalWeaponCategory);
+            const fMouseDpi = profile.mouseDpi ?? 800;
+            const fPlayStyle = (profile.playStyle as PlayStyle) || 'hybrid';
+            const fGripStyle = (profile.gripStyle as GripStyle) || 'claw';
+            const fMousepadWidth = profile.mousepadWidth ?? 40;
+            const fScopeSens = profile.scopeSens ?? {};
+            const fVerticalMultiplier = profile.verticalMultiplier ?? 1.0;
+
             const finalSens = generateSensitivityRecommendation(
                 finalMetrics, finalDiagnoses,
-                profile.mouseDpi,
-                profile.playStyle,
-                profile.gripStyle,
-                profile.mousepadWidth,
-                profile.scopeSens as Record<string, number>,
-                profile.verticalMultiplier
+                fMouseDpi,
+                fPlayStyle,
+                fGripStyle,
+                fMousepadWidth,
+                fScopeSens as Record<string, number>,
+                fVerticalMultiplier
             );
 
             const finalResult: AnalysisResult = {
@@ -313,7 +331,7 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
             setError(err instanceof Error ? err.message : 'Erro na análise');
             setStep('error');
         }
-    }, [video, weaponId, markers, profile, scopeId, distance, stance, grip, muzzle, stock]);
+    }, [video, weaponId, markers, profile, scopeId, distance, stance, grip, muzzle, stock, worker, dbWeapons, crosshairColor]);
 
     const handleReset = useCallback(() => {
         if (video) releaseVideoUrl(video.url);
@@ -478,26 +496,39 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                             <div className={styles.markersList}>
                                 {markers.map((m, idx) => (
                                     <div key={m.id} className={styles.markerRow}>
-                                        <span className={styles.markerLabel}>Spray #{idx + 1}</span>
-                                        <input
-                                            type="range"
-                                            className="slider"
-                                            min={0}
-                                            max={video.duration}
-                                            step={0.01}
-                                            value={m.time}
-                                            onChange={e => updateMarker(m.id, Number(e.target.value))}
-                                            style={{ flex: 1 }}
-                                        />
-                                        <span className={styles.markerTime}>{m.time.toFixed(2)}s</span>
-                                        <button
-                                            className={styles.removeMarker}
-                                            onClick={() => removeMarker(m.id)}
-                                            disabled={markers.length <= 1}
-                                            title="Remover"
-                                        >
-                                            ✕
-                                        </button>
+                                        <div className={styles.markerHeader}>
+                                            <span className={styles.markerLabel}>SPRAY #{idx + 1}</span>
+                                            <div className={styles.markerActions}>
+                                                <button
+                                                    className={styles.markerActionBtn}
+                                                    onClick={() => { if (videoRef.current) videoRef.current.currentTime = m.time; }}
+                                                    title="Pular para este tempo"
+                                                >
+                                                    🕒 Seek
+                                                </button>
+                                                <button
+                                                    className={styles.removeMarker}
+                                                    onClick={() => removeMarker(m.id)}
+                                                    disabled={markers.length <= 1}
+                                                    title="Remover"
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className={styles.markerBody}>
+                                            <input
+                                                type="range"
+                                                className="slider"
+                                                min={0}
+                                                max={video.duration}
+                                                step={0.01}
+                                                value={m.time}
+                                                onChange={e => updateMarker(m.id, Number(e.target.value))}
+                                                style={{ flex: 1 }}
+                                            />
+                                            <span className={styles.markerTime}>{m.time.toFixed(2)}s</span>
+                                        </div>
                                     </div>
                                 ))}
                             </div>

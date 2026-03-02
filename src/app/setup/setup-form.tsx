@@ -29,13 +29,12 @@ export function SetupForm({ initialData }: { initialData?: Partial<SetupWizardIn
         },
     });
 
-    const onSubmit = (data: any) => {
-        const validatedData = data as SetupWizardInput;
+    const onSubmit = (data: SetupWizardInput) => {
         setIsPending(true);
         setError(null);
         startTransition(async () => {
             try {
-                const result = await updateUserSetup(validatedData);
+                const result = await updateUserSetup(data);
                 if (result?.data?.success) {
                     router.push('/analyze');
                 } else {
