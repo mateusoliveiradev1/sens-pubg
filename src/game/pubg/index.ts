@@ -22,5 +22,6 @@ export {
 export {
     PRO_PLAYERS, getProPlayer, getProsByRole, getProStats,
     getPlayerImageUrl, getTeamLogoUrl, TEAM_SLUGS,
+    PLAYER_PHOTO_FILES, PUBG_ICON,
     type ProPlayer,
 } from './pro-players';

@@ -1,0 +1,447 @@
+/* ═══ /pros/[id] — Pro Player Profile (specs.gg dark theme) ═══ */
+
+/* ─── Layout ─── */
+.page {
+    min-height: 100vh;
+    padding-top: var(--space-4xl);
+    background: #0d0e11;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: var(--space-2xl) var(--space-xl);
+    display: flex;
+    gap: var(--space-2xl);
+    align-items: flex-start;
+}
+
+/* ─── Sidebar ─── */
+.sidebar {
+    width: 230px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    position: sticky;
+    top: 80px;
+}
+
+.photoWrapper {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: #1e2127;
+    border: 1px solid #2a2d35;
+}
+
+.photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top center;
+    display: block;
+}
+
+.playerName {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #fff;
+    margin-top: 4px;
+}
+
+.verifiedBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #3b82f6;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.playerCountry {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.875rem;
+    color: #9ca3af;
+}
+
+.playerCountry img {
+    border-radius: 2px;
+}
+
+.playerTeam {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.875rem;
+    color: #9ca3af;
+}
+
+.teamLogo {
+    height: 22px;
+    width: auto;
+    max-width: 50px;
+    object-fit: contain;
+}
+
+.gameBadge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #6b7280;
+    background: #16181d;
+    border: 1px solid #2a2d35;
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+}
+
+.pubgBadgeImgSidebar {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    border-radius: 3px;
+}
+
+.spottedBtn {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 12px 14px;
+    background: linear-gradient(135deg, #c2780a, #e8a020);
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.spottedBtn:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+.spottedBtn strong {
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: #000;
+}
+
+.spottedBtn span {
+    font-size: 0.7rem;
+    color: rgba(0, 0, 0, 0.65);
+}
+
+.socials {
+    display: flex;
+    gap: 10px;
+}
+
+.socialIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    background: #16181d;
+    border: 1px solid #2a2d35;
+    font-size: 1rem;
+    text-decoration: none;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.socialIcon:hover {
+    border-color: rgba(255, 107, 0, 0.4);
+    transform: translateY(-2px);
+}
+
+/* ─── Main Content ─── */
+.main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+}
+
+/* ─── Section ─── */
+.section {
+    background: #16181d;
+    border-radius: var(--radius-lg);
+    border: 1px solid #2a2d35;
+    overflow: hidden;
+}
+
+.sectionTitle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 20px;
+    border-bottom: 1px solid #2a2d35;
+    background: #1a1c21;
+}
+
+.sectionTitle h2 {
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    color: #fff;
+    text-transform: uppercase;
+    margin: 0;
+}
+
+.pubgBadgeImg {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+    flex-shrink: 0;
+    border-radius: 4px;
+}
+
+.sectionIcon {
+    font-size: 1rem;
+}
+
+/* ─── Equipment Card ─── */
+.equipCard {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 20px;
+    background: #1e2127;
+    border-bottom: 1px solid #2a2d35;
+}
+
+.equipIcon {
+    font-size: 1.2rem;
+    opacity: 0.7;
+}
+
+.equipName {
+    flex: 1;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #e5e7eb;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.checkPriceBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    background: #3b82f6;
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    transition: background 0.2s ease, transform 0.15s ease;
+    white-space: nowrap;
+}
+
+.checkPriceBtn:hover {
+    background: #2563eb;
+    transform: translateY(-1px);
+}
+
+/* ─── Stat Grid ─── */
+.statGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+}
+
+.statItem {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 14px 20px;
+    border-right: 1px solid #2a2d35;
+    border-bottom: 1px solid #2a2d35;
+}
+
+.statItem:nth-child(4n) {
+    border-right: none;
+}
+
+.statLabel {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.statValue {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #f3f4f6;
+    text-transform: uppercase;
+}
+
+/* ─── Achievements ─── */
+.achievementsList {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.achievementItem {
+    padding: 12px 20px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #fbbf24;
+    border-bottom: 1px solid #2a2d35;
+}
+
+.achievementItem:last-child {
+    border-bottom: none;
+}
+
+/* ─── Teammates ─── */
+.teammatesHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-right: 20px;
+}
+
+.viewAll {
+    font-size: 0.8rem;
+    color: #6b7280;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.viewAll:hover {
+    color: #f3f4f6;
+}
+
+.teammatesGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    border-top: 1px solid #2a2d35;
+}
+
+.teammateCard {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 20px;
+    text-decoration: none;
+    border-right: 1px solid #2a2d35;
+    transition: background 0.2s ease;
+}
+
+.teammateCard:last-child {
+    border-right: none;
+}
+
+.teammateCard:hover {
+    background: #1e2127;
+}
+
+.teammatePhoto {
+    width: 80px;
+    height: 80px;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: #1e2127;
+    border: 1px solid #2a2d35;
+}
+
+.teammatePhoto img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top center;
+    display: block;
+}
+
+.teammateName {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #f3f4f6;
+}
+
+.teammateCountry {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
+.teammateCountry img {
+    border-radius: 2px;
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 900px) {
+    .container {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+        position: static;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .photoWrapper {
+        width: 120px;
+        aspect-ratio: 1;
+    }
+
+    .statGrid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .statItem:nth-child(4n) {
+        border-right: 1px solid #2a2d35;
+    }
+
+    .statItem:nth-child(2n) {
+        border-right: none;
+    }
+}
+
+@media (max-width: 560px) {
+    .statGrid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .teammatesGrid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}

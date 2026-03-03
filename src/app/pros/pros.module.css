@@ -435,6 +435,22 @@
   margin-right: 8px;
 }
 
+/* ─── Stats summary strip ─── */
+.statsSummary {
+  max-width: 1200px;
+  margin: 0 auto var(--space-2xl);
+  padding: 0 var(--space-xl);
+  display: flex;
+  gap: var(--space-xl);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.statsSummary strong {
+  color: var(--color-text-primary);
+  font-weight: 700;
+}
+
 .filterBtn {
   font-size: 11px;
   font-weight: 600;
@@ -464,328 +480,156 @@
 /* ─── Player Grid ─── */
 .playerGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: var(--space-lg);
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: var(--space-md);
 }
 
+/* Photo-portrait card — click = navigate to /pros/[id] */
 .playerCard {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-lg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  transition: all 0.3s ease;
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  background: #16181d;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
   cursor: pointer;
 }
 
 .playerCard:hover {
-  border-color: rgba(255, 107, 0, 0.3);
-  transform: translateY(-3px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+  transform: translateY(-4px);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  border-color: rgba(255, 107, 0, 0.35);
 }
 
-.playerCardSelected {
-  border-color: var(--color-accent-primary) !important;
-  box-shadow: 0 0 0 1px var(--color-accent-primary), 0 8px 32px rgba(255, 107, 0, 0.15);
+/* Photo area */
+.cardPhotoWrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  background: #1e2027;
+  overflow: hidden;
 }
 
-/* Card Header */
-.cardHeader {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+.cardPhoto {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  display: block;
+  transition: transform 0.35s ease;
 }
 
-.cardPlayer {
+.playerCard:hover .cardPhoto {
+  transform: scale(1.04);
+}
+
+/* Gradient overlay at bottom of photo */
+.cardPhotoWrapper::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(22, 24, 29, 0.85) 0%, transparent 55%);
+  pointer-events: none;
+}
+
+/* Role pill — positioned top-right inside photo */
+.rolePill {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.rolePill[data-role="Entry Fragger"] {
+  color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.18);
+  border: 1px solid rgba(255, 107, 107, 0.3);
+}
+
+.rolePill[data-role="IGL"] {
+  color: #ffd93d;
+  background: rgba(255, 217, 61, 0.15);
+  border: 1px solid rgba(255, 217, 61, 0.3);
+}
+
+.rolePill[data-role="Support"] {
+  color: #6bcb77;
+  background: rgba(107, 203, 119, 0.15);
+  border: 1px solid rgba(107, 203, 119, 0.3);
+}
+
+.rolePill[data-role="Sniper"] {
+  color: #4d96ff;
+  background: rgba(77, 150, 255, 0.15);
+  border: 1px solid rgba(77, 150, 255, 0.3);
+}
+
+.rolePill[data-role="Flex"] {
+  color: #c084fc;
+  background: rgba(192, 132, 252, 0.15);
+  border: 1px solid rgba(192, 132, 252, 0.3);
+}
+
+/* Team badge — bottom-right of photo */
+.cardTeamBadge {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  z-index: 2;
+  width: 30px;
+  height: 30px;
+  background: rgba(22, 24, 29, 0.75);
+  border-radius: 50%;
+  overflow: hidden;
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: center;
+  border: 1px solid rgba(255,255,255,0.1);
 }
 
-.playerPhotoWrapper {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.05);
-  flex-shrink: 0;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+.cardTeamLogo {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
 }
 
-.cardNameGroup {
+/* Info footer */
+.cardFooter {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  padding: 10px 12px 12px;
 }
 
-.cardNameRow {
+.cardName {
+  font-size: var(--text-md);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1;
+}
+
+.cardCountry {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--color-text-muted);
 }
 
 .flagImg {
   border-radius: 2px;
   flex-shrink: 0;
   display: block;
-}
-
-.cardName {
-  font-size: var(--text-lg);
-  font-weight: 700;
-  color: var(--color-text-primary);
-  line-height: 1;
-}
-
-.cardTeamRow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.teamLogoImg {
-  height: 22px;
-  width: auto;
-  max-width: 60px;
-  object-fit: contain;
-}
-
-.cardTeam {
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  line-height: 1;
-}
-
-/* Role Pill */
-.rolePill {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 4px 10px;
-  border-radius: var(--radius-full);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.rolePill[data-role="Entry Fragger"] {
-  color: #ff6b6b;
-  background: rgba(255, 107, 107, 0.1);
-  border: 1px solid rgba(255, 107, 107, 0.2);
-}
-
-.rolePill[data-role="IGL"] {
-  color: #ffd93d;
-  background: rgba(255, 217, 61, 0.1);
-  border: 1px solid rgba(255, 217, 61, 0.2);
-}
-
-.rolePill[data-role="Support"] {
-  color: #6bcb77;
-  background: rgba(107, 203, 119, 0.1);
-  border: 1px solid rgba(107, 203, 119, 0.2);
-}
-
-.rolePill[data-role="Sniper"] {
-  color: #4d96ff;
-  background: rgba(77, 150, 255, 0.1);
-  border: 1px solid rgba(77, 150, 255, 0.2);
-}
-
-.rolePill[data-role="Flex"] {
-  color: #c084fc;
-  background: rgba(192, 132, 252, 0.1);
-  border: 1px solid rgba(192, 132, 252, 0.2);
-}
-
-/* ─── Sensitivity Visual ─── */
-.sensSection {
-  padding: 8px 0;
-}
-
-.sensHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 8px;
-}
-
-.sensLabel {
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.sensValue {
-  font-family: var(--font-mono);
-  font-size: var(--text-xl);
-  font-weight: 700;
-  color: var(--color-accent-primary);
-}
-
-.sensTrack {
-  position: relative;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 3px;
-  overflow: visible;
-}
-
-.sensFill {
-  height: 100%;
-  border-radius: 3px;
-  background: linear-gradient(90deg, var(--color-accent-primary), var(--color-accent-secondary));
-  transition: width 0.6s ease;
-}
-
-.sensMarker {
-  position: absolute;
-  top: -3px;
-  width: 2px;
-  height: 12px;
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 1px;
-  transform: translateX(-1px);
-}
-
-.sensUserMarker {
-  position: absolute;
-  top: -5px;
-  width: 4px;
-  height: 16px;
-  background: #4d96ff;
-  border-radius: 2px;
-  transform: translateX(-2px);
-  box-shadow: 0 0 6px rgba(77, 150, 255, 0.5);
-}
-
-.sensRange {
-  display: flex;
-  justify-content: space-between;
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.2);
-  margin-top: 6px;
-}
-
-/* ─── Config Grid ─── */
-.configGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.configItem {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: var(--radius-sm);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-}
-
-.configLabel {
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--color-text-muted);
-}
-
-.configValue {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* ─── Scope Rows ─── */
-.scopeSection {
-  padding-top: 4px;
-}
-
-.scopeTitle {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--color-text-muted);
-  display: block;
-  margin-bottom: 10px;
-}
-
-.scopeRows {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.scopeRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.scopeRowLabel {
-  font-size: 11px;
-  font-family: var(--font-mono);
-  color: var(--color-text-muted);
-  width: 50px;
-  text-align: right;
-}
-
-.scopeRowTrack {
-  flex: 1;
-  height: 5px;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.scopeRowFill {
-  height: 100%;
-  background: linear-gradient(90deg, rgba(255, 107, 0, 0.3), var(--color-accent-primary));
-  border-radius: 3px;
-  transition: width 0.4s ease;
-}
-
-.scopeRowVal {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  width: 28px;
-  text-align: right;
-}
-
-/* ─── Achievements ─── */
-.achievements {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: rgba(255, 217, 61, 0.04);
-  border: 1px solid rgba(255, 217, 61, 0.1);
-  border-radius: var(--radius-sm);
-}
-
-.achIcon {
-  font-size: var(--text-sm);
-  flex-shrink: 0;
-}
-
-.achText {
-  font-size: var(--text-xs);
-  color: rgba(255, 217, 61, 0.8);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* ─── Insights ─── */
