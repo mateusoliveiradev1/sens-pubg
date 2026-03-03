@@ -40,7 +40,7 @@ export function SetupForm({ initialData }: { initialData?: Partial<SetupWizardIn
                 } else {
                     setError('Erro ao salvar configurações.');
                 }
-            } catch (err) {
+            } catch {
                 setError('Falha na comunicação com o servidor.');
             } finally {
                 setIsPending(false);

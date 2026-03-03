@@ -7,7 +7,6 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { saveProfile } from '@/actions/profile';
-import type { ProfileActionResult } from '@/actions/profile';
 import type { playerProfiles } from '@/db/schema';
 import styles from './profile-wizard.module.css';
 

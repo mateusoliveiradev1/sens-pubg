@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { env } from '@/env';
 import { db } from '@/db';
 import { botHeartbeat } from '@/db/schema';
-import { sql } from 'drizzle-orm';
 
 // GET: Check current status (Dashboard calls this)
 export async function GET(request: Request) {

@@ -5,23 +5,17 @@
 'use client';
 
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
-import { validateAndPrepareVideo, releaseVideoUrl, extractFrames, trackCrosshair, buildTrajectory, calculateSprayMetrics, runDiagnostics, generateSensitivityRecommendation, generateCoaching } from '@/core';
+import { validateAndPrepareVideo, releaseVideoUrl, extractFrames, buildTrajectory, calculateSprayMetrics, runDiagnostics, generateSensitivityRecommendation, generateCoaching } from '@/core';
 import type { VideoMetadata } from '@/core';
 import type { AnalysisResult, PlayerStance, MuzzleAttachment, GripAttachment, StockAttachment, WeaponLoadout, Milliseconds, Pixels, PlayStyle, GripStyle } from '@/types/engine';
 import type { WeaponCategory } from '@/game/pubg/weapon-data';
-import { WEAPON_LIST, getWeapon, SCOPE_LIST } from '@/game/pubg';
+import { getWeapon, SCOPE_LIST } from '@/game/pubg';
 import { ResultsDashboard } from './results-dashboard';
 import { saveAnalysisResult } from '@/actions/history';
-import type { PlayerProfile } from '@/db/schema';
+import type { PlayerProfile, weaponProfiles } from '@/db/schema';
 import { AnalysisGuide } from './analysis-guide';
 import styles from './analysis.module.css';
-import type { weaponProfiles } from '@/db/schema';
 
-// Worker type helper
-interface WorkerMessage {
-    type: string;
-    payload: unknown;
-}
 
 const MUZZLE_LABELS: Record<MuzzleAttachment, string> = { none: 'Nenhum', compensator: 'Compensator', flash_hider: 'Flash Hider', suppressor: 'Suppressor', muzzle_brake: 'Muzzle Brake', choke: 'Choke', duckbill: 'Duckbill' };
 const GRIP_LABELS: Record<GripAttachment, string> = { none: 'Nenhum', vertical: 'Vertical Grip', angled: 'Angled Grip', half: 'Half Grip', thumb: 'Thumb Grip', lightweight: 'Lightweight Grip', laser: 'Laser Sight', ergonomic: 'Ergonomic Grip' };

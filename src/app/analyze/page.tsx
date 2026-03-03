@@ -8,8 +8,6 @@ import { getProfile } from '@/actions/profile';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { db } from '@/db';
-import { weaponProfiles, users } from '@/db/schema';
-import { eq } from 'drizzle-orm';
 
 export const metadata: Metadata = {
     title: 'Analisar Clip',

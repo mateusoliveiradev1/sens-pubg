@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useEffect } from 'react';
+import { useState, useTransition, useEffect, useMemo } from 'react';
 import { Control, useForm, useWatch, FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { playerProfileSchema } from '@/types/schemas';
@@ -10,11 +10,6 @@ import { saveProfile, deleteUserAccount } from '@/actions/profile';
 import styles from './settings-form.module.css';
 
 const MOUSE_SENSORS = ['Logitech HERO', 'PixArt PAW3395', 'PixArt PAW3370', 'Focus Pro 30K', 'TrueMove', 'Outro Sensor'];
-const GRIP_STYLES = ['palm', 'claw', 'fingertip', 'hybrid'];
-const PLAY_STYLES = ['arm', 'wrist', 'hybrid'];
-const MOUSEPAD_TYPES = ['speed', 'control', 'hybrid'];
-const MOUSEPAD_MATERIALS = ['cloth', 'hard', 'glass'];
-const MONITOR_PANELS = ['ips', 'tn', 'va'];
 
 type ProfileFormValues = z.infer<typeof playerProfileSchema>;
 
@@ -37,7 +32,7 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
     const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null);
     const [activeTab, setActiveTab] = useState<'identity' | 'mouse' | 'mousepad' | 'ingame' | 'danger'>('identity');
 
-    const defaultValues: Partial<ProfileFormValues> = initialData ? {
+    const defaultValues = useMemo((): Partial<ProfileFormValues> => initialData ? {
         identity: {
             bio: initialData.bio || '',
             twitter: initialData.twitter || '',
@@ -91,7 +86,7 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
             mouseAcceleration: false,
         },
         physical: { armLength: 'medium', deskSpaceCm: 60 }
-    };
+    }, [initialData]);
 
 
 

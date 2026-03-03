@@ -5,7 +5,6 @@
  */
 
 import { asPixels, asMilliseconds } from '../types/branded';
-import type { Pixels, Milliseconds } from '../types/branded';
 import type { TrackingPoint } from '../types/engine';
 import type { ExtractedFrame } from './frame-extraction';
 
