@@ -11,6 +11,8 @@ export const env = createEnv({
         AUTH_DISCORD_SECRET: z.string().min(1),
         DISCORD_GUILD_ID: z.string().min(1).optional(),
         BOT_API_KEY: z.string().min(1).optional(),
+        GROQ_API_KEY: z.string().min(1).optional(),
+        GROQ_COACH_MODEL: z.string().min(1).optional(),
         NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     },
     client: {

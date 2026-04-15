@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { analysisSessions, sensitivityHistory } from '@/db/schema';
 import { CURRENT_PUBG_PATCH_VERSION } from '@/game/pubg/patch';
 import type { AnalysisResult } from '@/types/engine';
@@ -13,6 +14,8 @@ const mocks = vi.hoisted(() => {
     const sessionValues = vi.fn();
     const returning = vi.fn();
     const historyValues = vi.fn();
+    const enrichAnalysisResultCoaching = vi.fn();
+    const createGroqCoachClient = vi.fn();
 
     return {
         auth,
@@ -24,6 +27,8 @@ const mocks = vi.hoisted(() => {
         sessionValues,
         returning,
         historyValues,
+        enrichAnalysisResultCoaching,
+        createGroqCoachClient,
     };
 });
 
@@ -38,6 +43,14 @@ vi.mock('@/db', () => ({
     },
 }));
 
+vi.mock('@/core/analysis-result-coach-enrichment', () => ({
+    enrichAnalysisResultCoaching: mocks.enrichAnalysisResultCoaching,
+}));
+
+vi.mock('@/server/coach/groq-coach-client', () => ({
+    createGroqCoachClient: mocks.createGroqCoachClient,
+}));
+
 import { saveAnalysisResult } from './history';
 
 function createAnalysisResult(): AnalysisResult {
@@ -47,10 +60,22 @@ function createAnalysisResult(): AnalysisResult {
         patchVersion: CURRENT_PUBG_PATCH_VERSION,
         trajectory: {
             points: [],
+            trackingFrames: [],
             displacements: [],
             totalFrames: 30,
             durationMs: 1000 as never,
             weaponId: 'beryl-m762',
+            trackingQuality: 0.92,
+            framesTracked: 28,
+            framesLost: 2,
+            visibleFrames: 28,
+            framesProcessed: 30,
+            statusCounts: {
+                tracked: 28,
+                occluded: 0,
+                lost: 2,
+                uncertain: 0,
+            },
         },
         loadout: {
             stance: 'standing',
@@ -62,6 +87,10 @@ function createAnalysisResult(): AnalysisResult {
             stabilityScore: 78 as never,
             verticalControlIndex: 1.02,
             horizontalNoiseIndex: 2.1,
+            angularErrorDegrees: 0.4,
+            linearErrorCm: 18,
+            linearErrorSeverity: 2,
+            targetDistanceMeters: 30,
             initialRecoilResponseMs: 145 as never,
             driftDirectionBias: { direction: 'neutral', magnitude: 0 },
             consistencyScore: 82 as never,
@@ -152,6 +181,8 @@ describe('saveAnalysisResult', () => {
         });
         mocks.returning.mockResolvedValue([{ id: 'session-1' }]);
         mocks.historyValues.mockResolvedValue(undefined);
+        mocks.createGroqCoachClient.mockReturnValue(undefined);
+        mocks.enrichAnalysisResultCoaching.mockImplementation(async (result) => result);
     });
 
     it('persists patchVersion with the saved session and full result payload', async () => {
@@ -165,6 +196,31 @@ describe('saveAnalysisResult', () => {
             patchVersion: CURRENT_PUBG_PATCH_VERSION,
             fullResult: expect.objectContaining({
                 patchVersion: CURRENT_PUBG_PATCH_VERSION,
+            }),
+        }));
+    });
+
+    it('enriches coaching through the server helper and returns the enriched payload', async () => {
+        const result = createAnalysisResult();
+        const enrichedResult = {
+            ...result,
+            coaching: [{ problem: 'Coach IA' }] as unknown as AnalysisResult['coaching'],
+        };
+
+        mocks.enrichAnalysisResultCoaching.mockResolvedValue(enrichedResult);
+
+        const saved = await saveAnalysisResult(result, 'beryl-m762', 'red-dot', 30);
+
+        expect(mocks.createGroqCoachClient).toHaveBeenCalledTimes(1);
+        expect(mocks.enrichAnalysisResultCoaching).toHaveBeenCalledWith(result, undefined);
+        expect(saved).toMatchObject({
+            success: true,
+            result: enrichedResult,
+        });
+        expect(mocks.sessionValues).toHaveBeenCalledWith(expect.objectContaining({
+            coachingData: enrichedResult.coaching,
+            fullResult: expect.objectContaining({
+                coaching: enrichedResult.coaching,
             }),
         }));
     });

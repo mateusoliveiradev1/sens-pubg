@@ -299,6 +299,10 @@ export interface CoachContext {
     readonly patchVersion?: string;
     readonly opticId?: string;
     readonly opticStateId?: string;
+    readonly targetDistanceMeters?: number;
+    readonly distanceMode?: AnalysisDistanceMode;
+    readonly weaponName?: string;
+    readonly weaponCategory?: string;
 }
 
 export interface CoachAttachmentEvidence {
@@ -326,6 +330,11 @@ export interface CoachEvidence {
     readonly linearErrorCm: number;
     readonly linearErrorSeverity: number;
     readonly patchVersion?: string;
+    readonly targetDistanceMeters?: number;
+    readonly distanceMode?: AnalysisDistanceMode;
+    readonly weaponName?: string;
+    readonly weaponCategory?: string;
+    readonly stance?: PlayerStance;
     readonly attachmentCatalogVersion?: string;
     readonly recommendedAttachments?: readonly CoachAttachmentEvidence[];
     readonly optic?: CoachOpticEvidence;

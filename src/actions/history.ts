@@ -1,11 +1,14 @@
 'use server';
 
-import { db } from '@/db';
-import { analysisSessions, sensitivityHistory, playerProfiles, weaponProfiles } from '@/db/schema';
-import { auth } from '@/auth';
-import type { AnalysisResult } from '@/types/engine';
-import { normalizePatchVersion } from '@/game/pubg';
 import { eq, sql } from 'drizzle-orm';
+
+import { auth } from '@/auth';
+import { enrichAnalysisResultCoaching } from '@/core/analysis-result-coach-enrichment';
+import { db } from '@/db';
+import { analysisSessions, playerProfiles, sensitivityHistory, weaponProfiles } from '@/db/schema';
+import { normalizePatchVersion } from '@/game/pubg';
+import { createGroqCoachClient } from '@/server/coach/groq-coach-client';
+import type { AnalysisResult } from '@/types/engine';
 
 export async function saveAnalysisResult(
     result: AnalysisResult,
@@ -15,11 +18,12 @@ export async function saveAnalysisResult(
 ) {
     const session = await auth();
     if (!session?.user?.id) {
-        throw new Error('Não autenticado.');
+        throw new Error('Nao autenticado.');
     }
 
+    let enrichedResult = result;
+
     try {
-        // Enforce user has a profile
         const profile = await db
             .select({ id: playerProfiles.id })
             .from(playerProfiles)
@@ -30,22 +34,26 @@ export async function saveAnalysisResult(
             throw new Error('Perfil incompleto.');
         }
 
-        const metrics = result.metrics;
-        const diagnoses = result.diagnoses.map(d => d.type);
-        const patchVersion = normalizePatchVersion(result.patchVersion);
+        enrichedResult = await enrichAnalysisResultCoaching(
+            result,
+            createGroqCoachClient()
+        );
 
-        // 1. Insert the session
+        const metrics = enrichedResult.metrics;
+        const diagnoses = enrichedResult.diagnoses.map((diagnosis) => diagnosis.type);
+        const patchVersion = normalizePatchVersion(enrichedResult.patchVersion);
+
         const insertedSession = await db.insert(analysisSessions).values({
             userId: session.user.id,
             weaponId,
             scopeId,
             patchVersion,
             distance,
-            stance: result.loadout.stance,
+            stance: enrichedResult.loadout.stance,
             attachments: {
-                muzzle: result.loadout.muzzle,
-                grip: result.loadout.grip,
-                stock: result.loadout.stock,
+                muzzle: enrichedResult.loadout.muzzle,
+                grip: enrichedResult.loadout.grip,
+                stock: enrichedResult.loadout.stock,
             },
             stabilityScore: metrics.stabilityScore,
             verticalControl: metrics.verticalControlIndex,
@@ -55,41 +63,51 @@ export async function saveAnalysisResult(
             consistencyScore: metrics.consistencyScore,
             sprayScore: metrics.sprayScore || 0,
             diagnoses,
-            // Only keeping limited JSON to avoid large payloads if needed, but we can store everything
-            coachingData: result.coaching as unknown as Record<string, unknown>[],
+            coachingData: enrichedResult.coaching as unknown as Record<string, unknown>[],
             fullResult: {
-                ...result,
+                ...enrichedResult,
                 patchVersion,
-            } as unknown as Record<string, unknown>, // Save the entire diagnostic payload for 1:1 identical historic viewing
+            } as unknown as Record<string, unknown>,
         }).returning({ id: analysisSessions.id });
 
         const sessionId = insertedSession[0]!.id;
 
-        // 2. Insert sensitivity history for each recommended profile
-        const historyRows = result.sensitivity.profiles.map(p => ({
-            userId: session.user!.id!,
-            sessionId: sessionId,
-            profileType: p.type,
-            generalSens: p.general as number,
-            adsSens: p.ads as number,
-            scopeSens: Array.isArray(p.scopes)
-                ? p.scopes.reduce((acc: Record<string, number>, s) => ({ ...acc, [s.scopeName]: s.recommended as number }), {})
-                : p.scopes,
-            applied: p.type === result.sensitivity.recommended, // mark recommended as auto-applied conceptually
+        const historyRows = enrichedResult.sensitivity.profiles.map((profileItem) => ({
+            userId: session.user.id,
+            sessionId,
+            profileType: profileItem.type,
+            generalSens: profileItem.general as number,
+            adsSens: profileItem.ads as number,
+            scopeSens: Array.isArray(profileItem.scopes)
+                ? profileItem.scopes.reduce(
+                    (accumulator: Record<string, number>, scope) => ({
+                        ...accumulator,
+                        [scope.scopeName]: scope.recommended as number,
+                    }),
+                    {}
+                )
+                : profileItem.scopes,
+            applied: profileItem.type === enrichedResult.sensitivity.recommended,
         }));
 
         await db.insert(sensitivityHistory).values(historyRows);
 
-        return { success: true, sessionId };
+        return { success: true as const, sessionId, result: enrichedResult };
     } catch (err) {
         console.error('[saveAnalysisResult] Error:', err);
-        return { success: false, error: 'Erro ao salvar histórico.' };
+        return {
+            success: false as const,
+            error: 'Erro ao salvar historico.',
+            result: enrichedResult,
+        };
     }
 }
 
 export async function getHistorySessions() {
     const session = await auth();
-    if (!session?.user?.id) return [];
+    if (!session?.user?.id) {
+        return [];
+    }
 
     try {
         const result = await db
@@ -106,7 +124,10 @@ export async function getHistorySessions() {
                 weaponCategory: weaponProfiles.category,
             })
             .from(analysisSessions)
-            .leftJoin(weaponProfiles, sql`CASE WHEN ${analysisSessions.weaponId} ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN ${analysisSessions.weaponId}::uuid ELSE NULL END = ${weaponProfiles.id}`)
+            .leftJoin(
+                weaponProfiles,
+                sql`CASE WHEN ${analysisSessions.weaponId} ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN ${analysisSessions.weaponId}::uuid ELSE NULL END = ${weaponProfiles.id}`
+            )
             .where(eq(analysisSessions.userId, session.user.id))
             .orderBy(analysisSessions.createdAt);
 

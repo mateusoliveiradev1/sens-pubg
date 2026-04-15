@@ -48,6 +48,38 @@ function formatOpticContext(evidence: CoachEvidence): string {
     return ` com ${evidence.optic.name}${evidence.optic.stateName ? ` no state ${evidence.optic.stateName}` : ''}`;
 }
 
+function formatDistanceLabel(distanceMeters: number): string {
+    const roundedDistance = Math.round(distanceMeters * 10) / 10;
+    return Number.isInteger(roundedDistance) ? roundedDistance.toFixed(0) : roundedDistance.toFixed(1);
+}
+
+function buildSessionCue(evidence: CoachEvidence): string {
+    const parts: string[] = [];
+
+    if (evidence.weaponName) {
+        parts.push(evidence.weaponName);
+    }
+
+    if (evidence.optic) {
+        parts.push(
+            evidence.optic.stateName
+                ? `${evidence.optic.name} (${evidence.optic.stateName})`
+                : evidence.optic.name
+        );
+    }
+
+    if (typeof evidence.targetDistanceMeters === 'number') {
+        const distancePrefix = evidence.distanceMode === 'unknown' ? 'ref.' : '';
+        parts.push(`${distancePrefix ? `${distancePrefix} ` : ''}${formatDistanceLabel(evidence.targetDistanceMeters)}m`);
+    }
+
+    if (parts.length === 0) {
+        return '';
+    }
+
+    return ` (${parts.join(' | ')})`;
+}
+
 function buildVerificationTarget(diagnosis: Diagnosis, evidence: CoachEvidence): string {
     switch (diagnosis.type) {
         case 'underpull':
@@ -68,22 +100,23 @@ function buildVerificationTarget(diagnosis: Diagnosis, evidence: CoachEvidence):
 
 function buildCoachProblem(diagnosis: Diagnosis, evidence: CoachEvidence): string {
     const phaseLabel = formatPhaseLabel(evidence.dominantPhase ?? 'overall');
+    const sessionCue = buildSessionCue(evidence);
 
     switch (diagnosis.type) {
         case 'underpull':
-            return `O spray esta subindo alem do ideal, com VCI ${diagnosis.verticalControlIndex.toFixed(2)} e erro projetado de ${evidence.linearErrorCm.toFixed(1)}cm. O desvio pesa mais na ${phaseLabel}.`;
+            return `O spray${sessionCue} esta subindo alem do ideal, com VCI ${diagnosis.verticalControlIndex.toFixed(2)} e erro projetado de ${evidence.linearErrorCm.toFixed(1)}cm. O desvio pesa mais na ${phaseLabel}.`;
         case 'overpull':
-            return `Voce esta descendo a mira alem do necessario, com VCI ${diagnosis.verticalControlIndex.toFixed(2)} e perda de linha principalmente na ${phaseLabel}.`;
+            return `Voce esta descendo a mira alem do necessario${sessionCue}, com VCI ${diagnosis.verticalControlIndex.toFixed(2)} e perda de linha principalmente na ${phaseLabel}.`;
         case 'late_compensation':
-            return `A compensacao esta entrando tarde: ${Math.round(Number(diagnosis.responseTimeMs))}ms contra um ideal perto de ${Math.round(Number(diagnosis.idealResponseMs))}ms.`;
+            return `A compensacao${sessionCue} esta entrando tarde: ${Math.round(Number(diagnosis.responseTimeMs))}ms contra um ideal perto de ${Math.round(Number(diagnosis.idealResponseMs))}ms.`;
         case 'excessive_jitter':
-            return `O eixo horizontal ficou solto demais: ruido ${diagnosis.horizontalNoise.toFixed(1)} para um limite de ${diagnosis.threshold}. Isso espalha o spray mesmo quando a altura parece boa.`;
+            return `O eixo horizontal${sessionCue} ficou solto demais: ruido ${diagnosis.horizontalNoise.toFixed(1)} para um limite de ${diagnosis.threshold}. Isso espalha o spray mesmo quando a altura parece boa.`;
         case 'horizontal_drift':
-            return `A trajetoria puxa para a ${diagnosis.bias.direction === 'left' ? 'esquerda' : 'direita'} com magnitude ${diagnosis.bias.magnitude.toFixed(1)}px/frame.`;
+            return `A trajetoria${sessionCue} puxa para a ${diagnosis.bias.direction === 'left' ? 'esquerda' : 'direita'} com magnitude ${diagnosis.bias.magnitude.toFixed(1)}px/frame.`;
         case 'inconsistency':
-            return `Cada spray esta saindo diferente do anterior: consistencia ${diagnosis.consistencyScore}/100 e leitura instavel entre blocos.`;
+            return `Cada spray${sessionCue} esta saindo diferente do anterior: consistencia ${diagnosis.consistencyScore}/100 e leitura instavel entre blocos.`;
         case 'inconclusive':
-            return `O clip ainda nao sustenta leitura final: coverage ${(diagnosis.evidenceQuality.coverage * 100).toFixed(0)}% e confidence ${(diagnosis.evidenceQuality.confidence * 100).toFixed(0)}%.`;
+            return `O clip${sessionCue} ainda nao sustenta leitura final: coverage ${(diagnosis.evidenceQuality.coverage * 100).toFixed(0)}% e confidence ${(diagnosis.evidenceQuality.confidence * 100).toFixed(0)}%.`;
     }
 }
 
@@ -244,7 +277,8 @@ function buildCoachOpticEvidence(context: CoachContext): CoachOpticEvidence | un
 function buildCoachEvidence(
     diagnosis: Diagnosis,
     context: CoachContext,
-    recommendedAttachments: readonly AttachmentDefinition[]
+    recommendedAttachments: readonly AttachmentDefinition[],
+    loadout: WeaponLoadout
 ): CoachEvidence {
     const fallbackQuality = diagnosis.type === 'inconclusive'
         ? diagnosis.evidenceQuality
@@ -273,6 +307,13 @@ function buildCoachEvidence(
         linearErrorCm: diagnosis.evidence?.linearErrorCm ?? 0,
         linearErrorSeverity: diagnosis.evidence?.linearErrorSeverity ?? diagnosis.severity,
         patchVersion,
+        ...(typeof context.targetDistanceMeters === 'number'
+            ? { targetDistanceMeters: context.targetDistanceMeters }
+            : {}),
+        ...(context.distanceMode ? { distanceMode: context.distanceMode } : {}),
+        ...(context.weaponName ? { weaponName: context.weaponName } : {}),
+        ...(context.weaponCategory ? { weaponCategory: context.weaponCategory } : {}),
+        stance: loadout.stance,
         attachmentCatalogVersion,
         ...(attachmentEvidence.length > 0 ? { recommendedAttachments: attachmentEvidence } : {}),
         ...(opticEvidence ? { optic: opticEvidence } : {}),
@@ -305,14 +346,14 @@ function buildConservativeAdjustment(adjustment: string, mode: CoachMode): strin
 
 function buildVerifyNextClip(diagnosis: Diagnosis, evidence: CoachEvidence, mode: CoachMode): string {
     const phase = formatPhaseLabel(evidence.dominantPhase ?? 'overall');
-    const opticContext = formatOpticContext(evidence);
+    const sessionCue = buildSessionCue(evidence);
     const target = buildVerificationTarget(diagnosis, evidence);
 
     if (mode !== 'standard') {
-        return `Grave um novo clip${opticContext} antes de fechar a leitura; busque ${target}.`;
+        return `Grave um novo clip${sessionCue} antes de fechar a leitura; busque ${target}.`;
     }
 
-    return `No proximo clip, cheque a ${phase}${opticContext}: ${target}, com coverage >= ${(evidence.coverage * 100).toFixed(0)}% e confidence >= ${(evidence.confidence * 100).toFixed(0)}%.`;
+    return `No proximo clip, cheque a ${phase}${sessionCue}: ${target}, com coverage >= ${(evidence.coverage * 100).toFixed(0)}% e confidence >= ${(evidence.confidence * 100).toFixed(0)}%.`;
 }
 
 export function generateCoaching(
@@ -327,7 +368,7 @@ export function generateCoaching(
         let whatToAdjust = diagnosis.remediation;
         const whyItHappens = diagnosis.cause;
         const recommendedAttachments: AttachmentDefinition[] = [];
-        const baselineEvidence = buildCoachEvidence(diagnosis, context, []);
+        const baselineEvidence = buildCoachEvidence(diagnosis, context, [], loadout);
         const conservativeCoaching = shouldUseConservativeCoaching(diagnosis, baselineEvidence);
 
         const appendAttachmentTip = (
@@ -389,7 +430,7 @@ export function generateCoaching(
             whatToAdjust += ' Lembre-se: Agachar (Crouch) reduz o recuo em cerca de 20%. Use isso a seu favor em sprays longos.';
         }
 
-        const evidence = buildCoachEvidence(diagnosis, context, recommendedAttachments);
+        const evidence = buildCoachEvidence(diagnosis, context, recommendedAttachments, loadout);
         const mode = determineCoachMode(diagnosis, evidence);
         const adjustment = mode === 'standard'
             ? whatToAdjust

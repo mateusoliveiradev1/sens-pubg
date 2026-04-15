@@ -227,6 +227,17 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                 distanceMeters: effectiveDistanceMeters,
                 distanceMode,
             });
+            const coachingContext = {
+                patchVersion: CURRENT_PUBG_PATCH_VERSION,
+                opticId: analysisContext.optic.opticId,
+                opticStateId: analysisContext.optic.opticStateId,
+                targetDistanceMeters: analysisContext.targetDistanceMeters,
+                weaponName: dbWeapon.name,
+                weaponCategory: dbWeapon.category,
+                ...(analysisContext.distanceMode
+                    ? { distanceMode: analysisContext.distanceMode }
+                    : {}),
+            } as const;
             const loadout: WeaponLoadout = { stance, muzzle, grip, stock };
             const expectedDurationSecs = calculateExpectedSprayDurationSeconds(weaponData);
             const projectionConfig = resolveSprayProjectionConfig({
@@ -313,7 +324,7 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                     metrics: sprayMetrics,
                     diagnoses,
                     sensitivity: generateSensitivityRecommendation(sprayMetrics, diagnoses, pMouseDpi, pPlayStyle, pGripStyle, pMousepadWidth, pScopeSens as Record<string, number>, pVerticalMultiplier),
-                    coaching: generateCoaching(diagnoses, loadout, { patchVersion: CURRENT_PUBG_PATCH_VERSION }),
+                    coaching: generateCoaching(diagnoses, loadout, coachingContext),
                 });
 
                 setProgress((index + 1) * stepIncrement);
@@ -355,17 +366,25 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                 metrics: finalMetrics,
                 diagnoses: finalDiagnoses,
                 sensitivity: generateSensitivityRecommendation(finalMetrics, finalDiagnoses, fMouseDpi, fPlayStyle, fGripStyle, fMousepadWidth, fScopeSens as Record<string, number>, fVerticalMultiplier),
-                coaching: generateCoaching(finalDiagnoses, { stance, muzzle, grip, stock }, { patchVersion: CURRENT_PUBG_PATCH_VERSION }),
+                coaching: generateCoaching(finalDiagnoses, { stance, muzzle, grip, stock }, coachingContext),
                 subSessions,
             };
 
+            let resultToDisplay: AnalysisResult = finalResult;
+
             try {
-                await saveAnalysisResult(finalResult, weaponId, scopeId, effectiveDistanceMeters);
+                const persisted = await saveAnalysisResult(finalResult, weaponId, scopeId, effectiveDistanceMeters);
+                if (persisted.result) {
+                    resultToDisplay = persisted.result;
+                }
+                if (!persisted.success) {
+                    console.error('[saveAnalysisResult]', persisted.error);
+                }
             } catch (saveError) {
                 console.error('[saveAnalysisResult]', saveError);
             }
 
-            setResult(finalResult);
+            setResult(resultToDisplay);
             setStep('done');
         } catch (analysisError) {
             console.error('[Analysis Error]:', analysisError);

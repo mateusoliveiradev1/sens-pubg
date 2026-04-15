@@ -72,4 +72,19 @@ describe('analysis worker tracking contract', () => {
         expect(source).toMatch(/formatPreviewClipDuration/);
         expect(source).not.toMatch(/Math\.round\(video\.duration\)\}s/);
     });
+
+    it('passes optic and distance context into coaching instead of using patch-only defaults', () => {
+        const source = readFileSync(new URL('./analysis-client.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/opticId:\s*analysisContext\.optic\.opticId/);
+        expect(source).toMatch(/targetDistanceMeters:\s*analysisContext\.targetDistanceMeters/);
+        expect(source).not.toMatch(/generateCoaching\(diagnoses,\s*loadout,\s*\{\s*patchVersion:\s*CURRENT_PUBG_PATCH_VERSION\s*\}\)/);
+    });
+
+    it('uses the persisted server result when coaching is enriched during save', () => {
+        const source = readFileSync(new URL('./analysis-client.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/if\s*\(persisted\.result\)/);
+        expect(source).toMatch(/setResult\(resultToDisplay\)/);
+    });
 });

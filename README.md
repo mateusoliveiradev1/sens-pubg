@@ -75,6 +75,14 @@ Observacoes:
 - `AUTH_SECRET` e o nome correto da variavel de auth usada pelo projeto.
 - `DISCORD_GUILD_ID` so e necessario se voce quiser sincronizar cargos do Discord no login.
 - `BOT_API_KEY` so e necessario para os endpoints do bot/admin.
+- `GROQ_API_KEY` e opcional e habilita o rewrite do coach com LLM, mantendo fallback deterministico se a chave nao existir.
+- `GROQ_COACH_MODEL` e opcional. O padrao atual e `openai/gpt-oss-20b`.
+
+Para validar a integracao do coach com Groq depois de preencher a chave:
+
+```bash
+npm run coach:smoke:groq
+```
 
 ### Banco
 
