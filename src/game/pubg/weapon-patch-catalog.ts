@@ -16,6 +16,7 @@ export interface WeaponPatchLegacyMultipliers {
     readonly heavy_stock?: number;
     readonly vertical_grip?: WeaponPatchLegacyGripMultiplier;
     readonly half_grip?: WeaponPatchLegacyGripMultiplier;
+    readonly tilted_grip?: WeaponPatchLegacyGripMultiplier;
     readonly [key: string]: unknown;
 }
 
@@ -107,7 +108,15 @@ function toPatchProfile(
 }
 
 function buildLegacySnapshot(patchVersion: string): readonly WeaponPatchProfileDefinition[] {
-    return weaponSeeds.map((seed) => toPatchProfile(seed, patchVersion));
+    return weaponSeeds.map((seed) => {
+        const legacyMultipliers = Object.fromEntries(
+            Object.entries(seed.multipliers).filter(([key]) => key !== 'tilted_grip')
+        ) as WeaponPatchLegacyMultipliers;
+
+        return toPatchProfile(seed, patchVersion, {
+            multipliers: legacyMultipliers,
+        });
+    });
 }
 
 const legacySnapshot361 = buildLegacySnapshot('36.1');

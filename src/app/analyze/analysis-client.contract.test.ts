@@ -59,4 +59,17 @@ describe('analysis worker tracking contract', () => {
         expect(source).toMatch(/summarizeAnalysisWeaponSupport/);
         expect(source).not.toMatch(/replace\(' ', '-'\)/);
     });
+
+    it('surfaces the current tilted grip option in the analysis selector', () => {
+        const source = readFileSync(new URL('./analysis-client.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/const GRIP_OPTIONS:[\s\S]*'tilted'/);
+    });
+
+    it('preserves decimal clip duration in the preview instead of rounding boundary uploads', () => {
+        const source = readFileSync(new URL('./analysis-client.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/formatPreviewClipDuration/);
+        expect(source).not.toMatch(/Math\.round\(video\.duration\)\}s/);
+    });
 });

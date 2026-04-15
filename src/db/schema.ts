@@ -31,6 +31,7 @@ export interface WeaponProfileLegacyMultipliers {
     readonly heavy_stock?: number;
     readonly vertical_grip?: WeaponProfileLegacyGripMultiplier;
     readonly half_grip?: WeaponProfileLegacyGripMultiplier;
+    readonly tilted_grip?: WeaponProfileLegacyGripMultiplier;
     readonly [key: string]: unknown;
 }
 

@@ -17,7 +17,8 @@ describe('video ingestion contract', () => {
         expect(isSupportedSprayClipDuration(5.04)).toBe(true);
         expect(isSupportedSprayClipDuration(15)).toBe(true);
         expect(isSupportedSprayClipDuration(15.08)).toBe(true);
-        expect(isSupportedSprayClipDuration(15.11)).toBe(false);
+        expect(isSupportedSprayClipDuration(15.29)).toBe(true);
+        expect(isSupportedSprayClipDuration(15.36)).toBe(false);
     });
 
     it('formats the same duration range for user-facing copy across supported locales', () => {

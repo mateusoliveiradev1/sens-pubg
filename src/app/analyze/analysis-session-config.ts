@@ -22,6 +22,7 @@ const MUZZLE_CANONICAL_IDS: Partial<Record<MuzzleAttachment, string>> = {
 const GRIP_CANONICAL_IDS: Partial<Record<GripAttachment, string>> = {
     vertical: 'vertical-grip',
     half: 'half-grip',
+    tilted: 'tilted-grip',
 };
 
 const STOCK_CANONICAL_IDS: Partial<Record<StockAttachment, string>> = {
@@ -36,6 +37,7 @@ const MUZZLE_LEGACY_KEYS: Partial<Record<MuzzleAttachment, keyof WeaponProfileLe
 const GRIP_LEGACY_KEYS: Partial<Record<GripAttachment, keyof WeaponProfileLegacyMultipliers>> = {
     vertical: 'vertical_grip',
     half: 'half_grip',
+    tilted: 'tilted_grip',
 };
 
 const STOCK_LEGACY_KEYS: Partial<Record<StockAttachment, keyof WeaponProfileLegacyMultipliers>> = {

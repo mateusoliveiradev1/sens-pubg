@@ -64,6 +64,7 @@ const STOCK_LABELS: Record<StockAttachment, string> = {
 
 const DISTANCE_PRESETS = [25, 50, 75, 100, 150, 200] as const;
 const DISTANCE_UNKNOWN_REFERENCE_METERS = 30;
+const GRIP_OPTIONS: readonly GripAttachment[] = ['none', 'vertical', 'angled', 'half', 'thumb', 'lightweight', 'laser', 'ergonomic', 'tilted'];
 
 type AnalysisStep = 'upload' | 'settings' | 'processing' | 'done' | 'error';
 type ProcessingPhase = 'extracting' | 'tracking' | 'calculating' | 'diagnosing' | 'done';
@@ -72,6 +73,16 @@ type CrosshairColor = 'RED' | 'GREEN';
 interface Props {
     readonly profile: PlayerProfile;
     readonly dbWeapons: (typeof weaponProfiles.$inferSelect)[];
+}
+
+function formatPreviewClipDuration(durationSeconds: number): string {
+    const hasFraction = Math.abs(durationSeconds - Math.round(durationSeconds)) >= 0.05;
+    const formatted = new Intl.NumberFormat('pt-BR', {
+        minimumFractionDigits: hasFraction ? 1 : 0,
+        maximumFractionDigits: 1,
+    }).format(durationSeconds);
+
+    return `${formatted}s`;
 }
 
 export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element {
@@ -433,7 +444,7 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                     <video ref={videoRef} src={video.url} controls className={styles.video} />
                     <div className={styles.videoMeta}>
                         <span className="badge badge-info">{video.width}x{video.height}</span>
-                        <span className="badge badge-info">{Math.round(video.duration)}s</span>
+                        <span className="badge badge-info">{formatPreviewClipDuration(video.duration)}</span>
                         <span className="badge badge-info">{video.fps} FPS</span>
                     </div>
                 </div>
@@ -578,9 +589,9 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                                 onChange={(event) => setGrip(event.target.value as GripAttachment)}
                                 disabled={!hasAttachment('grip')}
                             >
-                                {['none', 'vertical', 'angled', 'half', 'thumb', 'lightweight', 'laser', 'ergonomic'].map((attachment) => (
+                                {GRIP_OPTIONS.map((attachment) => (
                                     <option key={attachment} value={attachment}>
-                                        {GRIP_LABELS[attachment as GripAttachment]}
+                                        {GRIP_LABELS[attachment]}
                                     </option>
                                 ))}
                             </select>

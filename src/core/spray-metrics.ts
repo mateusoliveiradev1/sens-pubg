@@ -628,6 +628,9 @@ export function calculateSprayMetrics(
     } else if (loadout.grip === 'half') {
         verticalMult *= 0.92;
         horizontalMult *= 0.92;
+    } else if (loadout.grip === 'tilted') {
+        verticalMult *= 0.88;
+        horizontalMult *= 0.94;
     } else if (loadout.grip === 'thumb') {
         verticalMult *= 0.95;
     } else if (loadout.grip === 'lightweight') {

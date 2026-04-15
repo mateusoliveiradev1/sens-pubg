@@ -90,6 +90,58 @@ describe('analysis session config', () => {
         expect(multipliers.horizontal).toBeCloseTo(0.85);
     });
 
+    it('resolves the tilted grip from both canonical and legacy attachment metadata', () => {
+        const canonicalProfile: WeaponProfileCanonical = {
+            schemaVersion: 1,
+            sourcePatchVersion: '41.1',
+            baseStats: {
+                verticalRecoil: 1.12,
+                horizontalRecoil: 1.06,
+                fireRateMs: 86,
+            },
+            supportedSlots: ['muzzle', 'grip', 'stock'],
+            attachmentProfiles: {
+                'tilted-grip': {
+                    slot: 'grip',
+                    multipliers: {
+                        verticalRecoil: 0.88,
+                        horizontalRecoil: 0.94,
+                    },
+                },
+            },
+        };
+
+        const canonicalMultipliers = resolveWorkerAttachmentMultipliers(
+            {
+                canonicalProfile,
+                multipliers: {},
+            },
+            buildSelections('none', 'tilted', 'none')
+        );
+
+        const legacyMultipliers = resolveWorkerAttachmentMultipliers(
+            {
+                canonicalProfile: undefined,
+                multipliers: {
+                    tilted_grip: {
+                        vertical: 0.88,
+                        horizontal: 0.94,
+                    },
+                },
+            },
+            buildSelections('none', 'tilted', 'none')
+        );
+
+        expect(canonicalMultipliers).toEqual({
+            vertical: 0.88,
+            horizontal: 0.94,
+        });
+        expect(legacyMultipliers).toEqual({
+            vertical: 0.88,
+            horizontal: 0.94,
+        });
+    });
+
     it('derives the extraction window from the selected weapon profile', () => {
         const durationSeconds = calculateExpectedSprayDurationSeconds({
             msPerShot: 55,

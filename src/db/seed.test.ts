@@ -51,6 +51,13 @@ describe('weapon profile seed canonicalization', () => {
                         horizontalRecoil: 0.85,
                     },
                 },
+                'tilted-grip': {
+                    slot: 'grip',
+                    multipliers: {
+                        verticalRecoil: 0.88,
+                        horizontalRecoil: 0.94,
+                    },
+                },
             },
         });
     });
