@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "name": "horizontal-drift-411-tilted",
+  "loadout": {
+    "stance": "standing",
+    "muzzle": "none",
+    "grip": "none",
+    "stock": "none"
+  },
+  "context": {
+    "patchVersion": "41.1"
+  },
+  "diagnoses": [
+    {
+      "type": "horizontal_drift",
+      "severity": 4,
+      "bias": {
+        "direction": "right",
+        "magnitude": 4.2
+      },
+      "description": "Drift lateral para direita",
+      "cause": "Controle horizontal insuficiente",
+      "remediation": "Estabilize o eixo horizontal"
+    }
+  ],
+  "expected": [
+    {
+      "mode": "standard",
+      "problem": "Drift lateral para direita",
+      "evidence": {
+        "diagnosisType": "horizontal_drift",
+        "severity": 4,
+        "confidence": 1,
+        "coverage": 1,
+        "angularErrorDegrees": 0,
+        "linearErrorCm": 0,
+        "linearErrorSeverity": 4,
+        "patchVersion": "41.1",
+        "attachmentCatalogVersion": "41.1",
+        "recommendedAttachments": [
+          {
+            "id": "tilted-grip",
+            "name": "Tilted Grip",
+            "slot": "grip",
+            "patchVersion": "41.1"
+          },
+          {
+            "id": "half-grip",
+            "name": "Half Grip",
+            "slot": "grip",
+            "patchVersion": "41.1"
+          }
+        ]
+      },
+      "confidence": 1,
+      "likelyCause": "Controle horizontal insuficiente",
+      "adjustment": "Estabilize o eixo horizontal Dica (41.1): Tilted Grip ou Half Grip ajudam a conter a oscilacao lateral neste patch. Lembre-se: Agachar (Crouch) reduz o recuo em cerca de 20%. Use isso a seu favor em sprays longos.",
+      "drill": "**Linha de Tracejo**: Siga uma linha vertical na parede enquanto faz o spray. Se a mira fugir da linha para o mesmo lado sempre, ajuste a posicao do braco e mousepad.",
+      "verifyNextClip": "No proximo clip, confirme se horizontal_drift melhora na fase overall com coverage >= 100% e confidence >= 100%.",
+      "adaptationTimeDays": 5
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "name": "hybrid-scope-411",
+  "loadout": {
+    "stance": "crouching",
+    "muzzle": "compensator",
+    "grip": "vertical",
+    "stock": "none"
+  },
+  "context": {
+    "patchVersion": "41.1",
+    "opticId": "hybrid-scope",
+    "opticStateId": "4x"
+  },
+  "diagnoses": [
+    {
+      "type": "underpull",
+      "severity": 3,
+      "verticalControlIndex": 0.72,
+      "deficitPercent": 28,
+      "confidence": 0.9,
+      "evidence": {
+        "confidence": 0.9,
+        "coverage": 0.95,
+        "angularErrorDegrees": 0.8,
+        "linearErrorCm": 31,
+        "linearErrorSeverity": 3
+      },
+      "description": "Pulldown baixo usando zoom alternado",
+      "cause": "O state de 4x exige controle vertical mais firme",
+      "remediation": "Repita o spray no mesmo state do optic"
+    }
+  ],
+  "expected": [
+    {
+      "mode": "standard",
+      "problem": "Pulldown baixo usando zoom alternado",
+      "evidence": {
+        "diagnosisType": "underpull",
+        "severity": 3,
+        "confidence": 0.9,
+        "coverage": 0.95,
+        "angularErrorDegrees": 0.8,
+        "linearErrorCm": 31,
+        "linearErrorSeverity": 3,
+        "patchVersion": "41.1",
+        "attachmentCatalogVersion": "41.1",
+        "optic": {
+          "id": "hybrid-scope",
+          "name": "Hybrid Scope",
+          "stateId": "4x",
+          "stateName": "4x",
+          "patchVersion": "41.1"
+        }
+      },
+      "confidence": 0.9,
+      "likelyCause": "O state de 4x exige controle vertical mais firme",
+      "adjustment": "Repita o spray no mesmo state do optic",
+      "drill": "**Drill de Pulldown Gradual**: Atire em uma parede limpa a 50m. Tente fazer um ponto de impactos. Se o spray subir, force o mouse para baixo de forma continua, nao apenas no inicio.",
+      "verifyNextClip": "No proximo clip, confirme se underpull melhora na fase overall usando Hybrid Scope no state 4x com coverage >= 95% e confidence >= 90%.",
+      "adaptationTimeDays": 3
+    }
+  ]
+}

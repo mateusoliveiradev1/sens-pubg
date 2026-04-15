@@ -4,169 +4,22 @@ config({ path: '.env.local' });
 import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
 import * as schema from './schema';
-import { weaponProfiles } from './schema';
+import { weaponPatchProfiles, weaponProfiles, weaponRegistry } from './schema';
+import { buildCanonicalWeaponProfile, weaponSeeds } from './weapon-profile-seed';
+import { WEAPON_CATALOG_SNAPSHOTS, getWeaponRegistry } from '@/game/pubg/weapon-patch-catalog';
 
 const sql = neon(process.env.DATABASE_URL!);
 const db = drizzle(sql, { schema });
 
-const weapons = [
-    // ================= ASSAULT RIFLES (ARs) =================
-    {
-        "name": "Beryl M762", "category": "AR", "baseVerticalRecoil": 1.45, "baseHorizontalRng": 1.30, "fireRateMs": 86,
-        "attachments": ["muzzle", "grip"],
-        "multipliers": { "muzzle_brake": 0.85, "compensator": 0.90, "heavy_stock": 0.92, "vertical_grip": { "vertical": 0.85, "horizontal": 1.0 }, "half_grip": { "vertical": 0.95, "horizontal": 0.85 } }
-    },
-    {
-        "name": "M416", "category": "AR", "baseVerticalRecoil": 1.15, "baseHorizontalRng": 1.10, "fireRateMs": 86,
-        "attachments": ["muzzle", "grip", "stock"],
-        "multipliers": { "muzzle_brake": 0.88, "compensator": 0.90, "heavy_stock": 0.90, "vertical_grip": { "vertical": 0.85, "horizontal": 1.0 }, "half_grip": { "vertical": 0.95, "horizontal": 0.85 } }
-    },
-    {
-        "name": "AUG", "category": "AR", "baseVerticalRecoil": 1.20, "baseHorizontalRng": 1.15, "fireRateMs": 84,
-        "attachments": ["muzzle", "grip"],
-        "multipliers": { "muzzle_brake": 0.88, "compensator": 0.90, "heavy_stock": 0.90, "vertical_grip": { "vertical": 0.85, "horizontal": 1.0 }, "half_grip": { "vertical": 0.95, "horizontal": 0.85 } }
-    },
-    {
-        "name": "ACE32", "category": "AR", "baseVerticalRecoil": 1.35, "baseHorizontalRng": 1.25, "fireRateMs": 88,
-        "attachments": ["muzzle", "grip", "stock"],
-        "multipliers": { "muzzle_brake": 0.85, "compensator": 0.90, "heavy_stock": 0.92, "vertical_grip": { "vertical": 0.85, "horizontal": 1.0 }, "half_grip": { "vertical": 0.95, "horizontal": 0.85 } }
-    },
-    {
-        "name": "AKM", "category": "AR", "baseVerticalRecoil": 1.30, "baseHorizontalRng": 1.20, "fireRateMs": 100,
-        "attachments": ["muzzle"],
-        "multipliers": { "muzzle_brake": 0.85, "compensator": 0.90, "heavy_stock": 1.0, "vertical_grip": { "vertical": 1.0, "horizontal": 1.0 }, "half_grip": { "vertical": 1.0, "horizontal": 1.0 } }
-    },
-    {
-        "name": "SCAR-L", "category": "AR", "baseVerticalRecoil": 1.05, "baseHorizontalRng": 1.05, "fireRateMs": 96,
-        "attachments": ["muzzle", "grip"],
-        "multipliers": { "muzzle_brake": 0.88, "compensator": 0.90, "heavy_stock": 1.0, "vertical_grip": { "vertical": 0.85, "horizontal": 1.0 }, "half_grip": { "vertical": 0.95, "horizontal": 0.85 } }
-    },
-    {
-        "name": "G36C", "category": "AR", "baseVerticalRecoil": 1.10, "baseHorizontalRng": 1.08, "fireRateMs": 86,
-        "attachments": ["muzzle", "grip"],
-        "multipliers": { "muzzle_brake": 0.88, "compensator": 0.90, "heavy_stock": 1.0, "vertical_grip": { "vertical": 0.85, "horizontal": 1.0 }, "half_grip": { "vertical": 0.95, "horizontal": 0.85 } }
-    },
-    {
-        "name": "QBZ", "category": "AR", "baseVerticalRecoil": 1.12, "baseHorizontalRng": 1.10, "fireRateMs": 92,
-        "attachments": ["muzzle", "grip"],
-        "multipliers": { "muzzle_brake": 0.88, "compensator": 0.90, "heavy_stock": 1.0, "vertical_grip": { "vertical": 0.85, "horizontal": 1.0 }, "half_grip": { "vertical": 0.95, "horizontal": 0.85 } }
-    },
-    {
-        "name": "K2", "category": "AR", "baseVerticalRecoil": 1.18, "baseHorizontalRng": 1.12, "fireRateMs": 88,
-        "attachments": ["muzzle"],
-        "multipliers": { "muzzle_brake": 0.88, "compensator": 0.90, "heavy_stock": 1.0, "vertical_grip": { "vertical": 1.0, "horizontal": 1.0 }, "half_grip": { "vertical": 1.0, "horizontal": 1.0 } }
-    },
-    {
-        "name": "Groza", "category": "AR", "baseVerticalRecoil": 1.25, "baseHorizontalRng": 1.15, "fireRateMs": 80,
-        "attachments": ["muzzle"],
-        "multipliers": { "muzzle_brake": 1.0, "compensator": 1.0, "heavy_stock": 1.0, "vertical_grip": { "vertical": 1.0, "horizontal": 1.0 }, "half_grip": { "vertical": 1.0, "horizontal": 1.0 } }
-    },
-    {
-        "name": "FAMAS", "category": "AR", "baseVerticalRecoil": 1.15, "baseHorizontalRng": 1.05, "fireRateMs": 66,
-        "attachments": ["muzzle"],
-        "multipliers": { "muzzle_brake": 1.0, "compensator": 1.0, "heavy_stock": 1.0, "vertical_grip": { "vertical": 1.0, "horizontal": 1.0 }, "half_grip": { "vertical": 1.0, "horizontal": 1.0 } }
-    },
-    {
-        "name": "M16A4", "category": "AR", "baseVerticalRecoil": 1.20, "baseHorizontalRng": 1.05, "fireRateMs": 75,
-        "attachments": ["muzzle", "stock"],
-        "multipliers": { "muzzle_brake": 0.85, "compensator": 0.90, "heavy_stock": 0.90, "vertical_grip": { "vertical": 1.0, "horizontal": 1.0 }, "half_grip": { "vertical": 1.0, "horizontal": 1.0 } }
-    },
-    {
-        "name": "Mk47 Mutant", "category": "AR", "baseVerticalRecoil": 1.30, "baseHorizontalRng": 1.10, "fireRateMs": 100,
-        "attachments": ["muzzle", "grip", "stock"],
-        "multipliers": { "muzzle_brake": 0.85, "compensator": 0.90, "heavy_stock": 0.90, "vertical_grip": { "vertical": 0.85, "horizontal": 1.0 }, "half_grip": { "vertical": 0.95, "horizontal": 0.85 } }
-    },
-
-    // ================= SUBMACHINE GUNS (SMGs) =================
-    {
-        "name": "UMP45", "category": "SMG", "baseVerticalRecoil": 0.85, "baseHorizontalRng": 0.80, "fireRateMs": 92,
-        "attachments": ["muzzle", "grip"],
-        "multipliers": { "muzzle_brake": 1.0, "compensator": 0.90, "heavy_stock": 1.0, "vertical_grip": { "vertical": 0.85, "horizontal": 1.0 }, "half_grip": { "vertical": 0.95, "horizontal": 0.85 } }
-    },
-    {
-        "name": "Vector", "category": "SMG", "baseVerticalRecoil": 0.95, "baseHorizontalRng": 0.85, "fireRateMs": 55,
-        "attachments": ["muzzle", "grip", "stock"],
-        "multipliers": { "muzzle_brake": 1.0, "compensator": 0.90, "heavy_stock": 0.90, "vertical_grip": { "vertical": 0.85, "horizontal": 1.0 }, "half_grip": { "vertical": 0.95, "horizontal": 0.85 } }
-    },
-    {
-        "name": "Micro UZI", "category": "SMG", "baseVerticalRecoil": 0.75, "baseHorizontalRng": 0.70, "fireRateMs": 48,
-        "attachments": ["muzzle", "stock"],
-        "multipliers": { "muzzle_brake": 1.0, "compensator": 0.90, "heavy_stock": 0.90, "vertical_grip": { "vertical": 1.0, "horizontal": 1.0 }, "half_grip": { "vertical": 1.0, "horizontal": 1.0 } }
-    },
-    {
-        "name": "MP5K", "category": "SMG", "baseVerticalRecoil": 0.90, "baseHorizontalRng": 0.82, "fireRateMs": 66,
-        "attachments": ["muzzle", "grip", "stock"],
-        "multipliers": { "muzzle_brake": 1.0, "compensator": 0.90, "heavy_stock": 0.90, "vertical_grip": { "vertical": 0.85, "horizontal": 1.0 }, "half_grip": { "vertical": 0.95, "horizontal": 0.85 } }
-    },
-    {
-        "name": "PP-19 Bizon", "category": "SMG", "baseVerticalRecoil": 0.80, "baseHorizontalRng": 0.75, "fireRateMs": 86,
-        "attachments": ["muzzle"],
-        "multipliers": { "muzzle_brake": 1.0, "compensator": 0.90, "heavy_stock": 1.0, "vertical_grip": { "vertical": 1.0, "horizontal": 1.0 }, "half_grip": { "vertical": 1.0, "horizontal": 1.0 } }
-    },
-    {
-        "name": "Tommy Gun", "category": "SMG", "baseVerticalRecoil": 1.00, "baseHorizontalRng": 0.90, "fireRateMs": 86,
-        "attachments": ["muzzle", "grip"],
-        "multipliers": { "muzzle_brake": 1.0, "compensator": 1.0, "heavy_stock": 1.0, "vertical_grip": { "vertical": 0.85, "horizontal": 1.0 }, "half_grip": { "vertical": 1.0, "horizontal": 1.0 } }
-    },
-    {
-        "name": "JS9", "category": "SMG", "baseVerticalRecoil": 0.70, "baseHorizontalRng": 0.65, "fireRateMs": 66,
-        "attachments": ["muzzle"],
-        "multipliers": { "muzzle_brake": 1.0, "compensator": 0.90, "heavy_stock": 1.0, "vertical_grip": { "vertical": 1.0, "horizontal": 1.0 }, "half_grip": { "vertical": 1.0, "horizontal": 1.0 } }
-    },
-    {
-        "name": "P90", "category": "SMG", "baseVerticalRecoil": 0.60, "baseHorizontalRng": 0.60, "fireRateMs": 60,
-        "attachments": [],
-        "multipliers": { "muzzle_brake": 1.0, "compensator": 1.0, "heavy_stock": 1.0, "vertical_grip": { "vertical": 1.0, "horizontal": 1.0 }, "half_grip": { "vertical": 1.0, "horizontal": 1.0 } }
-    },
-
-    // ================= DESIGNATED MARKSMAN RIFLES (DMRs) =================
-    {
-        "name": "Mini14", "category": "DMR", "baseVerticalRecoil": 1.40, "baseHorizontalRng": 1.10, "fireRateMs": 100,
-        "attachments": ["muzzle"],
-        "multipliers": { "muzzle_brake": 0.85, "compensator": 0.90, "heavy_stock": 1.0, "vertical_grip": { "vertical": 1.0, "horizontal": 1.0 }, "half_grip": { "vertical": 1.0, "horizontal": 1.0 } }
-    },
-    {
-        "name": "Mk12", "category": "DMR", "baseVerticalRecoil": 1.35, "baseHorizontalRng": 1.05, "fireRateMs": 100,
-        "attachments": ["muzzle", "grip"],
-        "multipliers": { "muzzle_brake": 0.85, "compensator": 0.90, "heavy_stock": 1.0, "vertical_grip": { "vertical": 0.85, "horizontal": 1.0 }, "half_grip": { "vertical": 0.95, "horizontal": 0.85 } }
-    },
-    {
-        "name": "SKS", "category": "DMR", "baseVerticalRecoil": 1.70, "baseHorizontalRng": 1.30, "fireRateMs": 90,
-        "attachments": ["muzzle", "grip", "stock"],
-        "multipliers": { "muzzle_brake": 0.85, "compensator": 0.90, "heavy_stock": 0.90, "vertical_grip": { "vertical": 0.85, "horizontal": 1.0 }, "half_grip": { "vertical": 0.95, "horizontal": 0.85 } }
-    },
-    {
-        "name": "SLR", "category": "DMR", "baseVerticalRecoil": 1.85, "baseHorizontalRng": 1.40, "fireRateMs": 100,
-        "attachments": ["muzzle"],
-        "multipliers": { "muzzle_brake": 0.85, "compensator": 0.90, "heavy_stock": 0.90, "vertical_grip": { "vertical": 1.0, "horizontal": 1.0 }, "half_grip": { "vertical": 1.0, "horizontal": 1.0 } }
-    },
-    {
-        "name": "Dragunov", "category": "DMR", "baseVerticalRecoil": 1.95, "baseHorizontalRng": 1.25, "fireRateMs": 150,
-        "attachments": ["muzzle"],
-        "multipliers": { "muzzle_brake": 0.85, "compensator": 0.90, "heavy_stock": 0.90, "vertical_grip": { "vertical": 1.0, "horizontal": 1.0 }, "half_grip": { "vertical": 1.0, "horizontal": 1.0 } }
-    },
-    {
-        "name": "QBU", "category": "DMR", "baseVerticalRecoil": 1.38, "baseHorizontalRng": 1.08, "fireRateMs": 100,
-        "attachments": ["muzzle"],
-        "multipliers": { "muzzle_brake": 0.85, "compensator": 0.90, "heavy_stock": 1.0, "vertical_grip": { "vertical": 1.0, "horizontal": 1.0 }, "half_grip": { "vertical": 1.0, "horizontal": 1.0 } }
-    },
-    {
-        "name": "VSS", "category": "DMR", "baseVerticalRecoil": 1.25, "baseHorizontalRng": 1.15, "fireRateMs": 86,
-        "attachments": ["stock"],
-        "multipliers": { "muzzle_brake": 1.0, "compensator": 1.0, "heavy_stock": 0.90, "vertical_grip": { "vertical": 1.0, "horizontal": 1.0 }, "half_grip": { "vertical": 1.0, "horizontal": 1.0 } }
-    },
-    {
-        "name": "Mk14", "category": "DMR", "baseVerticalRecoil": 2.10, "baseHorizontalRng": 1.80, "fireRateMs": 90,
-        "attachments": ["muzzle", "stock"],
-        "multipliers": { "muzzle_brake": 0.85, "compensator": 0.90, "heavy_stock": 0.92, "vertical_grip": { "vertical": 1.0, "horizontal": 1.0 }, "half_grip": { "vertical": 1.0, "horizontal": 1.0 } }
-    }
-];
-
 async function main() {
     console.log('Seeding weapons...');
-    for (const weapon of weapons) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await db.insert(weaponProfiles).values(weapon as any).onConflictDoUpdate({
+
+    for (const weapon of weaponSeeds) {
+        await db.insert(weaponProfiles).values({
+            ...weapon,
+            attachments: [...weapon.attachments],
+            canonicalProfile: buildCanonicalWeaponProfile(weapon),
+        }).onConflictDoUpdate({
             target: weaponProfiles.name,
             set: {
                 category: weapon.category,
@@ -174,11 +27,87 @@ async function main() {
                 baseHorizontalRng: weapon.baseHorizontalRng,
                 fireRateMs: weapon.fireRateMs,
                 multipliers: weapon.multipliers,
-                attachments: weapon.attachments,
+                attachments: [...weapon.attachments],
+                canonicalProfile: buildCanonicalWeaponProfile(weapon),
                 updatedAt: new Date(),
             },
         });
     }
+
+    console.log('Seeding weapon registry...');
+
+    for (const weapon of getWeaponRegistry()) {
+        await db.insert(weaponRegistry).values({
+            weaponId: weapon.weaponId,
+            name: weapon.name,
+            category: weapon.category,
+        }).onConflictDoUpdate({
+            target: weaponRegistry.weaponId,
+            set: {
+                name: weapon.name,
+                category: weapon.category,
+                updatedAt: new Date(),
+            },
+        });
+    }
+
+    console.log('Seeding patch-aware weapon profiles...');
+
+    const registryRows = await db.select({
+        id: weaponRegistry.id,
+        weaponId: weaponRegistry.weaponId,
+    }).from(weaponRegistry);
+    const registryIdByWeaponId = new Map(registryRows.map((row) => [row.weaponId, row.id]));
+
+    for (const snapshot of WEAPON_CATALOG_SNAPSHOTS) {
+        for (const weapon of snapshot.weapons) {
+            const registryId = registryIdByWeaponId.get(weapon.weaponId);
+            if (!registryId) {
+                throw new Error(`Weapon registry row not found for ${weapon.weaponId}`);
+            }
+
+            await db.insert(weaponPatchProfiles).values({
+                weaponId: registryId,
+                patchVersion: snapshot.patchVersion,
+                lifecycleStatus: weapon.availability.status,
+                baseVerticalRecoil: weapon.baseVerticalRecoil,
+                baseHorizontalRng: weapon.baseHorizontalRng,
+                fireRateMs: weapon.fireRateMs,
+                multipliers: weapon.multipliers,
+                attachments: [...weapon.attachments],
+                canonicalProfile: buildCanonicalWeaponProfile({
+                    name: weapon.name,
+                    category: weapon.category,
+                    baseVerticalRecoil: weapon.baseVerticalRecoil,
+                    baseHorizontalRng: weapon.baseHorizontalRng,
+                    fireRateMs: weapon.fireRateMs,
+                    attachments: weapon.attachments,
+                    multipliers: weapon.multipliers,
+                }, snapshot.patchVersion),
+            }).onConflictDoUpdate({
+                target: [weaponPatchProfiles.weaponId, weaponPatchProfiles.patchVersion],
+                set: {
+                    lifecycleStatus: weapon.availability.status,
+                    baseVerticalRecoil: weapon.baseVerticalRecoil,
+                    baseHorizontalRng: weapon.baseHorizontalRng,
+                    fireRateMs: weapon.fireRateMs,
+                    multipliers: weapon.multipliers,
+                    attachments: [...weapon.attachments],
+                    canonicalProfile: buildCanonicalWeaponProfile({
+                        name: weapon.name,
+                        category: weapon.category,
+                        baseVerticalRecoil: weapon.baseVerticalRecoil,
+                        baseHorizontalRng: weapon.baseHorizontalRng,
+                        fireRateMs: weapon.fireRateMs,
+                        attachments: weapon.attachments,
+                        multipliers: weapon.multipliers,
+                    }, snapshot.patchVersion),
+                    updatedAt: new Date(),
+                },
+            });
+        }
+    }
+
     console.log('Seed completed successfully!');
 }
 

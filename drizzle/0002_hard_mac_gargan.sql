@@ -1,0 +1,1 @@
+ALTER TABLE "weapon_profiles" ADD COLUMN "canonical_profile" jsonb;

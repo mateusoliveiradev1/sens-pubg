@@ -10,24 +10,28 @@ interface FaqItem {
 
 const FAQS: FaqItem[] = [
     {
-        q: 'A análise de vídeo dá ban no PUBG?',
-        a: 'Não. Nossa ferramenta trabalha 100% no seu navegador lendo um arquivo de vídeo (VOD). Não interagimos com os arquivos do jogo ou memória. É seguro e em total conformidade com os termos da KRAFTON.',
+        q: 'A analise de video da ban no PUBG?',
+        a: 'Nao. A ferramenta trabalha no navegador lendo um arquivo de video do usuario. Ela nao interage com memoria, arquivos do jogo ou processo do PUBG.',
     },
     {
-        q: 'Preciso enviar meu vídeo para algum servidor?',
-        a: 'Não. Processamos os quadros diretamente usando WebAssembly e HTML5 Canvas localmente no seu dispositivo. Seu vídeo nunca faz "upload" para um servidor, garantindo máxima privacidade e altíssima velocidade.',
+        q: 'Preciso enviar meu video para algum servidor?',
+        a: 'Nao. Os quadros sao processados localmente no seu navegador com Web Workers e APIs visuais do browser. O video nao precisa ser enviado para um servidor de processamento.',
     },
     {
         q: 'Como o app descobre minha sensibilidade?',
-        a: 'Você configura seu perfil de hardware (Mouse, DPI, Grip, Mousepad). A Engine de IA usa os dados matemáticos do rastreio de recuo (pixel drift horizontal e vertical) e os combina com o perfil calibrado para entregar a distância exata em cm/360°.',
+        a: 'Voce configura seu perfil de hardware e de jogo. O motor combina o rastreio visual com dados patch-aware da arma, mira e distancia para sugerir faixas de teste, sempre mostrando confianca e cobertura da analise.',
     },
     {
         q: 'Funciona com qualquer arma do PUBG?',
-        a: 'Atualmente suportamos as armas mais importantes do meta do PUBG (M416, Beryl, AUG, ACE32, G36C, SCAR-L, DMRs e SMGs). A engine tem padrões de Recoil precisos e específicos gravados diretamente dos servidores oficiais de 2024.',
+        a: 'Hoje o projeto cobre um conjunto importante das armas mais usadas do meta. O catalogo do dominio ainda esta evoluindo para cobertura patch-aware mais completa, entao armas ou patches sem base confiavel geram leitura mais conservadora.',
     },
     {
-        q: 'O que é o Vertical Sensitivity Multiplier (VSM) e como ajustar?',
-        a: 'O VSM (Multiplicador de Sensibilidade Vertical) altera a proporção entre o movimento vertical e horizontal. Nossa IA analisa se você está compensando o recuo de forma excessiva ou insuficiente e sugere o valor exato (ex: 1.25) para que seu "puxe" de mouse seja mais natural e consistente.',
+        q: 'Quais sao os limites da analise?',
+        a: 'Clipes com fumaca, overlays, baixa nitidez ou mira fora do centro reduzem a confianca. Use a cobertura, os frames perdidos e o patch exibido no resultado para decidir se a recomendacao serve como sinal forte ou apenas como ponto de partida.',
+    },
+    {
+        q: 'O que e o Vertical Sensitivity Multiplier (VSM) e como ajustar?',
+        a: 'O VSM altera a relacao entre o movimento vertical e horizontal. A analise observa sinais de overpull e underpull para sugerir uma faixa de teste mais natural para o seu puxe de mouse.',
     },
 ];
 
@@ -51,7 +55,7 @@ export function FaqAccordion() {
                             aria-expanded={isOpen}
                         >
                             <h3>{faq.q}</h3>
-                            <span className={styles.icon}>{isOpen ? '−' : '+'}</span>
+                            <span className={styles.icon}>{isOpen ? '-' : '+'}</span>
                         </button>
 
                         <div

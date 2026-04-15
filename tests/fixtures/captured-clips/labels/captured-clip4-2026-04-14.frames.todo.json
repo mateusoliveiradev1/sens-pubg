@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 1,
+  "clipId": "captured-clip4-2026-04-14",
+  "sourceVideoPath": "tests/fixtures/captured-clips/clip4.mp4",
+  "createdAt": "2026-04-15T02:17:34.570Z",
+  "sampleIntervalSeconds": 1,
+  "frameSize": {
+    "width": 1920,
+    "height": 1080
+  },
+  "frames": [
+    {
+      "frameIndex": 0,
+      "timestampSeconds": 0,
+      "label": {
+        "status": "uncertain",
+        "x": 960,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 120,
+      "timestampSeconds": 1,
+      "label": {
+        "status": "tracked",
+        "x": 960,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 240,
+      "timestampSeconds": 2,
+      "label": {
+        "status": "tracked",
+        "x": 960,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 360,
+      "timestampSeconds": 3,
+      "label": {
+        "status": "tracked",
+        "x": 960,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 480,
+      "timestampSeconds": 4,
+      "label": {
+        "status": "tracked",
+        "x": 960,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 600,
+      "timestampSeconds": 5,
+      "label": {
+        "status": "tracked",
+        "x": 960,
+        "y": 500
+      }
+    },
+    {
+      "frameIndex": 720,
+      "timestampSeconds": 6,
+      "label": {
+        "status": "tracked",
+        "x": 960,
+        "y": 450
+      }
+    },
+    {
+      "frameIndex": 840,
+      "timestampSeconds": 7,
+      "label": {
+        "status": "tracked",
+        "x": 960,
+        "y": 400
+      }
+    },
+    {
+      "frameIndex": 960,
+      "timestampSeconds": 8,
+      "label": {
+        "status": "tracked",
+        "x": 960,
+        "y": 400
+      }
+    },
+    {
+      "frameIndex": 1080,
+      "timestampSeconds": 9,
+      "label": {
+        "status": "tracked",
+        "x": 960,
+        "y": 400
+      }
+    },
+    {
+      "frameIndex": 1200,
+      "timestampSeconds": 10,
+      "label": {
+        "status": "tracked",
+        "x": 960,
+        "y": 400
+      }
+    },
+    {
+      "frameIndex": 1320,
+      "timestampSeconds": 11,
+      "label": {
+        "status": "tracked",
+        "x": 960,
+        "y": 400
+      }
+    },
+    {
+      "frameIndex": 1440,
+      "timestampSeconds": 12,
+      "label": {
+        "status": "tracked",
+        "x": 960,
+        "y": 400
+      }
+    },
+    {
+      "frameIndex": 1560,
+      "timestampSeconds": 13,
+      "label": {
+        "status": "tracked",
+        "x": 960,
+        "y": 400
+      }
+    },
+    {
+      "frameIndex": 1680,
+      "timestampSeconds": 14,
+      "label": {
+        "status": "tracked",
+        "x": 960,
+        "y": 400
+      }
+    },
+    {
+      "frameIndex": 1800,
+      "timestampSeconds": 15,
+      "label": {
+        "status": "tracked",
+        "x": 960,
+        "y": 400
+      }
+    },
+    {
+      "frameIndex": 1806,
+      "timestampSeconds": 15.062,
+      "label": {
+        "status": "tracked",
+        "x": 960,
+        "y": 400
+      }
+    }
+  ]
+}

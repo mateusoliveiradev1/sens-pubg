@@ -13,7 +13,7 @@ export type { Score, Milliseconds, DPI, Sensitivity, Centimeters, Pixels };
 export type PlayerStance = 'standing' | 'crouching' | 'prone';
 
 export type MuzzleAttachment = 'none' | 'compensator' | 'flash_hider' | 'suppressor' | 'muzzle_brake' | 'choke' | 'duckbill';
-export type GripAttachment = 'none' | 'vertical' | 'angled' | 'half' | 'thumb' | 'lightweight' | 'laser' | 'ergonomic';
+export type GripAttachment = 'none' | 'vertical' | 'angled' | 'half' | 'thumb' | 'lightweight' | 'laser' | 'ergonomic' | 'tilted';
 export type StockAttachment = 'none' | 'tactical' | 'heavy' | 'folding' | 'cheek_pad';
 
 export interface WeaponLoadout {
@@ -35,6 +35,34 @@ export interface TrackingPoint {
     readonly confidence: number;
 }
 
+export type TrackingFrameStatus = 'tracked' | 'occluded' | 'lost' | 'uncertain';
+
+export interface TrackingStatusCounts {
+    readonly tracked: number;
+    readonly occluded: number;
+    readonly lost: number;
+    readonly uncertain: number;
+}
+
+export interface TrackingFrameObservation {
+    readonly frame: number;
+    readonly timestamp: Milliseconds;
+    readonly status: TrackingFrameStatus;
+    readonly confidence: number;
+    readonly visiblePixels: number;
+    readonly x?: Pixels;
+    readonly y?: Pixels;
+}
+
+export interface TrackingQualitySummary {
+    readonly trackingQuality: number;
+    readonly framesTracked: number;
+    readonly framesLost: number;
+    readonly visibleFrames: number;
+    readonly framesProcessed: number;
+    readonly statusCounts: TrackingStatusCounts;
+}
+
 export interface DisplacementVector {
     readonly dx: number;
     readonly dy: number;
@@ -42,8 +70,53 @@ export interface DisplacementVector {
     readonly shotIndex: number;
 }
 
-export interface SprayTrajectory {
+export interface ShotAngularVector {
+    readonly yaw: number;
+    readonly pitch: number;
+}
+
+export interface ShotRecoilResidual {
+    readonly shotIndex: number;
+    readonly timestamp: Milliseconds;
+    readonly observed: ShotAngularVector;
+    readonly expected: ShotAngularVector;
+    readonly residual: ShotAngularVector;
+    readonly residualMagnitudeDegrees: number;
+}
+
+export type SprayMetricQualityKey =
+    | 'stabilityScore'
+    | 'verticalControlIndex'
+    | 'horizontalNoiseIndex'
+    | 'angularErrorDegrees'
+    | 'linearErrorCm'
+    | 'linearErrorSeverity'
+    | 'initialRecoilResponseMs'
+    | 'driftDirectionBias'
+    | 'consistencyScore'
+    | 'burstVCI'
+    | 'sustainedVCI'
+    | 'fatigueVCI'
+    | 'burstHNI'
+    | 'sustainedHNI'
+    | 'fatigueHNI'
+    | 'shotResiduals'
+    | 'sprayScore';
+
+export interface MetricEvidenceQuality {
+    readonly coverage: number;
+    readonly confidence: number;
+    readonly sampleSize: number;
+    readonly framesTracked: number;
+    readonly framesLost: number;
+    readonly framesProcessed: number;
+}
+
+export type SprayMetricQuality = Record<SprayMetricQualityKey, MetricEvidenceQuality>;
+
+export interface SprayTrajectory extends TrackingQualitySummary {
     readonly points: readonly TrackingPoint[];
+    readonly trackingFrames: readonly TrackingFrameObservation[];
     readonly displacements: readonly DisplacementVector[];
     readonly totalFrames: number;
     readonly durationMs: Milliseconds;
@@ -58,6 +131,10 @@ export interface SprayMetrics {
     readonly stabilityScore: Score;
     readonly verticalControlIndex: number;
     readonly horizontalNoiseIndex: number;
+    readonly angularErrorDegrees: number;
+    readonly linearErrorCm: number;
+    readonly linearErrorSeverity: number;
+    readonly targetDistanceMeters: number;
     readonly initialRecoilResponseMs: Milliseconds;
     readonly driftDirectionBias: DriftBias;
     readonly consistencyScore: Score;
@@ -68,6 +145,8 @@ export interface SprayMetrics {
     readonly burstHNI: number;
     readonly sustainedHNI: number;
     readonly fatigueHNI: number;
+    readonly shotResiduals?: readonly ShotRecoilResidual[];
+    readonly metricQuality?: SprayMetricQuality;
     readonly sprayScore: number;
 }
 
@@ -86,15 +165,29 @@ export type DiagnosisType =
     | 'late_compensation'
     | 'excessive_jitter'
     | 'horizontal_drift'
-    | 'inconsistency';
+    | 'inconsistency'
+    | 'inconclusive';
 
 export type Severity = 1 | 2 | 3 | 4 | 5;
+
+export type DominantSprayPhase = 'burst' | 'sustained' | 'fatigue' | 'overall';
+
+export interface DiagnosisEvidence {
+    readonly confidence: number;
+    readonly coverage: number;
+    readonly angularErrorDegrees: number;
+    readonly linearErrorCm: number;
+    readonly linearErrorSeverity: number;
+}
 
 export interface DiagnosisBase {
     readonly severity: Severity;
     readonly description: string;
     readonly cause: string;
     readonly remediation: string;
+    readonly dominantPhase?: DominantSprayPhase;
+    readonly confidence?: number;
+    readonly evidence?: DiagnosisEvidence;
 }
 
 export interface OverpullDiagnosis extends DiagnosisBase {
@@ -131,13 +224,19 @@ export interface InconsistencyDiagnosis extends DiagnosisBase {
     readonly consistencyScore: Score;
 }
 
+export interface InconclusiveDiagnosis extends DiagnosisBase {
+    readonly type: 'inconclusive';
+    readonly evidenceQuality: MetricEvidenceQuality;
+}
+
 export type Diagnosis =
     | OverpullDiagnosis
     | UnderpullDiagnosis
     | LateCompensationDiagnosis
     | ExcessiveJitterDiagnosis
     | HorizontalDriftDiagnosis
-    | InconsistencyDiagnosis;
+    | InconsistencyDiagnosis
+    | InconclusiveDiagnosis;
 
 // ═══════════════════════════════════════════
 // Sensitivity Profiles
@@ -179,6 +278,14 @@ export interface SensitivityRecommendation {
 
 export interface CoachFeedback {
     readonly diagnosis: Diagnosis;
+    readonly mode: CoachMode;
+    readonly problem: string;
+    readonly evidence: CoachEvidence;
+    readonly confidence: number;
+    readonly likelyCause: string;
+    readonly adjustment: string;
+    readonly drill: string;
+    readonly verifyNextClip: string;
     readonly whatIsWrong: string;
     readonly whyItHappens: string;
     readonly whatToAdjust: string;
@@ -186,9 +293,49 @@ export interface CoachFeedback {
     readonly adaptationTimeDays: number;
 }
 
+export type CoachMode = 'standard' | 'low-confidence' | 'inconclusive';
+
+export interface CoachContext {
+    readonly patchVersion?: string;
+    readonly opticId?: string;
+    readonly opticStateId?: string;
+}
+
+export interface CoachAttachmentEvidence {
+    readonly id: string;
+    readonly name: string;
+    readonly slot: 'muzzle' | 'grip' | 'stock';
+    readonly patchVersion: string;
+}
+
+export interface CoachOpticEvidence {
+    readonly id: string;
+    readonly name: string;
+    readonly stateId?: string;
+    readonly stateName?: string;
+    readonly patchVersion: string;
+}
+
+export interface CoachEvidence {
+    readonly diagnosisType: DiagnosisType;
+    readonly severity: Severity;
+    readonly dominantPhase?: DominantSprayPhase;
+    readonly confidence: number;
+    readonly coverage: number;
+    readonly angularErrorDegrees: number;
+    readonly linearErrorCm: number;
+    readonly linearErrorSeverity: number;
+    readonly patchVersion?: string;
+    readonly attachmentCatalogVersion?: string;
+    readonly recommendedAttachments?: readonly CoachAttachmentEvidence[];
+    readonly optic?: CoachOpticEvidence;
+}
+
 export interface AnalysisResult {
     readonly id: string;
     readonly timestamp: Date;
+    readonly patchVersion: string;
+    readonly analysisContext?: AnalysisContextDetails;
     readonly trajectory: SprayTrajectory;
     readonly loadout: WeaponLoadout;
     readonly metrics: SprayMetrics;
@@ -196,6 +343,26 @@ export interface AnalysisResult {
     readonly sensitivity: SensitivityRecommendation;
     readonly coaching: readonly CoachFeedback[];
     readonly subSessions?: readonly AnalysisResult[];
+}
+
+export interface AnalysisOpticContext {
+    readonly scopeId: string;
+    readonly opticId: string;
+    readonly opticStateId: string;
+    readonly opticName: string;
+    readonly opticStateName: string;
+    readonly availableStateIds: readonly string[];
+    readonly isDynamicOptic: boolean;
+    readonly ambiguityNote?: string;
+}
+
+export type AnalysisDistanceMode = 'exact' | 'estimated' | 'unknown';
+
+export interface AnalysisContextDetails {
+    readonly targetDistanceMeters: number;
+    readonly distanceMode?: AnalysisDistanceMode;
+    readonly distanceNote?: string;
+    readonly optic: AnalysisOpticContext;
 }
 
 // ═══════════════════════════════════════════
@@ -254,6 +421,7 @@ export interface AnalysisSession {
     readonly userId: string;
     readonly weaponId: string;
     readonly scopeId: string;
+    readonly patchVersion: string;
     readonly stance: PlayerStance;
     readonly attachments: {
         readonly muzzle: MuzzleAttachment;

@@ -8,6 +8,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { saveProfile } from '@/actions/profile';
 import type { playerProfiles } from '@/db/schema';
+import { buildHybridScopeHintText, buildProfileWizardScopeSens } from './profile-wizard-scopes';
 import styles from './profile-wizard.module.css';
 
 // ═══════════════════════════════════════════
@@ -22,6 +23,8 @@ const STEPS = [
     { id: 'pubg', label: '⚙️ PUBG', icon: '⚙️' },
     { id: 'physical', label: '📐 Espaço', icon: '📐' },
 ] as const;
+
+const HYBRID_SCOPE_HINT_TEXT = buildHybridScopeHintText();
 
 // ═══════════════════════════════════════════
 // Default form state
@@ -49,7 +52,7 @@ const DEFAULT_FORM: FormState = {
     monitor: { resolution: '1920x1080', refreshRate: 144, panelType: 'ips' },
     pubgSettings: {
         generalSens: 50, adsSens: 50, fov: 103, verticalMultiplier: 1.0, mouseAcceleration: false,
-        scopeSens: { 'red-dot': 50, '2x': 50, '3x': 50, '4x': 50, '6x': 50, '8x': 50 },
+        scopeSens: buildProfileWizardScopeSens(),
     },
     physical: { armLength: 'medium', deskSpaceCm: 60 },
 };
@@ -98,7 +101,7 @@ export function ProfileWizard({ initialData }: Props): React.JSX.Element {
                 fov: initialData.fov,
                 verticalMultiplier: initialData.verticalMultiplier,
                 mouseAcceleration: initialData.mouseAcceleration,
-                scopeSens: initialData.scopeSens as Record<string, number>,
+                scopeSens: buildProfileWizardScopeSens(initialData.scopeSens as Record<string, number> | undefined),
             },
             physical: {
                 armLength: initialData.armLength as 'short' | 'medium' | 'long',
@@ -383,6 +386,12 @@ export function ProfileWizard({ initialData }: Props): React.JSX.Element {
                                         </div>
                                     ))}
                                 </div>
+                                {HYBRID_SCOPE_HINT_TEXT && (
+                                    <div className={styles.scopeHint}>
+                                        <strong>Hybrid Scope no patch atual</strong>
+                                        <span>{HYBRID_SCOPE_HINT_TEXT}</span>
+                                    </div>
+                                )}
                             </div>
 
                             <div className={styles.field} style={{ gridColumn: 'span 2' }}>

@@ -1,0 +1,165 @@
+{
+  "schemaVersion": 1,
+  "clipId": "captured-clip3-2026-04-14",
+  "sourceVideoPath": "tests/fixtures/captured-clips/clip3.mp4",
+  "createdAt": "2026-04-15T02:17:34.568Z",
+  "sampleIntervalSeconds": 1,
+  "frameSize": {
+    "width": 1728,
+    "height": 1080
+  },
+  "frames": [
+    {
+      "frameIndex": 0,
+      "timestampSeconds": 0,
+      "label": {
+        "status": "tracked",
+        "x": 864,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 144,
+      "timestampSeconds": 1,
+      "label": {
+        "status": "tracked",
+        "x": 864,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 287,
+      "timestampSeconds": 2,
+      "label": {
+        "status": "tracked",
+        "x": 864,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 431,
+      "timestampSeconds": 3,
+      "label": {
+        "status": "occluded",
+        "x": null,
+        "y": null,
+        "notes": "Inventory overlay blocks the reticle."
+      }
+    },
+    {
+      "frameIndex": 574,
+      "timestampSeconds": 4,
+      "label": {
+        "status": "occluded",
+        "x": null,
+        "y": null,
+        "notes": "Inventory overlay blocks the reticle."
+      }
+    },
+    {
+      "frameIndex": 718,
+      "timestampSeconds": 5,
+      "label": {
+        "status": "occluded",
+        "x": null,
+        "y": null,
+        "notes": "Inventory overlay blocks the reticle."
+      }
+    },
+    {
+      "frameIndex": 862,
+      "timestampSeconds": 6,
+      "label": {
+        "status": "occluded",
+        "x": null,
+        "y": null,
+        "notes": "Inventory overlay blocks the reticle."
+      }
+    },
+    {
+      "frameIndex": 1005,
+      "timestampSeconds": 7,
+      "label": {
+        "status": "occluded",
+        "x": null,
+        "y": null,
+        "notes": "Inventory overlay blocks the reticle."
+      }
+    },
+    {
+      "frameIndex": 1149,
+      "timestampSeconds": 8,
+      "label": {
+        "status": "occluded",
+        "x": null,
+        "y": null,
+        "notes": "Inventory overlay blocks the reticle."
+      }
+    },
+    {
+      "frameIndex": 1292,
+      "timestampSeconds": 9,
+      "label": {
+        "status": "occluded",
+        "x": null,
+        "y": null,
+        "notes": "Inventory overlay blocks the reticle."
+      }
+    },
+    {
+      "frameIndex": 1436,
+      "timestampSeconds": 10,
+      "label": {
+        "status": "occluded",
+        "x": null,
+        "y": null,
+        "notes": "Inventory overlay blocks the reticle."
+      }
+    },
+    {
+      "frameIndex": 1580,
+      "timestampSeconds": 11,
+      "label": {
+        "status": "uncertain",
+        "x": 864,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 1723,
+      "timestampSeconds": 12,
+      "label": {
+        "status": "tracked",
+        "x": 864,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 1867,
+      "timestampSeconds": 13,
+      "label": {
+        "status": "tracked",
+        "x": 864,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 2010,
+      "timestampSeconds": 14,
+      "label": {
+        "status": "tracked",
+        "x": 864,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 2105,
+      "timestampSeconds": 14.667,
+      "label": {
+        "status": "tracked",
+        "x": 864,
+        "y": 540
+      }
+    }
+  ]
+}

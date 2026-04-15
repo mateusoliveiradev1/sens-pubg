@@ -34,7 +34,7 @@ export default async function HistoryPage() {
                             <div style={{ fontSize: '3rem', marginBottom: 'var(--space-lg)' }}>📊</div>
                             <h3 style={{ marginBottom: 'var(--space-md)' }}>Nenhuma análise ainda</h3>
                             <p style={{ marginBottom: 'var(--space-xl)', color: 'var(--color-text-muted)' }}>
-                                Envie seu primeiro clip de spray para começar a rastrear seu progresso e descobrir a sensibilidade perfeita para você.
+                                Envie seu primeiro clip de spray para criar uma linha de base e acompanhar como seus ajustes evoluem ao longo do tempo.
                             </p>
                             <Link href="/analyze" className="btn btn-primary btn-lg">
                                 Fazer Primeira Análise
@@ -56,7 +56,9 @@ export default async function HistoryPage() {
                                                 <div>
                                                     <h3 style={{ margin: 0, fontSize: 'var(--text-lg)', lineHeight: 1.2 }}>{weaponName}</h3>
                                                     <p style={{ margin: '4px 0 0 0', fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>
-                                                        Mira: {scope?.name || s.scopeId}<br />{new Date(s.createdAt).toLocaleDateString('pt-BR')}
+                                                        Mira: {scope?.name || s.scopeId}<br />
+                                                        Patch: {s.patchVersion}<br />
+                                                        {new Date(s.createdAt).toLocaleDateString('pt-BR')}
                                                     </p>
                                                 </div>
                                             </div>

@@ -7,7 +7,9 @@
 
 import { useState } from 'react';
 import type { AnalysisResult } from '@/types/engine';
+import { formatAnalysisDistancePresentation } from './analysis-distance-presentation';
 import { SprayVisualization } from './spray-visualization';
+import { summarizeAnalysisTracking } from './tracking-summary';
 import styles from './analysis.module.css';
 
 // ═══ Radial Gauge Component ═══
@@ -112,7 +114,8 @@ function MetricTooltip({ text }: { text: string }) {
 const METRIC_TOOLTIPS: Record<string, string> = {
     'Estabilidade': 'Score geral do spray (0-100). Mede quanto seu spray ficou concentrado.',
     'Controle Vertical': 'Razão entre pulldown real vs ideal. 1.0 = perfeito. >1 = overpull. <1 = underpull.',
-    'Ruído Horizontal': 'Variação lateral do spray em pixels/frame. Menor = mais estável.',
+    'Ruído Horizontal': 'Variação lateral angular do spray em graus. Menor = mais estável.',
+    'Erro Linear': 'Erro projetado no alvo considerando a distância da análise.',
     'Tempo de Resposta': 'Tempo (ms) até iniciar compensação de recuo após o primeiro tiro.',
     'Consistência': 'Quão similar são seus sprays entre si (0-100).',
     'VSM Sugerido': 'Multiplicador Vertical de Sensibilidade recomendado baseado na sua análise.',
@@ -125,6 +128,23 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
     const [expandedCoach, setExpandedCoach] = useState<number | null>(null);
     const [showMinorDiags, setShowMinorDiags] = useState(false);
     const isAggregated = activeSession.id === result.id;
+    const trackingOverview = summarizeAnalysisTracking(activeSession);
+    const analysisContext = activeSession.analysisContext;
+    const targetDistanceMeters = analysisContext?.targetDistanceMeters ?? activeSession.metrics.targetDistanceMeters;
+    const distanceMode = analysisContext?.distanceMode ?? 'estimated';
+    const distanceNote = analysisContext?.distanceNote;
+    const distancePresentation = formatAnalysisDistancePresentation({
+        targetDistanceMeters,
+        distanceMode,
+        distanceNote,
+    });
+    const hasIdealPattern = (activeSession.metrics.shotResiduals?.length ?? 0) > 0;
+    const linearErrorLabel = distanceMode === 'unknown' ? 'Erro Linear (ref.)' : 'Erro Linear';
+    const linearErrorUnit = distanceMode === 'unknown'
+        ? `cm @ ref. ${targetDistanceMeters ?? 30}m`
+        : distanceMode === 'exact'
+            ? `cm @ ${targetDistanceMeters ?? 30}m`
+            : `cm @ aprox. ${targetDistanceMeters ?? 30}m`;
 
     const { metrics, diagnoses, sensitivity, coaching } = activeSession;
 
@@ -135,7 +155,8 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
 
     const metricCards = [
         { label: 'Controle Vertical', value: metrics.verticalControlIndex.toFixed(2), unit: '× ideal', color: Math.abs(metrics.verticalControlIndex - 1) < 0.15 ? 'var(--color-success)' : 'var(--color-warning)' },
-        { label: 'Ruído Horizontal', value: metrics.horizontalNoiseIndex.toFixed(1), unit: 'px/frame', color: metrics.horizontalNoiseIndex <= 3 ? 'var(--color-success)' : 'var(--color-error)' },
+        { label: 'Ruído Horizontal', value: metrics.horizontalNoiseIndex.toFixed(1), unit: 'deg', color: metrics.horizontalNoiseIndex <= 3 ? 'var(--color-success)' : 'var(--color-error)' },
+        { label: linearErrorLabel, value: (metrics.linearErrorCm ?? 0).toFixed(1), unit: linearErrorUnit, color: (metrics.linearErrorSeverity ?? 0) <= 100 ? 'var(--color-success)' : 'var(--color-error)' },
         { label: 'Tempo de Resposta', value: Number(metrics.initialRecoilResponseMs).toFixed(0), unit: 'ms', color: Number(metrics.initialRecoilResponseMs) <= 180 ? 'var(--color-success)' : 'var(--color-warning)' },
         { label: 'VSM Sugerido', value: sensitivity.suggestedVSM?.toFixed(2) ?? '1.00', unit: '', color: sensitivity.suggestedVSM && sensitivity.suggestedVSM !== 1 ? 'var(--color-warning)' : 'var(--color-primary)' },
     ];
@@ -164,6 +185,50 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
 
     return (
         <div className={styles.dashboard}>
+            <div
+                style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 'var(--space-sm)',
+                    flexWrap: 'wrap',
+                    marginBottom: 'var(--space-md)',
+                }}
+            >
+                <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
+                    <span className="badge badge-info">Patch {activeSession.patchVersion}</span>
+                    <span className="badge badge-info">
+                        Cobertura {Math.round(trackingOverview.coverage * 100)}%
+                    </span>
+                    <span className="badge badge-info">
+                        Confiança {Math.round(trackingOverview.confidence * 100)}%
+                    </span>
+                    <span className="badge badge-info">
+                        Frames perdidos {trackingOverview.framesLost}/{trackingOverview.framesProcessed}
+                    </span>
+                    {analysisContext ? (
+                        <>
+                            <span className="badge badge-info">Mira {analysisContext.optic.opticName}</span>
+                            <span className="badge badge-info">Estado {analysisContext.optic.opticStateName}</span>
+                        </>
+                    ) : (
+                        <span className="badge badge-info">Mira não registrada</span>
+                    )}
+                    <span className="badge badge-info" title={distancePresentation.note}>
+                        {distancePresentation.badgeLabel}
+                    </span>
+                    {analysisContext?.optic.ambiguityNote ? (
+                        <span className="badge badge-info" title={analysisContext.optic.ambiguityNote}>
+                            Estado óptico assumido
+                        </span>
+                    ) : null}
+                </div>
+                {isAggregated && result.subSessions && result.subSessions.length > 0 ? (
+                    <span className="badge badge-info">
+                        Média de {result.subSessions.length} sprays
+                    </span>
+                ) : null}
+            </div>
             {/* ═══ Sub-Sessions Selector ═══ */}
             {result.subSessions && result.subSessions.length > 0 && (
                 <section className={styles.section}>
@@ -208,7 +273,7 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                         {metricCards.map((m, i) => (
                             <div key={m.label} className={`glass-card ${styles.metricCard} animate-fade-in-up stagger-${i + 1}`}>
                                 <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    {m.label} <MetricTooltip text={METRIC_TOOLTIPS[m.label] || ''} />
+                                    {m.label} <MetricTooltip text={m.label === linearErrorLabel ? (distanceNote ?? METRIC_TOOLTIPS['Erro Linear'] ?? '') : (METRIC_TOOLTIPS[m.label] || '')} />
                                 </span>
                                 <span className="metric-value" style={{ color: m.color, WebkitTextFillColor: m.color, background: 'none' }}>
                                     {m.value}
@@ -240,10 +305,15 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                     <h3 className={styles.sectionTitle}>🎯 Trajetória do Recuo</h3>
                     <div className={`${styles.vizCard} glass-card`}>
                         <div className={styles.canvasContainer}>
-                            <SprayVisualization trajectory={activeSession.trajectory} />
+                            <SprayVisualization
+                                trajectory={activeSession.trajectory}
+                                shotResiduals={activeSession.metrics.shotResiduals}
+                            />
                         </div>
                         <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', marginTop: '12px', textAlign: 'center' }}>
-                            Linha Laranja = Seu Movimento Real | Alvo = Centro Ideal
+                            {hasIdealPattern
+                                ? 'Linha Azul = Padrao ideal patch-aware | Linha Laranja = Seu movimento real | Alvo = centro inicial'
+                                : 'Linha Laranja = Seu movimento real | Alvo = centro inicial'}
                         </p>
                     </div>
                 </section>

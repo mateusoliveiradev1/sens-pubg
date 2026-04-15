@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { analysisSessions, sensitivityHistory, playerProfiles, weaponProfiles } from '@/db/schema';
 import { auth } from '@/auth';
 import type { AnalysisResult } from '@/types/engine';
+import { normalizePatchVersion } from '@/game/pubg';
 import { eq, sql } from 'drizzle-orm';
 
 export async function saveAnalysisResult(
@@ -31,12 +32,14 @@ export async function saveAnalysisResult(
 
         const metrics = result.metrics;
         const diagnoses = result.diagnoses.map(d => d.type);
+        const patchVersion = normalizePatchVersion(result.patchVersion);
 
         // 1. Insert the session
         const insertedSession = await db.insert(analysisSessions).values({
             userId: session.user.id,
             weaponId,
             scopeId,
+            patchVersion,
             distance,
             stance: result.loadout.stance,
             attachments: {
@@ -54,7 +57,10 @@ export async function saveAnalysisResult(
             diagnoses,
             // Only keeping limited JSON to avoid large payloads if needed, but we can store everything
             coachingData: result.coaching as unknown as Record<string, unknown>[],
-            fullResult: result as unknown as Record<string, unknown>, // Save the entire diagnostic payload for 1:1 identical historic viewing
+            fullResult: {
+                ...result,
+                patchVersion,
+            } as unknown as Record<string, unknown>, // Save the entire diagnostic payload for 1:1 identical historic viewing
         }).returning({ id: analysisSessions.id });
 
         const sessionId = insertedSession[0]!.id;
@@ -91,6 +97,7 @@ export async function getHistorySessions() {
                 id: analysisSessions.id,
                 weaponId: analysisSessions.weaponId,
                 scopeId: analysisSessions.scopeId,
+                patchVersion: analysisSessions.patchVersion,
                 stabilityScore: analysisSessions.stabilityScore,
                 verticalControl: analysisSessions.verticalControl,
                 horizontalNoise: analysisSessions.horizontalNoise,

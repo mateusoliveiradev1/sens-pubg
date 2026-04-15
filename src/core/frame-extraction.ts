@@ -72,7 +72,7 @@ export async function extractFrames(
 
         const frame: ExtractedFrame = {
             index: i,
-            timestamp: timestamp * 1000,
+            timestamp: Math.round(timestamp * 1000),
             imageData,
         };
 

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "decisionSetId": "captured-review-decisions-todo-2026-04-14",
+  "intakeManifestId": "captured-clips-intake-2026-04-14",
+  "labelSetId": "captured-clips-labels-todo-2026-04-14",
+  "createdAt": "2026-04-14T23:10:00.000Z",
+  "decisions": [
+    {
+      "clipId": "captured-clip1-2026-04-14",
+      "proposedReviewStatus": "golden",
+      "approvalStatus": "approved",
+      "approvedReviewStatus": "golden",
+      "approvedBy": "codex-auto-review",
+      "approvedAt": "2026-04-14T23:45:00.000Z",
+      "rationale": "Promocao proposta automaticamente: clip capturado ja esta em `reviewed`, rotulos completos, intake marcado como `candidate-clean`, pronto para promover sem capturar video novo.",
+      "notes": "Aprovado em revisao assistida pelo Codex depois da entrada dos clips 3 e 4 e da validacao visual do corpus atualizado."
+    }
+  ]
+}

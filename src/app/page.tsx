@@ -4,12 +4,42 @@
  */
 
 import Link from 'next/link';
+import { sql } from 'drizzle-orm';
+import { db } from '@/db';
+import { analysisSessions, weaponProfiles } from '@/db/schema';
 import { Header } from '@/ui/components/header';
 import { FaqAccordion } from '@/ui/components/faq-accordion';
 import { JsonLd } from '@/ui/components/seo/json-ld';
 import styles from './page.module.css';
 
-export default function HomePage(): React.JSX.Element {
+export const dynamic = 'force-dynamic';
+
+async function getLandingStats(): Promise<{
+  analysisCount: string;
+  weaponCount: string;
+}> {
+  try {
+    const [weaponCountResult, analysisCountResult] = await Promise.all([
+      db.select({ count: sql<number>`count(*)` }).from(weaponProfiles),
+      db.select({ count: sql<number>`count(*)` }).from(analysisSessions),
+    ]);
+
+    return {
+      analysisCount: String(Number(analysisCountResult[0]?.count ?? 0)),
+      weaponCount: String(Number(weaponCountResult[0]?.count ?? 0)),
+    };
+  } catch (error) {
+    console.error('[HomePage] Failed to load landing stats', error);
+
+    return {
+      analysisCount: '--',
+      weaponCount: '--',
+    };
+  }
+}
+
+export default async function HomePage(): Promise<React.JSX.Element> {
+  const landingStats = await getLandingStats();
   const faqLd = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
@@ -19,7 +49,7 @@ export default function HomePage(): React.JSX.Element {
         name: 'Como funciona a análise de spray?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: 'O PUBG Aim Analyzer utiliza visão computacional via Canvas API para rastrear o deslocamento do seu retículo em clips de gameplay reais, calculando 6 métricas de precisão diferentes.',
+          text: 'O PUBG Aim Analyzer utiliza visão computacional via Canvas API para estimar o deslocamento do retículo em clips reais, calcular métricas de controle e exibir patch, cobertura e confiança da análise.',
         },
       },
       {
@@ -27,7 +57,7 @@ export default function HomePage(): React.JSX.Element {
         name: 'É necessário fazer upload do vídeo para um servidor?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: 'Não. Toda a análise é processada localmente no seu navegador através de Web Workers e GPU, garantindo privacidade e velocidade instantânea.',
+          text: 'Não. A análise é processada localmente no seu navegador através de Web Workers e APIs visuais do browser. O tempo depende do tamanho do clipe e do dispositivo.',
         },
       },
       {
@@ -35,7 +65,7 @@ export default function HomePage(): React.JSX.Element {
         name: 'O sistema suporta quais armas do PUBG?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: 'Suportamos todas as armas automáticas principais (ARs, SMGs, LMGs), incluindo Beryl M762, M416, AUG, ACE32, entre outras, com seus respectivos padrões de recuo dataminados.',
+          text: 'O catálogo cobre um conjunto importante de armas usadas no meta, incluindo Beryl M762, M416, AUG e ACE32. A cobertura evolui por patch para evitar recomendações fora de contexto.',
         },
       },
     ],
@@ -71,13 +101,13 @@ export default function HomePage(): React.JSX.Element {
               <span className={styles.heroLine2}>
                 <span className={styles.heroAccent}>Spray</span>
               </span>
-              <span className={styles.heroLine3}>Domine o Recoil</span>
+              <span className={styles.heroLine3}>Entenda o Recoil</span>
             </h1>
 
             <p className={styles.heroSubtitle}>
-              Envie um clip, receba diagnóstico preciso e ajuste sua
-              sensibilidade com base no seu hardware real.
-              Seu coach de aim pessoal para PUBG.
+              Envie um clip, veja patch, cobertura e confiança da análise,
+              e teste ajustes de sensibilidade com base no seu hardware real.
+              Um coach de aim honesto para PUBG.
             </p>
 
             <div className={styles.heroCta}>
@@ -91,13 +121,13 @@ export default function HomePage(): React.JSX.Element {
 
             <div className={styles.heroStats}>
               <div className={styles.stat}>
-                <span className={styles.statValue}>14</span>
+                <span className={styles.statValue}>{landingStats.weaponCount}</span>
                 <span className={styles.statLabel}>Armas</span>
               </div>
               <div className={styles.statDivider} />
               <div className={styles.stat}>
-                <span className={styles.statValue}>6</span>
-                <span className={styles.statLabel}>Diagnósticos</span>
+                <span className={styles.statValue}>{landingStats.analysisCount}</span>
+                <span className={styles.statLabel}>Análises</span>
               </div>
               <div className={styles.statDivider} />
               <div className={styles.stat}>
@@ -125,7 +155,7 @@ export default function HomePage(): React.JSX.Element {
           <div className="container">
             <h2 className={styles.sectionTitle}>Como Funciona</h2>
             <p className={styles.sectionSubtitle}>
-              4 passos para dominar seu spray no PUBG
+              4 passos para entender seu spray no PUBG
             </p>
 
             <div className={styles.featureGrid}>
@@ -145,7 +175,8 @@ export default function HomePage(): React.JSX.Element {
                 <h3>Diagnóstico Automático</h3>
                 <p>
                   6 classificações: overpull, underpull, jitter, drift,
-                  compensação atrasada e inconsistência. Cada uma com causa e solução.
+                  compensação atrasada e inconsistência. Cada leitura vem com contexto
+                  de confiança quando o tracking não está forte.
                 </p>
               </article>
 
@@ -155,7 +186,7 @@ export default function HomePage(): React.JSX.Element {
                 <h3>Ajuste de Sensibilidade</h3>
                 <p>
                   3 perfis calibrados para o SEU hardware: mouse, mousepad,
-                  grip e estilo. Micro-ajustes de 2–6% baseados no diagnóstico.
+                  grip e estilo. Sugestões como faixas de teste, não como verdade final.
                 </p>
               </article>
 
@@ -187,7 +218,7 @@ export default function HomePage(): React.JSX.Element {
           <div className={`container text-center`}>
             <h2 className={styles.ctaTitle}>Pronto para Melhorar?</h2>
             <p className={styles.ctaSubtitle}>
-              Configure seu perfil, envie um clip e receba seu diagnóstico em segundos.
+              Configure seu perfil, envie um clip e leia o resultado com patch, cobertura e confiança.
             </p>
             <Link href="/analyze" className="btn btn-primary btn-lg">
               🚀 Começar Agora

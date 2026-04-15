@@ -13,9 +13,59 @@ import {
     jsonb,
     uuid,
     primaryKey,
+    uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import type { AdapterAccount } from '@auth/core/adapters';
+
+export type WeaponProfileAttachmentSlot = 'muzzle' | 'grip' | 'stock';
+
+export interface WeaponProfileLegacyGripMultiplier {
+    readonly vertical: number;
+    readonly horizontal: number;
+}
+
+export interface WeaponProfileLegacyMultipliers {
+    readonly muzzle_brake?: number;
+    readonly compensator?: number;
+    readonly heavy_stock?: number;
+    readonly vertical_grip?: WeaponProfileLegacyGripMultiplier;
+    readonly half_grip?: WeaponProfileLegacyGripMultiplier;
+    readonly [key: string]: unknown;
+}
+
+export interface WeaponProfileAttachmentEffects {
+    readonly verticalRecoil?: number;
+    readonly horizontalRecoil?: number;
+    readonly cameraShake?: number;
+    readonly recoilRecovery?: number;
+    readonly recoilRecoveryAfterShot?: number;
+    readonly adsSpeed?: number;
+    readonly hipFireAccuracy?: number;
+    readonly initialShotRecoil?: number;
+    readonly muzzleRise?: number;
+    readonly breathingSway?: number;
+    readonly firingSway?: number;
+}
+
+export interface WeaponProfileAttachmentModifier {
+    readonly slot: WeaponProfileAttachmentSlot;
+    readonly multipliers: WeaponProfileAttachmentEffects;
+}
+
+export interface WeaponProfileCanonical {
+    readonly schemaVersion: 1;
+    readonly sourcePatchVersion: string;
+    readonly baseStats: {
+        readonly verticalRecoil: number;
+        readonly horizontalRecoil: number;
+        readonly fireRateMs: number;
+    };
+    readonly supportedSlots: readonly WeaponProfileAttachmentSlot[];
+    readonly attachmentProfiles: Record<string, WeaponProfileAttachmentModifier>;
+}
+
+export type WeaponPatchLifecycleStatus = 'active' | 'deprecated' | 'removed';
 
 // ═══════════════════════════════════════════
 // Auth.js Tables (NextAuth adapter)
@@ -167,6 +217,7 @@ export const analysisSessions = pgTable('analysis_sessions', {
         .references(() => users.id, { onDelete: 'cascade' }),
     weaponId: text('weapon_id').notNull(),
     scopeId: text('scope_id').notNull(),
+    patchVersion: text('patch_version').notNull(),
     stance: text('stance').notNull().default('standing'),
     attachments: jsonb('attachments').notNull().default('{}').$type<{ muzzle: string; grip: string; stock: string }>(),
     distance: integer('distance').notNull(),
@@ -244,15 +295,11 @@ export const weaponProfiles = pgTable('weapon_profiles', {
     baseHorizontalRng: real('base_horizontal_rng').notNull(),
     fireRateMs: integer('fire_rate_ms').notNull(),
 
-    // Multipliers for attachments: muzzle_brake, compensator, heavy_stock, grips
-    multipliers: jsonb('multipliers').notNull().default('{}').$type<{
-        muzzle_brake?: number;
-        compensator?: number;
-        heavy_stock?: number;
-        vertical_grip?: { vertical: number; horizontal: number };
-        half_grip?: { vertical: number; horizontal: number };
-        [key: string]: unknown;
-    }>(),
+    // Legacy multipliers kept for compatibility with the current analyzer.
+    multipliers: jsonb('multipliers').notNull().default('{}').$type<WeaponProfileLegacyMultipliers>(),
+
+    // Canonical patch-ready shape that can express multidimensional attachment effects.
+    canonicalProfile: jsonb('canonical_profile').$type<WeaponProfileCanonical>(),
 
     // Compatible attachments list (optional, but keep for consistency)
     attachments: jsonb('attachments').notNull().default('[]').$type<string[]>(),
@@ -260,6 +307,45 @@ export const weaponProfiles = pgTable('weapon_profiles', {
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
 });
+
+export const weaponRegistry = pgTable('weapon_registry', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    weaponId: text('weapon_id').unique().notNull(),
+    name: text('name').notNull(),
+    category: text('category').notNull(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+});
+
+export const weaponPatchProfiles = pgTable('weapon_patch_profiles', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    weaponId: uuid('weapon_id')
+        .notNull()
+        .references(() => weaponRegistry.id, { onDelete: 'cascade' }),
+    patchVersion: text('patch_version').notNull(),
+    lifecycleStatus: text('lifecycle_status').$type<WeaponPatchLifecycleStatus>().notNull().default('active'),
+    baseVerticalRecoil: real('base_vertical_recoil').notNull(),
+    baseHorizontalRng: real('base_horizontal_rng').notNull(),
+    fireRateMs: integer('fire_rate_ms').notNull(),
+    multipliers: jsonb('multipliers').notNull().default('{}').$type<WeaponProfileLegacyMultipliers>(),
+    canonicalProfile: jsonb('canonical_profile').$type<WeaponProfileCanonical>(),
+    attachments: jsonb('attachments').notNull().default('[]').$type<string[]>(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => [
+    uniqueIndex('weapon_patch_profiles_weapon_patch_uidx').on(table.weaponId, table.patchVersion),
+]);
+
+export const weaponRegistryRelations = relations(weaponRegistry, ({ many }) => ({
+    patchProfiles: many(weaponPatchProfiles),
+}));
+
+export const weaponPatchProfilesRelations = relations(weaponPatchProfiles, ({ one }) => ({
+    weapon: one(weaponRegistry, {
+        fields: [weaponPatchProfiles.weaponId],
+        references: [weaponRegistry.id],
+    }),
+}));
 
 // ═══════════════════════════════════════════
 // System / Bot Status
@@ -312,3 +398,7 @@ export type SensitivityHistoryRow = typeof sensitivityHistory.$inferSelect;
 export type NewSensitivityHistory = typeof sensitivityHistory.$inferInsert;
 export type WeaponProfile = typeof weaponProfiles.$inferSelect;
 export type NewWeaponProfile = typeof weaponProfiles.$inferInsert;
+export type WeaponRegistryRow = typeof weaponRegistry.$inferSelect;
+export type NewWeaponRegistry = typeof weaponRegistry.$inferInsert;
+export type WeaponPatchProfileRow = typeof weaponPatchProfiles.$inferSelect;
+export type NewWeaponPatchProfile = typeof weaponPatchProfiles.$inferInsert;

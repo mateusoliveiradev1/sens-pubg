@@ -61,9 +61,120 @@ describe('generateCoaching', () => {
 
         expect(feedback.whatIsWrong).toBe('Jitter excessivo');
         expect(feedback.whyItHappens).toBe('Grip instável');
-        expect(feedback.whatToAdjust).toBe('Relaxe o grip');
+        expect(feedback.whatToAdjust).toContain('Relaxe o grip');
         expect(feedback.howToTest).toBeTruthy();
         expect(feedback.adaptationTimeDays).toBeGreaterThanOrEqual(1);
+    });
+
+    it('returns evidence-linked coach schema without unanchored free text', () => {
+        const diagnoses: Diagnosis[] = [{
+            type: 'underpull',
+            severity: 4,
+            verticalControlIndex: 0.64,
+            deficitPercent: 36,
+            dominantPhase: 'fatigue',
+            confidence: 0.82,
+            evidence: {
+                confidence: 0.82,
+                coverage: 0.91,
+                angularErrorDegrees: 1.4,
+                linearErrorCm: 73,
+                linearErrorSeverity: 4,
+            },
+            description: 'Compensacao vertical baixa na fase fatigue',
+            cause: 'Pulldown insuficiente sustentado',
+            remediation: 'Reduza sens ou puxe mais no sustain',
+        }];
+
+        const feedback = generateCoaching(diagnoses, defaultLoadout)[0]!;
+
+        expect(feedback.problem).toBe('Compensacao vertical baixa na fase fatigue');
+        expect(feedback.evidence).toMatchObject({
+            diagnosisType: 'underpull',
+            severity: 4,
+            dominantPhase: 'fatigue',
+            confidence: 0.82,
+            coverage: 0.91,
+            angularErrorDegrees: 1.4,
+            linearErrorCm: 73,
+            linearErrorSeverity: 4,
+        });
+        expect(feedback.confidence).toBe(0.82);
+        expect(feedback.likelyCause).toBe('Pulldown insuficiente sustentado');
+        expect(feedback.adjustment).toContain('Reduza sens ou puxe mais no sustain');
+        expect(feedback.drill).toBeTruthy();
+        expect(feedback.verifyNextClip).toContain('fatigue');
+    });
+
+    it('does not recommend removed angled foregrip on patch 41.1', () => {
+        const diagnoses: Diagnosis[] = [{
+            type: 'horizontal_drift',
+            severity: 4,
+            bias: { direction: 'right', magnitude: 4.2 },
+            description: 'Drift lateral para direita',
+            cause: 'Controle horizontal insuficiente',
+            remediation: 'Estabilize o eixo horizontal',
+        }];
+
+        const feedback = generateCoaching(diagnoses, defaultLoadout, { patchVersion: '41.1' })[0]!;
+
+        expect(feedback.adjustment).toContain('Tilted Grip');
+        expect(feedback.adjustment).not.toContain('Angled');
+    });
+
+    it('anchors verify step to Hybrid Scope state on patch 41.1', () => {
+        const diagnoses: Diagnosis[] = [{
+            type: 'underpull',
+            severity: 3,
+            verticalControlIndex: 0.72,
+            deficitPercent: 28,
+            description: 'Pulldown baixo usando zoom alternado',
+            cause: 'O state de 4x exige controle vertical mais firme',
+            remediation: 'Repita o spray no mesmo state do optic',
+        }];
+
+        const feedback = generateCoaching(diagnoses, defaultLoadout, {
+            patchVersion: '41.1',
+            opticId: 'hybrid-scope',
+            opticStateId: '4x',
+        })[0]!;
+
+        expect(feedback.verifyNextClip).toContain('Hybrid Scope');
+        expect(feedback.verifyNextClip).toContain('4x');
+        expect(feedback.evidence.optic).toMatchObject({
+            id: 'hybrid-scope',
+            name: 'Hybrid Scope',
+            stateId: '4x',
+            stateName: '4x',
+            patchVersion: '41.1',
+        });
+    });
+
+    it('uses low-confidence mode and asks for a new clip when evidence is weak', () => {
+        const diagnoses: Diagnosis[] = [{
+            type: 'underpull',
+            severity: 4,
+            verticalControlIndex: 0.7,
+            deficitPercent: 30,
+            confidence: 0.38,
+            evidence: {
+                confidence: 0.38,
+                coverage: 0.44,
+                angularErrorDegrees: 1.2,
+                linearErrorCm: 56,
+                linearErrorSeverity: 4,
+            },
+            description: 'Pulldown possivelmente baixo',
+            cause: 'Evidencia parcial do tracking',
+            remediation: 'Considere reduzir sensibilidade vertical',
+        }];
+
+        const feedback = generateCoaching(diagnoses, defaultLoadout, { patchVersion: '41.1' })[0]!;
+
+        expect(feedback.mode).toBe('low-confidence');
+        expect(feedback.adjustment.toLowerCase()).toContain('hipotese');
+        expect(feedback.adjustment).not.toContain('Vertical Foregrip');
+        expect(feedback.verifyNextClip.toLowerCase()).toContain('novo clip');
     });
 
     it('should estimate longer adaptation for higher severity', () => {

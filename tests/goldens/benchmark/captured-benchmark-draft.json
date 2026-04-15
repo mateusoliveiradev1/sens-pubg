@@ -1,0 +1,170 @@
+{
+  "schemaVersion": 1,
+  "datasetId": "captured-benchmark-draft",
+  "createdAt": "2026-04-15T02:43:48.597Z",
+  "clips": [
+    {
+      "clipId": "captured-clip1-2026-04-14",
+      "media": {
+        "videoPath": "tests/fixtures/captured-clips/clip1.mp4",
+        "frameLabelsPath": "tests/fixtures/captured-clips/labels/captured-clip1-2026-04-14.frames.todo.json",
+        "previewImagePath": "tests/fixtures/captured-clips/previews/clip1_center.jpg",
+        "sha256": "267f1b1147f44a0ac629c71b309b19880e2e84829d17a2cf5f4da251c567ffc9"
+      },
+      "sprayWindow": {
+        "startSeconds": 11.8,
+        "endSeconds": 14.8
+      },
+      "capture": {
+        "patchVersion": "40.1",
+        "weaponId": "aug",
+        "distanceMeters": 100,
+        "stance": "standing",
+        "optic": {
+          "opticId": "red-dot-sight",
+          "stateId": "1x"
+        },
+        "attachments": {
+          "muzzle": "muzzle_brake",
+          "grip": "thumb",
+          "stock": "none"
+        }
+      },
+      "labels": {
+        "expectedDiagnoses": [],
+        "expectedTrackingTier": "clean"
+      },
+      "quality": {
+        "sourceType": "captured",
+        "reviewStatus": "golden",
+        "occlusionLevel": "light",
+        "compressionLevel": "light",
+        "visibilityTier": "clean",
+        "notes": "Alta resolucao e cerca de 144 fps, com reticulo visivel nos samples de ADS. Um sample mostra inventario aberto, entao o trecho de spray precisa de rotulo humano antes de virar golden."
+      }
+    },
+    {
+      "clipId": "captured-clip2-2026-04-14",
+      "media": {
+        "videoPath": "tests/fixtures/captured-clips/clip2.mp4",
+        "frameLabelsPath": "tests/fixtures/captured-clips/labels/captured-clip2-2026-04-14.frames.todo.json",
+        "previewImagePath": "tests/fixtures/captured-clips/previews/clip2_center.jpg",
+        "sha256": "42b3bfe535de191c9f8f6667341daa49a57232f51c9ca4dc82e10d86c882cba0"
+      },
+      "sprayWindow": {
+        "startSeconds": 11,
+        "endSeconds": 14.951
+      },
+      "capture": {
+        "patchVersion": "40.1",
+        "weaponId": "aug",
+        "distanceMeters": 50,
+        "stance": "standing",
+        "optic": {
+          "opticId": "red-dot-sight",
+          "stateId": "1x"
+        },
+        "attachments": {
+          "muzzle": "muzzle_brake",
+          "grip": "thumb",
+          "stock": "none"
+        }
+      },
+      "labels": {
+        "expectedDiagnoses": [],
+        "expectedTrackingTier": "degraded"
+      },
+      "quality": {
+        "sourceType": "captured",
+        "reviewStatus": "reviewed",
+        "occlusionLevel": "moderate",
+        "compressionLevel": "light",
+        "visibilityTier": "degraded",
+        "notes": "Alta resolucao e cerca de 144 fps, mas os samples mostram janela/estrutura no primeiro plano e alternancia de enquadramento. E util como candidato degradado, nao como golden limpo."
+      }
+    },
+    {
+      "clipId": "captured-clip3-2026-04-14",
+      "media": {
+        "videoPath": "tests/fixtures/captured-clips/clip3.mp4",
+        "frameLabelsPath": "tests/fixtures/captured-clips/labels/captured-clip3-2026-04-14.frames.todo.json",
+        "previewImagePath": "tests/fixtures/captured-clips/previews/clip3_center.jpg",
+        "sha256": "5805ec4935e836c4a0550ddd7fd9169c989f5002d6fe27aff49c713d626850b7"
+      },
+      "sprayWindow": {
+        "startSeconds": 11.6,
+        "endSeconds": 14.2
+      },
+      "capture": {
+        "patchVersion": "40.1",
+        "weaponId": "aug",
+        "distanceMeters": 100,
+        "stance": "standing",
+        "optic": {
+          "opticId": "red-dot-sight",
+          "stateId": "1x"
+        },
+        "attachments": {
+          "muzzle": "compensator",
+          "grip": "thumb",
+          "stock": "none"
+        }
+      },
+      "labels": {
+        "expectedDiagnoses": [],
+        "expectedTrackingTier": "clean"
+      },
+      "quality": {
+        "sourceType": "captured",
+        "reviewStatus": "reviewed",
+        "occlusionLevel": "light",
+        "compressionLevel": "light",
+        "visibilityTier": "clean",
+        "notes": "Clip do training range com leitura clara do reticulo e do alvo a 100 m. O inventario confirma AUG com red dot e compensator; o corrimao ocupa apenas a faixa inferior e nao compromete o sample principal."
+      }
+    },
+    {
+      "clipId": "captured-clip4-2026-04-14",
+      "media": {
+        "videoPath": "tests/fixtures/captured-clips/clip4.mp4",
+        "frameLabelsPath": "tests/fixtures/captured-clips/labels/captured-clip4-2026-04-14.frames.todo.json",
+        "previewImagePath": "tests/fixtures/captured-clips/previews/clip4_center.jpg",
+        "sha256": "9d90b97cf35b85b5ba29cda2830b27593f40adfb4afbab7cc5590ee6ed56341b"
+      },
+      "sprayWindow": {
+        "startSeconds": 3.5,
+        "endSeconds": 7
+      },
+      "capture": {
+        "patchVersion": "40.1",
+        "weaponId": "beryl-m762",
+        "distanceMeters": 100,
+        "stance": "standing",
+        "optic": {
+          "opticId": "red-dot-sight",
+          "stateId": "1x"
+        },
+        "attachments": {
+          "muzzle": "compensator",
+          "grip": "vertical",
+          "stock": "none"
+        }
+      },
+      "labels": {
+        "expectedDiagnoses": [
+          "overpull"
+        ],
+        "expectedCoachMode": "standard",
+        "expectedTrackingTier": "degraded"
+      },
+      "quality": {
+        "sourceType": "captured",
+        "reviewStatus": "reviewed",
+        "occlusionLevel": "moderate",
+        "compressionLevel": "medium",
+        "visibilityTier": "degraded",
+        "notes": "Clip novo com Beryl M762 em ADS a 100 m, mas com HUD de stream, webcam e elementos de TDM ocupando parte do quadro. Continua util para benchmark degradado e para cobrir arma distinta do corpus inicial."
+      }
+    }
+  ]
+}

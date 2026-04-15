@@ -26,6 +26,12 @@ describe('Weapon Database', () => {
         expect(m416!.category).toBe('ar');
     });
 
+    it('should resolve technical weapons from canonical database names too', () => {
+        expect(getWeapon('Beryl M762')?.id).toBe('beryl-m762');
+        expect(getWeapon('SCAR-L')?.id).toBe('scar-l');
+        expect(getWeapon('Mini14')?.id).toBe('mini14');
+    });
+
     it('should return undefined for unknown weapon', () => {
         expect(getWeapon('potato_gun')).toBeUndefined();
     });

@@ -8,6 +8,7 @@ import { usePathname } from 'next/navigation';
 export function Footer(): React.JSX.Element | null {
     const pathname = usePathname();
     const [emailCopied, setEmailCopied] = useState(false);
+    const supportEmail = 'warface01031999@gmail.com';
 
     if (pathname?.startsWith('/admin')) {
         return null;
@@ -15,7 +16,7 @@ export function Footer(): React.JSX.Element | null {
 
     const handleEmailClick = (e: React.MouseEvent | React.KeyboardEvent) => {
         e.preventDefault();
-        navigator.clipboard.writeText('warface01031999@gmail.com');
+        navigator.clipboard.writeText(supportEmail);
         setEmailCopied(true);
         setTimeout(() => setEmailCopied(false), 3000);
     };
@@ -65,7 +66,7 @@ export function Footer(): React.JSX.Element | null {
                             </div>
                             <div className={styles.cardContent}>
                                 <h3>{emailCopied ? 'Endereço Copiado!' : 'Suporte por E-mail'}</h3>
-                                <span>{emailCopied ? 'Área de transferência ✓' : 'contato@sens-pubg.com'}</span>
+                                <span>{emailCopied ? 'Área de transferência ✓' : supportEmail}</span>
                             </div>
                         </div>
                     </div>
@@ -100,7 +101,7 @@ export function Footer(): React.JSX.Element | null {
                         <ul className={styles.linksList}>
                             <li><Link href="/terms" className={styles.link}>Termos de Uso</Link></li>
                             <li><Link href="/privacy" className={styles.link}>Política de Privacidade</Link></li>
-                            <li><a href="mailto:warface01031999@gmail.com" className={styles.link}>Contato</a></li>
+                            <li><a href={`mailto:${supportEmail}`} className={styles.link}>Contato</a></li>
                         </ul>
                     </div>
                 </div>

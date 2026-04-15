@@ -57,27 +57,32 @@ export function MobileNav({ user }: MobileNavProps) {
                             <span className={styles.logoText}>MEN<span className={styles.logoAccent}>U</span></span>
                         </div>
 
-                        <ul className={styles.links} role="menu">
+                        <ul className={styles.links}>
                             {(['admin', 'mod', 'support'].includes(user?.role || '')) && (
-                                <li role="none">
-                                    <Link href="/admin" className={styles.link} style={{ color: 'var(--accent-primary)' }} onClick={closeMenu} role="menuitem">
+                                <li>
+                                    <Link href="/admin" className={styles.link} style={{ color: 'var(--accent-primary)' }} onClick={closeMenu}>
                                         <span className={styles.icon} aria-hidden="true">🛡️</span> Painel Admin
                                     </Link>
                                 </li>
                             )}
-                            <li role="none">
-                                <Link href="/analyze" className={styles.link} onClick={closeMenu} role="menuitem">
+                            <li>
+                                <Link href="/analyze" className={styles.link} onClick={closeMenu}>
                                     <span className={styles.icon} aria-hidden="true">📊</span> Analisar
                                 </Link>
                             </li>
-                            <li role="none">
-                                <Link href="/pros" className={styles.link} onClick={closeMenu} role="menuitem">
-                                    <span className={styles.icon} aria-hidden="true">🎯</span> Pros
+                            <li>
+                                <Link href="/profile" className={styles.link} onClick={closeMenu}>
+                                    <span className={styles.icon} aria-hidden="true">👤</span> Perfil
                                 </Link>
                             </li>
-                            <li role="none">
-                                <Link href="/history" className={styles.link} onClick={closeMenu} role="menuitem">
+                            <li>
+                                <Link href="/history" className={styles.link} onClick={closeMenu}>
                                     <span className={styles.icon} aria-hidden="true">🕰️</span> Histórico
+                                </Link>
+                            </li>
+                            <li>
+                                <Link href="/pros" className={styles.link} onClick={closeMenu}>
+                                    <span className={styles.icon} aria-hidden="true">🎯</span> Pros
                                 </Link>
                             </li>
                         </ul>

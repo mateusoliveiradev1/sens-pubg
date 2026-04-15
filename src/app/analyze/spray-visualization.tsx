@@ -6,10 +6,12 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import type { SprayTrajectory } from '@/types/engine';
+import type { ShotRecoilResidual, SprayTrajectory } from '@/types/engine';
+import { buildSprayVisualizationPaths } from './spray-visualization-paths';
 
 interface Props {
     readonly trajectory: SprayTrajectory;
+    readonly shotResiduals?: readonly ShotRecoilResidual[] | undefined;
     readonly width?: number;
     readonly height?: number;
     readonly showIdeal?: boolean;
@@ -17,6 +19,7 @@ interface Props {
 
 export function SprayVisualization({
     trajectory,
+    shotResiduals,
     width = 400,
     height = 400,
     showIdeal = true
@@ -60,51 +63,64 @@ export function SprayVisualization({
         ctx.arc(centerX, centerY, 5, 0, Math.PI * 2);
         ctx.stroke();
 
-        let currentX = centerX;
-        let currentY = centerY;
+        const paths = buildSprayVisualizationPaths({
+            trajectory,
+            shotResiduals,
+            width,
+            height,
+            showIdeal,
+        });
+
+        if (showIdeal && paths.usesIdealPattern && paths.idealPoints.length > 1) {
+            ctx.beginPath();
+            ctx.moveTo(paths.idealPoints[0]!.x, paths.idealPoints[0]!.y);
+            ctx.strokeStyle = 'rgba(0, 240, 255, 0.85)';
+            ctx.lineWidth = 1.5;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.setLineDash([6, 4]);
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = 'rgba(0, 240, 255, 0.35)';
+            for (const point of paths.idealPoints.slice(1)) {
+                ctx.lineTo(point.x, point.y);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.shadowBlur = 0;
+        }
 
         // Draw Player Trajectory
-        ctx.beginPath();
-        ctx.moveTo(centerX, centerY);
-        ctx.strokeStyle = 'rgba(255, 107, 0, 1)';
-        ctx.lineWidth = 2;
-        ctx.lineJoin = 'round';
-        ctx.lineCap = 'round';
-
-        const scale = 8; // Scale pixels for visibility (increased for better detail)
-
-        // Shadow/Glow for trajectory
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = 'rgba(255, 107, 0, 0.5)';
-
-        trajectory.displacements.forEach((d) => {
-            currentX += d.dx * scale;
-            currentY += d.dy * scale;
-            ctx.lineTo(currentX, currentY);
-        });
-        ctx.stroke();
+        if (paths.realPoints.length > 1) {
+            ctx.beginPath();
+            ctx.moveTo(paths.realPoints[0]!.x, paths.realPoints[0]!.y);
+            ctx.strokeStyle = 'rgba(255, 107, 0, 1)';
+            ctx.lineWidth = 2;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = 'rgba(255, 107, 0, 0.5)';
+            for (const point of paths.realPoints.slice(1)) {
+                ctx.lineTo(point.x, point.y);
+            }
+            ctx.stroke();
+        }
 
         // Reset shadow
         ctx.shadowBlur = 0;
 
         // Draw Shots (Impact points with glow)
-        currentX = centerX;
-        currentY = centerY;
-        trajectory.displacements.forEach((d) => {
-            currentX += d.dx * scale;
-            currentY += d.dy * scale;
-
+        paths.realPoints.slice(1).forEach((point) => {
             ctx.fillStyle = 'rgba(255, 255, 255, 1)';
             ctx.shadowBlur = 5;
             ctx.shadowColor = '#fff';
 
             ctx.beginPath();
-            ctx.arc(currentX, currentY, 2.5, 0, Math.PI * 2);
+            ctx.arc(point.x, point.y, 2.5, 0, Math.PI * 2);
             ctx.fill();
         });
         ctx.shadowBlur = 0;
 
-    }, [trajectory, width, height, showIdeal]);
+    }, [trajectory, shotResiduals, width, height, showIdeal]);
 
     return (
         <canvas

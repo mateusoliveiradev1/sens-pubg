@@ -1,0 +1,12 @@
+{
+  "datasetId": "pubg-spray-benchmark-synthetic-v1",
+  "recordedAt": "2026-04-14T15:00:00.000Z",
+  "summary": {
+    "failedClips": 0,
+    "score": 100,
+    "trackingMeanCoverage": 1,
+    "trackingMeanErrorPx": 0,
+    "diagnosticsPassRate": 1,
+    "coachPassRate": 1
+  }
+}

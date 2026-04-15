@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "name": "clean-no-diagnosis-411",
+  "loadout": {
+    "stance": "standing",
+    "muzzle": "compensator",
+    "grip": "vertical",
+    "stock": "none"
+  },
+  "context": {
+    "patchVersion": "41.1"
+  },
+  "diagnoses": [],
+  "expected": []
+}

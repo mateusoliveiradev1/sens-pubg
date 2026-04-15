@@ -11,13 +11,13 @@ const VIEWPORTS = {
     desktop: { width: 1440, height: 900 },
 } as const;
 
-test.describe('Responsive — Mobile', () => {
+test.describe('Responsive - Mobile', () => {
     test.use({ viewport: VIEWPORTS.mobile });
 
     test('landing page renders on mobile', async ({ page }) => {
         await page.goto('/');
         await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-        await expect(page.getByText('Começar Análise')).toBeVisible();
+        await expect(page.getByText(/Come.*Anal/i)).toBeVisible();
     });
 
     test('login page is usable on mobile', async ({ page }) => {
@@ -27,7 +27,7 @@ test.describe('Responsive — Mobile', () => {
     });
 });
 
-test.describe('Responsive — Tablet', () => {
+test.describe('Responsive - Tablet', () => {
     test.use({ viewport: VIEWPORTS.tablet });
 
     test('landing page renders on tablet', async ({ page }) => {
@@ -43,14 +43,15 @@ test.describe('Responsive — Tablet', () => {
     });
 });
 
-test.describe('Responsive — Desktop', () => {
+test.describe('Responsive - Desktop', () => {
     test.use({ viewport: VIEWPORTS.desktop });
 
     test('landing page shows full navigation', async ({ page }) => {
         await page.goto('/');
-        await expect(page.getByRole('link', { name: 'Analisar' })).toBeVisible();
-        await expect(page.getByRole('link', { name: 'Histórico' })).toBeVisible();
-        await expect(page.getByRole('link', { name: 'Perfil' })).toBeVisible();
+        const nav = page.getByRole('navigation', { name: /navega/i });
+        await expect(nav.locator('a[href="/analyze"]')).toBeVisible();
+        await expect(nav.locator('a[href="/history"]')).toBeVisible();
+        await expect(nav.locator('a[href="/profile"]')).toBeVisible();
     });
 
     test('hero content is visible above fold', async ({ page }) => {

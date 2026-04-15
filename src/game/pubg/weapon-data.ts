@@ -422,8 +422,28 @@ export type WeaponId = keyof typeof WEAPONS;
 
 export const WEAPON_LIST: readonly WeaponData[] = Object.values(WEAPONS);
 
+function normalizeWeaponLookupKey(value: string): string {
+    return value
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '');
+}
+
+const WEAPON_LOOKUP = new Map<string, WeaponData>(
+    WEAPON_LIST.flatMap((weapon) => {
+        const keys = new Set([
+            weapon.id,
+            weapon.name,
+            normalizeWeaponLookupKey(weapon.id),
+            normalizeWeaponLookupKey(weapon.name),
+        ]);
+
+        return Array.from(keys, (key) => [key, weapon] as const);
+    })
+);
+
 export function getWeapon(id: string): WeaponData | undefined {
-    return WEAPONS[id as WeaponId];
+    return WEAPON_LOOKUP.get(id) ?? WEAPON_LOOKUP.get(normalizeWeaponLookupKey(id));
 }
 
 export function getWeaponsByCategory(category: WeaponCategory): readonly WeaponData[] {

@@ -44,7 +44,9 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
             <div className={styles.providers}>
                 <button
                     onClick={() => handleLogin('google')}
-                    disabled={!acceptedTerms || isLoading !== null}
+                    disabled={isLoading !== null}
+                    aria-disabled={!acceptedTerms || isLoading !== null}
+                    title={!acceptedTerms ? 'Aceite os termos para continuar' : undefined}
                     className={`${styles.providerBtn} ${styles.google} ${!acceptedTerms ? styles.disabledBtn : ''}`}
                 >
                     <svg className={styles.providerSvg} viewBox="0 0 24 24" aria-hidden="true">
@@ -58,7 +60,9 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
 
                 <button
                     onClick={() => handleLogin('discord')}
-                    disabled={!acceptedTerms || isLoading !== null}
+                    disabled={isLoading !== null}
+                    aria-disabled={!acceptedTerms || isLoading !== null}
+                    title={!acceptedTerms ? 'Aceite os termos para continuar' : undefined}
                     className={`${styles.providerBtn} ${styles.discord} ${!acceptedTerms ? styles.disabledBtn : ''}`}
                 >
                     <svg className={styles.providerSvg} viewBox="0 0 24 24" fill="#5865F2" aria-hidden="true">

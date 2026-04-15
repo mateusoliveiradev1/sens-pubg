@@ -1,4 +1,7 @@
 import { defineConfig } from '@playwright/test';
+import { getPlaywrightRuntimeConfig } from './src/ci/playwright-runtime';
+
+const runtime = getPlaywrightRuntimeConfig();
 
 export default defineConfig({
     testDir: './e2e',
@@ -8,7 +11,7 @@ export default defineConfig({
     workers: process.env.CI ? 1 : 4,
     reporter: 'html',
     use: {
-        baseURL: 'http://localhost:3000',
+        baseURL: runtime.baseURL,
         trace: 'on-first-retry',
         screenshot: 'only-on-failure',
     },
@@ -18,10 +21,12 @@ export default defineConfig({
             use: { browserName: 'chromium' },
         },
     ],
-    webServer: {
-        command: 'npm run dev',
-        url: 'http://localhost:3000',
-        reuseExistingServer: true,
-        timeout: 30000,
-    },
+    ...(runtime.shouldStartWebServer ? {
+        webServer: {
+            command: 'npm run dev',
+            url: runtime.baseURL,
+            reuseExistingServer: true,
+            timeout: 30000,
+        },
+    } : {}),
 });

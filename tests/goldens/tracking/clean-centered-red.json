@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "name": "clean-centered-red",
+  "color": "RED",
+  "frameSize": {
+    "width": 24,
+    "height": 24
+  },
+  "roiRadiusPx": 8,
+  "thresholds": {
+    "minCoverage": 1,
+    "maxMeanErrorPx": 0.01,
+    "maxStatusMismatches": 0
+  },
+  "frames": [
+    {
+      "timestamp": 0,
+      "reticle": { "x": 10, "y": 10, "shape": "block", "size": 5 },
+      "expected": { "status": "tracked", "x": 10, "y": 10 }
+    },
+    {
+      "timestamp": 16,
+      "reticle": { "x": 11, "y": 10, "shape": "block", "size": 5 },
+      "expected": { "status": "tracked", "x": 11, "y": 10 }
+    },
+    {
+      "timestamp": 32,
+      "reticle": { "x": 12, "y": 11, "shape": "block", "size": 5 },
+      "expected": { "status": "tracked", "x": 12, "y": 11 }
+    }
+  ]
+}

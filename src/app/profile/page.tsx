@@ -106,7 +106,7 @@ export default async function ProfilePage() {
                             {!profile?.profile ? (
                                 <div className={`glass-card ${styles.emptyState}`}>
                                     <h2>Setup Desconhecido</h2>
-                                    <p>O seu cartão de identidade está vazio. A IA de análise precisa dos detalhes do seu mouse e monitor para extrapolar distâncias de pixels e fricção.</p>
+                                    <p>O seu cartão de identidade está vazio. O motor usa detalhes do mouse, monitor e superfície para contextualizar pixels, FOV e recomendações de teste.</p>
                                     <Link href="/profile/settings" className="btn btn-primary" style={{ marginTop: 'var(--space-md)' }}>
                                         Configurar Agora
                                     </Link>

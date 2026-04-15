@@ -8,6 +8,27 @@
       "when": 1772404749230,
       "tag": "0000_freezing_switch",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776115820230,
+      "tag": "0001_next_inhumans",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776132415305,
+      "tag": "0002_hard_mac_gargan",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1776135449877,
+      "tag": "0003_weapon_patch_profiles",
+      "breakpoints": true
     }
   ]
 }

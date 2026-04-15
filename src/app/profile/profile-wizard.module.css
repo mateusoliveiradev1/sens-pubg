@@ -144,6 +144,26 @@
     color: var(--color-accent-primary);
 }
 
+.scopeHint {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    margin-top: var(--space-md);
+    padding: var(--space-md);
+    border: 1px solid rgba(255, 107, 0, 0.24);
+    border-radius: var(--radius-md);
+    background: rgba(255, 107, 0, 0.08);
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+}
+
+.scopeHint strong {
+    color: var(--color-accent-primary);
+    font-size: var(--text-xs);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
 /* ═══ Option Cards ═══ */
 
 .optionSection {

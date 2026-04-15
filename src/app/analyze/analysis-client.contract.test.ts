@@ -1,0 +1,62 @@
+import { readFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+
+describe('analysis worker tracking contract', () => {
+    it('does not overwrite worker tracking quality with artificial defaults', () => {
+        const source = readFileSync(new URL('./analysis-client.tsx', import.meta.url), 'utf8');
+
+        expect(source).not.toMatch(/confidence:\s*1\.0/);
+        expect(source).not.toMatch(/trackingQuality:\s*1\.0/);
+        expect(source).not.toMatch(/framesLost:\s*0/);
+    });
+
+    it('does not mark every worker crosshair detection as perfect confidence', () => {
+        const source = readFileSync(new URL('../../workers/aimAnalyzer.worker.ts', import.meta.url), 'utf8');
+
+        expect(source).not.toMatch(/confidence:\s*1\.0/);
+    });
+
+    it('routes the worker through a shared session wrapper instead of inline tracking logic', () => {
+        const workerSource = readFileSync(new URL('../../workers/aimAnalyzer.worker.ts', import.meta.url), 'utf8');
+        const sessionSource = readFileSync(new URL('../../workers/aim-analyzer-session.ts', import.meta.url), 'utf8');
+
+        expect(workerSource).toMatch(/createAimAnalyzerSession/);
+        expect(workerSource).not.toMatch(/detectCrosshairCentroid\(/);
+        expect(sessionSource).toMatch(/createStreamingCrosshairTracker/);
+        expect(sessionSource).not.toMatch(/detectCrosshairCentroid\(/);
+    });
+
+    it('does not parse monitor resolution with an unsafe inline split assumption', () => {
+        const source = readFileSync(new URL('./analysis-client.tsx', import.meta.url), 'utf8');
+
+        expect(source).not.toMatch(/monitorResolution\.split\('x'\)/);
+    });
+
+    it('derives spray extraction timing from the shared session config helper', () => {
+        const source = readFileSync(new URL('./analysis-client.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/calculateExpectedSprayDurationSeconds/);
+        expect(source).not.toMatch(/\(\s*30\s*\*\s*0\.086\s*\)\s*\+\s*0\.5/);
+    });
+
+    it('derives worker attachment multipliers from the shared session config helper', () => {
+        const source = readFileSync(new URL('./analysis-client.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/resolveWorkerAttachmentMultipliers/);
+        expect(source).not.toMatch(/horizontal:\s*1\.0/);
+    });
+
+    it('derives the spray projection from video plus optic context before calculating metrics', () => {
+        const source = readFileSync(new URL('./analysis-client.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/resolveSprayProjectionConfig/);
+        expect(source).not.toMatch(/calculateSprayMetrics\(trajectory,\s*weaponData,\s*loadout,\s*undefined/);
+    });
+
+    it('routes weapon selection through the supported-analysis catalog instead of a raw slug hack', () => {
+        const source = readFileSync(new URL('./analysis-client.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/summarizeAnalysisWeaponSupport/);
+        expect(source).not.toMatch(/replace\(' ', '-'\)/);
+    });
+});

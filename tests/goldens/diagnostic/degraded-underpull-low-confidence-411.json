@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "name": "degraded-underpull-low-confidence-411",
+  "weaponCategory": "ar",
+  "metricOverrides": {
+    "verticalControlIndex": 0.74,
+    "angularErrorDegrees": 1.2,
+    "linearErrorCm": 56,
+    "linearErrorSeverity": 4,
+    "sprayScore": 64
+  },
+  "metricQualityOverrides": {
+    "coverage": 0.55,
+    "confidence": 0.5,
+    "sampleSize": 18,
+    "framesTracked": 10,
+    "framesLost": 8,
+    "framesProcessed": 18
+  },
+  "expectedDiagnosisTypes": [
+    "underpull"
+  ]
+}

@@ -1,27 +1,16 @@
-/**
- * Video Ingestion — Validação e preparação do clip de spray.
- * Verifica MIME type, magic bytes, duração, resolução.
- * 100% client-side.
- */
+import {
+    MAX_SPRAY_CLIP_DURATION_SECONDS,
+    MIN_SPRAY_CLIP_DURATION_SECONDS,
+    isSupportedSprayClipDuration,
+} from './video-ingestion-contract';
 
-// ═══════════════════════════════════════════
-// Constants
-// ═══════════════════════════════════════════
-
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
-const MIN_DURATION_S = 3;
-const MAX_DURATION_S = 20;
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
 const ALLOWED_MIMES = ['video/mp4', 'video/webm'] as const;
 
-// Magic bytes para validação de formato
 const MAGIC_BYTES: Record<string, readonly number[]> = {
-    'video/mp4': [0x00, 0x00, 0x00], // ftyp box (offset 4)
-    'video/webm': [0x1a, 0x45, 0xdf, 0xa3], // EBML header
+    'video/mp4': [0x00, 0x00, 0x00],
+    'video/webm': [0x1a, 0x45, 0xdf, 0xa3],
 } as const;
-
-// ═══════════════════════════════════════════
-// Types
-// ═══════════════════════════════════════════
 
 export interface VideoMetadata {
     readonly file: File;
@@ -42,25 +31,22 @@ export type VideoValidationResult =
     | { readonly valid: true; readonly metadata: VideoMetadata }
     | { readonly valid: false; readonly error: VideoValidationError };
 
-// ═══════════════════════════════════════════
-// Validation
-// ═══════════════════════════════════════════
-
 async function validateMagicBytes(file: File): Promise<boolean> {
     const buffer = await file.slice(0, 12).arrayBuffer();
     const bytes = new Uint8Array(buffer);
 
-    // MP4: check 'ftyp' at offset 4
     if (file.type === 'video/mp4') {
         const ftyp = String.fromCharCode(bytes[4] ?? 0, bytes[5] ?? 0, bytes[6] ?? 0, bytes[7] ?? 0);
         return ftyp === 'ftyp';
     }
 
-    // WebM: check EBML header
     if (file.type === 'video/webm') {
         const expected = MAGIC_BYTES['video/webm'];
-        if (!expected) return false;
-        return expected.every((b, i) => bytes[i] === b);
+        if (!expected) {
+            return false;
+        }
+
+        return expected.every((value, index) => bytes[index] === value);
     }
 
     return false;
@@ -88,17 +74,13 @@ function loadVideoMetadata(file: File): Promise<{
 
         video.onerror = () => {
             URL.revokeObjectURL(url);
-            reject(new Error('Falha ao carregar o vídeo'));
+            reject(new Error('Falha ao carregar o video'));
         };
 
         video.src = url;
     });
 }
 
-/**
- * Estima FPS do vídeo usando requestVideoFrameCallback.
- * Retorna 30 como fallback se a API não estiver disponível.
- */
 async function estimateFps(url: string): Promise<number> {
     return new Promise((resolve) => {
         const video = document.createElement('video');
@@ -118,103 +100,112 @@ async function estimateFps(url: string): Promise<number> {
             count++;
 
             if (count < 30) {
-                (video as HTMLVideoElement & { requestVideoFrameCallback: (cb: typeof callback) => void })
-                    .requestVideoFrameCallback(callback);
-            } else {
-                video.pause();
-                video.src = '';
-
-                if (timestamps.length < 2) {
-                    resolve(30);
-                    return;
-                }
-
-                const diffs: number[] = [];
-                for (let i = 1; i < timestamps.length; i++) {
-                    const prev = timestamps[i - 1];
-                    const curr = timestamps[i];
-                    if (prev !== undefined && curr !== undefined) {
-                        diffs.push(curr - prev);
-                    }
-                }
-
-                const avgDiff = diffs.reduce((a, b) => a + b, 0) / diffs.length;
-                const fps = avgDiff > 0 ? Math.round(1 / avgDiff) : 30;
-                resolve(Math.min(fps, 240));
+                (video as HTMLVideoElement & {
+                    requestVideoFrameCallback: (cb: typeof callback) => void;
+                }).requestVideoFrameCallback(callback);
+                return;
             }
+
+            video.pause();
+            video.src = '';
+
+            if (timestamps.length < 2) {
+                resolve(30);
+                return;
+            }
+
+            const diffs: number[] = [];
+            for (let index = 1; index < timestamps.length; index++) {
+                const previous = timestamps[index - 1];
+                const current = timestamps[index];
+                if (previous !== undefined && current !== undefined) {
+                    diffs.push(current - previous);
+                }
+            }
+
+            const averageDiff = diffs.reduce((sum, value) => sum + value, 0) / diffs.length;
+            const fps = averageDiff > 0 ? Math.round(1 / averageDiff) : 30;
+            resolve(Math.min(fps, 240));
         };
 
         video.oncanplay = () => {
             void video.play();
-            (video as HTMLVideoElement & { requestVideoFrameCallback: (cb: typeof callback) => void })
-                .requestVideoFrameCallback(callback);
+            (video as HTMLVideoElement & {
+                requestVideoFrameCallback: (cb: typeof callback) => void;
+            }).requestVideoFrameCallback(callback);
         };
 
-        // Timeout fallback
         setTimeout(() => resolve(30), 5000);
     });
 }
 
-// ═══════════════════════════════════════════
-// Main Export
-// ═══════════════════════════════════════════
-
 export async function validateAndPrepareVideo(file: File): Promise<VideoValidationResult> {
-    // 1. File size
     if (file.size > MAX_FILE_SIZE) {
         return {
             valid: false,
-            error: { type: 'size', message: `Arquivo muito grande. Máximo: ${MAX_FILE_SIZE / 1024 / 1024}MB` },
+            error: {
+                type: 'size',
+                message: `Arquivo muito grande. Maximo: ${MAX_FILE_SIZE / 1024 / 1024}MB`,
+            },
         };
     }
 
-    // 2. MIME type
     if (!ALLOWED_MIMES.includes(file.type as typeof ALLOWED_MIMES[number])) {
         return {
             valid: false,
-            error: { type: 'mime', message: `Formato não suportado. Use MP4 ou WebM.` },
+            error: {
+                type: 'mime',
+                message: 'Formato nao suportado. Use MP4 ou WebM.',
+            },
         };
     }
 
-    // 3. Magic bytes
     const validMagic = await validateMagicBytes(file);
     if (!validMagic) {
         return {
             valid: false,
-            error: { type: 'magic', message: 'Arquivo corrompido ou formato inválido.' },
+            error: {
+                type: 'magic',
+                message: 'Arquivo corrompido ou formato invalido.',
+            },
         };
     }
 
-    // 4. Load metadata
     let meta: Awaited<ReturnType<typeof loadVideoMetadata>>;
     try {
         meta = await loadVideoMetadata(file);
     } catch {
         return {
             valid: false,
-            error: { type: 'load', message: 'Não foi possível carregar o vídeo.' },
+            error: {
+                type: 'load',
+                message: 'Nao foi possivel carregar o video.',
+            },
         };
     }
 
-    // 5. Duration
-    if (meta.duration < MIN_DURATION_S || meta.duration > MAX_DURATION_S) {
+    if (!isSupportedSprayClipDuration(meta.duration)) {
         URL.revokeObjectURL(meta.url);
         return {
             valid: false,
-            error: { type: 'duration', message: `Duração deve ser entre ${MIN_DURATION_S}s e ${MAX_DURATION_S}s. Seu clip: ${Math.round(meta.duration)}s` },
+            error: {
+                type: 'duration',
+                message: `Duracao deve ser entre ${MIN_SPRAY_CLIP_DURATION_SECONDS}s e ${MAX_SPRAY_CLIP_DURATION_SECONDS}s. Seu clip: ${Math.round(meta.duration)}s`,
+            },
         };
     }
 
-    // 6. Resolution
     if (meta.width < 640 || meta.height < 360) {
         URL.revokeObjectURL(meta.url);
         return {
             valid: false,
-            error: { type: 'resolution', message: `Resolução muito baixa (${meta.width}×${meta.height}). Mínimo: 640×360.` },
+            error: {
+                type: 'resolution',
+                message: `Resolucao muito baixa (${meta.width}x${meta.height}). Minimo: 640x360.`,
+            },
         };
     }
 
-    // 7. Estimate FPS
     const fps = await estimateFps(meta.url);
 
     return {
@@ -231,9 +222,6 @@ export async function validateAndPrepareVideo(file: File): Promise<VideoValidati
     };
 }
 
-/**
- * Limpa URL.createObjectURL ao desmontar.
- */
 export function releaseVideoUrl(url: string): void {
     URL.revokeObjectURL(url);
 }

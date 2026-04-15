@@ -5,7 +5,7 @@
 const ptBR: Record<string, string> = {
     // ═══ Global ═══
     'app.name': 'PUBG Aim Analyzer',
-    'app.description': 'Analise seu spray, diagnostique erros e otimize sua sensibilidade com IA',
+    'app.description': 'Analise seu spray, entenda sinais de controle e teste ajustes de sensibilidade com IA',
     'app.tagline': 'Seu coach de aim pessoal',
 
     // ═══ Nav ═══
@@ -18,11 +18,11 @@ const ptBR: Record<string, string> = {
     'nav.logout': 'Sair',
 
     // ═══ Landing ═══
-    'landing.hero.title': 'Domine Seu Recoil',
-    'landing.hero.subtitle': 'Analise clips reais, receba diagnóstico preciso e ajuste sua sensibilidade com inteligência artificial',
+    'landing.hero.title': 'Entenda Seu Recoil',
+    'landing.hero.subtitle': 'Analise clips reais, veja confiança e cobertura, e teste ajustes de sensibilidade com inteligência artificial',
     'landing.hero.cta': 'Começar Análise',
     'landing.features.analysis': 'Análise Frame a Frame',
-    'landing.features.analysis.desc': 'Reconstrução precisa do spray usando visão computacional e GPU acelerada',
+    'landing.features.analysis.desc': 'Estimativa do spray usando visão computacional, cobertura e confiança do tracking',
     'landing.features.diagnostic': 'Diagnóstico Inteligente',
     'landing.features.diagnostic.desc': '6 classificações automáticas: overpull, underpull, jitter, drift e mais',
     'landing.features.sensitivity': 'Ajuste de Sensibilidade',
@@ -39,7 +39,7 @@ const ptBR: Record<string, string> = {
 
     // ═══ Profile ═══
     'profile.title': 'Seu Setup',
-    'profile.subtitle': 'Quanto mais detalhes, mais preciso o diagnóstico da IA',
+    'profile.subtitle': 'Quanto mais detalhes, melhor o contexto da análise',
     'profile.step.mouse': 'Mouse',
     'profile.step.mousepad': 'Mousepad',
     'profile.step.style': 'Estilo de Jogo',

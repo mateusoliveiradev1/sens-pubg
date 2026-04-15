@@ -1,6 +1,5 @@
 /**
- * Root Layout — Layout principal do app.
- * Inter + JetBrains Mono fonts, SEO, Analytics, a11y skip-link.
+ * Root Layout - Main app shell.
  */
 
 import type { Metadata } from 'next';
@@ -26,11 +25,11 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
   title: {
-    default: 'PUBG Aim Analyzer — Coach de Aim com IA',
+    default: 'PUBG Aim Analyzer - Coach de Aim com IA',
     template: '%s | PUBG Aim Analyzer',
   },
   description:
-    'Analise seus clips de spray, diagnostique erros de mira e otimize sua sensibilidade com inteligência artificial. Seu coach de aim pessoal para PUBG.',
+    'Analise seus clips de spray, identifique padroes de mira e receba recomendacoes assistidas para sensibilidade. Seu coach de aim pessoal para PUBG.',
   keywords: [
     'PUBG', 'aim trainer', 'recoil control', 'sensitivity calculator',
     'spray analysis', 'aim coach', 'PUBG sensibilidade', 'analisador de mira',
@@ -51,7 +50,6 @@ export const metadata: Metadata = {
   },
   verification: {
     google: 'google-site-verification-placeholder',
-    // bing: 'bing-site-verification-placeholder',
   },
   openGraph: {
     type: 'website',
@@ -59,14 +57,14 @@ export const metadata: Metadata = {
     alternateLocale: ['en_US', 'es_ES'],
     url: '/',
     siteName: 'PUBG Aim Analyzer',
-    title: 'PUBG Aim Analyzer — Coach de Aim com IA',
-    description: 'Analise clips reais, diagnostique erros e otimize sua sensibilidade com IA.',
+    title: 'PUBG Aim Analyzer - Coach de Aim com IA',
+    description: 'Analise clips reais, identifique padroes de spray e explore ajustes de sensibilidade com apoio do motor de diagnostico.',
     images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'PUBG Aim Analyzer Dashboard' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'PUBG Aim Analyzer',
-    description: 'Seu coach de aim pessoal para PUBG com análise por IA.',
+    description: 'Seu coach de aim pessoal para PUBG com analise visual assistida.',
     images: ['/og-image.png'],
   },
   robots: {
@@ -101,13 +99,14 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>): React.JSX.Element {
+  const enableVercelObservability = process.env.VERCEL === '1';
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
     name: 'PUBG Aim Analyzer',
     applicationCategory: 'GameApplication',
     operatingSystem: 'Web',
-    description: 'Analisador de spray e coach de aim para PUBG com IA.',
+    description: 'Analisador de spray e coach de aim para PUBG com analise assistida no navegador.',
     offers: {
       '@type': 'Offer',
       price: '0',
@@ -138,14 +137,14 @@ export default function RootLayout({
       </head>
       <body>
         <a href="#main-content" className="skip-link">
-          Pular para o conteúdo principal
+          Pular para o conteudo principal
         </a>
         <main id="main-content">
           {children}
         </main>
         <Footer />
-        <Analytics />
-        <SpeedInsights />
+        {enableVercelObservability ? <Analytics /> : null}
+        {enableVercelObservability ? <SpeedInsights /> : null}
       </body>
     </html>
   );

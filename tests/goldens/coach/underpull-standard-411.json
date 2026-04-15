@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "name": "underpull-standard-411",
+  "loadout": {
+    "stance": "standing",
+    "muzzle": "none",
+    "grip": "none",
+    "stock": "none"
+  },
+  "context": {
+    "patchVersion": "41.1"
+  },
+  "diagnoses": [
+    {
+      "type": "underpull",
+      "severity": 4,
+      "verticalControlIndex": 0.64,
+      "deficitPercent": 36,
+      "dominantPhase": "fatigue",
+      "confidence": 0.82,
+      "evidence": {
+        "confidence": 0.82,
+        "coverage": 0.91,
+        "angularErrorDegrees": 1.4,
+        "linearErrorCm": 73,
+        "linearErrorSeverity": 4
+      },
+      "description": "Compensacao vertical baixa na fase fatigue",
+      "cause": "Pulldown insuficiente sustentado",
+      "remediation": "Reduza sens ou puxe mais no sustain"
+    }
+  ],
+  "expected": [
+    {
+      "mode": "standard",
+      "problem": "Compensacao vertical baixa na fase fatigue",
+      "evidence": {
+        "diagnosisType": "underpull",
+        "severity": 4,
+        "dominantPhase": "fatigue",
+        "confidence": 0.82,
+        "coverage": 0.91,
+        "angularErrorDegrees": 1.4,
+        "linearErrorCm": 73,
+        "linearErrorSeverity": 4,
+        "patchVersion": "41.1",
+        "attachmentCatalogVersion": "41.1",
+        "recommendedAttachments": [
+          {
+            "id": "vertical-grip",
+            "name": "Vertical Foregrip",
+            "slot": "grip",
+            "patchVersion": "41.1"
+          },
+          {
+            "id": "compensator",
+            "name": "Compensator",
+            "slot": "muzzle",
+            "patchVersion": "41.1"
+          }
+        ]
+      },
+      "confidence": 0.82,
+      "likelyCause": "Pulldown insuficiente sustentado",
+      "adjustment": "Reduza sens ou puxe mais no sustain Dica (41.1): Vertical Foregrip ou Compensator sao validos neste patch para reduzir o recuo vertical. Lembre-se: Agachar (Crouch) reduz o recuo em cerca de 20%. Use isso a seu favor em sprays longos.",
+      "drill": "**Drill de Pulldown Gradual**: Atire em uma parede limpa a 50m. Tente fazer um ponto de impactos. Se o spray subir, force o mouse para baixo de forma continua, nao apenas no inicio.",
+      "verifyNextClip": "No proximo clip, confirme se underpull melhora na fase fatigue com coverage >= 91% e confidence >= 82%.",
+      "adaptationTimeDays": 5
+    }
+  ]
+}

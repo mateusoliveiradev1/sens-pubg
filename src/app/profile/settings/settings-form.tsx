@@ -319,7 +319,7 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
                 <div className={`${styles.tabPane} ${activeTab === 'mousepad' ? styles.tabPaneActive : ''}`}>
                     <div>
                         <h2 className={styles.sectionTitle}>Mousepad & Estilo Motriz</h2>
-                        <p className={styles.sectionDesc}>Define o atrito dinâmico (CoD) nas equações de arrasto da AI.</p>
+                        <p className={styles.sectionDesc}>Ajuda o motor a contextualizar controle, atrito e consistência do spray.</p>
                     </div>
 
                     <div className="glass-card">

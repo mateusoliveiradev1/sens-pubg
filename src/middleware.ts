@@ -19,6 +19,7 @@ function generateNonce(): string {
 export default auth((req) => {
     const { pathname } = req.nextUrl;
     const isLoggedIn = !!req.auth;
+    const isDevelopment = process.env.NODE_ENV !== 'production';
 
     // ═══ Auth Protection (protected routes only) ═══
     if (isProtectedRoute(pathname) && !isLoggedIn) {
@@ -31,18 +32,31 @@ export default auth((req) => {
 
     // ═══ CSP Nonce ═══
     const nonce = generateNonce();
-    const cspHeader = [
-        `default-src 'self'`,
-        `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
-        `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
-        `font-src 'self' https://fonts.gstatic.com`,
-        `img-src 'self' data: blob: https:`,
-        `media-src 'self' blob:`,
-        `connect-src 'self' https://*.neon.tech https://*.vercel-analytics.com`,
-        `frame-ancestors 'none'`,
-        `base-uri 'self'`,
-        `form-action 'self' https://accounts.google.com https://discord.com`,
-    ].join('; ');
+    const cspHeader = isDevelopment
+        ? [
+            `default-src 'self'`,
+            `script-src 'self' 'unsafe-inline' 'unsafe-eval'`,
+            `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
+            `font-src 'self' https://fonts.gstatic.com`,
+            `img-src 'self' data: blob: https:`,
+            `media-src 'self' blob:`,
+            `connect-src 'self' ws: wss: http://localhost:* http://127.0.0.1:* https://*.neon.tech https://*.vercel-analytics.com`,
+            `frame-ancestors 'none'`,
+            `base-uri 'self'`,
+            `form-action 'self' https://accounts.google.com https://discord.com`,
+        ].join('; ')
+        : [
+            `default-src 'self'`,
+            `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+            `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
+            `font-src 'self' https://fonts.gstatic.com`,
+            `img-src 'self' data: blob: https:`,
+            `media-src 'self' blob:`,
+            `connect-src 'self' https://*.neon.tech https://*.vercel-analytics.com`,
+            `frame-ancestors 'none'`,
+            `base-uri 'self'`,
+            `form-action 'self' https://accounts.google.com https://discord.com`,
+        ].join('; ');
 
     // ═══ Security Headers ═══
     response.headers.set('Content-Security-Policy', cspHeader);

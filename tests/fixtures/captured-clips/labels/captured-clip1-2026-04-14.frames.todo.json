@@ -1,0 +1,168 @@
+{
+  "schemaVersion": 1,
+  "clipId": "captured-clip1-2026-04-14",
+  "sourceVideoPath": "tests/fixtures/captured-clips/clip1.mp4",
+  "createdAt": "2026-04-14T19:23:50.198Z",
+  "sampleIntervalSeconds": 1,
+  "frameSize": {
+    "width": 1744,
+    "height": 1080
+  },
+  "frames": [
+    {
+      "frameIndex": 0,
+      "timestampSeconds": 0,
+      "label": {
+        "status": "tracked",
+        "x": 872,
+        "y": 539
+      }
+    },
+    {
+      "frameIndex": 143,
+      "timestampSeconds": 1,
+      "label": {
+        "status": "tracked",
+        "x": 872,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 287,
+      "timestampSeconds": 2,
+      "label": {
+        "status": "tracked",
+        "x": 872,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 430,
+      "timestampSeconds": 3,
+      "label": {
+        "status": "occluded",
+        "x": null,
+        "y": null,
+        "notes": "Inventory overlay blocks the reticle."
+      }
+    },
+    {
+      "frameIndex": 574,
+      "timestampSeconds": 4,
+      "label": {
+        "status": "occluded",
+        "x": null,
+        "y": null,
+        "notes": "Inventory overlay blocks the reticle."
+      }
+    },
+    {
+      "frameIndex": 717,
+      "timestampSeconds": 5,
+      "label": {
+        "status": "uncertain",
+        "x": 872,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 861,
+      "timestampSeconds": 6,
+      "label": {
+        "status": "uncertain",
+        "x": 872,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 1004,
+      "timestampSeconds": 7,
+      "label": {
+        "status": "tracked",
+        "x": 872,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 1148,
+      "timestampSeconds": 8,
+      "label": {
+        "status": "tracked",
+        "x": 872,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 1291,
+      "timestampSeconds": 9,
+      "label": {
+        "status": "tracked",
+        "x": 872,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 1435,
+      "timestampSeconds": 10,
+      "label": {
+        "status": "tracked",
+        "x": 872,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 1578,
+      "timestampSeconds": 11,
+      "label": {
+        "status": "tracked",
+        "x": 872,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 1722,
+      "timestampSeconds": 12,
+      "label": {
+        "status": "uncertain",
+        "x": 872,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 1865,
+      "timestampSeconds": 13,
+      "label": {
+        "status": "tracked",
+        "x": 872,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 2009,
+      "timestampSeconds": 14,
+      "label": {
+        "status": "uncertain",
+        "x": 872,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 2152,
+      "timestampSeconds": 15,
+      "label": {
+        "status": "tracked",
+        "x": 873,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 2191,
+      "timestampSeconds": 15.278,
+      "label": {
+        "status": "tracked",
+        "x": 872,
+        "y": 540
+      }
+    }
+  ]
+}

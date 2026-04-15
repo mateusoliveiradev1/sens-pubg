@@ -18,7 +18,12 @@ import type {
     ExcessiveJitterDiagnosis,
     HorizontalDriftDiagnosis,
     InconsistencyDiagnosis,
+    InconclusiveDiagnosis,
     Severity,
+    DominantSprayPhase,
+    DiagnosisEvidence,
+    MetricEvidenceQuality,
+    SprayMetricQualityKey,
 } from '@/types/engine';
 import { asMilliseconds } from '@/types/branded';
 import type { WeaponCategory } from '@/game/pubg/weapon-data';
@@ -44,6 +49,132 @@ function scoreToSeverity(score: number): Severity {
     return 5;
 }
 
+function clampSeverity(value: number): Severity {
+    return Math.max(1, Math.min(5, Math.round(value))) as Severity;
+}
+
+function angularErrorToSeverity(errorDegrees: number): Severity {
+    if (errorDegrees < 0.35) return 1;
+    if (errorDegrees < 0.75) return 2;
+    if (errorDegrees < 1.5) return 3;
+    if (errorDegrees < 2.5) return 4;
+    return 5;
+}
+
+function getMetricEvidence(
+    metrics: SprayMetrics,
+    key: SprayMetricQualityKey
+): MetricEvidenceQuality | undefined {
+    return metrics.metricQuality?.[key];
+}
+
+function buildDiagnosisEvidence(
+    metrics: SprayMetrics,
+    key: SprayMetricQualityKey
+): DiagnosisEvidence {
+    const quality = getMetricEvidence(metrics, key);
+
+    return {
+        confidence: quality?.confidence ?? 1,
+        coverage: quality?.coverage ?? 1,
+        angularErrorDegrees: metrics.angularErrorDegrees,
+        linearErrorCm: metrics.linearErrorCm,
+        linearErrorSeverity: metrics.linearErrorSeverity,
+    };
+}
+
+function evidenceAdjustedSeverity(
+    baseSeverity: Severity,
+    metrics: SprayMetrics,
+    key: SprayMetricQualityKey
+): Severity {
+    const evidence = buildDiagnosisEvidence(metrics, key);
+    const angularSeverity = angularErrorToSeverity(evidence.angularErrorDegrees);
+    const linearSeverity = clampSeverity(evidence.linearErrorSeverity);
+    const signalSeverity = Math.max(
+        baseSeverity,
+        Math.round((baseSeverity + angularSeverity + linearSeverity) / 3)
+    );
+    const confidencePenalty = evidence.confidence < 0.8 ? 1 : 0;
+
+    return clampSeverity(signalSeverity - confidencePenalty);
+}
+
+function phaseFromShotIndex(shotIndex: number): DominantSprayPhase {
+    if (shotIndex < 10) return 'burst';
+    if (shotIndex < 20) return 'sustained';
+    return 'fatigue';
+}
+
+function dominantPhaseFromResiduals(metrics: SprayMetrics): DominantSprayPhase | null {
+    if (!metrics.shotResiduals || metrics.shotResiduals.length === 0) {
+        return null;
+    }
+
+    const phaseTotals: Record<Exclude<DominantSprayPhase, 'overall'>, { sum: number; count: number }> = {
+        burst: { sum: 0, count: 0 },
+        sustained: { sum: 0, count: 0 },
+        fatigue: { sum: 0, count: 0 },
+    };
+
+    for (const residual of metrics.shotResiduals) {
+        const phase = phaseFromShotIndex(residual.shotIndex);
+        if (phase === 'overall') continue;
+        phaseTotals[phase].sum += residual.residualMagnitudeDegrees;
+        phaseTotals[phase].count += 1;
+    }
+
+    const rankedPhases = Object.entries(phaseTotals)
+        .map(([phase, total]) => ({
+            phase: phase as Exclude<DominantSprayPhase, 'overall'>,
+            averageResidual: total.count > 0 ? total.sum / total.count : 0,
+        }))
+        .sort((left, right) => right.averageResidual - left.averageResidual);
+
+    const dominant = rankedPhases[0];
+    return dominant && dominant.averageResidual > 0 ? dominant.phase : null;
+}
+
+function dominantPhaseFromVerticalControl(metrics: SprayMetrics): DominantSprayPhase {
+    const phases = [
+        { phase: 'burst' as const, value: metrics.burstVCI },
+        { phase: 'sustained' as const, value: metrics.sustainedVCI },
+        { phase: 'fatigue' as const, value: metrics.fatigueVCI },
+    ];
+
+    phases.sort((left, right) => Math.abs(right.value - 1) - Math.abs(left.value - 1));
+    return phases[0]?.phase ?? 'overall';
+}
+
+function getDominantPhase(metrics: SprayMetrics): DominantSprayPhase {
+    return dominantPhaseFromResiduals(metrics) ?? dominantPhaseFromVerticalControl(metrics);
+}
+
+function diagnoseInconclusive(metrics: SprayMetrics): InconclusiveDiagnosis | null {
+    const evidenceQuality = getMetricEvidence(metrics, 'sprayScore')
+        ?? getMetricEvidence(metrics, 'verticalControlIndex');
+    if (!evidenceQuality) {
+        return null;
+    }
+
+    if (evidenceQuality.coverage >= 0.5 && evidenceQuality.confidence >= 0.45) {
+        return null;
+    }
+
+    const evidence = buildDiagnosisEvidence(metrics, 'sprayScore');
+
+    return {
+        type: 'inconclusive',
+        severity: 1,
+        evidenceQuality,
+        confidence: evidence.confidence,
+        evidence,
+        description: `Evidencia fraca: coverage ${(evidenceQuality.coverage * 100).toFixed(0)}% e confidence ${(evidenceQuality.confidence * 100).toFixed(0)}%.`,
+        cause: 'Poucos frames confiaveis ou muita oclusao impedem separar erro real de ruido do tracking.',
+        remediation: 'Grave outro clip com a mira visivel durante todo o spray antes de ajustar sensibilidade.',
+    };
+}
+
 // ═══════════════════════════════════════════
 // Individual Diagnostics
 // ═══════════════════════════════════════════
@@ -53,12 +184,17 @@ function diagnoseOverpull(metrics: SprayMetrics): OverpullDiagnosis | null {
     if (vci <= 1.15) return null; // Dentro do aceitável
 
     const excess = Math.round((vci - 1) * 100);
+    const dominantPhase = getDominantPhase(metrics);
+    const evidence = buildDiagnosisEvidence(metrics, 'verticalControlIndex');
     return {
         type: 'overpull',
-        severity: percentToSeverity(excess),
+        severity: evidenceAdjustedSeverity(percentToSeverity(excess), metrics, 'verticalControlIndex'),
         verticalControlIndex: vci,
         excessPercent: excess,
-        description: `Você está puxando o mouse ${excess}% a mais do que o necessário para compensar o recoil.`,
+        dominantPhase,
+        confidence: evidence.confidence,
+        evidence,
+        description: `Voce esta puxando o mouse ${excess}% a mais do que o necessario para compensar o recoil. Fase dominante: ${dominantPhase}.`,
         cause: 'Sensibilidade muito baixa ou movimento brusco demais ao compensar. Possível excesso de força no pulldown.',
         remediation: `Reduza a força do pulldown. Considere aumentar a sens vertical em ${Math.min(excess, 15)}% ou usar o multiplicador vertical.`,
     };
@@ -69,12 +205,17 @@ function diagnoseUnderpull(metrics: SprayMetrics): UnderpullDiagnosis | null {
     if (vci >= 0.85) return null;
 
     const deficit = Math.round((1 - vci) * 100);
+    const dominantPhase = getDominantPhase(metrics);
+    const evidence = buildDiagnosisEvidence(metrics, 'verticalControlIndex');
     return {
         type: 'underpull',
-        severity: percentToSeverity(deficit),
+        severity: evidenceAdjustedSeverity(percentToSeverity(deficit), metrics, 'verticalControlIndex'),
         verticalControlIndex: vci,
         deficitPercent: deficit,
-        description: `Compensação vertical ${deficit}% abaixo do ideal. O spray sobe mais do que deveria.`,
+        dominantPhase,
+        confidence: evidence.confidence,
+        evidence,
+        description: `Compensacao vertical ${deficit}% abaixo do ideal. O spray sobe mais do que deveria. Fase dominante: ${dominantPhase}.`,
         cause: 'Sensibilidade muito alta ou pulldown insuficiente. Pode indicar falta de espaço no mousepad ou hábito de spray curto.',
         remediation: `Aumente a força do pulldown ou reduza a sens em ${Math.min(deficit, 15)}%. Verifique se tem espaço suficiente no mousepad.`,
     };
@@ -84,6 +225,15 @@ function diagnoseLateCompensation(metrics: SprayMetrics): LateCompensationDiagno
     const responseMs = Number(metrics.initialRecoilResponseMs);
     const idealMs = 120; // ~4 frames a 30fps
     if (responseMs <= idealMs * 1.5) return null;
+
+    const convergedOnTarget = (
+        Math.abs(metrics.verticalControlIndex - 1) <= 0.05 &&
+        metrics.angularErrorDegrees <= 0.15 &&
+        metrics.linearErrorCm <= 1
+    );
+    if (convergedOnTarget) {
+        return null;
+    }
 
     const delay = responseMs - idealMs;
     return {
@@ -154,6 +304,11 @@ export function runDiagnostics(
     weaponCategory: WeaponCategory
 ): Diagnosis[] {
     const diagnoses: Diagnosis[] = [];
+
+    const inconclusive = diagnoseInconclusive(metrics);
+    if (inconclusive) {
+        return [inconclusive];
+    }
 
     const overpull = diagnoseOverpull(metrics);
     if (overpull) diagnoses.push(overpull);

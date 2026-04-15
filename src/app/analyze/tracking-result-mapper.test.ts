@@ -1,0 +1,37 @@
+import { describe, expect, it } from 'vitest';
+import { mapWorkerTrackingResultToEngine } from './tracking-result-mapper';
+
+describe('mapWorkerTrackingResultToEngine', () => {
+    it('preserves worker confidence and tracking quality counters', () => {
+        const result = mapWorkerTrackingResultToEngine({
+            points: [
+                { frame: 2, timestamp: 16, x: 101.5, y: 202.25, confidence: 0.42 },
+                { frame: 4, timestamp: 32, x: 104, y: 208, confidence: 0.73 },
+            ],
+            trackingQuality: 0.6,
+            framesTracked: 3,
+            framesLost: 2,
+            visibleFrames: 3,
+            framesProcessed: 5,
+            statusCounts: { tracked: 1, occluded: 1, lost: 1, uncertain: 2 },
+            trackingFrames: [
+                { frame: 0, timestamp: 0, status: 'lost', confidence: 0, visiblePixels: 0 },
+                { frame: 1, timestamp: 16, status: 'uncertain', confidence: 0.42, visiblePixels: 5, x: 101.5, y: 202.25 },
+                { frame: 2, timestamp: 32, status: 'tracked', confidence: 0.73, visiblePixels: 18, x: 104, y: 208 },
+                { frame: 3, timestamp: 48, status: 'occluded', confidence: 0, visiblePixels: 0 },
+                { frame: 4, timestamp: 64, status: 'uncertain', confidence: 0.5, visiblePixels: 7, x: 106, y: 210 },
+            ],
+        });
+
+        expect(result.points.map(point => point.confidence)).toEqual([0.42, 0.73]);
+        expect(result.points.map(point => point.frame)).toEqual([2, 4]);
+        expect(result.trackingQuality).toBe(0.6);
+        expect(result.framesTracked).toBe(3);
+        expect(result.framesLost).toBe(2);
+        expect(result.visibleFrames).toBe(3);
+        expect(result.framesProcessed).toBe(5);
+        expect(result.statusCounts).toEqual({ tracked: 1, occluded: 1, lost: 1, uncertain: 2 });
+        expect(result.trackingFrames.map(frame => frame.status)).toEqual(['lost', 'uncertain', 'tracked', 'occluded', 'uncertain']);
+        expect(result.trackingFrames[1]?.x).toBe(101.5);
+    });
+});

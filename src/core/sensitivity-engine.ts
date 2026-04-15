@@ -31,6 +31,21 @@ interface SensRange {
     readonly idealCm360: number;
 }
 
+type ResidualObjectiveDirection = 'increase_sens' | 'decrease_sens' | 'hold';
+
+interface ResidualObjective {
+    readonly direction: ResidualObjectiveDirection;
+    readonly meanPitchResidual: number;
+    readonly meanAbsResidual: number;
+    readonly coverage: number;
+    readonly confidence: number;
+    readonly adjustmentPercent: number;
+    readonly recommended: ProfileType | null;
+    readonly hasResiduals: boolean;
+}
+
+const RESIDUAL_DEADZONE_DEGREES = 0.05;
+
 function getBaseSensRange(
     playStyle: string,
     gripStyle: string
@@ -92,6 +107,82 @@ function adjustForDiagnostics(
     return adjusted;
 }
 
+function clampPercent(value: number, min: number, max: number): number {
+    return Math.max(min, Math.min(max, value));
+}
+
+function calculateResidualObjective(metrics: SprayMetrics): ResidualObjective {
+    const residuals = metrics.shotResiduals ?? [];
+    const quality = metrics.metricQuality?.shotResiduals;
+    const coverage = quality?.coverage ?? 1;
+    const confidence = quality?.confidence ?? 1;
+
+    if (residuals.length === 0) {
+        return {
+            direction: 'hold',
+            meanPitchResidual: 0,
+            meanAbsResidual: 0,
+            coverage,
+            confidence,
+            adjustmentPercent: 0,
+            recommended: null,
+            hasResiduals: false,
+        };
+    }
+
+    const meanPitchResidual = residuals.reduce(
+        (sum, residual) => sum + residual.residual.pitch,
+        0
+    ) / residuals.length;
+    const meanAbsResidual = residuals.reduce(
+        (sum, residual) => sum + residual.residualMagnitudeDegrees,
+        0
+    ) / residuals.length;
+
+    if (Math.abs(meanPitchResidual) <= RESIDUAL_DEADZONE_DEGREES) {
+        return {
+            direction: 'hold',
+            meanPitchResidual,
+            meanAbsResidual,
+            coverage,
+            confidence,
+            adjustmentPercent: 0,
+            recommended: null,
+            hasResiduals: true,
+        };
+    }
+
+    const direction: ResidualObjectiveDirection = meanPitchResidual < 0
+        ? 'increase_sens'
+        : 'decrease_sens';
+
+    return {
+        direction,
+        meanPitchResidual,
+        meanAbsResidual,
+        coverage,
+        confidence,
+        adjustmentPercent: clampPercent(meanAbsResidual * 0.12 * confidence, 0.02, 0.08),
+        recommended: direction === 'increase_sens' ? 'high' : 'low',
+        hasResiduals: true,
+    };
+}
+
+function applyResidualObjective(
+    idealCm360: number,
+    objective: ResidualObjective
+): number {
+    if (!objective.hasResiduals || objective.direction === 'hold') {
+        return idealCm360;
+    }
+
+    if (objective.direction === 'increase_sens') {
+        return idealCm360 * (1 - objective.adjustmentPercent);
+    }
+
+    return idealCm360 * (1 + objective.adjustmentPercent);
+}
+
 // ═══════════════════════════════════════════
 // Build Profile
 // ═══════════════════════════════════════════
@@ -109,8 +200,11 @@ function buildProfile(
     // Calculate per-scope sensitivities
     const scopeEntries: ScopeSensitivity[] = (Object.keys(SCOPES) as ScopeId[])
         .filter(id => id !== 'hip')
-        .map(scopeId => {
+        .flatMap(scopeId => {
             const scope = SCOPES[scopeId];
+            if (!scope) {
+                return [];
+            }
             const current = (currentScopeSens && currentScopeSens[scopeId]) ?? 50;
 
             // Recomendamos que cada mira mantenha a mesma "física" do generalSlider
@@ -119,12 +213,12 @@ function buildProfile(
             // mas como o PUBG tem multipliers internos, o ideal é o 1:1 físico.
             const recommended = generalSlider;
 
-            return {
+            return [{
                 scopeName: scope.name,
                 current: asSensitivity(current),
                 recommended: asSensitivity(recommended),
                 changePercent: Math.round(((recommended - current) / Math.max(current, 1)) * 100),
-            };
+            }];
         });
 
     const labels: Record<ProfileType, { label: string; description: string }> = {
@@ -171,9 +265,12 @@ export function generateSensitivityRecommendation(
 ): SensitivityRecommendation {
     // 1. Get base range
     const range = getBaseSensRange(playStyle, gripStyle);
+    const residualObjective = calculateResidualObjective(metrics);
 
-    // 2. Adjust ideal based on diagnostics + phase weighting
-    const adjustedIdeal = adjustForDiagnostics(range.idealCm360, diagnoses, metrics);
+    // 2. Residual objective drives the math; diagnostics are a legacy fallback.
+    const adjustedIdeal = residualObjective.hasResiduals
+        ? applyResidualObjective(range.idealCm360, residualObjective)
+        : adjustForDiagnostics(range.idealCm360, diagnoses, metrics);
 
     // 3. Clamp to viable range (mousepad-aware)
     const minViable = isSensViableForMousepad(range.minCm360, mousepadWidthCm) ? range.minCm360 : adjustedIdeal * 0.8;
@@ -190,10 +287,10 @@ export function generateSensitivityRecommendation(
         buildProfile('high', highCm360, dpi, currentScopeSens),
     ];
 
-    // 5. Choose recommended profile based on dominant diagnosis
-    let recommended: ProfileType = 'balanced';
+    // 5. Choose recommended profile from residual objective, falling back to dominant diagnosis.
+    let recommended: ProfileType = residualObjective.recommended ?? 'balanced';
     const dominant = diagnoses[0]; // Highest severity
-    if (dominant) {
+    if (!residualObjective.recommended && dominant) {
         if (dominant.type === 'overpull') {
             recommended = 'high';
         } else if (dominant.type === 'underpull') {
@@ -206,7 +303,13 @@ export function generateSensitivityRecommendation(
     const burstVCI = metrics.burstVCI ?? metrics.verticalControlIndex;
     let suggestedVSM: number | undefined;
 
-    if (burstVCI > 1.05 || burstVCI < 0.95) {
+    if (residualObjective.hasResiduals && residualObjective.direction !== 'hold') {
+        const directionMultiplier = residualObjective.direction === 'increase_sens'
+            ? 1 - residualObjective.adjustmentPercent
+            : 1 + residualObjective.adjustmentPercent;
+        suggestedVSM = Number((currentVSM * directionMultiplier).toFixed(2));
+        suggestedVSM = Math.max(0.7, Math.min(2.0, suggestedVSM));
+    } else if (burstVCI > 1.05 || burstVCI < 0.95) {
         // target_vsm = current_vsm / vci
         suggestedVSM = Number((currentVSM / burstVCI).toFixed(2));
         // Clamp entre 0.7 e 2.0 (limites razoáveis do PUBG)
@@ -215,8 +318,14 @@ export function generateSensitivityRecommendation(
 
     // 7. Reasoning
     const reasoningParts: string[] = [
+        `residualObjective=${residualObjective.direction}`,
+        `meanPitchResidual=${residualObjective.meanPitchResidual.toFixed(3)}`,
+        `meanAbsResidual=${residualObjective.meanAbsResidual.toFixed(3)}`,
+        `coverage=${residualObjective.coverage.toFixed(2)}`,
+        `confidence=${residualObjective.confidence.toFixed(2)}`,
+        `prior=${playStyle}/${gripStyle}`,
         `Fase Burst: VCI ${burstVCI.toFixed(2)}`,
-        `Estilo ${playStyle}, Grip ${gripStyle}`,
+        `DPI ${dpi}`,
     ];
     if (dominant) {
         reasoningParts.push(`foco em ${dominant.type}`);

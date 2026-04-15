@@ -1,0 +1,158 @@
+{
+  "schemaVersion": 1,
+  "clipId": "captured-clip2-2026-04-14",
+  "sourceVideoPath": "tests/fixtures/captured-clips/clip2.mp4",
+  "createdAt": "2026-04-14T19:23:50.200Z",
+  "sampleIntervalSeconds": 1,
+  "frameSize": {
+    "width": 1728,
+    "height": 1080
+  },
+  "frames": [
+    {
+      "frameIndex": 0,
+      "timestampSeconds": 0,
+      "label": {
+        "status": "tracked",
+        "x": 864,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 144,
+      "timestampSeconds": 1,
+      "label": {
+        "status": "tracked",
+        "x": 864,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 287,
+      "timestampSeconds": 2,
+      "label": {
+        "status": "tracked",
+        "x": 864,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 431,
+      "timestampSeconds": 3,
+      "label": {
+        "status": "tracked",
+        "x": 864,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 575,
+      "timestampSeconds": 4,
+      "label": {
+        "status": "tracked",
+        "x": 864,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 719,
+      "timestampSeconds": 5,
+      "label": {
+        "status": "uncertain",
+        "x": 864,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 862,
+      "timestampSeconds": 6,
+      "label": {
+        "status": "tracked",
+        "x": 864,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 1006,
+      "timestampSeconds": 7,
+      "label": {
+        "status": "tracked",
+        "x": 864,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 1150,
+      "timestampSeconds": 8,
+      "label": {
+        "status": "tracked",
+        "x": 865,
+        "y": 539
+      }
+    },
+    {
+      "frameIndex": 1294,
+      "timestampSeconds": 9,
+      "label": {
+        "status": "tracked",
+        "x": 863,
+        "y": 539
+      }
+    },
+    {
+      "frameIndex": 1437,
+      "timestampSeconds": 10,
+      "label": {
+        "status": "lost",
+        "x": null,
+        "y": null,
+        "notes": "Weapon transition frame without a labelable reticle."
+      }
+    },
+    {
+      "frameIndex": 1581,
+      "timestampSeconds": 11,
+      "label": {
+        "status": "tracked",
+        "x": 864,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 1725,
+      "timestampSeconds": 12,
+      "label": {
+        "status": "tracked",
+        "x": 864,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 1869,
+      "timestampSeconds": 13,
+      "label": {
+        "status": "tracked",
+        "x": 864,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 2012,
+      "timestampSeconds": 14,
+      "label": {
+        "status": "uncertain",
+        "x": 864,
+        "y": 540
+      }
+    },
+    {
+      "frameIndex": 2148,
+      "timestampSeconds": 14.951,
+      "label": {
+        "status": "tracked",
+        "x": 864,
+        "y": 540
+      }
+    }
+  ]
+}

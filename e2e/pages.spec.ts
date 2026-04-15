@@ -1,6 +1,6 @@
 /**
  * E2E: Navigation & Page Loading
- * Verifica que todas as páginas carregam corretamente.
+ * Verifica que todas as paginas carregam corretamente.
  */
 
 import { test, expect } from '@playwright/test';
@@ -10,7 +10,7 @@ test.describe('Page Loading', () => {
         await page.goto('/');
         await expect(page).toHaveTitle(/PUBG Aim Analyzer/);
         await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-        await expect(page.getByText('Começar Análise')).toBeVisible();
+        await expect(page.getByText(/Come.*Anal/i)).toBeVisible();
     });
 
     test('login page shows auth providers', async ({ page }) => {
@@ -20,17 +20,22 @@ test.describe('Page Loading', () => {
         await expect(page.getByText('Continuar com Discord')).toBeVisible();
     });
 
-    test('analyze page loads with dropzone', async ({ page }) => {
+    test('analyze page loads with a valid primary flow', async ({ page }) => {
         await page.goto('/analyze');
         await expect(page).toHaveTitle(/Analisar/);
-        await expect(page.getByText(/solte seu clip/i)).toBeVisible();
+        await expect(
+            page
+                .getByText(/solte seu clip/i)
+                .or(page.getByRole('link', { name: /iniciar assistente de setup/i }))
+        ).toBeVisible();
     });
 
     test('header has navigation links', async ({ page }) => {
         await page.goto('/');
-        await expect(page.getByRole('link', { name: 'Analisar' })).toBeVisible();
-        await expect(page.getByRole('link', { name: 'Histórico' })).toBeVisible();
-        await expect(page.getByRole('link', { name: 'Perfil' })).toBeVisible();
+        const nav = page.getByRole('navigation', { name: /navega/i });
+        await expect(nav.locator('a[href="/analyze"]')).toBeVisible();
+        await expect(nav.locator('a[href="/history"]')).toBeVisible();
+        await expect(nav.locator('a[href="/profile"]')).toBeVisible();
     });
 
     test('header shows ENTRAR button when not logged in', async ({ page }) => {

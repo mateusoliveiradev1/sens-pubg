@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "name": "low-confidence-underpull",
+  "loadout": {
+    "stance": "standing",
+    "muzzle": "none",
+    "grip": "none",
+    "stock": "none"
+  },
+  "context": {
+    "patchVersion": "41.1"
+  },
+  "diagnoses": [
+    {
+      "type": "underpull",
+      "severity": 4,
+      "verticalControlIndex": 0.7,
+      "deficitPercent": 30,
+      "confidence": 0.38,
+      "evidence": {
+        "confidence": 0.38,
+        "coverage": 0.44,
+        "angularErrorDegrees": 1.2,
+        "linearErrorCm": 56,
+        "linearErrorSeverity": 4
+      },
+      "description": "Pulldown possivelmente baixo",
+      "cause": "Evidencia parcial do tracking",
+      "remediation": "Considere reduzir sensibilidade vertical"
+    }
+  ],
+  "expected": [
+    {
+      "mode": "low-confidence",
+      "problem": "Pulldown possivelmente baixo",
+      "evidence": {
+        "diagnosisType": "underpull",
+        "severity": 4,
+        "confidence": 0.38,
+        "coverage": 0.44,
+        "angularErrorDegrees": 1.2,
+        "linearErrorCm": 56,
+        "linearErrorSeverity": 4,
+        "patchVersion": "41.1",
+        "attachmentCatalogVersion": "41.1"
+      },
+      "confidence": 0.38,
+      "likelyCause": "Evidencia parcial do tracking",
+      "adjustment": "Hipotese de baixa confianca: Considere reduzir sensibilidade vertical Antes de alterar sensibilidade ou attachments, grave um novo clip com tracking mais limpo para confirmar o padrao.",
+      "drill": "**Drill de Pulldown Gradual**: Atire em uma parede limpa a 50m. Tente fazer um ponto de impactos. Se o spray subir, force o mouse para baixo de forma continua, nao apenas no inicio.",
+      "verifyNextClip": "Grave um novo clip antes de confirmar underpull; busque coverage >= 70% e confidence >= 70%.",
+      "adaptationTimeDays": 5
+    }
+  ]
+}

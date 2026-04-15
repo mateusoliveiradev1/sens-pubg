@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "datasetId": "pubg-spray-benchmark-synthetic-v1",
+  "createdAt": "2026-04-14T15:00:00.000Z",
+  "clips": [
+    {
+      "clipId": "clean-centered-red-411",
+      "media": {
+        "videoPath": "tests/goldens/tracking/clean-centered-red.json"
+      },
+      "capture": {
+        "patchVersion": "41.1",
+        "weaponId": "ace32",
+        "distanceMeters": 25,
+        "stance": "standing",
+        "optic": {
+          "opticId": "red-dot-sight",
+          "stateId": "1x"
+        },
+        "attachments": {
+          "muzzle": "compensator",
+          "grip": "vertical",
+          "stock": "none"
+        }
+      },
+      "labels": {
+        "expectedDiagnoses": [],
+        "expectedTrackingTier": "clean"
+      },
+      "quality": {
+        "sourceType": "synthetic",
+        "reviewStatus": "golden",
+        "occlusionLevel": "none",
+        "compressionLevel": "lossless",
+        "visibilityTier": "clean"
+      },
+      "fixtures": {
+        "trackingFixturePath": "tests/goldens/tracking/clean-centered-red.json",
+        "diagnosticFixturePath": "tests/goldens/diagnostic/clean-no-diagnosis-411.json",
+        "coachFixturePath": "tests/goldens/coach/clean-no-diagnosis-411.json"
+      }
+    },
+    {
+      "clipId": "degraded-underpull-411",
+      "media": {
+        "videoPath": "tests/goldens/tracking/degraded-occlusion-red.json"
+      },
+      "capture": {
+        "patchVersion": "41.1",
+        "weaponId": "beryl-m762",
+        "distanceMeters": 30,
+        "stance": "standing",
+        "optic": {
+          "opticId": "red-dot-sight",
+          "stateId": "1x"
+        },
+        "attachments": {
+          "muzzle": "none",
+          "grip": "none",
+          "stock": "none"
+        }
+      },
+      "labels": {
+        "expectedDiagnoses": [
+          "underpull"
+        ],
+        "expectedCoachMode": "low-confidence",
+        "expectedTrackingTier": "degraded"
+      },
+      "quality": {
+        "sourceType": "synthetic",
+        "reviewStatus": "reviewed",
+        "occlusionLevel": "moderate",
+        "compressionLevel": "medium",
+        "visibilityTier": "degraded"
+      },
+      "fixtures": {
+        "trackingFixturePath": "tests/goldens/tracking/degraded-occlusion-red.json",
+        "diagnosticFixturePath": "tests/goldens/diagnostic/degraded-underpull-low-confidence-411.json",
+        "coachFixturePath": "tests/goldens/coach/low-confidence-underpull.json"
+      }
+    }
+  ]
+}

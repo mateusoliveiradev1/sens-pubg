@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "labelSetId": "captured-clips-labels-todo-2026-04-14",
+  "intakeManifestId": "captured-clips-intake-2026-04-14",
+  "createdAt": "2026-04-14T19:05:00.000Z",
+  "clips": [
+    {
+      "clipId": "captured-clip1-2026-04-14",
+      "capture": {
+        "patchVersion": "40.1",
+        "weaponId": "aug",
+        "distanceMeters": 100,
+        "stance": "standing",
+        "optic": {
+          "opticId": "red-dot-sight",
+          "stateId": "1x"
+        },
+        "attachments": {
+          "muzzle": "muzzle_brake",
+          "grip": "thumb",
+          "stock": "none"
+        }
+      },
+      "sprayWindow": {
+        "startSeconds": 11.8,
+        "endSeconds": 14.8
+      },
+      "frameLabelsPath": "tests/fixtures/captured-clips/labels/captured-clip1-2026-04-14.frames.todo.json",
+      "labels": {
+        "expectedDiagnoses": [],
+        "expectedCoachMode": null,
+        "expectedTrackingTier": "clean"
+      },
+      "notes": "Frame labels were machine-assisted from visible reticle samples. Weapon setup confirmed by player: AUG, Muzzle Brake, Thumb Grip, Red Dot Sight. HUD/build text visually suggests 40.1.x and is normalized to patchVersion 40.1. Stance, spray window, and 100m distance were visually estimated from the HUD/ADS firing segment and range boards. Expected diagnoses are set to [] because review did not show a clear, consistent overpull, underpull, jitter, drift, or inconsistency pattern."
+    },
+    {
+      "clipId": "captured-clip2-2026-04-14",
+      "capture": {
+        "patchVersion": "40.1",
+        "weaponId": "aug",
+        "distanceMeters": 50,
+        "stance": "standing",
+        "optic": {
+          "opticId": "red-dot-sight",
+          "stateId": "1x"
+        },
+        "attachments": {
+          "muzzle": "muzzle_brake",
+          "grip": "thumb",
+          "stock": "none"
+        }
+      },
+      "sprayWindow": {
+        "startSeconds": 11,
+        "endSeconds": 14.951
+      },
+      "frameLabelsPath": "tests/fixtures/captured-clips/labels/captured-clip2-2026-04-14.frames.todo.json",
+      "labels": {
+        "expectedDiagnoses": [],
+        "expectedCoachMode": null,
+        "expectedTrackingTier": "degraded"
+      },
+      "notes": "Frame labels were machine-assisted from visible reticle samples. Weapon setup confirmed by player: AUG, Muzzle Brake, Thumb Grip, Red Dot Sight. HUD/build text visually suggests 40.1.x and is normalized to patchVersion 40.1. Stance, spray window, and 50m distance were visually estimated from the HUD/ADS firing segment and range boards. Visual auto-triage suggests this is the degraded candidate because of foreground structure and mixed framing. Expected diagnoses are set to [] because review did not show a clear, consistent overpull, underpull, jitter, drift, or inconsistency pattern."
+    },
+    {
+      "clipId": "captured-clip3-2026-04-14",
+      "capture": {
+        "patchVersion": "40.1",
+        "weaponId": "aug",
+        "distanceMeters": 100,
+        "stance": "standing",
+        "optic": {
+          "opticId": "red-dot-sight",
+          "stateId": "1x"
+        },
+        "attachments": {
+          "muzzle": "compensator",
+          "grip": "thumb",
+          "stock": "none"
+        }
+      },
+      "sprayWindow": {
+        "startSeconds": 11.6,
+        "endSeconds": 14.2
+      },
+      "frameLabelsPath": "tests/fixtures/captured-clips/labels/captured-clip3-2026-04-14.frames.todo.json",
+      "labels": {
+        "expectedDiagnoses": [],
+        "expectedCoachMode": null,
+        "expectedTrackingTier": "clean"
+      },
+      "notes": "Frame labels were machine-assisted from visible reticle samples. Inventory review confirms AUG with Red Dot Sight and Compensator; the grip icon was visually estimated as Thumb Grip from the attachment slot. The HUD/range markers show a 100 m training-range setup on patch 40.1.x. Spray window and stance were estimated from the late ADS firing segment, and expected diagnoses remain [] because the visible burst does not sustain a stable error signature across the sampled frames."
+    },
+    {
+      "clipId": "captured-clip4-2026-04-14",
+      "capture": {
+        "patchVersion": "40.1",
+        "weaponId": "beryl-m762",
+        "distanceMeters": 100,
+        "stance": "standing",
+        "optic": {
+          "opticId": "red-dot-sight",
+          "stateId": "1x"
+        },
+        "attachments": {
+          "muzzle": "compensator",
+          "grip": "vertical",
+          "stock": "none"
+        }
+      },
+      "sprayWindow": {
+        "startSeconds": 3.5,
+        "endSeconds": 7
+      },
+      "frameLabelsPath": "tests/fixtures/captured-clips/labels/captured-clip4-2026-04-14.frames.todo.json",
+      "labels": {
+        "expectedDiagnoses": [
+          "overpull"
+        ],
+        "expectedCoachMode": "standard",
+        "expectedTrackingTier": "degraded"
+      },
+      "notes": "Frame labels were machine-assisted from visible reticle samples. First-person weapon geometry and the HUD icon indicate a Beryl M762 with Red Dot Sight at a 100 m calibration overlay on patch 40.1.x; muzzle and grip were visually estimated from the visible weapon model because no inventory frame appears in the sampled segment. The clip is intentionally marked degraded because the stream webcam, HUD clutter, and TDM scene occlude part of the frame. The current proxy trajectory reproduces a measurable overpull pattern, so the expected diagnosis is locked to ['overpull'] with coach mode 'standard'."
+    }
+  ]
+}

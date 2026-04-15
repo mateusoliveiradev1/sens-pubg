@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "manifestId": "captured-clips-intake-2026-04-14",
+  "createdAt": "2026-04-14T18:45:00.000Z",
+  "clips": [
+    {
+      "clipId": "captured-clip1-2026-04-14",
+      "media": {
+        "videoPath": "tests/fixtures/captured-clips/clip1.mp4",
+        "contactPreviewPath": "tests/fixtures/captured-clips/previews/clip1_contact.jpg",
+        "centerPreviewPath": "tests/fixtures/captured-clips/previews/clip1_center.jpg",
+        "sha256": "267f1b1147f44a0ac629c71b309b19880e2e84829d17a2cf5f4da251c567ffc9",
+        "sizeBytes": 48402783,
+        "width": 1744,
+        "height": 1080,
+        "fps": 143.477,
+        "frameCount": 2192,
+        "durationSeconds": 15.278,
+        "codecFourcc": "hevc",
+        "meanBlurLaplacian": 693.39,
+        "meanCenterBlurLaplacian": 744.35
+      },
+      "quality": {
+        "reviewStatus": "human-reviewed",
+        "qualityTier": "candidate-clean",
+        "occlusionLevel": "light",
+        "compressionLevel": "light",
+        "reticleVisibility": "intermittent",
+        "benchmarkReadiness": "ready-for-golden-labels",
+        "rationale": "Alta resolucao e cerca de 144 fps, com reticulo visivel nos samples de ADS. Um sample mostra inventario aberto, entao o trecho de spray precisa de rotulo humano antes de virar golden."
+      },
+      "unknownCaptureFields": []
+    },
+    {
+      "clipId": "captured-clip2-2026-04-14",
+      "media": {
+        "videoPath": "tests/fixtures/captured-clips/clip2.mp4",
+        "contactPreviewPath": "tests/fixtures/captured-clips/previews/clip2_contact.jpg",
+        "centerPreviewPath": "tests/fixtures/captured-clips/previews/clip2_center.jpg",
+        "sha256": "42b3bfe535de191c9f8f6667341daa49a57232f51c9ca4dc82e10d86c882cba0",
+        "sizeBytes": 47630289,
+        "width": 1728,
+        "height": 1080,
+        "fps": 143.733,
+        "frameCount": 2149,
+        "durationSeconds": 14.951,
+        "codecFourcc": "hevc",
+        "meanBlurLaplacian": 491.01,
+        "meanCenterBlurLaplacian": 427.97
+      },
+      "quality": {
+        "reviewStatus": "human-reviewed",
+        "qualityTier": "candidate-degraded",
+        "occlusionLevel": "moderate",
+        "compressionLevel": "light",
+        "reticleVisibility": "intermittent",
+        "benchmarkReadiness": "ready-for-golden-labels",
+        "rationale": "Alta resolucao e cerca de 144 fps, mas os samples mostram janela/estrutura no primeiro plano e alternancia de enquadramento. E util como candidato degradado, nao como golden limpo."
+      },
+      "unknownCaptureFields": []
+    },
+    {
+      "clipId": "captured-clip3-2026-04-14",
+      "media": {
+        "videoPath": "tests/fixtures/captured-clips/clip3.mp4",
+        "contactPreviewPath": "tests/fixtures/captured-clips/previews/clip3_contact.jpg",
+        "centerPreviewPath": "tests/fixtures/captured-clips/previews/clip3_center.jpg",
+        "sha256": "5805ec4935e836c4a0550ddd7fd9169c989f5002d6fe27aff49c713d626850b7",
+        "sizeBytes": 45219619,
+        "width": 1728,
+        "height": 1080,
+        "fps": 143.592,
+        "frameCount": 2106,
+        "durationSeconds": 14.667,
+        "codecFourcc": "hevc",
+        "meanBlurLaplacian": 717.55,
+        "meanCenterBlurLaplacian": 814.08
+      },
+      "quality": {
+        "reviewStatus": "human-reviewed",
+        "qualityTier": "candidate-clean",
+        "occlusionLevel": "light",
+        "compressionLevel": "light",
+        "reticleVisibility": "visible",
+        "benchmarkReadiness": "ready-for-golden-labels",
+        "rationale": "Clip do training range com leitura clara do reticulo e do alvo a 100 m. O inventario confirma AUG com red dot e compensator; o corrimao ocupa apenas a faixa inferior e nao compromete o sample principal."
+      },
+      "unknownCaptureFields": []
+    },
+    {
+      "clipId": "captured-clip4-2026-04-14",
+      "media": {
+        "videoPath": "tests/fixtures/captured-clips/clip4.mp4",
+        "contactPreviewPath": "tests/fixtures/captured-clips/previews/clip4_contact.jpg",
+        "centerPreviewPath": "tests/fixtures/captured-clips/previews/clip4_center.jpg",
+        "sha256": "9d90b97cf35b85b5ba29cda2830b27593f40adfb4afbab7cc5590ee6ed56341b",
+        "sizeBytes": 40296625,
+        "width": 1920,
+        "height": 1080,
+        "fps": 119.968,
+        "frameCount": 1807,
+        "durationSeconds": 15.062,
+        "codecFourcc": "hevc",
+        "meanBlurLaplacian": 1003.21,
+        "meanCenterBlurLaplacian": 366.25
+      },
+      "quality": {
+        "reviewStatus": "human-reviewed",
+        "qualityTier": "candidate-degraded",
+        "occlusionLevel": "moderate",
+        "compressionLevel": "medium",
+        "reticleVisibility": "visible",
+        "benchmarkReadiness": "ready-for-golden-labels",
+        "rationale": "Clip novo com Beryl M762 em ADS a 100 m, mas com HUD de stream, webcam e elementos de TDM ocupando parte do quadro. Continua util para benchmark degradado e para cobrir arma distinta do corpus inicial."
+      },
+      "unknownCaptureFields": []
+    }
+  ]
+}

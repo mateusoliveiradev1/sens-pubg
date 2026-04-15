@@ -53,7 +53,7 @@ export function SetupForm({ initialData }: { initialData?: Partial<SetupWizardIn
             <div className="glass-card-gradient space-y-6">
                 <div className="space-y-2">
                     <h2 className="text-accent">Setup do Jogador</h2>
-                    <p className="text-sm opacity-70">Configure seu hardware para análises precisas.</p>
+                    <p className="text-sm opacity-70">Configure seu hardware para análises contextualizadas.</p>
                 </div>
 
                 {error && (

@@ -3,6 +3,10 @@
  */
 
 export * from './branded';
+export * from './benchmark';
+export * from './captured-clip-labels';
+export * from './captured-clip-intake';
+export * from './captured-frame-labels';
 export * from './engine';
 export type {
     PlayerProfileInput,

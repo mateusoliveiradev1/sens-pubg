@@ -1,17 +1,18 @@
 /**
  * PUBG Sensitivity Mathematics.
  * Formulas for converting between in-game slider (0-100) and internal multipliers.
- * 
- * Sources: 
+ *
+ * Sources:
  * - internalSens = 10^((menuSens - 50) / 50)
  * - menuSens = 50 * log10(internalSens) + 50
  */
+
+import { delta_theta } from './projection-math';
 
 /**
  * Converte o valor do slider (0-100) para o multiplicador interno do PUBG.
  */
 export function sliderToInternal(slider: number): number {
-    // Clamp slider to 0-100
     const val = Math.max(0, Math.min(100, slider));
     return Math.pow(10, (val - 50) / 50);
 }
@@ -26,37 +27,37 @@ export function internalToSlider(internal: number): number {
 }
 
 /**
- * Calcula o Yaw por Count (em graus) dado o multiplicador interno.
- * O PUBG usa um valor base que, quando multiplicado por internalSens,
- * resulta em 0.05 graus por count em sensibilidade 50.
- * 
+ * Calcula o yaw por count (em graus) dado o multiplicador interno.
+ *
  * Formula final de cm/360:
  * cm/360 = (360 * 2.54) / (DPI * PUBG_BASE_ROTATION_CONSTANT * internalSens)
  */
 export const PUBG_BASE_ROTATION_CONSTANT = 0.05;
 
 /**
- * Calcula a escala de Pixel para Grau (Angular) baseada no FOV e Resolução.
- * @param fov FOV horizontal do jogo (ex: 90)
- * @param resolutionY Resolução vertical (ex: 1080)
- * @returns Razão de graus por pixel (deg/px)
+ * Calcula a escala angular do pixel central baseada no FOV e resolucao.
+ * Para deltas grandes, prefira `delta_theta`; graus por pixel nao e constante
+ * em projecao perspectiva.
  */
-export function getPixelToDegree(fov: number, resolutionY: number): number {
-    // Para simplificação, usamos o FOV vertical derivado da proporção.
-    // Tan(FovV/2) = Tan(FovH/2) / AspectRatio
-    const aspectRatio = 16 / 9; // Padrao
-    const fovHRad = (fov * Math.PI) / 180;
-    const fovVRad = 2 * Math.atan(Math.tan(fovHRad / 2) / aspectRatio);
-    const fovV = (fovVRad * 180) / Math.PI;
+export function getPixelToDegree(
+    fov: number,
+    resolutionY: number,
+    resolutionX: number = Math.round((resolutionY * 16) / 9)
+): number {
+    const center = { x: resolutionX / 2, y: resolutionY / 2 };
+    const onePixelDown = { x: center.x, y: center.y + 1 };
 
-    return fovV / resolutionY;
+    return Math.abs(delta_theta(center, onePixelDown, {
+        widthPx: resolutionX,
+        heightPx: resolutionY,
+        horizontalFovDegrees: fov,
+    }).pitchDegrees);
 }
 
 /**
- * Retorna o multiplicador de compensação vertical (VSM).
+ * Retorna o multiplicador de compensacao vertical (VSM).
  * O VSM do PUBG afeta apenas o movimento vertical do mouse.
  */
 export function applyVerticalMultiplier(recoil: number, vsm: number): number {
     return recoil * vsm;
 }
-

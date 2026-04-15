@@ -1,0 +1,1223 @@
+{
+  "id": "8541efc1-f779-479b-9089-9bb068937c6c",
+  "prevId": "21993d16-f2d4-4c30-a9a4-e0aa96a280de",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.accounts": {
+      "name": "accounts",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider": {
+          "name": "provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_account_id": {
+          "name": "provider_account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "refresh_token": {
+          "name": "refresh_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "access_token": {
+          "name": "access_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "token_type": {
+          "name": "token_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scope": {
+          "name": "scope",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "id_token": {
+          "name": "id_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "session_state": {
+          "name": "session_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "accounts_user_id_users_id_fk": {
+          "name": "accounts_user_id_users_id_fk",
+          "tableFrom": "accounts",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "accounts_provider_provider_account_id_pk": {
+          "name": "accounts_provider_provider_account_id_pk",
+          "columns": [
+            "provider",
+            "provider_account_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.analysis_sessions": {
+      "name": "analysis_sessions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "weapon_id": {
+          "name": "weapon_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scope_id": {
+          "name": "scope_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "patch_version": {
+          "name": "patch_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stance": {
+          "name": "stance",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'standing'"
+        },
+        "attachments": {
+          "name": "attachments",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "distance": {
+          "name": "distance",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stability_score": {
+          "name": "stability_score",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vertical_control": {
+          "name": "vertical_control",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "horizontal_noise": {
+          "name": "horizontal_noise",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "recoil_response_ms": {
+          "name": "recoil_response_ms",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "drift_bias": {
+          "name": "drift_bias",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "consistency_score": {
+          "name": "consistency_score",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "diagnoses": {
+          "name": "diagnoses",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "trajectory_data": {
+          "name": "trajectory_data",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "coaching_data": {
+          "name": "coaching_data",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "full_result": {
+          "name": "full_result",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "spray_score": {
+          "name": "spray_score",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "analysis_sessions_user_id_users_id_fk": {
+          "name": "analysis_sessions_user_id_users_id_fk",
+          "tableFrom": "analysis_sessions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.audit_logs": {
+      "name": "audit_logs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "admin_id": {
+          "name": "admin_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "target": {
+          "name": "target",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "details": {
+          "name": "details",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "audit_logs_admin_id_users_id_fk": {
+          "name": "audit_logs_admin_id_users_id_fk",
+          "tableFrom": "audit_logs",
+          "tableTo": "users",
+          "columnsFrom": [
+            "admin_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.bot_heartbeat": {
+      "name": "bot_heartbeat",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "'main_bot'"
+        },
+        "last_seen": {
+          "name": "last_seen",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.player_profiles": {
+      "name": "player_profiles",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mouse_model": {
+          "name": "mouse_model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mouse_sensor": {
+          "name": "mouse_sensor",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mouse_dpi": {
+          "name": "mouse_dpi",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mouse_polling_rate": {
+          "name": "mouse_polling_rate",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mouse_weight": {
+          "name": "mouse_weight",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mouse_lod": {
+          "name": "mouse_lod",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mousepad_model": {
+          "name": "mousepad_model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mousepad_width": {
+          "name": "mousepad_width",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mousepad_height": {
+          "name": "mousepad_height",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mousepad_type": {
+          "name": "mousepad_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mousepad_material": {
+          "name": "mousepad_material",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "grip_style": {
+          "name": "grip_style",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "play_style": {
+          "name": "play_style",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "monitor_resolution": {
+          "name": "monitor_resolution",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "monitor_refresh_rate": {
+          "name": "monitor_refresh_rate",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "monitor_panel": {
+          "name": "monitor_panel",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "general_sens": {
+          "name": "general_sens",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ads_sens": {
+          "name": "ads_sens",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scope_sens": {
+          "name": "scope_sens",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fov": {
+          "name": "fov",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vertical_multiplier": {
+          "name": "vertical_multiplier",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mouse_acceleration": {
+          "name": "mouse_acceleration",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "arm_length": {
+          "name": "arm_length",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "desk_space": {
+          "name": "desk_space",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bio": {
+          "name": "bio",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "twitter": {
+          "name": "twitter",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "twitch": {
+          "name": "twitch",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "player_profiles_user_id_users_id_fk": {
+          "name": "player_profiles_user_id_users_id_fk",
+          "tableFrom": "player_profiles",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "player_profiles_user_id_unique": {
+          "name": "player_profiles_user_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "user_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.sensitivity_history": {
+      "name": "sensitivity_history",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "session_id": {
+          "name": "session_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "profile_type": {
+          "name": "profile_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "general_sens": {
+          "name": "general_sens",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ads_sens": {
+          "name": "ads_sens",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scope_sens": {
+          "name": "scope_sens",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "applied": {
+          "name": "applied",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "sensitivity_history_user_id_users_id_fk": {
+          "name": "sensitivity_history_user_id_users_id_fk",
+          "tableFrom": "sensitivity_history",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "sensitivity_history_session_id_analysis_sessions_id_fk": {
+          "name": "sensitivity_history_session_id_analysis_sessions_id_fk",
+          "tableFrom": "sensitivity_history",
+          "tableTo": "analysis_sessions",
+          "columnsFrom": [
+            "session_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.sessions": {
+      "name": "sessions",
+      "schema": "",
+      "columns": {
+        "session_token": {
+          "name": "session_token",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires": {
+          "name": "expires",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "sessions_user_id_users_id_fk": {
+          "name": "sessions_user_id_users_id_fk",
+          "tableFrom": "sessions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.system_settings": {
+      "name": "system_settings",
+      "schema": "",
+      "columns": {
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "value": {
+          "name": "value",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email_verified": {
+          "name": "email_verified",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "image": {
+          "name": "image",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "language": {
+          "name": "language",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pt-BR'"
+        },
+        "discord_id": {
+          "name": "discord_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'user'"
+        },
+        "fov": {
+          "name": "fov",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 90
+        },
+        "resolution": {
+          "name": "resolution",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'1920x1080'"
+        },
+        "mouse_dpi": {
+          "name": "mouse_dpi",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 800
+        },
+        "sens_general": {
+          "name": "sens_general",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 50
+        },
+        "sens_1x": {
+          "name": "sens_1x",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 50
+        },
+        "sens_3x": {
+          "name": "sens_3x",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 50
+        },
+        "sens_4x": {
+          "name": "sens_4x",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 50
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_email_unique": {
+          "name": "users_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "email"
+          ]
+        },
+        "users_discord_id_unique": {
+          "name": "users_discord_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "discord_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.verification_tokens": {
+      "name": "verification_tokens",
+      "schema": "",
+      "columns": {
+        "identifier": {
+          "name": "identifier",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token": {
+          "name": "token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires": {
+          "name": "expires",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "verification_tokens_identifier_token_pk": {
+          "name": "verification_tokens_identifier_token_pk",
+          "columns": [
+            "identifier",
+            "token"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.weapon_patch_profiles": {
+      "name": "weapon_patch_profiles",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "weapon_id": {
+          "name": "weapon_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "patch_version": {
+          "name": "patch_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lifecycle_status": {
+          "name": "lifecycle_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'active'"
+        },
+        "base_vertical_recoil": {
+          "name": "base_vertical_recoil",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "base_horizontal_rng": {
+          "name": "base_horizontal_rng",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fire_rate_ms": {
+          "name": "fire_rate_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "multipliers": {
+          "name": "multipliers",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "canonical_profile": {
+          "name": "canonical_profile",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "attachments": {
+          "name": "attachments",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "weapon_patch_profiles_weapon_patch_uidx": {
+          "name": "weapon_patch_profiles_weapon_patch_uidx",
+          "columns": [
+            {
+              "expression": "weapon_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "patch_version",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "weapon_patch_profiles_weapon_id_weapon_registry_id_fk": {
+          "name": "weapon_patch_profiles_weapon_id_weapon_registry_id_fk",
+          "tableFrom": "weapon_patch_profiles",
+          "tableTo": "weapon_registry",
+          "columnsFrom": [
+            "weapon_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.weapon_profiles": {
+      "name": "weapon_profiles",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "base_vertical_recoil": {
+          "name": "base_vertical_recoil",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "base_horizontal_rng": {
+          "name": "base_horizontal_rng",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fire_rate_ms": {
+          "name": "fire_rate_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "multipliers": {
+          "name": "multipliers",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "canonical_profile": {
+          "name": "canonical_profile",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "attachments": {
+          "name": "attachments",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "weapon_profiles_name_unique": {
+          "name": "weapon_profiles_name_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "name"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.weapon_registry": {
+      "name": "weapon_registry",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "weapon_id": {
+          "name": "weapon_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "weapon_registry_weapon_id_unique": {
+          "name": "weapon_registry_weapon_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "weapon_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

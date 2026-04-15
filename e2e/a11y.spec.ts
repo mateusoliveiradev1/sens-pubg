@@ -30,7 +30,7 @@ test.describe('Accessibility', () => {
 
     test('login buttons are focusable', async ({ page }) => {
         await page.goto('/login');
-        const googleBtn = page.getByText('Continuar com Google');
+        const googleBtn = page.getByRole('button', { name: /continuar com google/i });
         await expect(googleBtn).toBeVisible();
         await googleBtn.focus();
         await expect(googleBtn).toBeFocused();

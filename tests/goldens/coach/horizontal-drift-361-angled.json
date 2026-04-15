@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "name": "horizontal-drift-361-angled",
+  "loadout": {
+    "stance": "standing",
+    "muzzle": "none",
+    "grip": "none",
+    "stock": "none"
+  },
+  "context": {
+    "patchVersion": "36.1"
+  },
+  "diagnoses": [
+    {
+      "type": "horizontal_drift",
+      "severity": 3,
+      "bias": {
+        "direction": "left",
+        "magnitude": 2.7
+      },
+      "description": "Drift lateral para esquerda",
+      "cause": "Tensao lateral no pulldown",
+      "remediation": "Centralize o movimento do braco"
+    }
+  ],
+  "expected": [
+    {
+      "mode": "standard",
+      "problem": "Drift lateral para esquerda",
+      "evidence": {
+        "diagnosisType": "horizontal_drift",
+        "severity": 3,
+        "confidence": 1,
+        "coverage": 1,
+        "angularErrorDegrees": 0,
+        "linearErrorCm": 0,
+        "linearErrorSeverity": 3,
+        "patchVersion": "36.1",
+        "attachmentCatalogVersion": "36.1",
+        "recommendedAttachments": [
+          {
+            "id": "angled-foregrip",
+            "name": "Angled Foregrip",
+            "slot": "grip",
+            "patchVersion": "36.1"
+          },
+          {
+            "id": "half-grip",
+            "name": "Half Grip",
+            "slot": "grip",
+            "patchVersion": "36.1"
+          }
+        ]
+      },
+      "confidence": 1,
+      "likelyCause": "Tensao lateral no pulldown",
+      "adjustment": "Centralize o movimento do braco Dica (36.1): Angled Foregrip ou Half Grip ajudam a conter a oscilacao lateral neste patch. Lembre-se: Agachar (Crouch) reduz o recuo em cerca de 20%. Use isso a seu favor em sprays longos.",
+      "drill": "**Linha de Tracejo**: Siga uma linha vertical na parede enquanto faz o spray. Se a mira fugir da linha para o mesmo lado sempre, ajuste a posicao do braco e mousepad.",
+      "verifyNextClip": "No proximo clip, confirme se horizontal_drift melhora na fase overall com coverage >= 100% e confidence >= 100%.",
+      "adaptationTimeDays": 3
+    }
+  ]
+}

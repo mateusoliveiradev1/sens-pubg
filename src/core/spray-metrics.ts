@@ -16,11 +16,97 @@ import type {
     SprayMetrics,
     DriftBias,
     WeaponLoadout,
+    ShotRecoilResidual,
+    MetricEvidenceQuality,
+    SprayMetricQuality,
+    SprayMetricQualityKey,
 } from '../types/engine';
 import type { Milliseconds, Score } from '../types/branded';
 import { asMilliseconds, asScore, asPixels } from '../types/branded';
 import type { TrackingResult } from './crosshair-tracking';
 import type { WeaponData, RecoilVector } from '../game/pubg/weapon-data';
+import { delta_theta, type ProjectionConfig } from '../game/pubg/projection-math';
+import { angularErrorToLinearCentimeters, linearErrorSeverity } from '../game/pubg/error-math';
+import { getExpectedRecoilSequence, type ExpectedRecoilSequence } from '../game/pubg/recoil-sequences';
+
+export type SprayAngleConversion = number | ProjectionConfig;
+
+const DEFAULT_SPRAY_PROJECTION: ProjectionConfig = {
+    widthPx: 1920,
+    heightPx: 1080,
+    horizontalFovDegrees: 90,
+};
+
+const METRIC_QUALITY_KEYS: readonly SprayMetricQualityKey[] = [
+    'stabilityScore',
+    'verticalControlIndex',
+    'horizontalNoiseIndex',
+    'angularErrorDegrees',
+    'linearErrorCm',
+    'linearErrorSeverity',
+    'initialRecoilResponseMs',
+    'driftDirectionBias',
+    'consistencyScore',
+    'burstVCI',
+    'sustainedVCI',
+    'fatigueVCI',
+    'burstHNI',
+    'sustainedHNI',
+    'fatigueHNI',
+    'shotResiduals',
+    'sprayScore',
+] as const;
+
+export type SprayPhaseName = 'burst' | 'sustained' | 'fatigue';
+
+export interface SprayPhaseDefinition {
+    readonly name: SprayPhaseName;
+    readonly startShotIndex: number;
+    readonly endShotIndexExclusive?: number;
+}
+
+export interface SprayPhaseSegment {
+    readonly name: SprayPhaseName;
+    readonly startShotIndex: number;
+    readonly endShotIndexExclusive: number;
+    readonly displacements: readonly DisplacementVector[];
+    readonly recoilPattern: readonly RecoilVector[];
+}
+
+export const SPRAY_PHASE_DEFINITIONS: readonly SprayPhaseDefinition[] = [
+    { name: 'burst', startShotIndex: 0, endShotIndexExclusive: 10 },
+    { name: 'sustained', startShotIndex: 10, endShotIndexExclusive: 20 },
+    { name: 'fatigue', startShotIndex: 20 },
+] as const;
+
+export function segmentSprayPhases(
+    displacements: readonly DisplacementVector[],
+    recoilPattern: readonly RecoilVector[] = [],
+    definitions: readonly SprayPhaseDefinition[] = SPRAY_PHASE_DEFINITIONS
+): readonly SprayPhaseSegment[] {
+    return definitions.map((definition) => {
+        const start = definition.startShotIndex;
+        const rawEnd = definition.endShotIndexExclusive ?? displacements.length;
+        const end = Math.max(start, Math.min(rawEnd, displacements.length));
+
+        return {
+            name: definition.name,
+            startShotIndex: start,
+            endShotIndexExclusive: end,
+            displacements: displacements.slice(start, end),
+            recoilPattern: recoilPattern.slice(start, end),
+        };
+    });
+}
+
+function getSprayPhase(
+    phases: readonly SprayPhaseSegment[],
+    name: SprayPhaseName
+): SprayPhaseSegment {
+    const phase = phases.find(candidate => candidate.name === name);
+    if (!phase) throw new Error(`Spray phase not found: ${name}`);
+    return phase;
+}
 
 // ═══════════════════════════════════════════
 // FPS-to-RPM Resampling Engine
@@ -179,6 +265,13 @@ export function buildTrajectory(
                 : 0
         ),
         weaponId: weapon.id,
+        trackingFrames: tracking.trackingFrames,
+        trackingQuality: tracking.trackingQuality,
+        framesTracked: tracking.framesTracked,
+        framesLost: tracking.framesLost,
+        visibleFrames: tracking.visibleFrames,
+        framesProcessed: tracking.framesProcessed,
+        statusCounts: tracking.statusCounts,
     };
 }
 
@@ -220,10 +313,112 @@ function calculateStability(displacements: readonly DisplacementVector[]): Score
  * <1.0 = underpull (não puxa o suficiente)
  * >1.0 = overpull (puxa demais)
  */
+function pixelDisplacementToAngles(
+    displacement: DisplacementVector,
+    angleConversion: SprayAngleConversion
+): { yawDegrees: number; screenDownPitchDegrees: number } {
+    if (typeof angleConversion === 'number') {
+        // Legacy scalar fallback: kept only for callers that explicitly pass deg/px.
+        return {
+            yawDegrees: displacement.dx * angleConversion,
+            screenDownPitchDegrees: displacement.dy * angleConversion,
+        };
+    }
+
+    const center = {
+        x: angleConversion.centerXPx ?? angleConversion.widthPx / 2,
+        y: angleConversion.centerYPx ?? angleConversion.heightPx / 2,
+    };
+    const target = {
+        x: center.x + displacement.dx,
+        y: center.y + displacement.dy,
+    };
+    const angularDelta = delta_theta(center, target, angleConversion);
+
+    return {
+        yawDegrees: angularDelta.yawDegrees,
+        screenDownPitchDegrees: -angularDelta.pitchDegrees,
+    };
+}
+
+function roundMetricDegrees(value: number): number {
+    return Math.round(value * 1_000_000) / 1_000_000;
+}
+
+function clampUnit(value: number): number {
+    if (!Number.isFinite(value)) {
+        return 0;
+    }
+
+    return Math.max(0, Math.min(1, value));
+}
+
+function buildMetricQuality(
+    trajectory: SprayTrajectory,
+    sampleSize: number
+): SprayMetricQuality {
+    const framesProcessed = Math.max(0, trajectory.framesProcessed || trajectory.totalFrames);
+    const coverage = framesProcessed > 0
+        ? clampUnit(trajectory.visibleFrames / framesProcessed)
+        : 0;
+    const evidence: MetricEvidenceQuality = {
+        coverage,
+        confidence: clampUnit(trajectory.trackingQuality),
+        sampleSize,
+        framesTracked: Math.max(0, trajectory.framesTracked),
+        framesLost: Math.max(0, trajectory.framesLost),
+        framesProcessed,
+    };
+
+    return Object.fromEntries(
+        METRIC_QUALITY_KEYS.map((key) => [key, evidence])
+    ) as SprayMetricQuality;
+}
+
+export function calculateShotRecoilResiduals(
+    displacements: readonly DisplacementVector[],
+    expectedRecoil: ExpectedRecoilSequence,
+    angleConversion: SprayAngleConversion
+): readonly ShotRecoilResidual[] {
+    const expectedByShotIndex = new Map(
+        expectedRecoil.shots.map((shot) => [shot.shotIndex, shot] as const)
+    );
+
+    return displacements.flatMap((displacement) => {
+        const expectedShot = expectedByShotIndex.get(displacement.shotIndex);
+        if (!expectedShot) {
+            return [];
+        }
+
+        const observedAngles = pixelDisplacementToAngles(displacement, angleConversion);
+        const observed = {
+            yaw: roundMetricDegrees(observedAngles.yawDegrees),
+            pitch: roundMetricDegrees(observedAngles.screenDownPitchDegrees),
+        };
+        const expected = {
+            yaw: roundMetricDegrees(expectedShot.recoil.yaw),
+            pitch: roundMetricDegrees(expectedShot.recoil.pitch),
+        };
+        const residual = {
+            yaw: roundMetricDegrees(observed.yaw - expected.yaw),
+            pitch: roundMetricDegrees(observed.pitch - expected.pitch),
+        };
+
+        return [{
+            shotIndex: displacement.shotIndex,
+            timestamp: displacement.timestamp,
+            observed,
+            expected,
+            residual,
+            residualMagnitudeDegrees: roundMetricDegrees(Math.hypot(residual.yaw, residual.pitch)),
+        }];
+    });
+}
+
 function calculateVerticalControl(
     displacements: readonly DisplacementVector[],
     weaponRecoil: readonly RecoilVector[],
-    pixelToDegree: number
+    angleConversion: SprayAngleConversion
 ): number {
     if (displacements.length === 0 || weaponRecoil.length === 0) return 1.0;
 
@@ -232,7 +427,10 @@ function calculateVerticalControl(
     if (expectedVertical === 0) return 1.0;
 
     // Soma total do deslocamento vertical observado convertido para Graus
-    const observedVertical = displacements.reduce((sum, d) => sum + (d.dy * pixelToDegree), 0);
+    const observedVertical = displacements.reduce(
+        (sum, displacement) => sum + pixelDisplacementToAngles(displacement, angleConversion).screenDownPitchDegrees,
+        0
+    );
 
     // Se observado é próximo de 0, jogador compensou perfeitamente.
     // Ratio: (expectedVertical - observedVertical) / expectedVertical
@@ -253,12 +451,12 @@ function calculateVerticalControl(
  */
 function calculateHorizontalNoise(
     displacements: readonly DisplacementVector[],
-    pixelToDegree: number
+    angleConversion: SprayAngleConversion
 ): number {
     if (displacements.length === 0) return 0;
 
     // Converte os pixels registrados no video em in-game degrees (Yaw)
-    const yawValues = displacements.map(d => d.dx * pixelToDegree);
+    const yawValues = displacements.map(d => pixelDisplacementToAngles(d, angleConversion).yawDegrees);
     const mean = yawValues.reduce((a, b) => a + b, 0) / yawValues.length;
     const variance = yawValues.reduce((sum, yaw) => sum + (yaw - mean) ** 2, 0) / yawValues.length;
 
@@ -273,6 +471,21 @@ function calculateHorizontalNoise(
  * Tempo até o jogador começar a compensar o recoil.
  * Medido como o tempo até o primeiro movimento oposto ao recoil.
  */
+function calculateAngularError(
+    displacements: readonly DisplacementVector[],
+    angleConversion: SprayAngleConversion
+): number {
+    if (displacements.length === 0) return 0;
+
+    const squaredMagnitudes = displacements.map((displacement) => {
+        const angles = pixelDisplacementToAngles(displacement, angleConversion);
+        return (angles.yawDegrees ** 2) + (angles.screenDownPitchDegrees ** 2);
+    });
+    const meanSquaredMagnitude = squaredMagnitudes.reduce((sum, value) => sum + value, 0) / squaredMagnitudes.length;
+
+    return Math.round(Math.sqrt(meanSquaredMagnitude) * 1000) / 1000;
+}
+
 function calculateRecoilResponseTime(
     displacements: readonly DisplacementVector[],
     firstTimestamp: number
@@ -377,10 +590,12 @@ export function calculateSprayMetrics(
     trajectory: SprayTrajectory,
     weapon: WeaponData,
     loadout: WeaponLoadout,
-    pixelToDegree: number = 0.046875 // Default 1080p 90 FOV
+    angleConversion: SprayAngleConversion = DEFAULT_SPRAY_PROJECTION,
+    targetDistanceMeters: number = 30
 ): SprayMetrics {
     const { displacements, points } = trajectory;
     const firstTimestamp = points.length > 0 ? Number(points[0]!.timestamp) : 0;
+    const metricQuality = buildMetricQuality(trajectory, displacements.length);
 
     // Calculate Multipliers based on Stance and Attachments
     let verticalMult = 1.0;
@@ -428,35 +643,64 @@ export function calculateSprayMetrics(
         horizontalMult *= 0.95;
     }
 
-    // Apply multiplier to weapon's base pattern
-    const modifiedRecoilPattern = weapon.recoilPattern.map(r => ({
-        yaw: r.yaw * horizontalMult,
-        pitch: r.pitch * verticalMult
-    }));
+    const expectedRecoilSequence = getExpectedRecoilSequence({
+        weaponId: weapon.id,
+        weapon,
+        shotCount: displacements.length,
+    });
 
-    // Phases definition
-    const burstDisplacements = displacements.slice(0, 10);
-    const sustainedDisplacements = displacements.slice(10, 20);
-    const fatigueDisplacements = displacements.slice(20);
+    let cumulativeYaw = 0;
+    let cumulativePitch = 0;
+    const modifiedExpectedRecoilSequence: ExpectedRecoilSequence = {
+        ...expectedRecoilSequence,
+        shots: expectedRecoilSequence.shots.map((shot) => {
+            const recoil = {
+                yaw: shot.recoil.yaw * horizontalMult,
+                pitch: shot.recoil.pitch * verticalMult,
+            };
+            cumulativeYaw = roundMetricDegrees(cumulativeYaw + recoil.yaw);
+            cumulativePitch = roundMetricDegrees(cumulativePitch + recoil.pitch);
 
-    const burstRecoil = modifiedRecoilPattern.slice(0, 10);
-    const sustainedRecoil = modifiedRecoilPattern.slice(10, 20);
-    const fatigueRecoil = modifiedRecoilPattern.slice(20, displacements.length);
+            return {
+                ...shot,
+                recoil,
+                cumulative: {
+                    yaw: cumulativeYaw,
+                    pitch: cumulativePitch,
+                },
+            };
+        }),
+    };
+
+    const modifiedRecoilPattern = modifiedExpectedRecoilSequence.shots.map((shot) => shot.recoil);
+
+    const phaseSegments = segmentSprayPhases(displacements, modifiedRecoilPattern);
+    const burst = getSprayPhase(phaseSegments, 'burst');
+    const sustained = getSprayPhase(phaseSegments, 'sustained');
+    const fatigue = getSprayPhase(phaseSegments, 'fatigue');
+    const angularErrorDegrees = calculateAngularError(displacements, angleConversion);
+    const linearErrorCm = angularErrorToLinearCentimeters(angularErrorDegrees, targetDistanceMeters);
 
     const metrics: Omit<SprayMetrics, 'sprayScore'> = {
         stabilityScore: calculateStability(displacements),
-        verticalControlIndex: calculateVerticalControl(displacements, modifiedRecoilPattern, pixelToDegree),
-        horizontalNoiseIndex: calculateHorizontalNoise(displacements, pixelToDegree),
+        verticalControlIndex: calculateVerticalControl(displacements, modifiedRecoilPattern, angleConversion),
+        horizontalNoiseIndex: calculateHorizontalNoise(displacements, angleConversion),
         initialRecoilResponseMs: calculateRecoilResponseTime(displacements, firstTimestamp),
         driftDirectionBias: calculateDriftBias(displacements),
         consistencyScore: calculateConsistency(displacements),
         // Phase-based metrics evaluated against modified expected recoil!
-        burstVCI: calculateVerticalControl(burstDisplacements, burstRecoil, pixelToDegree),
-        sustainedVCI: calculateVerticalControl(sustainedDisplacements, sustainedRecoil, pixelToDegree),
-        fatigueVCI: calculateVerticalControl(fatigueDisplacements, fatigueRecoil, pixelToDegree),
-        burstHNI: calculateHorizontalNoise(burstDisplacements, pixelToDegree),
-        sustainedHNI: calculateHorizontalNoise(sustainedDisplacements, pixelToDegree),
-        fatigueHNI: calculateHorizontalNoise(fatigueDisplacements, pixelToDegree),
+        burstVCI: calculateVerticalControl(burst.displacements, burst.recoilPattern, angleConversion),
+        sustainedVCI: calculateVerticalControl(sustained.displacements, sustained.recoilPattern, angleConversion),
+        fatigueVCI: calculateVerticalControl(fatigue.displacements, fatigue.recoilPattern, angleConversion),
+        burstHNI: calculateHorizontalNoise(burst.displacements, angleConversion),
+        sustainedHNI: calculateHorizontalNoise(sustained.displacements, angleConversion),
+        fatigueHNI: calculateHorizontalNoise(fatigue.displacements, angleConversion),
+        angularErrorDegrees,
+        linearErrorCm,
+        linearErrorSeverity: linearErrorSeverity(linearErrorCm),
+        targetDistanceMeters,
+        shotResiduals: calculateShotRecoilResiduals(displacements, modifiedExpectedRecoilSequence, angleConversion),
+        metricQuality,
     };
 
     // Calculate final unified sprayScore (0-100)
