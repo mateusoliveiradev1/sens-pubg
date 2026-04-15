@@ -139,6 +139,15 @@ async function estimateFps(url: string): Promise<number> {
     });
 }
 
+function formatObservedDuration(durationSeconds: number): string {
+    const hasFraction = Math.abs(durationSeconds - Math.round(durationSeconds)) >= 0.05;
+
+    return new Intl.NumberFormat('pt-BR', {
+        minimumFractionDigits: hasFraction ? 1 : 0,
+        maximumFractionDigits: 1,
+    }).format(durationSeconds);
+}
+
 export async function validateAndPrepareVideo(file: File): Promise<VideoValidationResult> {
     if (file.size > MAX_FILE_SIZE) {
         return {
@@ -190,7 +199,7 @@ export async function validateAndPrepareVideo(file: File): Promise<VideoValidati
             valid: false,
             error: {
                 type: 'duration',
-                message: `Duracao deve ser entre ${MIN_SPRAY_CLIP_DURATION_SECONDS}s e ${MAX_SPRAY_CLIP_DURATION_SECONDS}s. Seu clip: ${Math.round(meta.duration)}s`,
+                message: `Duracao deve ser entre ${MIN_SPRAY_CLIP_DURATION_SECONDS}s e ${MAX_SPRAY_CLIP_DURATION_SECONDS}s. Seu clip: ${formatObservedDuration(meta.duration)}s`,
             },
         };
     }

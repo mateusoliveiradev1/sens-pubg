@@ -11,13 +11,13 @@ describe('video ingestion contract', () => {
     it('defines a single supported spray clip duration range for product and validation', () => {
         expect(MIN_SPRAY_CLIP_DURATION_SECONDS).toBe(5);
         expect(MAX_SPRAY_CLIP_DURATION_SECONDS).toBe(15);
-        expect(isSupportedSprayClipDuration(4.94)).toBe(false);
+        expect(isSupportedSprayClipDuration(4.89)).toBe(false);
         expect(isSupportedSprayClipDuration(4.96)).toBe(true);
         expect(isSupportedSprayClipDuration(5)).toBe(true);
         expect(isSupportedSprayClipDuration(5.04)).toBe(true);
         expect(isSupportedSprayClipDuration(15)).toBe(true);
-        expect(isSupportedSprayClipDuration(15.04)).toBe(true);
-        expect(isSupportedSprayClipDuration(15.06)).toBe(false);
+        expect(isSupportedSprayClipDuration(15.08)).toBe(true);
+        expect(isSupportedSprayClipDuration(15.11)).toBe(false);
     });
 
     it('formats the same duration range for user-facing copy across supported locales', () => {

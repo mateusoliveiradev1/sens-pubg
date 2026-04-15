@@ -1,6 +1,6 @@
 export const MIN_SPRAY_CLIP_DURATION_SECONDS = 5;
 export const MAX_SPRAY_CLIP_DURATION_SECONDS = 15;
-const SPRAY_CLIP_DURATION_METADATA_TOLERANCE_SECONDS = 0.05;
+const SPRAY_CLIP_DURATION_METADATA_TOLERANCE_SECONDS = 0.1;
 
 export type SprayClipDurationLocale = 'pt-BR' | 'en' | 'es';
 export type SprayClipDurationFormat = 'compact' | 'natural';
