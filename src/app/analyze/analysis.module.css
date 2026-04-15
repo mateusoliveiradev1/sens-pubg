@@ -423,11 +423,11 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: var(--space-lg);
+    align-items: start;
 }
 
 .profileCard {
     position: relative;
-    text-align: center;
     padding: var(--space-xl);
     background: var(--glass-bg);
     backdrop-filter: var(--glass-blur);
@@ -436,13 +436,16 @@
     border-radius: var(--radius-lg);
     transition: all var(--transition-spring);
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
 }
 
 .profileCard::before {
     content: '';
     position: absolute;
     inset: 0;
-    background: radial-gradient(circle at 50% 0%, rgba(255, 107, 0, 0.1), transparent 60%);
+    background: radial-gradient(circle at 50% 0%, var(--profile-accent, rgba(255, 107, 0, 0.18)), transparent 60%);
     opacity: 0;
     transition: opacity var(--transition-spring);
 }
@@ -484,12 +487,56 @@
     z-index: 2;
 }
 
+.profileHeader {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-md);
+    text-align: left;
+    position: relative;
+    z-index: 2;
+}
+
+.profileIconWrap {
+    width: 56px;
+    height: 56px;
+    display: grid;
+    place-items: center;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    flex-shrink: 0;
+}
+
+.profileHeading {
+    min-width: 0;
+    flex: 1;
+    text-align: left;
+}
+
+.profileEyebrow {
+    display: inline-block;
+    margin-bottom: 6px;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--profile-accent, var(--color-accent-primary));
+    font-family: var(--font-mono);
+}
+
+.profileTone {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    margin-top: 4px;
+}
+
 .profileCard h4 {
     position: relative;
     z-index: 2;
-    margin-bottom: var(--space-sm);
+    margin-bottom: 0;
     font-size: var(--text-lg);
     font-weight: 700;
+    text-align: left;
 }
 
 .profileDesc {
@@ -501,19 +548,130 @@
     line-height: 1.5;
 }
 
+.profileNarrative {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    line-height: 1.65;
+    text-align: left;
+}
+
 .profileStats {
-    display: flex;
-    justify-content: center;
-    gap: var(--space-xl);
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-sm);
+}
+
+.profileStat {
+    padding: 12px 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 14px;
+    text-align: left;
 }
 
 .profileValue {
     font-family: var(--font-mono);
-    font-size: var(--text-2xl);
+    font-size: var(--text-xl);
     font-weight: 700;
     color: var(--color-accent-primary);
     display: block;
     text-shadow: 0 0 10px rgba(255, 107, 0, 0.3);
+}
+
+.profileHighlights {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.profileHighlight {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(0, 0, 0, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    color: var(--color-text-secondary);
+    font-size: 12px;
+    line-height: 1.55;
+    text-align: left;
+}
+
+.profileHighlight::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: var(--profile-accent, var(--color-accent-primary));
+    box-shadow: 0 0 12px var(--profile-accent, var(--color-accent-primary));
+    margin-top: 6px;
+    flex-shrink: 0;
+}
+
+.profileScopePreview {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.profilePreviewLabel {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    text-align: left;
+}
+
+.profileMiniScopes {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.profileMiniScope {
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.profileMiniScopeName {
+    display: block;
+    font-size: 10px;
+    color: var(--color-text-muted);
+    margin-bottom: 6px;
+    line-height: 1.35;
+    text-align: left;
+}
+
+.profileMiniScopeValue {
+    display: block;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    color: var(--profile-accent, var(--color-accent-primary));
+    text-align: left;
+}
+
+.profileToggle {
+    margin-top: auto;
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--color-text-muted);
+    font-size: 11px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 100%;
+}
+
+.profileToggle:hover {
+    border-color: var(--profile-accent, var(--color-accent-primary));
+    color: white;
+    background: rgba(255, 255, 255, 0.03);
 }
 
 /* ═══ Scope Table ═══ */
@@ -726,6 +884,11 @@
 
 @media (max-width: 767px) {
     .profilesGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .profileStats,
+    .profileMiniScopes {
         grid-template-columns: 1fr;
     }
 

@@ -22,4 +22,12 @@ describe('results dashboard visualization contract', () => {
         expect(source).toMatch(/c\.evidence\.recommendedAttachments/);
         expect(source).toMatch(/Plano do Coach/);
     });
+
+    it('renders contextual profile callouts instead of only static profile descriptions', () => {
+        const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/buildProfileNarrative/);
+        expect(source).toMatch(/buildProfileHighlights/);
+        expect(source).toMatch(/profileMiniScopes/);
+    });
 });

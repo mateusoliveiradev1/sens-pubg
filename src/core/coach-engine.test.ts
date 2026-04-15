@@ -59,10 +59,10 @@ describe('generateCoaching', () => {
         const coaching = generateCoaching(diagnoses, defaultLoadout);
         const feedback = coaching[0]!;
 
-        expect(feedback.whatIsWrong).toBe('Jitter excessivo');
+        expect(feedback.whatIsWrong).toContain('horizontal');
         expect(feedback.whyItHappens).toBe('Grip instável');
         expect(feedback.whatToAdjust).toContain('Relaxe o grip');
-        expect(feedback.howToTest).toBeTruthy();
+        expect(feedback.howToTest).toContain('Meta do proximo bloco');
         expect(feedback.adaptationTimeDays).toBeGreaterThanOrEqual(1);
     });
 
@@ -100,10 +100,13 @@ describe('generateCoaching', () => {
             linearErrorSeverity: 4,
         });
         expect(feedback.confidence).toBe(0.82);
-        expect(feedback.likelyCause).toBe('Pulldown insuficiente sustentado');
+        expect(feedback.likelyCause).toContain('Pulldown insuficiente sustentado');
         expect(feedback.adjustment).toContain('Reduza sens ou puxe mais no sustain');
         expect(feedback.drill).toBeTruthy();
-        expect(feedback.verifyNextClip).toContain('fatigue');
+        expect(feedback.verifyNextClip).toContain('fadiga');
+        expect(feedback.whatIsWrong).toContain('VCI 0.64');
+        expect(feedback.whatIsWrong).toContain('73.0cm');
+        expect(feedback.howToTest).toContain('VCI mais perto de 1.00');
     });
 
     it('does not recommend removed angled foregrip on patch 41.1', () => {

@@ -6,7 +6,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { AnalysisResult } from '@/types/engine';
+import type { AnalysisResult, DiagnosisType, SensitivityProfile } from '@/types/engine';
 import { formatAnalysisDistancePresentation } from './analysis-distance-presentation';
 import { SprayVisualization } from './spray-visualization';
 import { summarizeAnalysisTracking } from './tracking-summary';
@@ -67,6 +67,12 @@ const PROFILE_META: Record<string, { icon: string; subtitle: string }> = {
     low: { icon: '🎯', subtitle: 'Máx. Precisão' },
     balanced: { icon: '⚖️', subtitle: 'Equilíbrio' },
     high: { icon: '⚡', subtitle: 'Máx. Velocidade' },
+};
+
+const PROFILE_THEME: Record<'low' | 'balanced' | 'high', { eyebrow: string; accent: string }> = {
+    low: { eyebrow: 'Controle fino', accent: '#14b8a6' },
+    balanced: { eyebrow: 'Faixa segura', accent: '#f59e0b' },
+    high: { eyebrow: 'Entrada curta', accent: '#22c55e' },
 };
 
 function SeverityDots({ severity }: { severity: number }) {
@@ -168,6 +174,117 @@ function buildSensitivitySummary(
     return parts.join(' ');
 }
 
+function formatSignedPercent(value: number): string {
+    const rounded = Math.round(value);
+    return rounded > 0 ? `+${rounded}%` : `${rounded}%`;
+}
+
+function getAverageScopeDelta(profile: SensitivityProfile): number {
+    if (profile.scopes.length === 0) {
+        return 0;
+    }
+
+    const total = profile.scopes.reduce((sum, scope) => sum + scope.changePercent, 0);
+    return total / profile.scopes.length;
+}
+
+function getProfileScopePreview(profile: SensitivityProfile): readonly SensitivityProfile['scopes'][number][] {
+    return [...profile.scopes]
+        .sort((left, right) => Math.abs(right.changePercent) - Math.abs(left.changePercent))
+        .slice(0, 3);
+}
+
+function buildProfileNarrative(
+    profile: SensitivityProfile,
+    topDiagnosisType: DiagnosisType | null,
+    isRecommended: boolean
+): string {
+    const avgScopeDelta = getAverageScopeDelta(profile);
+    const deltaLine = avgScopeDelta === 0
+        ? 'As miras quase nao saem da base atual.'
+        : avgScopeDelta > 0
+            ? `As miras sobem em media ${Math.abs(Math.round(avgScopeDelta))}% versus a base.`
+            : `As miras descem em media ${Math.abs(Math.round(avgScopeDelta))}% versus a base.`;
+
+    const diagnosisLine = (() => {
+        switch (topDiagnosisType) {
+            case 'underpull':
+                if (profile.type === 'low') return 'Combina com o clip atual porque devolve margem para segurar a subida do spray.';
+                if (profile.type === 'balanced') return 'Ajuda a cortar a subida sem travar demais a mobilidade.';
+                return 'So faz sentido se voce aceitar menos controle para ganhar giro e resposta.';
+            case 'overpull':
+                if (profile.type === 'low') return 'Pode exagerar o controle se voce ja esta descendo demais a mira.';
+                if (profile.type === 'balanced') return 'Segura o excesso sem desmontar o feeling do spray.';
+                return 'Abre espaco para aliviar a mao se o problema e excesso de forca no pulldown.';
+            case 'late_compensation':
+                if (profile.type === 'low') return 'Fica mais exigente para reagir cedo ao primeiro tiro.';
+                if (profile.type === 'balanced') return 'Entrega uma janela mais limpa sem sacrificar demais a resposta.';
+                return 'Favorece correcao rapida e readesao no alvo logo na abertura.';
+            case 'excessive_jitter':
+            case 'inconsistency':
+                if (profile.type === 'high') return 'Risco maior com o clip atual porque a leitura ja mostrou falta de estabilidade.';
+                if (profile.type === 'balanced') return 'Tende a limpar o spray sem tirar totalmente a velocidade de giro.';
+                return 'E o perfil com mais folga para domar tremor e repeticao de spray.';
+            case 'horizontal_drift':
+                if (profile.type === 'balanced') return 'Costuma ser o meio-termo mais seguro para recentralizar o eixo lateral.';
+                if (profile.type === 'high') return 'Ajuda na correcao lateral rapida, mas cobra mao mais firme.';
+                return 'Da controle bruto para alinhar o eixo, mas pode deixar a reaceleracao mais lenta.';
+            default:
+                if (profile.type === 'low') return 'Prioriza controle puro para spray longo e leitura calma.';
+                if (profile.type === 'balanced') return 'Segura consistencia sem te tirar da zona de conforto.';
+                return 'Empurra o jogo para velocidade de entrada, flick curto e reengage rapido.';
+        }
+    })();
+
+    const recommendationLine = isRecommended
+        ? 'Este e o melhor encaixe para o padrao detectado neste clip.'
+        : 'Funciona como alternativa se voce preferir outro ritmo de mira.';
+
+    return `${diagnosisLine} ${deltaLine} ${recommendationLine}`;
+}
+
+function buildProfileHighlights(
+    profile: SensitivityProfile,
+    topDiagnosisType: DiagnosisType | null
+): readonly string[] {
+    const avgScopeDelta = getAverageScopeDelta(profile);
+    const scopeDelta = avgScopeDelta === 0
+        ? 'Miras quase sem mudanca em relacao a base.'
+        : avgScopeDelta > 0
+            ? `Miras em media ${formatSignedPercent(avgScopeDelta)} mais rapidas.`
+            : `Miras em media ${formatSignedPercent(avgScopeDelta)} mais controladas.`;
+
+    const roleLine = profile.type === 'low'
+        ? 'Melhor para spray longo, puxada continua e rastreio sem pressa.'
+        : profile.type === 'balanced'
+            ? 'Melhor para quem quer trocar pouco de giro por mais consistencia.'
+            : 'Melhor para entrada curta, CQB e recaptura rapida do alvo.';
+
+    const riskLine = (() => {
+        if (topDiagnosisType === 'late_compensation' && profile.type === 'high') {
+            return 'Casa com o erro atual porque reduz o atraso de reacao.';
+        }
+
+        if ((topDiagnosisType === 'underpull' || topDiagnosisType === 'excessive_jitter' || topDiagnosisType === 'inconsistency') && profile.type === 'high') {
+            return 'Risco alto neste momento: pede mais mao do que o clip mostrou.';
+        }
+
+        if ((topDiagnosisType === 'underpull' || topDiagnosisType === 'excessive_jitter') && profile.type === 'low') {
+            return 'Casa bem com o erro dominante porque amplia a janela de controle.';
+        }
+
+        if (profile.type === 'balanced') {
+            return 'Faixa mais segura para testar sem pular direto para extremos.';
+        }
+
+        return profile.type === 'low'
+            ? 'Troca velocidade por margem maior de correcao.'
+            : 'Troca estabilidade por resposta mais curta.';
+    })();
+
+    return [roleLine, riskLine, scopeDelta];
+}
+
 export function ResultsDashboard({ result }: Props): React.JSX.Element {
     const [activeSession, setActiveSession] = useState<AnalysisResult>(result);
     const [expandedDiag, setExpandedDiag] = useState<number | null>(null);
@@ -213,6 +330,7 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
     const sortedDiagnoses = [...diagnoses].sort((a, b) => b.severity - a.severity);
     const majorDiags = sortedDiagnoses.filter(d => d.severity >= 3);
     const minorDiags = sortedDiagnoses.filter(d => d.severity < 3);
+    const topDiagnosisType = sortedDiagnoses[0]?.type ?? null;
     const topDiagnosisMeta = sortedDiagnoses[0] ? DIAG_META[sortedDiagnoses[0].type] : null;
     const recommendedProfile = sensitivity.profiles.find((profile) => profile.type === sensitivity.recommended);
     const sensitivitySummary = buildSensitivitySummary(
@@ -497,42 +615,74 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                         const pmeta = PROFILE_META[profile.type] || { icon: '⚙️', subtitle: '' };
                         const isRecommended = profile.type === sensitivity.recommended;
                         const showScopes = isRecommended || showAllScopes[profile.type];
+                        const theme = PROFILE_THEME[profile.type];
+                        const profileNarrative = buildProfileNarrative(profile, topDiagnosisType, isRecommended);
+                        const profileHighlights = buildProfileHighlights(profile, topDiagnosisType);
+                        const scopePreview = getProfileScopePreview(profile);
 
                         return (
                             <div
                                 key={profile.type}
                                 className={`glass-card ${styles.profileCard} ${isRecommended ? styles.profileRecommended : ''}`}
-                                style={!isRecommended ? { opacity: 0.7 } : undefined}
+                                style={{
+                                    ...(isRecommended ? {} : { opacity: 0.82 }),
+                                    ['--profile-accent' as string]: theme.accent,
+                                }}
                             >
                                 {isRecommended && (
                                     <span className={`badge badge-success ${styles.recommendedBadge}`}>⭐ Match Ideal</span>
                                 )}
 
                                 {/* Icon + Title */}
-                                <div style={{ fontSize: '2rem', marginBottom: '8px' }}>{pmeta.icon}</div>
-                                <h4>{profile.label}</h4>
-                                <p style={{ fontSize: '11px', color: 'var(--color-accent-primary)', marginBottom: '8px', fontWeight: 600 }}>
-                                    {pmeta.subtitle}
-                                </p>
-                                <p className={styles.profileDesc}>{profile.description}</p>
+                                <div className={styles.profileHeader}>
+                                    <div className={styles.profileIconWrap}>
+                                        <span style={{ fontSize: '2rem' }}>{pmeta.icon}</span>
+                                    </div>
+                                    <div className={styles.profileHeading}>
+                                        <span className={styles.profileEyebrow}>{theme.eyebrow}</span>
+                                        <h4>{profile.label}</h4>
+                                        <p className={styles.profileTone}>{pmeta.subtitle}</p>
+                                    </div>
+                                </div>
+                                <p className={styles.profileNarrative}>{profileNarrative}</p>
 
                                 {/* Stats */}
                                 <div className={styles.profileStats}>
-                                    <div>
+                                    <div className={styles.profileStat}>
                                         <span className="metric-label">Sensibilidade Geral</span>
                                         <span className={styles.profileValue}>{profile.general}</span>
                                     </div>
-                                    <div>
+                                    <div className={styles.profileStat}>
                                         <span className="metric-label">ADS</span>
                                         <span className={styles.profileValue}>{profile.ads}</span>
                                     </div>
-                                    <div>
+                                    <div className={styles.profileStat}>
                                         <span className="metric-label">cm/360°</span>
                                         <span className={styles.profileValue}>{profile.cmPer360}</span>
                                     </div>
                                 </div>
 
                                 {/* Scope Table — always available, toggle for non-recommended */}
+                                <div className={styles.profileHighlights}>
+                                    {profileHighlights.map((highlight) => (
+                                        <div key={highlight} className={styles.profileHighlight}>
+                                            {highlight}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className={styles.profileScopePreview}>
+                                    <span className={styles.profilePreviewLabel}>Miras mais afetadas</span>
+                                    <div className={styles.profileMiniScopes}>
+                                        {scopePreview.map((scope) => (
+                                            <div key={scope.scopeName} className={styles.profileMiniScope}>
+                                                <span className={styles.profileMiniScopeName}>{scope.scopeName}</span>
+                                                <span className={styles.profileMiniScopeValue}>{formatSignedPercent(scope.changePercent)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
                                 {showScopes && (
                                     <div className={styles.scopeTableContainer}>
                                         <table className={styles.scopeTable}>
@@ -567,18 +717,7 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                                             e.stopPropagation();
                                             setShowAllScopes(prev => ({ ...prev, [profile.type]: !prev[profile.type] }));
                                         }}
-                                        style={{
-                                            marginTop: '12px',
-                                            background: 'none',
-                                            border: '1px solid rgba(255,255,255,0.1)',
-                                            color: 'var(--color-text-muted)',
-                                            fontSize: '11px',
-                                            padding: '6px 12px',
-                                            borderRadius: '6px',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s',
-                                            width: '100%',
-                                        }}
+                                        className={styles.profileToggle}
                                     >
                                         {showScopes ? '▲ Esconder miras' : '▼ Ver miras detalhadas'}
                                     </button>
@@ -656,7 +795,7 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                                         <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '16px' }}>
                                             <div className={styles.coachRow}>
                                                 <span className={styles.coachLabel}>Mecânica do Erro</span>
-                                                <p>{c.whyItHappens}</p>
+                                                <p>{c.likelyCause}</p>
                                             </div>
                                             <div className={styles.coachRow}>
                                                 <span className={styles.coachLabel}>Protocolo de Ajuste</span>

@@ -18,12 +18,12 @@ import type {
 } from '@/types/engine';
 
 const DRILLS: Record<string, string> = {
-    overpull: '**O Drill da Janela (30m)**: Va ao Training Mode e escolha uma janela pequena. Faca sprays de 10 balas focando em manter TODO o spray dentro do buraco, sem deixar a mira descer.',
-    underpull: '**Drill de Pulldown Gradual**: Atire em uma parede limpa a 50m. Tente fazer um ponto de impactos. Se o spray subir, force o mouse para baixo de forma continua, nao apenas no inicio.',
-    late_compensation: '**The Flash Pull**: Foque no som do primeiro tiro. O movimento de descida do mouse deve iniciar junto com o audio do disparo.',
-    excessive_jitter: '**Drill Vertical Puro**: Faca sprays ignorando o horizontal. Deixe a mira balancar para os lados, mas mantenha a altura perfeita.',
-    horizontal_drift: '**Linha de Tracejo**: Siga uma linha vertical na parede enquanto faz o spray. Se a mira fugir da linha para o mesmo lado sempre, ajuste a posicao do braco e mousepad.',
-    inconsistency: '**Drill dos 20 Sprays**: Faca 20 sprays na mesma parede. Eles devem ser gemeos; se cada um for diferente, foque em repetir o mesmo movimento muscular.',
+    overpull: 'Drill da Janela (30m): va ao Training Mode e escolha uma janela pequena. Faca sprays de 10 balas focando em manter todo o spray dentro do buraco, sem deixar a mira descer.',
+    underpull: 'Drill de Pulldown Gradual: atire em uma parede limpa a 50m. Tente fazer um ponto de impactos. Se o spray subir, force o mouse para baixo de forma continua, nao apenas no inicio.',
+    late_compensation: 'Flash Pull: foque no som do primeiro tiro. O movimento de descida do mouse deve iniciar junto com o audio do disparo.',
+    excessive_jitter: 'Drill Vertical Puro: faca sprays ignorando o horizontal. Deixe a mira balancar para os lados, mas mantenha a altura perfeita.',
+    horizontal_drift: 'Linha de Tracejo: siga uma linha vertical na parede enquanto faz o spray. Se a mira fugir da linha para o mesmo lado sempre, ajuste a posicao do braco e do mousepad.',
+    inconsistency: 'Drill dos 20 Sprays: faca 20 sprays na mesma parede. Eles devem ser gemeos; se cada um sair diferente, foque em repetir o mesmo movimento muscular.',
 };
 
 function estimateAdaptationDays(severity: number): number {
@@ -31,6 +31,123 @@ function estimateAdaptationDays(severity: number): number {
     if (severity >= 4) return 5;
     if (severity >= 3) return 3;
     return 1;
+}
+
+function formatPhaseLabel(phase: CoachEvidence['dominantPhase'] | 'overall'): string {
+    if (phase === 'burst') return 'abertura';
+    if (phase === 'sustained') return 'miolo do spray';
+    if (phase === 'fatigue') return 'fadiga';
+    return 'spray inteiro';
+}
+
+function formatOpticContext(evidence: CoachEvidence): string {
+    if (!evidence.optic) {
+        return '';
+    }
+
+    return ` com ${evidence.optic.name}${evidence.optic.stateName ? ` no state ${evidence.optic.stateName}` : ''}`;
+}
+
+function buildVerificationTarget(diagnosis: Diagnosis, evidence: CoachEvidence): string {
+    switch (diagnosis.type) {
+        case 'underpull':
+        case 'overpull':
+            return `VCI mais perto de 1.00 e erro linear abaixo de ${Math.max(12, Math.round(evidence.linearErrorCm * 0.7))}cm`;
+        case 'late_compensation':
+            return `resposta inicial abaixo de ${Math.max(180, Number(diagnosis.idealResponseMs) + 20)}ms`;
+        case 'excessive_jitter':
+            return `ruido horizontal abaixo de ${diagnosis.threshold}`;
+        case 'horizontal_drift':
+            return 'desvio lateral abaixo de 1.0px/frame';
+        case 'inconsistency':
+            return 'consistencia acima de 65/100';
+        case 'inconclusive':
+            return 'coverage >= 70% e confidence >= 70%';
+    }
+}
+
+function buildCoachProblem(diagnosis: Diagnosis, evidence: CoachEvidence): string {
+    const phaseLabel = formatPhaseLabel(evidence.dominantPhase ?? 'overall');
+
+    switch (diagnosis.type) {
+        case 'underpull':
+            return `O spray esta subindo alem do ideal, com VCI ${diagnosis.verticalControlIndex.toFixed(2)} e erro projetado de ${evidence.linearErrorCm.toFixed(1)}cm. O desvio pesa mais na ${phaseLabel}.`;
+        case 'overpull':
+            return `Voce esta descendo a mira alem do necessario, com VCI ${diagnosis.verticalControlIndex.toFixed(2)} e perda de linha principalmente na ${phaseLabel}.`;
+        case 'late_compensation':
+            return `A compensacao esta entrando tarde: ${Math.round(Number(diagnosis.responseTimeMs))}ms contra um ideal perto de ${Math.round(Number(diagnosis.idealResponseMs))}ms.`;
+        case 'excessive_jitter':
+            return `O eixo horizontal ficou solto demais: ruido ${diagnosis.horizontalNoise.toFixed(1)} para um limite de ${diagnosis.threshold}. Isso espalha o spray mesmo quando a altura parece boa.`;
+        case 'horizontal_drift':
+            return `A trajetoria puxa para a ${diagnosis.bias.direction === 'left' ? 'esquerda' : 'direita'} com magnitude ${diagnosis.bias.magnitude.toFixed(1)}px/frame.`;
+        case 'inconsistency':
+            return `Cada spray esta saindo diferente do anterior: consistencia ${diagnosis.consistencyScore}/100 e leitura instavel entre blocos.`;
+        case 'inconclusive':
+            return `O clip ainda nao sustenta leitura final: coverage ${(diagnosis.evidenceQuality.coverage * 100).toFixed(0)}% e confidence ${(diagnosis.evidenceQuality.confidence * 100).toFixed(0)}%.`;
+    }
+}
+
+function buildCoachCause(diagnosis: Diagnosis, evidence: CoachEvidence, loadout: WeaponLoadout): string {
+    const phaseCue = evidence.dominantPhase
+        ? ` O erro aparece mais na ${formatPhaseLabel(evidence.dominantPhase)}.`
+        : '';
+    const stanceCue = loadout.stance === 'standing' && diagnosis.severity >= 3
+        ? ' De pe, qualquer sobra de movimento cobra mais caro.'
+        : '';
+    const opticCue = evidence.optic
+        ? ` A leitura foi feita${formatOpticContext(evidence)}.`
+        : '';
+
+    switch (diagnosis.type) {
+        case 'underpull':
+            return `${diagnosis.cause} O mouse para de descer cedo demais ou perde forca depois do inicio.${phaseCue}${stanceCue}${opticCue}`;
+        case 'overpull':
+            return `${diagnosis.cause} A mao esta entrando com forca demais e fecha o spray antes da conta.${phaseCue}${stanceCue}${opticCue}`;
+        case 'late_compensation':
+            return `${diagnosis.cause} O padrao sugere hesitacao antes do primeiro ajuste.${stanceCue}${opticCue}`;
+        case 'excessive_jitter':
+            return `${diagnosis.cause} O problema parece mais de tensao e microcorrecao do que de sens pura.${stanceCue}${opticCue}`;
+        case 'horizontal_drift':
+            return `${diagnosis.cause} O eixo lateral esta viciado para um lado e repete o mesmo escape.${phaseCue}${stanceCue}${opticCue}`;
+        case 'inconsistency':
+            return `${diagnosis.cause} O clip sugere falta de repeticao do mesmo gesto do inicio ao fim.${stanceCue}${opticCue}`;
+        case 'inconclusive':
+            return `${diagnosis.cause}${opticCue}`;
+    }
+}
+
+function buildCoachAction(
+    diagnosis: Diagnosis,
+    evidence: CoachEvidence,
+    adjustment: string,
+    mode: CoachMode
+): string {
+    if (mode !== 'standard') {
+        return adjustment;
+    }
+
+    const phaseLabel = formatPhaseLabel(evidence.dominantPhase ?? 'overall');
+
+    switch (diagnosis.type) {
+        case 'underpull':
+            return `Foque em manter a descida viva na ${phaseLabel}, nao so nos primeiros tiros. ${adjustment}`;
+        case 'overpull':
+            return `Tire forca da descida justamente na ${phaseLabel} e deixe o spray andar antes de corrigir de novo. ${adjustment}`;
+        case 'late_compensation':
+            return `Antecipe o primeiro ajuste; a descida precisa nascer junto com o disparo, nao depois da leitura visual. ${adjustment}`;
+        case 'excessive_jitter':
+            return `Trave menos o punho e deixe o antebraco conduzir a linha principal do spray. ${adjustment}`;
+        case 'horizontal_drift':
+            return `Recentralize o eixo lateral e cheque se o mousepad esta alinhado ao ombro antes de mexer mais na sens. ${adjustment}`;
+        case 'inconsistency':
+            return `Repita o mesmo tempo de disparo e o mesmo ponto de partida do mouse em todas as tentativas. ${adjustment}`;
+        case 'inconclusive':
+            return adjustment;
+    }
+}
+
+function buildCoachDrill(diagnosis: Diagnosis, evidence: CoachEvidence, drill: string): string {
+    return `${drill} Meta do proximo bloco: ${buildVerificationTarget(diagnosis, evidence)}.`;
 }
 
 function resolveCoachPatchVersion(context?: CoachContext): string {
@@ -187,16 +304,15 @@ function buildConservativeAdjustment(adjustment: string, mode: CoachMode): strin
 }
 
 function buildVerifyNextClip(diagnosis: Diagnosis, evidence: CoachEvidence, mode: CoachMode): string {
-    const phase = evidence.dominantPhase ?? 'overall';
-    const opticContext = evidence.optic
-        ? ` usando ${evidence.optic.name}${evidence.optic.stateName ? ` no state ${evidence.optic.stateName}` : ''}`
-        : '';
+    const phase = formatPhaseLabel(evidence.dominantPhase ?? 'overall');
+    const opticContext = formatOpticContext(evidence);
+    const target = buildVerificationTarget(diagnosis, evidence);
 
     if (mode !== 'standard') {
-        return `Grave um novo clip${opticContext} antes de confirmar ${diagnosis.type}; busque coverage >= 70% e confidence >= 70%.`;
+        return `Grave um novo clip${opticContext} antes de fechar a leitura; busque ${target}.`;
     }
 
-    return `No proximo clip, confirme se ${diagnosis.type} melhora na fase ${phase}${opticContext} com coverage >= ${(evidence.coverage * 100).toFixed(0)}% e confidence >= ${(evidence.confidence * 100).toFixed(0)}%.`;
+    return `No proximo clip, cheque a ${phase}${opticContext}: ${target}, com coverage >= ${(evidence.coverage * 100).toFixed(0)}% e confidence >= ${(evidence.confidence * 100).toFixed(0)}%.`;
 }
 
 export function generateCoaching(
@@ -279,6 +395,11 @@ export function generateCoaching(
             ? whatToAdjust
             : buildConservativeAdjustment(diagnosis.remediation, mode);
         const drill = DRILLS[diagnosis.type] ?? 'Pratique no Training Mode focando na consistencia mecanica.';
+        const verifyNextClip = buildVerifyNextClip(diagnosis, evidence, mode);
+        const coachProblem = buildCoachProblem(diagnosis, evidence);
+        const coachCause = buildCoachCause(diagnosis, evidence, loadout);
+        const coachAdjustment = buildCoachAction(diagnosis, evidence, adjustment, mode);
+        const coachDrill = buildCoachDrill(diagnosis, evidence, drill);
 
         return {
             diagnosis,
@@ -286,14 +407,14 @@ export function generateCoaching(
             problem: diagnosis.description,
             evidence,
             confidence: evidence.confidence,
-            likelyCause: whyItHappens,
+            likelyCause: coachCause,
             adjustment,
             drill,
-            verifyNextClip: buildVerifyNextClip(diagnosis, evidence, mode),
-            whatIsWrong: diagnosis.description,
+            verifyNextClip,
+            whatIsWrong: coachProblem,
             whyItHappens,
-            whatToAdjust: adjustment,
-            howToTest: drill,
+            whatToAdjust: coachAdjustment,
+            howToTest: coachDrill,
             adaptationTimeDays: estimateAdaptationDays(diagnosis.severity),
         };
     });
