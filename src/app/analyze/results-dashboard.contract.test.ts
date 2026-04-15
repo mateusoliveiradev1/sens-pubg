@@ -7,4 +7,19 @@ describe('results dashboard visualization contract', () => {
 
         expect(source).toMatch(/shotResiduals=\{activeSession\.metrics\.shotResiduals\}/);
     });
+
+    it('uses a human summary for sensitivity calibration instead of dumping raw reasoning telemetry', () => {
+        const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/buildSensitivitySummary/);
+        expect(source).not.toMatch(/\{sensitivity\.reasoning\}/);
+    });
+
+    it('shows coach verification context and attachment suggestions in the action plan', () => {
+        const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/c\.verifyNextClip/);
+        expect(source).toMatch(/c\.evidence\.recommendedAttachments/);
+        expect(source).toMatch(/Plano do Coach/);
+    });
 });

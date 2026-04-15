@@ -121,6 +121,53 @@ const METRIC_TOOLTIPS: Record<string, string> = {
     'VSM Sugerido': 'Multiplicador Vertical de Sensibilidade recomendado baseado na sua análise.',
 };
 
+function formatEvidencePercent(value: number): string {
+    return `${Math.round(value * 100)}%`;
+}
+
+function formatCoachMode(mode: 'standard' | 'low-confidence' | 'inconclusive'): string {
+    if (mode === 'inconclusive') {
+        return 'Leitura inconclusiva';
+    }
+
+    if (mode === 'low-confidence') {
+        return 'Revisar com novo clip';
+    }
+
+    return 'Alta confianca';
+}
+
+function buildSensitivitySummary(
+    recommendedProfileLabel: string,
+    topDiagnosisLabel: string | null,
+    suggestedVsm: number | undefined,
+    sampleCount: number,
+    confidence: number,
+    coverage: number
+): string {
+    const parts = [`Perfil recomendado: ${recommendedProfileLabel}.`];
+
+    if (topDiagnosisLabel) {
+        parts.push(`A prioridade desta leitura e ${topDiagnosisLabel.toLowerCase()}.`);
+    } else {
+        parts.push('A leitura nao encontrou um desvio dominante acima do restante.');
+    }
+
+    if (suggestedVsm !== undefined) {
+        parts.push(`Teste tambem VSM ${suggestedVsm.toFixed(2)} como ponto de partida.`);
+    }
+
+    if (sampleCount < 3) {
+        parts.push(`Como esta analise usa ${sampleCount} spray${sampleCount === 1 ? '' : 's'}, trate o ajuste como inicial e confirme com 3 sprays antes de fechar a sens.`);
+    } else if (confidence < 0.8 || coverage < 0.8) {
+        parts.push('Antes de consolidar a sens, vale repetir o clip com tracking mais limpo para aumentar a confianca da leitura.');
+    } else {
+        parts.push('Use isso como base de teste e valide no proximo bloco de sprays, nao como valor final absoluto.');
+    }
+
+    return parts.join(' ');
+}
+
 export function ResultsDashboard({ result }: Props): React.JSX.Element {
     const [activeSession, setActiveSession] = useState<AnalysisResult>(result);
     const [expandedDiag, setExpandedDiag] = useState<number | null>(null);
@@ -147,6 +194,7 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
             : `cm @ aprox. ${targetDistanceMeters ?? 30}m`;
 
     const { metrics, diagnoses, sensitivity, coaching } = activeSession;
+    const sampleCount = isAggregated ? (result.subSessions?.length ?? 1) : 1;
 
     const stabilityVal = Number(metrics.stabilityScore);
     const consistencyVal = Number(metrics.consistencyScore);
@@ -165,6 +213,16 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
     const sortedDiagnoses = [...diagnoses].sort((a, b) => b.severity - a.severity);
     const majorDiags = sortedDiagnoses.filter(d => d.severity >= 3);
     const minorDiags = sortedDiagnoses.filter(d => d.severity < 3);
+    const topDiagnosisMeta = sortedDiagnoses[0] ? DIAG_META[sortedDiagnoses[0].type] : null;
+    const recommendedProfile = sensitivity.profiles.find((profile) => profile.type === sensitivity.recommended);
+    const sensitivitySummary = buildSensitivitySummary(
+        recommendedProfile?.label ?? 'Balanceada',
+        topDiagnosisMeta?.label ?? null,
+        sensitivity.suggestedVSM,
+        sampleCount,
+        trackingOverview.confidence,
+        trackingOverview.coverage
+    );
 
     // Group coach feedback by similar diagnosis types for deduplication
     const groupedCoaching = [...coaching].reduce<{ key: string; items: (typeof coaching)[number][] }[]>((acc, c) => {
@@ -322,7 +380,10 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
             {/* ═══ Diagnoses — Improved ═══ */}
             {sortedDiagnoses.length > 0 && (
                 <section className={styles.section}>
-                    <h3 className={styles.sectionTitle}>🩺 Diagnósticos da IA</h3>
+                    <h3 className={styles.sectionTitle}>🩺 Leituras da Análise</h3>
+                    <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-md)', lineHeight: 1.6 }}>
+                        A análise destaca primeiro o que mais está derrubando o spray agora. Use os blocos abaixo como priorização prática, não como sentença final.
+                    </p>
                     <div className={styles.diagnosisList}>
                         {/* Major diagnoses (severity >= 3) — always visible */}
                         {majorDiags.map((d, i) => {
@@ -425,8 +486,11 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
             {/* ═══ Sensitivity Profiles — Improved ═══ */}
             <section className={styles.section}>
                 <h3 className={styles.sectionTitle}>⚙️ Calibração de Sensibilidade</h3>
-                <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-lg)' }}>
-                    {sensitivity.reasoning}
+                <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-sm)', lineHeight: 1.6 }}>
+                    {sensitivitySummary}
+                </p>
+                <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-lg)', opacity: 0.75 }}>
+                    Base atual: cobertura {formatEvidencePercent(trackingOverview.coverage)}, confianca {formatEvidencePercent(trackingOverview.confidence)} e {sampleCount} spray{sampleCount === 1 ? '' : 's'} validado{sampleCount === 1 ? '' : 's'}.
                 </p>
                 <div className={styles.profilesGrid}>
                     {sensitivity.profiles.map(profile => {
@@ -528,7 +592,10 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
             {/* ═══ Coach Feedback — Accordion + Grouped ═══ */}
             {groupedCoaching.length > 0 && (
                 <section className={styles.section}>
-                    <h3 className={styles.sectionTitle}>🏆 Mentor Perfeito (Coach)</h3>
+                    <h3 className={styles.sectionTitle}>🏆 Plano do Coach</h3>
+                    <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-md)', lineHeight: 1.6 }}>
+                        O coach abaixo prioriza o que mexe mais no resultado agora. Quando a amostra ainda está curta, a orientação vira plano de teste, não veredito final.
+                    </p>
                     <div className={styles.coachList}>
                         {groupedCoaching.map((group, gi) => {
                             const c = group.items[0];
@@ -550,11 +617,14 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                                     <div style={{
                                         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                                     }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                                             <span style={{ fontSize: '1.5rem' }}>{meta.icon}</span>
                                             <span style={{ fontSize: '11px', fontWeight: 700, color: priorityColor, fontFamily: 'var(--font-mono)', letterSpacing: '0.05em' }}>
                                                 {priorityLabel}
                                             </span>
+                                            <span className="badge badge-info">{formatCoachMode(c.mode)}</span>
+                                            <span className="badge badge-info">Conf. {formatEvidencePercent(c.evidence.confidence)}</span>
+                                            <span className="badge badge-info">Cob. {formatEvidencePercent(c.evidence.coverage)}</span>
                                             {group.items.length > 1 && (
                                                 <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>
                                                     ({group.items.length}x)
@@ -570,6 +640,9 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                                     {/* Summary always visible */}
                                     <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '10px', lineHeight: 1.5 }}>
                                         {c.whatIsWrong}
+                                    </p>
+                                    <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginTop: '8px', lineHeight: 1.6 }}>
+                                        {c.verifyNextClip}
                                     </p>
 
                                     {/* Accordion Body — expandable */}
@@ -588,6 +661,18 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                                             <div className={styles.coachRow}>
                                                 <span className={styles.coachLabel}>Protocolo de Ajuste</span>
                                                 <p>{c.whatToAdjust}</p>
+                                            </div>
+                                            {c.evidence.recommendedAttachments && c.evidence.recommendedAttachments.length > 0 && (
+                                                <div className={styles.coachRow}>
+                                                    <span className={styles.coachLabel}>Attachments para Testar</span>
+                                                    <p>
+                                                        {c.evidence.recommendedAttachments.map((attachment) => attachment.name).join(', ')}
+                                                    </p>
+                                                </div>
+                                            )}
+                                            <div className={styles.coachRow}>
+                                                <span className={styles.coachLabel}>Como Validar</span>
+                                                <p>{c.verifyNextClip}</p>
                                             </div>
                                             <div className={styles.coachRow}>
                                                 <span className={styles.coachLabel}>🏋️ Drill Profissional</span>
