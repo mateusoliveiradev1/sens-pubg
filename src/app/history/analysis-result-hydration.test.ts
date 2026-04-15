@@ -75,4 +75,58 @@ describe('hydrateAnalysisResultFromHistory', () => {
 
         expect(result.analysisContext).toBe(explicitContext);
     });
+
+    it('backfills missing tracking status counts for legacy history payloads', () => {
+        const result = hydrateAnalysisResultFromHistory({
+            fullResult: createStoredResult({
+                trajectory: {
+                    points: [],
+                    trackingFrames: [],
+                    displacements: [],
+                    trackingQuality: 0.8,
+                    framesTracked: 8,
+                    framesLost: 2,
+                    visibleFrames: 8,
+                    framesProcessed: 10,
+                    totalFrames: 10,
+                    durationMs: 1000,
+                    weaponId: 'beryl-m762',
+                },
+                subSessions: [
+                    createStoredResult({
+                        id: 'analysis-sub-1',
+                        trajectory: {
+                            points: [],
+                            trackingFrames: [],
+                            displacements: [],
+                            trackingQuality: 0.6,
+                            framesTracked: 4,
+                            framesLost: 1,
+                            visibleFrames: 4,
+                            framesProcessed: 5,
+                            totalFrames: 5,
+                            durationMs: 500,
+                            weaponId: 'beryl-m762',
+                        },
+                    }),
+                ],
+            }),
+            recordPatchVersion: '41.1',
+            scopeId: 'red-dot',
+            distanceMeters: 30,
+        });
+
+        expect(result.trajectory.statusCounts).toEqual({
+            tracked: 8,
+            occluded: 0,
+            lost: 2,
+            uncertain: 0,
+        });
+        expect(result.subSessions?.[0]?.trajectory.statusCounts).toEqual({
+            tracked: 4,
+            occluded: 0,
+            lost: 1,
+            uncertain: 0,
+        });
+    });
 });
