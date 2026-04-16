@@ -204,7 +204,7 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
             setQualityWarning(`Resolucao detectada: ${prepared.metadata.height}p. Recomendamos 1080p para maior precisao.`);
         } else if (prepared.metadata.fps < 59) {
             setQualityWarning(`Framerate detectado: ${Math.round(prepared.metadata.fps)} FPS. Recomendamos 60 FPS para capturar cada micro-ajuste.`);
-        } else if (prepared.metadata.qualityReport.overallScore < 80) {
+        } else if (prepared.metadata.qualityReport.overallScore < 60) {
             setQualityWarning(`Qualidade estimada do clip: ${Math.round(prepared.metadata.qualityReport.overallScore)}/100. O video e analisavel, mas ainda pode limitar a precisao fina.`);
         }
 

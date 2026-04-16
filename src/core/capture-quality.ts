@@ -33,7 +33,32 @@ interface PixelBounds {
 interface StrongComponent {
     readonly strongPixelCount: number;
     readonly bounds: PixelBounds;
+    readonly profile: TargetPixelProfile;
 }
+
+interface TargetPixelProfile {
+    readonly primaryMin: number;
+    readonly secondaryMax: number;
+    readonly dominanceMin: number;
+    readonly looseMin: number;
+    readonly looseRatio: number;
+}
+
+const STRICT_TARGET_PIXEL_PROFILE: TargetPixelProfile = {
+    primaryMin: 200,
+    secondaryMax: 90,
+    dominanceMin: 120,
+    looseMin: 90,
+    looseRatio: 1.25,
+};
+
+const RELAXED_TARGET_PIXEL_PROFILE: TargetPixelProfile = {
+    primaryMin: 150,
+    secondaryMax: 150,
+    dominanceMin: 45,
+    looseMin: 80,
+    looseRatio: 1.08,
+};
 
 function normalizeScore(value: number): number {
     return Number(asScore(value));
@@ -56,26 +81,38 @@ function isStrongTargetPixel(
     r: number,
     g: number,
     b: number,
-    targetColor: CrosshairColor
+    targetColor: CrosshairColor,
+    profile: TargetPixelProfile = STRICT_TARGET_PIXEL_PROFILE,
 ): boolean {
     if (targetColor === 'GREEN') {
-        return g >= 200 && r <= 90 && b <= 90 && (g - Math.max(r, b)) >= 120;
+        return g >= profile.primaryMin
+            && r <= profile.secondaryMax
+            && b <= profile.secondaryMax
+            && (g - Math.max(r, b)) >= profile.dominanceMin;
     }
 
-    return r >= 200 && g <= 90 && b <= 90 && (r - Math.max(g, b)) >= 120;
+    return r >= profile.primaryMin
+        && g <= profile.secondaryMax
+        && b <= profile.secondaryMax
+        && (r - Math.max(g, b)) >= profile.dominanceMin;
 }
 
 function isLooseTargetPixel(
     r: number,
     g: number,
     b: number,
-    targetColor: CrosshairColor
+    targetColor: CrosshairColor,
+    profile: TargetPixelProfile = STRICT_TARGET_PIXEL_PROFILE,
 ): boolean {
     if (targetColor === 'GREEN') {
-        return g >= 90 && g > (r * 1.25) && g > (b * 1.25);
+        return g >= profile.looseMin
+            && g > (r * profile.looseRatio)
+            && g > (b * profile.looseRatio);
     }
 
-    return r >= 90 && r > (g * 1.25) && r > (b * 1.25);
+    return r >= profile.looseMin
+        && r > (g * profile.looseRatio)
+        && r > (b * profile.looseRatio);
 }
 
 function getTargetDominance(
@@ -100,14 +137,6 @@ function extendBounds(bounds: PixelBounds, x: number, y: number): void {
     bounds.maxX = Math.max(bounds.maxX, x);
     bounds.minY = Math.min(bounds.minY, y);
     bounds.maxY = Math.max(bounds.maxY, y);
-}
-
-function calculateBoundsArea(bounds: PixelBounds | null): number {
-    if (!bounds) {
-        return 0;
-    }
-
-    return (bounds.maxX - bounds.minX + 1) * (bounds.maxY - bounds.minY + 1);
 }
 
 function expandBounds(
@@ -144,109 +173,120 @@ function findFocusedStrongComponent(
     const focusBounds = getCenterFocusBounds(frame.width, frame.height);
     const focusWidth = focusBounds.maxX - focusBounds.minX + 1;
     const focusHeight = focusBounds.maxY - focusBounds.minY + 1;
-    const strongMask = new Uint8Array(focusWidth * focusHeight);
-
-    for (let y = focusBounds.minY; y <= focusBounds.maxY; y++) {
-        for (let x = focusBounds.minX; x <= focusBounds.maxX; x++) {
-            const index = ((y * frame.width) + x) * 4;
-            const r = frame.data[index] ?? 0;
-            const g = frame.data[index + 1] ?? 0;
-            const b = frame.data[index + 2] ?? 0;
-
-            if (!isStrongTargetPixel(r, g, b, targetColor)) {
-                continue;
-            }
-
-            const focusIndex = ((y - focusBounds.minY) * focusWidth) + (x - focusBounds.minX);
-            strongMask[focusIndex] = 1;
-        }
-    }
-
-    const visited = new Uint8Array(strongMask.length);
-    const queueX = new Int32Array(strongMask.length);
-    const queueY = new Int32Array(strongMask.length);
     const centerX = Math.floor(frame.width / 2);
     const centerY = Math.floor(frame.height / 2);
 
-    let bestComponent: StrongComponent | null = null;
-    let bestScore = Number.NEGATIVE_INFINITY;
+    const detectWithProfile = (profile: TargetPixelProfile): StrongComponent | null => {
+        const strongMask = new Uint8Array(focusWidth * focusHeight);
 
-    for (let localY = 0; localY < focusHeight; localY++) {
-        for (let localX = 0; localX < focusWidth; localX++) {
-            const startIndex = (localY * focusWidth) + localX;
-            if (strongMask[startIndex] === 0 || visited[startIndex] === 1) {
-                continue;
-            }
+        for (let y = focusBounds.minY; y <= focusBounds.maxY; y++) {
+            for (let x = focusBounds.minX; x <= focusBounds.maxX; x++) {
+                const index = ((y * frame.width) + x) * 4;
+                const r = frame.data[index] ?? 0;
+                const g = frame.data[index + 1] ?? 0;
+                const b = frame.data[index + 2] ?? 0;
 
-            visited[startIndex] = 1;
-            queueX[0] = localX;
-            queueY[0] = localY;
-
-            let head = 0;
-            let tail = 1;
-            let strongPixelCount = 0;
-            let sumX = 0;
-            let sumY = 0;
-            const bounds = createBounds(localX + focusBounds.minX, localY + focusBounds.minY);
-
-            while (head < tail) {
-                const currentLocalX = queueX[head]!;
-                const currentLocalY = queueY[head]!;
-                head++;
-
-                const globalX = currentLocalX + focusBounds.minX;
-                const globalY = currentLocalY + focusBounds.minY;
-                strongPixelCount++;
-                sumX += globalX;
-                sumY += globalY;
-                extendBounds(bounds, globalX, globalY);
-
-                for (let offsetY = -1; offsetY <= 1; offsetY++) {
-                    for (let offsetX = -1; offsetX <= 1; offsetX++) {
-                        if (offsetX === 0 && offsetY === 0) {
-                            continue;
-                        }
-
-                        const nextLocalX = currentLocalX + offsetX;
-                        const nextLocalY = currentLocalY + offsetY;
-                        if (
-                            nextLocalX < 0
-                            || nextLocalY < 0
-                            || nextLocalX >= focusWidth
-                            || nextLocalY >= focusHeight
-                        ) {
-                            continue;
-                        }
-
-                        const nextIndex = (nextLocalY * focusWidth) + nextLocalX;
-                        if (strongMask[nextIndex] === 0 || visited[nextIndex] === 1) {
-                            continue;
-                        }
-
-                        visited[nextIndex] = 1;
-                        queueX[tail] = nextLocalX;
-                        queueY[tail] = nextLocalY;
-                        tail++;
-                    }
+                if (!isStrongTargetPixel(r, g, b, targetColor, profile)) {
+                    continue;
                 }
-            }
 
-            const centroidX = sumX / strongPixelCount;
-            const centroidY = sumY / strongPixelCount;
-            const distanceToCenter = Math.hypot(centroidX - centerX, centroidY - centerY);
-            const score = strongPixelCount - (distanceToCenter * 0.35);
-
-            if (score > bestScore) {
-                bestScore = score;
-                bestComponent = {
-                    strongPixelCount,
-                    bounds,
-                };
+                const focusIndex = ((y - focusBounds.minY) * focusWidth) + (x - focusBounds.minX);
+                strongMask[focusIndex] = 1;
             }
         }
+
+        const visited = new Uint8Array(strongMask.length);
+        const queueX = new Int32Array(strongMask.length);
+        const queueY = new Int32Array(strongMask.length);
+
+        let bestComponent: StrongComponent | null = null;
+        let bestScore = Number.NEGATIVE_INFINITY;
+
+        for (let localY = 0; localY < focusHeight; localY++) {
+            for (let localX = 0; localX < focusWidth; localX++) {
+                const startIndex = (localY * focusWidth) + localX;
+                if (strongMask[startIndex] === 0 || visited[startIndex] === 1) {
+                    continue;
+                }
+
+                visited[startIndex] = 1;
+                queueX[0] = localX;
+                queueY[0] = localY;
+
+                let head = 0;
+                let tail = 1;
+                let strongPixelCount = 0;
+                let sumX = 0;
+                let sumY = 0;
+                const bounds = createBounds(localX + focusBounds.minX, localY + focusBounds.minY);
+
+                while (head < tail) {
+                    const currentLocalX = queueX[head]!;
+                    const currentLocalY = queueY[head]!;
+                    head++;
+
+                    const globalX = currentLocalX + focusBounds.minX;
+                    const globalY = currentLocalY + focusBounds.minY;
+                    strongPixelCount++;
+                    sumX += globalX;
+                    sumY += globalY;
+                    extendBounds(bounds, globalX, globalY);
+
+                    for (let offsetY = -1; offsetY <= 1; offsetY++) {
+                        for (let offsetX = -1; offsetX <= 1; offsetX++) {
+                            if (offsetX === 0 && offsetY === 0) {
+                                continue;
+                            }
+
+                            const nextLocalX = currentLocalX + offsetX;
+                            const nextLocalY = currentLocalY + offsetY;
+                            if (
+                                nextLocalX < 0
+                                || nextLocalY < 0
+                                || nextLocalX >= focusWidth
+                                || nextLocalY >= focusHeight
+                            ) {
+                                continue;
+                            }
+
+                            const nextIndex = (nextLocalY * focusWidth) + nextLocalX;
+                            if (strongMask[nextIndex] === 0 || visited[nextIndex] === 1) {
+                                continue;
+                            }
+
+                            visited[nextIndex] = 1;
+                            queueX[tail] = nextLocalX;
+                            queueY[tail] = nextLocalY;
+                            tail++;
+                        }
+                    }
+                }
+
+                const centroidX = sumX / strongPixelCount;
+                const centroidY = sumY / strongPixelCount;
+                const distanceToCenter = Math.hypot(centroidX - centerX, centroidY - centerY);
+                const score = strongPixelCount - (distanceToCenter * 0.35);
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestComponent = {
+                        strongPixelCount,
+                        bounds,
+                        profile,
+                    };
+                }
+            }
+        }
+
+        return bestComponent;
+    };
+
+    const strictComponent = detectWithProfile(STRICT_TARGET_PIXEL_PROFILE);
+    if (strictComponent && strictComponent.strongPixelCount >= 5) {
+        return strictComponent;
     }
 
-    return bestComponent;
+    return detectWithProfile(RELAXED_TARGET_PIXEL_PROFILE) ?? strictComponent;
 }
 
 export function deriveVideoQualityBlockingReasons(
@@ -259,15 +299,15 @@ export function deriveVideoQualityBlockingReasons(
     const fpsStability = normalizeScore(input.fpsStability);
     const reasons: VideoQualityBlockingReason[] = [];
 
-    if (sharpness < 40) {
+    if (sharpness < 25) {
         pushReason(reasons, 'low_sharpness');
     }
 
-    if (compressionBurden > 60) {
+    if (compressionBurden > 90) {
         pushReason(reasons, 'high_compression_burden');
     }
 
-    if (reticleContrast < 40) {
+    if (reticleContrast < 30) {
         pushReason(reasons, 'low_reticle_contrast');
     }
 
@@ -297,6 +337,7 @@ export function measureCaptureQualityFrame(
 
     const measurementBounds = expandBounds(focusedComponent.bounds, frame.width, frame.height, 4);
     let strongPixelCount = 0;
+    let loosePixelCount = 0;
     let strongDominanceSum = 0;
     let strongBounds: PixelBounds | null = null;
     let looseBounds: PixelBounds | null = null;
@@ -307,12 +348,14 @@ export function measureCaptureQualityFrame(
             const r = frame.data[index] ?? 0;
             const g = frame.data[index + 1] ?? 0;
             const b = frame.data[index + 2] ?? 0;
-            const isStrong = isStrongTargetPixel(r, g, b, targetColor);
-            const isLoose = isStrong || isLooseTargetPixel(r, g, b, targetColor);
+            const isStrong = isStrongTargetPixel(r, g, b, targetColor, focusedComponent.profile);
+            const isLoose = isStrong || isLooseTargetPixel(r, g, b, targetColor, focusedComponent.profile);
 
             if (!isLoose) {
                 continue;
             }
+
+            loosePixelCount++;
 
             if (!looseBounds) {
                 looseBounds = createBounds(x, y);
@@ -343,7 +386,7 @@ export function measureCaptureQualityFrame(
         };
     }
 
-    const looseArea = Math.max(calculateBoundsArea(looseBounds), 1);
+    const looseSignalCount = Math.max(loosePixelCount, 1);
     const strongAverageDominance = strongDominanceSum / strongPixelCount;
     const contrastBounds = expandBounds(strongBounds, frame.width, frame.height, 3);
     let surroundingDominanceSum = 0;
@@ -372,8 +415,8 @@ export function measureCaptureQualityFrame(
     const surroundingAverageDominance = surroundingPixelCount > 0
         ? surroundingDominanceSum / surroundingPixelCount
         : 0;
-    const sharpness = Math.sqrt(strongPixelCount / looseArea) * 100;
-    const compressionBurden = (1 - (strongPixelCount / looseArea)) * 100;
+    const sharpness = Math.sqrt(strongPixelCount / looseSignalCount) * 100;
+    const compressionBurden = (1 - (strongPixelCount / looseSignalCount)) * 100;
     const reticleContrast = (strongAverageDominance - surroundingAverageDominance) * 100;
 
     return {
@@ -446,7 +489,7 @@ export function createVideoQualityReport(
         reticleContrast: asScore(reticleContrast),
         roiStability: asScore(roiStability),
         fpsStability: asScore(fpsStability),
-        usableForAnalysis: blockingReasons.length === 0 && overallScore >= 60,
+        usableForAnalysis: blockingReasons.length === 0 && overallScore >= 55,
         blockingReasons,
     };
 }

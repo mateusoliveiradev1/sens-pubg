@@ -127,6 +127,27 @@ describe('createVideoQualityReport', () => {
             ],
         });
     });
+
+    it('treats captured-like borderline clips as usable when the signal is stable enough', () => {
+        const report = createVideoQualityReport({
+            sharpness: 33,
+            compressionBurden: 89,
+            reticleContrast: 34,
+            roiStability: 100,
+            fpsStability: 100,
+        });
+
+        expect(report).toEqual({
+            overallScore: 56,
+            sharpness: 33,
+            compressionBurden: 89,
+            reticleContrast: 34,
+            roiStability: 100,
+            fpsStability: 100,
+            usableForAnalysis: true,
+            blockingReasons: [],
+        });
+    });
 });
 
 describe('analyzeCaptureQualityFrames', () => {
