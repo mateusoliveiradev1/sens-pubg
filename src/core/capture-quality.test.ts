@@ -67,6 +67,18 @@ function createDegradedFixtureFrame(): ImageData {
     return frame;
 }
 
+function createHudNoiseFixtureFrame(): ImageData {
+    const frame = createFrame(160, 160);
+
+    paintSquare(frame, 80, 80, 5, { r: 255, g: 0, b: 0 });
+    paintSquare(frame, 16, 16, 21, { r: 255, g: 0, b: 0 });
+    paintSquare(frame, 144, 16, 21, { r: 255, g: 0, b: 0 });
+    paintSquare(frame, 16, 144, 21, { r: 255, g: 0, b: 0 });
+    paintSquare(frame, 144, 144, 21, { r: 255, g: 0, b: 0 });
+
+    return frame;
+}
+
 describe('createVideoQualityReport', () => {
     it('returns the complete contract with normalized component scores', () => {
         const report = createVideoQualityReport({
@@ -139,5 +151,17 @@ describe('analyzeCaptureQualityFrames', () => {
         expect(cleanReport.sharpness).toBeGreaterThan(degradedReport.sharpness);
         expect(cleanReport.reticleContrast).toBeGreaterThan(degradedReport.reticleContrast);
         expect(cleanReport.compressionBurden).toBeLessThan(degradedReport.compressionBurden);
+    });
+
+    it('ignores off-center HUD-sized red noise when the centered reticle stays clean', () => {
+        const noisyHudReport = analyzeCaptureQualityFrames([
+            createHudNoiseFixtureFrame(),
+            createHudNoiseFixtureFrame(),
+        ]);
+
+        expect(noisyHudReport.usableForAnalysis).toBe(true);
+        expect(noisyHudReport.sharpness).toBeGreaterThan(80);
+        expect(noisyHudReport.compressionBurden).toBeLessThan(20);
+        expect(noisyHudReport.reticleContrast).toBeGreaterThan(80);
     });
 });

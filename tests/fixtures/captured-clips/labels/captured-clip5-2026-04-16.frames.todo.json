@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 1,
+  "clipId": "captured-clip5-2026-04-16",
+  "sourceVideoPath": "tests/fixtures/captured-clips/clip5.mp4",
+  "createdAt": "2026-04-16T18:22:12.120Z",
+  "sampleIntervalSeconds": 1,
+  "frameSize": {
+    "width": 1728,
+    "height": 1080
+  },
+  "frames": [
+    {
+      "frameIndex": 0,
+      "timestampSeconds": 0,
+      "label": {
+        "status": "tracked",
+        "x": 864,
+        "y": 542
+      }
+    },
+    {
+      "frameIndex": 60,
+      "timestampSeconds": 1,
+      "label": {
+        "status": "tracked",
+        "x": 864,
+        "y": 542
+      }
+    },
+    {
+      "frameIndex": 119,
+      "timestampSeconds": 2,
+      "label": {
+        "status": "tracked",
+        "x": 865,
+        "y": 543
+      }
+    },
+    {
+      "frameIndex": 179,
+      "timestampSeconds": 3,
+      "label": {
+        "status": "occluded",
+        "x": null,
+        "y": null,
+        "notes": "Center ROI did not expose a reliable reticle sample at this timestamp."
+      }
+    },
+    {
+      "frameIndex": 238,
+      "timestampSeconds": 4,
+      "label": {
+        "status": "occluded",
+        "x": null,
+        "y": null,
+        "notes": "Center ROI did not expose a reliable reticle sample at this timestamp."
+      }
+    },
+    {
+      "frameIndex": 298,
+      "timestampSeconds": 5,
+      "label": {
+        "status": "occluded",
+        "x": null,
+        "y": null,
+        "notes": "Center ROI did not expose a reliable reticle sample at this timestamp."
+      }
+    },
+    {
+      "frameIndex": 358,
+      "timestampSeconds": 6,
+      "label": {
+        "status": "occluded",
+        "x": null,
+        "y": null,
+        "notes": "Center ROI did not expose a reliable reticle sample at this timestamp."
+      }
+    },
+    {
+      "frameIndex": 417,
+      "timestampSeconds": 7,
+      "label": {
+        "status": "tracked",
+        "x": 864,
+        "y": 534
+      }
+    },
+    {
+      "frameIndex": 477,
+      "timestampSeconds": 8,
+      "label": {
+        "status": "tracked",
+        "x": 865,
+        "y": 537
+      }
+    },
+    {
+      "frameIndex": 536,
+      "timestampSeconds": 9,
+      "label": {
+        "status": "tracked",
+        "x": 869,
+        "y": 535
+      }
+    },
+    {
+      "frameIndex": 596,
+      "timestampSeconds": 10,
+      "label": {
+        "status": "tracked",
+        "x": 864,
+        "y": 539
+      }
+    },
+    {
+      "frameIndex": 656,
+      "timestampSeconds": 11,
+      "label": {
+        "status": "occluded",
+        "x": null,
+        "y": null,
+        "notes": "Center ROI did not expose a reliable reticle sample at this timestamp."
+      }
+    },
+    {
+      "frameIndex": 715,
+      "timestampSeconds": 12,
+      "label": {
+        "status": "occluded",
+        "x": null,
+        "y": null,
+        "notes": "Center ROI did not expose a reliable reticle sample at this timestamp."
+      }
+    },
+    {
+      "frameIndex": 775,
+      "timestampSeconds": 13,
+      "label": {
+        "status": "occluded",
+        "x": null,
+        "y": null,
+        "notes": "Center ROI did not expose a reliable reticle sample at this timestamp."
+      }
+    },
+    {
+      "frameIndex": 835,
+      "timestampSeconds": 14,
+      "label": {
+        "status": "occluded",
+        "x": null,
+        "y": null,
+        "notes": "Center ROI did not expose a reliable reticle sample at this timestamp."
+      }
+    },
+    {
+      "frameIndex": 894,
+      "timestampSeconds": 15,
+      "label": {
+        "status": "tracked",
+        "x": 864,
+        "y": 537
+      }
+    },
+    {
+      "frameIndex": 910,
+      "timestampSeconds": 15.283,
+      "label": {
+        "status": "tracked",
+        "x": 864,
+        "y": 536
+      }
+    }
+  ]
+}
