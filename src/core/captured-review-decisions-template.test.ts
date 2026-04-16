@@ -34,9 +34,19 @@ const plan: CapturedBenchmarkPlan = {
             reason: 'clip capturado pronto para revisao humana final',
         },
     ],
+    specialistReviewActions: [],
     captureBlueprints: [],
+    evidenceCaptureBlueprints: [],
     projectedStarterGate: {
         passed: true,
+        checks: [],
+    },
+    currentSddGate: {
+        passed: false,
+        checks: [],
+    },
+    projectedSddGate: {
+        passed: false,
         checks: [],
     },
 };
@@ -59,10 +69,11 @@ describe('captured review decisions template', () => {
                 proposedReviewStatus: 'golden',
                 approvalStatus: 'pending',
                 approvedReviewStatus: null,
+                approvedReviewProvenance: null,
                 approvedBy: null,
                 approvedAt: null,
                 rationale: 'Promocao proposta automaticamente: clip capturado pronto para revisao humana final.',
-                notes: 'Preencher approvedBy/aprovedAt e approvedReviewStatus somente depois da revisao humana final do clip.',
+                notes: 'Preencher approvedBy/approvedAt, approvedReviewStatus e approvedReviewProvenance somente depois da revisao humana final do clip.',
             },
         ]);
     });
@@ -86,6 +97,7 @@ describe('captured review decisions template', () => {
                         proposedReviewStatus: 'golden',
                         approvalStatus: 'approved',
                         approvedReviewStatus: 'golden',
+                        approvedReviewProvenance: 'codex-assisted',
                         approvedBy: 'codex-auto-review',
                         approvedAt: '2026-04-14T23:45:00.000Z',
                         rationale: 'Promocao proposta automaticamente: clip capturado pronto para revisao humana final.',
@@ -101,6 +113,7 @@ describe('captured review decisions template', () => {
                 proposedReviewStatus: 'golden',
                 approvalStatus: 'approved',
                 approvedReviewStatus: 'golden',
+                approvedReviewProvenance: 'codex-assisted',
                 approvedBy: 'codex-auto-review',
                 approvedAt: '2026-04-14T23:45:00.000Z',
                 rationale: 'Promocao proposta automaticamente: clip capturado pronto para revisao humana final.',
@@ -131,6 +144,7 @@ describe('captured review decisions template', () => {
                         proposedReviewStatus: 'golden',
                         approvalStatus: 'approved',
                         approvedReviewStatus: 'golden',
+                        approvedReviewProvenance: 'codex-assisted',
                         approvedBy: 'codex-auto-review',
                         approvedAt: '2026-04-14T23:45:00.000Z',
                         rationale: 'Promocao proposta automaticamente: clip capturado pronto para revisao humana final.',
@@ -146,10 +160,116 @@ describe('captured review decisions template', () => {
                 proposedReviewStatus: 'golden',
                 approvalStatus: 'approved',
                 approvedReviewStatus: 'golden',
+                approvedReviewProvenance: 'codex-assisted',
                 approvedBy: 'codex-auto-review',
                 approvedAt: '2026-04-14T23:45:00.000Z',
                 rationale: 'Promocao proposta automaticamente: clip capturado pronto para revisao humana final.',
                 notes: 'Aprovado em revisao assistida pelo Codex.',
+            },
+        ]);
+    });
+
+    it('creates pending specialist review decisions for goldens that still lack specialist provenance', () => {
+        const template = buildCapturedReviewDecisionTemplate({
+            decisionSetId: 'captured-review-decisions-todo-2026-04-14',
+            createdAt: '2026-04-14T23:10:00.000Z',
+            intakeManifest,
+            labelSet,
+            plan: {
+                ...plan,
+                promotionActions: [],
+                specialistReviewActions: [
+                    {
+                        clipId: 'captured-clip1-2026-04-14',
+                        currentReviewStatus: 'golden',
+                        currentReviewProvenance: 'codex-assisted',
+                        targetReviewStatus: 'golden',
+                        targetReviewProvenance: 'specialist-reviewed',
+                        reason: 'golden atual ainda nao tem validacao especialista.',
+                    },
+                ],
+            },
+        });
+
+        expect(template.decisions).toEqual([
+            {
+                clipId: 'captured-clip1-2026-04-14',
+                proposedReviewStatus: 'golden',
+                approvalStatus: 'pending',
+                approvedReviewStatus: null,
+                approvedReviewProvenance: null,
+                approvedBy: null,
+                approvedAt: null,
+                rationale: 'Validacao especialista proposta automaticamente: golden atual ainda nao tem validacao especialista..',
+                notes: 'Aprovacao pendente deve registrar approvedBy/approvedAt e approvedReviewProvenance=`specialist-reviewed` quando a revisao especialista concluir.',
+            },
+        ]);
+    });
+
+    it('keeps an approved promotion and adds a separate pending specialist review for the same clip', () => {
+        const template = buildCapturedReviewDecisionTemplate({
+            decisionSetId: 'captured-review-decisions-todo-2026-04-14',
+            createdAt: '2026-04-14T23:10:00.000Z',
+            intakeManifest,
+            labelSet,
+            plan: {
+                ...plan,
+                promotionActions: [],
+                specialistReviewActions: [
+                    {
+                        clipId: 'captured-clip1-2026-04-14',
+                        currentReviewStatus: 'golden',
+                        currentReviewProvenance: 'codex-assisted',
+                        targetReviewStatus: 'golden',
+                        targetReviewProvenance: 'specialist-reviewed',
+                        reason: 'golden atual ainda nao tem validacao especialista.',
+                    },
+                ],
+            },
+            existingDecisionSet: {
+                schemaVersion: 1,
+                decisionSetId: 'captured-review-decisions-todo-2026-04-14',
+                intakeManifestId: 'captured-clips-intake-2026-04-14',
+                labelSetId: 'captured-clips-labels-todo-2026-04-14',
+                createdAt: '2026-04-14T23:00:00.000Z',
+                decisions: [
+                    {
+                        clipId: 'captured-clip1-2026-04-14',
+                        proposedReviewStatus: 'golden',
+                        approvalStatus: 'approved',
+                        approvedReviewStatus: 'golden',
+                        approvedReviewProvenance: 'codex-assisted',
+                        approvedBy: 'codex-auto-review',
+                        approvedAt: '2026-04-14T23:45:00.000Z',
+                        rationale: 'Promocao proposta automaticamente: clip capturado pronto para revisao humana final.',
+                        notes: 'Aprovado em revisao assistida pelo Codex.',
+                    },
+                ],
+            },
+        });
+
+        expect(template.decisions).toEqual([
+            {
+                clipId: 'captured-clip1-2026-04-14',
+                proposedReviewStatus: 'golden',
+                approvalStatus: 'approved',
+                approvedReviewStatus: 'golden',
+                approvedReviewProvenance: 'codex-assisted',
+                approvedBy: 'codex-auto-review',
+                approvedAt: '2026-04-14T23:45:00.000Z',
+                rationale: 'Promocao proposta automaticamente: clip capturado pronto para revisao humana final.',
+                notes: 'Aprovado em revisao assistida pelo Codex.',
+            },
+            {
+                clipId: 'captured-clip1-2026-04-14',
+                proposedReviewStatus: 'golden',
+                approvalStatus: 'pending',
+                approvedReviewStatus: null,
+                approvedReviewProvenance: null,
+                approvedBy: null,
+                approvedAt: null,
+                rationale: 'Validacao especialista proposta automaticamente: golden atual ainda nao tem validacao especialista..',
+                notes: 'Aprovacao pendente deve registrar approvedBy/approvedAt e approvedReviewProvenance=`specialist-reviewed` quando a revisao especialista concluir.',
             },
         ]);
     });

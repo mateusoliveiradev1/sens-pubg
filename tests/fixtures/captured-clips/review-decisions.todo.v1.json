@@ -10,10 +10,22 @@
       "proposedReviewStatus": "golden",
       "approvalStatus": "approved",
       "approvedReviewStatus": "golden",
+      "approvedReviewProvenance": "codex-assisted",
       "approvedBy": "codex-auto-review",
       "approvedAt": "2026-04-14T23:45:00.000Z",
       "rationale": "Promocao proposta automaticamente: clip capturado ja esta em `reviewed`, rotulos completos, intake marcado como `candidate-clean`, pronto para promover sem capturar video novo.",
       "notes": "Aprovado em revisao assistida pelo Codex depois da entrada dos clips 3 e 4 e da validacao visual do corpus atualizado."
+    },
+    {
+      "clipId": "captured-clip1-2026-04-14",
+      "proposedReviewStatus": "golden",
+      "approvalStatus": "pending",
+      "approvedReviewStatus": null,
+      "approvedReviewProvenance": null,
+      "approvedBy": null,
+      "approvedAt": null,
+      "rationale": "Validacao especialista proposta automaticamente: clip `captured-clip1-2026-04-14` ja esta em `golden`, mas ainda nao possui provenance `specialist-reviewed`.",
+      "notes": "Aprovacao pendente deve registrar approvedBy/approvedAt e approvedReviewProvenance=`specialist-reviewed` quando a revisao especialista concluir."
     }
   ]
 }

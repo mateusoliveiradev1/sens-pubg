@@ -4,12 +4,14 @@ const CAPTURED_BENCHMARK_REVIEW_DECISION_SCHEMA_VERSION = 1 as const;
 
 const benchmarkReviewStatusSchema = z.enum(['reviewed', 'golden']);
 const approvalStatusSchema = z.enum(['pending', 'approved']);
+const approvedReviewProvenanceSchema = z.enum(['machine-assisted', 'codex-assisted', 'human-reviewed', 'specialist-reviewed']);
 
 export const capturedBenchmarkReviewDecisionSchema = z.object({
     clipId: z.string().min(1),
     proposedReviewStatus: benchmarkReviewStatusSchema,
     approvalStatus: approvalStatusSchema,
     approvedReviewStatus: benchmarkReviewStatusSchema.nullable().optional(),
+    approvedReviewProvenance: approvedReviewProvenanceSchema.nullable().optional(),
     approvedBy: z.string().min(1).nullable().optional(),
     approvedAt: z.string().datetime().nullable().optional(),
     rationale: z.string().min(1),
@@ -39,6 +41,14 @@ export const capturedBenchmarkReviewDecisionSchema = z.object({
                 message: 'approvedAt deve ficar nulo enquanto approvalStatus for pending',
             });
         }
+
+        if (decision.approvedReviewProvenance !== undefined && decision.approvedReviewProvenance !== null) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['approvedReviewProvenance'],
+                message: 'approvedReviewProvenance deve ficar nulo enquanto approvalStatus for pending',
+            });
+        }
     }
 
     if (decision.approvalStatus === 'approved') {
@@ -63,6 +73,14 @@ export const capturedBenchmarkReviewDecisionSchema = z.object({
                 code: z.ZodIssueCode.custom,
                 path: ['approvedAt'],
                 message: 'approvedAt e obrigatorio quando approvalStatus for approved',
+            });
+        }
+
+        if (decision.approvedReviewProvenance === undefined || decision.approvedReviewProvenance === null) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['approvedReviewProvenance'],
+                message: 'approvedReviewProvenance e obrigatorio quando approvalStatus for approved',
             });
         }
     }

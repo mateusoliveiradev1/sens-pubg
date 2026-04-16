@@ -3,6 +3,8 @@ import type { CapturedClipIntakeManifest } from '@/types/captured-clip-intake';
 import type { CapturedClipLabelSet } from '@/types/captured-clip-labels';
 import type { CapturedBenchmarkReviewDecisionSet } from '@/types/captured-benchmark-review-decisions';
 
+type CapturedBenchmarkReviewDecision = CapturedBenchmarkReviewDecisionSet['decisions'][number];
+
 export interface BuildCapturedReviewDecisionTemplateOptions {
     readonly decisionSetId: string;
     readonly createdAt: string;
@@ -12,22 +14,74 @@ export interface BuildCapturedReviewDecisionTemplateOptions {
     readonly existingDecisionSet?: CapturedBenchmarkReviewDecisionSet;
 }
 
+const SPECIALIST_REVIEW_NOTES =
+    'Aprovacao pendente deve registrar approvedBy/approvedAt e approvedReviewProvenance=`specialist-reviewed` quando a revisao especialista concluir.';
+const PROMOTION_NOTES =
+    'Preencher approvedBy/approvedAt, approvedReviewStatus e approvedReviewProvenance somente depois da revisao humana final do clip.';
+
+type CapturedBenchmarkReviewDecisionKind = 'promotion' | 'specialist-review';
+
+const getDecisionKind = (
+    decision: Pick<CapturedBenchmarkReviewDecision, 'approvalStatus' | 'rationale' | 'notes' | 'approvedReviewProvenance'>,
+): CapturedBenchmarkReviewDecisionKind => {
+    if (decision.approvedReviewProvenance === 'specialist-reviewed') {
+        return 'specialist-review';
+    }
+
+    if (decision.approvalStatus === 'approved' && decision.approvedReviewProvenance) {
+        return 'promotion';
+    }
+
+    if (decision.rationale.startsWith('Validacao especialista proposta automaticamente:')) {
+        return 'specialist-review';
+    }
+
+    if (decision.notes?.includes('approvedReviewProvenance=`specialist-reviewed`')) {
+        return 'specialist-review';
+    }
+
+    return 'promotion';
+};
+
+const getDecisionKey = (
+    decision: Pick<CapturedBenchmarkReviewDecision, 'clipId' | 'approvalStatus' | 'rationale' | 'notes' | 'approvedReviewProvenance'>,
+): string => `${decision.clipId}:${getDecisionKind(decision)}`;
+
 const buildPendingDecisionSet = (
     options: BuildCapturedReviewDecisionTemplateOptions,
-): Map<string, CapturedBenchmarkReviewDecisionSet['decisions'][number]> =>
-    new Map(options.plan.promotionActions.map((promotion) => [
-        promotion.clipId,
-        {
+): CapturedBenchmarkReviewDecision[] => {
+    const decisions: CapturedBenchmarkReviewDecision[] = [];
+
+    for (const promotion of options.plan.promotionActions) {
+        decisions.push({
             clipId: promotion.clipId,
             proposedReviewStatus: promotion.targetReviewStatus,
             approvalStatus: 'pending' as const,
             approvedReviewStatus: null,
+            approvedReviewProvenance: null,
             approvedBy: null,
             approvedAt: null,
             rationale: `Promocao proposta automaticamente: ${promotion.reason}.`,
-            notes: 'Preencher approvedBy/aprovedAt e approvedReviewStatus somente depois da revisao humana final do clip.',
-        },
-    ]));
+            notes: PROMOTION_NOTES,
+        });
+    }
+
+    for (const reviewAction of options.plan.specialistReviewActions) {
+        decisions.push({
+            clipId: reviewAction.clipId,
+            proposedReviewStatus: reviewAction.targetReviewStatus,
+            approvalStatus: 'pending' as const,
+            approvedReviewStatus: null,
+            approvedReviewProvenance: null,
+            approvedBy: null,
+            approvedAt: null,
+            rationale: `Validacao especialista proposta automaticamente: ${reviewAction.reason}.`,
+            notes: SPECIALIST_REVIEW_NOTES,
+        });
+    }
+
+    return decisions;
+};
 
 export function buildCapturedReviewDecisionTemplate(
     options: BuildCapturedReviewDecisionTemplateOptions,
@@ -42,19 +96,30 @@ export function buildCapturedReviewDecisionTemplate(
             validClipIds.add(decision.clipId);
         }
     }
-    const pendingDecisionsByClipId = buildPendingDecisionSet(options);
-    const existingDecisionsByClipId = new Map(
-        (options.existingDecisionSet?.decisions ?? [])
-            .filter((decision) => validClipIds.has(decision.clipId))
-            .map((decision) => [decision.clipId, decision]),
+    const pendingDecisions = buildPendingDecisionSet(options);
+    const pendingDecisionsByKey = new Map(
+        pendingDecisions.map((decision) => [getDecisionKey(decision), decision]),
     );
-    const clipIds = [
-        ...pendingDecisionsByClipId.keys(),
-        ...(options.existingDecisionSet?.decisions ?? [])
-            .filter((decision) => decision.approvalStatus === 'approved' && validClipIds.has(decision.clipId))
-            .map((decision) => decision.clipId)
-            .filter((clipId) => !pendingDecisionsByClipId.has(clipId)),
-    ];
+    const existingDecisions = (options.existingDecisionSet?.decisions ?? [])
+        .filter((decision) => validClipIds.has(decision.clipId));
+    const existingDecisionsByKey = new Map(
+        existingDecisions.map((decision) => [getDecisionKey(decision), decision]),
+    );
+    const decisionKeys: string[] = [];
+
+    for (const decision of existingDecisions) {
+        const decisionKey = getDecisionKey(decision);
+        if (decision.approvalStatus === 'approved' && !decisionKeys.includes(decisionKey)) {
+            decisionKeys.push(decisionKey);
+        }
+    }
+
+    for (const decision of pendingDecisions) {
+        const decisionKey = getDecisionKey(decision);
+        if (!decisionKeys.includes(decisionKey)) {
+            decisionKeys.push(decisionKey);
+        }
+    }
 
     return {
         schemaVersion: 1,
@@ -62,17 +127,17 @@ export function buildCapturedReviewDecisionTemplate(
         intakeManifestId: options.intakeManifest.manifestId,
         labelSetId: options.labelSet.labelSetId,
         createdAt: options.createdAt,
-        decisions: clipIds.map((clipId) => {
-            const pendingDecision = pendingDecisionsByClipId.get(clipId);
-            const existingDecision = existingDecisionsByClipId.get(clipId);
+        decisions: decisionKeys.map((decisionKey) => {
+            const pendingDecision = pendingDecisionsByKey.get(decisionKey);
+            const existingDecision = existingDecisionsByKey.get(decisionKey);
 
             if (pendingDecision && existingDecision) {
+                if (existingDecision.approvalStatus === 'approved') {
+                    return existingDecision;
+                }
+
                 return {
                     ...pendingDecision,
-                    approvalStatus: existingDecision.approvalStatus,
-                    approvedReviewStatus: existingDecision.approvedReviewStatus ?? null,
-                    approvedBy: existingDecision.approvedBy ?? null,
-                    approvedAt: existingDecision.approvedAt ?? null,
                     ...(existingDecision.notes ? { notes: existingDecision.notes } : {}),
                 };
             }
@@ -85,7 +150,7 @@ export function buildCapturedReviewDecisionTemplate(
                 return existingDecision;
             }
 
-            throw new Error(`Nao foi possivel reconciliar a decisao de review para ${clipId}`);
+            throw new Error(`Nao foi possivel reconciliar a decisao de review para ${decisionKey}`);
         }),
     };
 }

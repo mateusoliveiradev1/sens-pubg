@@ -9,9 +9,12 @@ const occlusionLevelSchema = z.enum(['none', 'light', 'moderate', 'heavy']);
 const compressionLevelSchema = z.enum(['lossless', 'light', 'medium', 'heavy']);
 const distanceBucketSchema = z.enum(['0-30m', '31-60m', '61-100m', '101m+']);
 const weaponPolicySchema = z.enum(['new-distinct-weapon', 'any']);
+const opticPolicySchema = z.enum(['new-distinct-optic', 'any']);
+const planTierSchema = z.enum(['starter', 'sdd-evidence']);
 
 export const capturedCaptureSlotRequestSchema = z.object({
     slotId: z.string().min(1),
+    planTier: planTierSchema,
     purpose: z.array(z.string().min(1)).min(1),
     targetReviewStatus: benchmarkReviewStatusSchema,
     targetTrackingTier: trackingTierSchema,
@@ -19,9 +22,13 @@ export const capturedCaptureSlotRequestSchema = z.object({
     targetOcclusionLevel: occlusionLevelSchema,
     targetCompressionLevel: compressionLevelSchema,
     targetDistanceBucket: distanceBucketSchema,
+    targetPatchVersion: z.string().min(1),
     weaponPolicy: weaponPolicySchema,
+    opticPolicy: opticPolicySchema,
     avoidWeaponIds: z.array(z.string().min(1)),
+    avoidOpticKeys: z.array(z.string().min(1)),
     requiresExpectedDiagnosis: z.boolean(),
+    requiresSpecialistReview: z.boolean(),
     notes: z.string().min(1),
     intakeTemplate: z.object({
         clipId: z.string().min(1),
