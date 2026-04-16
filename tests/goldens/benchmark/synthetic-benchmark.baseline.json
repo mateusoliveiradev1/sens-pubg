@@ -6,6 +6,7 @@
     "score": 100,
     "trackingMeanCoverage": 1,
     "trackingMeanErrorPx": 0,
+    "trackingMeanShotAlignmentErrorMs": 0,
     "diagnosticsPassRate": 1,
     "coachPassRate": 1
   }

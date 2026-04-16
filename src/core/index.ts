@@ -23,10 +23,36 @@ export {
 export {
     extractFrames,
     extractFramesFromBitmaps,
+    sliceExtractedFramesToWindow,
+    summarizeFrameTimestampDrift,
     type ExtractedFrame,
     type ExtractionProgress,
     type ExtractionProgressCallback,
+    type FrameTimestampDriftSummary,
 } from './frame-extraction';
+
+export {
+    detectSprayWindow,
+    type DetectSprayWindowOptions,
+} from './spray-window-detection';
+
+export {
+    alignTrackingPointsToShots,
+    summarizeShotAlignmentError,
+    type AlignTrackingPointsToShotsOptions,
+    type ShotAlignmentErrorSummary,
+    type ShotAlignmentResult,
+} from './shot-alignment';
+
+export {
+    analyzeCaptureQualityFrames,
+    createVideoQualityReport,
+    deriveVideoQualityBlockingReasons,
+    type CreateVideoQualityReportInput,
+    measureCaptureQualityFrame,
+    type AnalyzeCaptureQualityFramesOptions,
+    type CaptureQualityMetrics,
+} from './capture-quality';
 
 export {
     createStreamingCrosshairTracker,
@@ -40,6 +66,36 @@ export {
     type StreamingCrosshairTracker,
     type StreamingCrosshairTrackerConfig,
 } from './crosshair-tracking';
+
+export {
+    estimateGlobalMotion,
+    type GlobalMotionEstimate,
+    type EstimateGlobalMotionOptions,
+} from './global-motion-compensation';
+
+export {
+    detectOpticState,
+    type OpticStateDetection,
+    type OpticStateDetectionOptions,
+} from './optic-state-detection';
+
+export {
+    createTrackingEvidence,
+    type CreateTrackingEvidenceInput,
+    type TrackingEvidenceReferenceFrame,
+} from './tracking-evidence';
+
+export {
+    buildTrackingReviewOverlay,
+    summarizeTrackingReviewOverlay,
+    type BuildTrackingReviewOverlayInput,
+    type CapturedFrameReviewLabel,
+    type TrackingReviewFrameSize,
+    type TrackingReviewOverlayMarker,
+    type TrackingReviewOverlaySummary,
+} from './captured-frame-labeler-view';
+
+export { normalizeTrackingFrame } from './video-normalization';
 
 export {
     createCenteredRoi,

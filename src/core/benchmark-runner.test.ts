@@ -21,11 +21,13 @@ describe('runBenchmark', () => {
         expect(report.summary.tracking.passed).toBe(2);
         expect(report.summary.diagnostics.passed).toBe(2);
         expect(report.summary.coach.passed).toBe(2);
+        expect(report.summary.tracking.meanShotAlignmentErrorMs).toBeGreaterThanOrEqual(0);
         expect(report.summary.tracking.confidenceCalibration.sampleCount).toBe(7);
         expect(report.summary.tracking.confidenceCalibration.brierScore).toBeLessThan(0.1);
         expect(report.summary.tracking.confidenceCalibration.expectedCalibrationError).toBeGreaterThan(0);
         expect(report.sourceBreakdown.synthetic?.totalClips).toBe(2);
         expect(report.sourceBreakdown.synthetic?.failedClips).toBe(0);
+        expect(report.sourceBreakdown.synthetic?.tracking.meanShotAlignmentErrorMs).toBeGreaterThanOrEqual(0);
         expect(report.sourceBreakdown.synthetic?.tracking.confidenceCalibration.expectedCalibrationError).toBeGreaterThan(0);
         expect(report.sourceBreakdown.captured).toBeUndefined();
         expect(report.regression?.isRegression).toBe(false);
@@ -131,6 +133,7 @@ describe('runBenchmark', () => {
         expect(report.summary.tracking.passed).toBe(2);
         expect(report.summary.diagnostics.passed).toBe(2);
         expect(report.summary.coach.passed).toBe(2);
+        expect(report.summary.tracking.meanShotAlignmentErrorMs).toBeGreaterThanOrEqual(0);
         expect(report.sourceBreakdown.captured?.totalClips).toBe(2);
         expect(report.sourceBreakdown.captured?.failedClips).toBe(0);
         expect(report.summary.tracking.confidenceCalibration.expectedCalibrationError).toBeGreaterThan(0);
@@ -143,6 +146,7 @@ describe('runBenchmark', () => {
         expect(cleanClip?.tracking.passed).toBe(true);
         expect(cleanClip?.tracking.fixtureName).toContain('captured-frame-labels');
         expect(cleanClip?.tracking.actualTier).toBe('clean');
+        expect(cleanClip?.tracking.shotAlignmentErrorMs).toBeGreaterThanOrEqual(0);
         expect(cleanClip?.tracking.error).toBeUndefined();
         expect(cleanClip?.diagnostics.passed).toBe(true);
         expect(cleanClip?.diagnostics.fixtureName).toContain('captured-pipeline');
@@ -157,6 +161,7 @@ describe('runBenchmark', () => {
         expect(degradedClip?.tracking.passed).toBe(true);
         expect(degradedClip?.tracking.fixtureName).toContain('captured-frame-labels');
         expect(degradedClip?.tracking.actualTier).toBe('degraded');
+        expect(degradedClip?.tracking.shotAlignmentErrorMs).toBeGreaterThanOrEqual(0);
         expect(degradedClip?.tracking.error).toBeUndefined();
         expect(degradedClip?.diagnostics.passed).toBe(true);
         expect(degradedClip?.diagnostics.fixtureName).toContain('captured-pipeline');

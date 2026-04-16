@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "name": "short-loss-reacquisition-red",
+  "color": "RED",
+  "frameSize": {
+    "width": 24,
+    "height": 24
+  },
+  "roiRadiusPx": 8,
+  "thresholds": {
+    "minCoverage": 1,
+    "maxMeanErrorPx": 0.01,
+    "maxStatusMismatches": 0,
+    "maxBrierScore": 0,
+    "maxExpectedCalibrationError": 0
+  },
+  "frames": [
+    {
+      "timestamp": 0,
+      "reticle": { "x": 12, "y": 12, "shape": "block", "size": 5 },
+      "expected": { "status": "tracked", "x": 12, "y": 12 }
+    },
+    {
+      "timestamp": 16,
+      "expected": { "status": "occluded" }
+    },
+    {
+      "timestamp": 32,
+      "reticle": { "x": 13, "y": 12, "shape": "block", "size": 5 },
+      "expected": { "status": "tracked", "x": 13, "y": 12 }
+    }
+  ]
+}

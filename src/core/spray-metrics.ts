@@ -18,8 +18,10 @@ import type {
     WeaponLoadout,
     ShotRecoilResidual,
     MetricEvidenceQuality,
+    SprayPhaseQuality,
     SprayMetricQuality,
     SprayMetricQualityKey,
+    TrackingFrameObservation,
 } from '../types/engine';
 import type { Milliseconds, Score } from '../types/branded';
 import { asMilliseconds, asScore, asPixels } from '../types/branded';
@@ -28,6 +30,7 @@ import type { WeaponData, RecoilVector } from '../game/pubg/weapon-data';
 import { delta_theta, type ProjectionConfig } from '../game/pubg/projection-math';
 import { angularErrorToLinearCentimeters, linearErrorSeverity } from '../game/pubg/error-math';
 import { getExpectedRecoilSequence, type ExpectedRecoilSequence } from '../game/pubg/recoil-sequences';
+import { alignTrackingPointsToShots } from './shot-alignment';
 
 export type SprayAngleConversion = number | ProjectionConfig;
 
@@ -41,6 +44,7 @@ const METRIC_QUALITY_KEYS: readonly SprayMetricQualityKey[] = [
     'stabilityScore',
     'verticalControlIndex',
     'horizontalNoiseIndex',
+    'shotAlignmentErrorMs',
     'angularErrorDegrees',
     'linearErrorCm',
     'linearErrorSeverity',
@@ -106,64 +110,6 @@ function getSprayPhase(
     const phase = phases.find(candidate => candidate.name === name);
     if (!phase) throw new Error(`Spray phase not found: ${name}`);
     return phase;
-}
-
-// ═══════════════════════════════════════════
-// FPS-to-RPM Resampling Engine
-// ═══════════════════════════════════════════
-
-/**
- * Realinha matematicamente os frames de vídeo (30fps/60fps) com o Fire Rate (RPM) da arma.
- * Isso garante que o cálculo de recoil bata perfeitamente com a compensação esperada.
- */
-function resampleToFireRate(points: readonly TrackingPoint[], msPerShot: number): TrackingPoint[] {
-    if (points.length < 2) return [...points];
-
-    const resampled: TrackingPoint[] = [];
-    const firstTime = Number(points[0]!.timestamp);
-    const lastTime = Number(points[points.length - 1]!.timestamp);
-
-    let targetTime = firstTime;
-
-    // Interpola a mira (X,Y) exatamente no milissegundo em que cada tiro acontece
-    while (targetTime <= lastTime) {
-        let leftIdx = 0;
-        let rightIdx = points.length - 1;
-
-        for (let i = 0; i < points.length - 1; i++) {
-            if (Number(points[i]!.timestamp) <= targetTime && Number(points[i + 1]!.timestamp) >= targetTime) {
-                leftIdx = i;
-                rightIdx = i + 1;
-                break;
-            }
-        }
-
-        const left = points[leftIdx]!;
-        const right = points[rightIdx]!;
-
-        const t0 = Number(left.timestamp);
-        const t1 = Number(right.timestamp);
-
-        let ratio = 0;
-        if (t1 > t0) {
-            ratio = (targetTime - t0) / (t1 - t0);
-        }
-
-        const x = Number(left.x) + (Number(right.x) - Number(left.x)) * ratio;
-        const y = Number(left.y) + (Number(right.y) - Number(left.y)) * ratio;
-
-        resampled.push({
-            frame: resampled.length, // Linear index representing the exact bullet number
-            x: asPixels(x),
-            y: asPixels(y),
-            timestamp: asMilliseconds(targetTime),
-            confidence: left.confidence,
-        });
-
-        targetTime += msPerShot;
-    }
-
-    return resampled;
 }
 
 // ═══════════════════════════════════════════
@@ -246,8 +192,12 @@ export function buildTrajectory(
     // 0. Smooth tracking signal -> Reject low confidence + moving average
     const smoothedRawPoints = smoothTrackingSignal(tracking.points);
 
-    // 1. Resample dos frames crus do Canvas para Tiros da Arma (interpolação P(t))
-    const resampledPoints = resampleToFireRate(smoothedRawPoints, weapon.msPerShot);
+    // 1. Realinha o começo da cadência dos tiros ao primeiro movimento útil
+    // quando existe lead-in morto antes do spray.
+    const alignedShots = alignTrackingPointsToShots(smoothedRawPoints, weapon.msPerShot, {
+        referencePoints: tracking.points,
+    });
+    const resampledPoints = alignedShots.alignedPoints;
 
     // 2. Transforma as posições em deltas entre tiros
     const displacements = buildDisplacements(resampledPoints);
@@ -264,6 +214,7 @@ export function buildTrajectory(
                 ? Number(lastPoint.timestamp) - Number(firstPoint.timestamp)
                 : 0
         ),
+        shotAlignmentErrorMs: alignedShots.errorSummary.meanErrorMs,
         weaponId: weapon.id,
         trackingFrames: tracking.trackingFrames,
         trackingQuality: tracking.trackingQuality,
@@ -355,12 +306,24 @@ function clampUnit(value: number): number {
 
 function buildMetricQuality(
     trajectory: SprayTrajectory,
-    sampleSize: number
+    sampleSize: number,
+    phaseQuality?: SprayPhaseQuality
 ): SprayMetricQuality {
     const framesProcessed = Math.max(0, trajectory.framesProcessed || trajectory.totalFrames);
     const coverage = framesProcessed > 0
         ? clampUnit(trajectory.visibleFrames / framesProcessed)
         : 0;
+    const frameEvidence = buildEvidenceQualityFromFrames(
+        trajectory.trackingFrames ?? [],
+        sampleSize,
+        {
+            fallbackCoverage: coverage,
+            fallbackConfidence: clampUnit(trajectory.trackingQuality),
+            fallbackFramesProcessed: framesProcessed,
+            fallbackFramesTracked: Math.max(0, trajectory.framesTracked),
+            fallbackFramesLost: Math.max(0, trajectory.framesLost),
+        }
+    );
     const evidence: MetricEvidenceQuality = {
         coverage,
         confidence: clampUnit(trajectory.trackingQuality),
@@ -368,11 +331,145 @@ function buildMetricQuality(
         framesTracked: Math.max(0, trajectory.framesTracked),
         framesLost: Math.max(0, trajectory.framesLost),
         framesProcessed,
+        confidenceSource: 'summary',
+    };
+    const globalEvidence = (trajectory.trackingFrames ?? []).length > 0 ? frameEvidence : evidence;
+
+    const quality = Object.fromEntries(
+        METRIC_QUALITY_KEYS.map((key) => [key, globalEvidence])
+    ) as SprayMetricQuality;
+
+    if (phaseQuality) {
+        quality.burstVCI = phaseQuality.burst;
+        quality.burstHNI = phaseQuality.burst;
+        quality.sustainedVCI = phaseQuality.sustained;
+        quality.sustainedHNI = phaseQuality.sustained;
+        quality.fatigueVCI = phaseQuality.fatigue;
+        quality.fatigueHNI = phaseQuality.fatigue;
+    }
+
+    return quality;
+}
+
+function buildEvidenceQualityFromFrames(
+    frames: readonly TrackingFrameObservation[],
+    sampleSize: number,
+    fallback?: {
+        readonly fallbackCoverage: number;
+        readonly fallbackConfidence: number;
+        readonly fallbackFramesProcessed: number;
+        readonly fallbackFramesTracked: number;
+        readonly fallbackFramesLost: number;
+    }
+): MetricEvidenceQuality {
+    const framesProcessed = frames.length;
+    if (framesProcessed === 0) {
+        return {
+            coverage: fallback?.fallbackCoverage ?? 0,
+            confidence: fallback?.fallbackConfidence ?? 0,
+            sampleSize,
+            framesTracked: fallback?.fallbackFramesTracked ?? 0,
+            framesLost: fallback?.fallbackFramesLost ?? 0,
+            framesProcessed: fallback?.fallbackFramesProcessed ?? 0,
+            confidenceSource: 'summary',
+        };
+    }
+
+    const trackedFrames = frames.filter((frame) => frame.status === 'tracked').length;
+    const uncertainFrames = frames.filter((frame) => frame.status === 'uncertain').length;
+    const visibleFrames = trackedFrames + uncertainFrames;
+    const visibilityCoverage = framesProcessed > 0 ? clampUnit(visibleFrames / framesProcessed) : 0;
+    const disturbancePenalty = frames.reduce((sum, frame) => {
+        const disturbance = frame.exogenousDisturbance ?? {
+            muzzleFlash: 0,
+            blur: 0,
+            shake: 0,
+            occlusion: frame.status === 'tracked' || frame.status === 'uncertain' ? 0 : 1,
+        };
+        const framePenalty = (
+            (disturbance.muzzleFlash * 0.35) +
+            (disturbance.blur * 0.25) +
+            (disturbance.shake * 0.25) +
+            (disturbance.occlusion * 0.5)
+        );
+
+        return sum + clampUnit(framePenalty);
+    }, 0) / framesProcessed;
+    const reacquisitionPenalty = frames.reduce((sum, frame) => (
+        sum + (frame.reacquisitionFrames !== undefined
+            ? clampUnit(frame.reacquisitionFrames / 5)
+            : 0)
+    ), 0) / framesProcessed;
+    const meanFrameConfidence = frames.reduce((sum, frame) => sum + clampUnit(frame.confidence), 0) / framesProcessed;
+    const evidenceConfidence = clampUnit(
+        meanFrameConfidence *
+        visibilityCoverage *
+        (1 - disturbancePenalty) *
+        (1 - reacquisitionPenalty)
+    );
+
+    return {
+        coverage: clampUnit(visibilityCoverage * (1 - disturbancePenalty) * (1 - reacquisitionPenalty)),
+        confidence: evidenceConfidence,
+        sampleSize,
+        framesTracked: visibleFrames,
+        framesLost: Math.max(0, framesProcessed - visibleFrames),
+        framesProcessed,
+        visibilityCoverage,
+        disturbancePenalty,
+        reacquisitionPenalty,
+        confidenceSource: 'tracking_frames',
+    };
+}
+
+function getPhaseTrackingFrames(
+    trajectory: SprayTrajectory,
+    phase: SprayPhaseSegment
+): readonly TrackingFrameObservation[] {
+    const trackingFrames = trajectory.trackingFrames ?? [];
+
+    if (trackingFrames.length === 0) {
+        return [];
+    }
+
+    const firstPoint = trajectory.points[phase.startShotIndex];
+    const lastPointIndex = Math.min(
+        Math.max(phase.startShotIndex, phase.endShotIndexExclusive),
+        Math.max(0, trajectory.points.length - 1)
+    );
+    const lastPoint = trajectory.points[lastPointIndex];
+
+    if (!firstPoint || !lastPoint) {
+        return trackingFrames.filter((frame) => (
+            frame.frame >= phase.startShotIndex && frame.frame <= phase.endShotIndexExclusive
+        ));
+    }
+
+    const startFrame = Math.min(firstPoint.frame, lastPoint.frame);
+    const endFrame = Math.max(firstPoint.frame, lastPoint.frame);
+
+    return trackingFrames.filter((frame) => (
+        frame.frame >= startFrame && frame.frame <= endFrame
+    ));
+}
+
+function buildPhaseQuality(
+    trajectory: SprayTrajectory,
+    phases: readonly SprayPhaseSegment[]
+): SprayPhaseQuality {
+    const getPhaseQuality = (name: SprayPhaseName): MetricEvidenceQuality => {
+        const phase = getSprayPhase(phases, name);
+        return buildEvidenceQualityFromFrames(
+            getPhaseTrackingFrames(trajectory, phase),
+            phase.displacements.length
+        );
     };
 
-    return Object.fromEntries(
-        METRIC_QUALITY_KEYS.map((key) => [key, evidence])
-    ) as SprayMetricQuality;
+    return {
+        burst: getPhaseQuality('burst'),
+        sustained: getPhaseQuality('sustained'),
+        fatigue: getPhaseQuality('fatigue'),
+    };
 }
 
 export function calculateShotRecoilResiduals(
@@ -595,7 +692,6 @@ export function calculateSprayMetrics(
 ): SprayMetrics {
     const { displacements, points } = trajectory;
     const firstTimestamp = points.length > 0 ? Number(points[0]!.timestamp) : 0;
-    const metricQuality = buildMetricQuality(trajectory, displacements.length);
 
     // Calculate Multipliers based on Stance and Attachments
     let verticalMult = 1.0;
@@ -681,6 +777,8 @@ export function calculateSprayMetrics(
     const burst = getSprayPhase(phaseSegments, 'burst');
     const sustained = getSprayPhase(phaseSegments, 'sustained');
     const fatigue = getSprayPhase(phaseSegments, 'fatigue');
+    const phaseQuality = buildPhaseQuality(trajectory, phaseSegments);
+    const metricQuality = buildMetricQuality(trajectory, displacements.length, phaseQuality);
     const angularErrorDegrees = calculateAngularError(displacements, angleConversion);
     const linearErrorCm = angularErrorToLinearCentimeters(angularErrorDegrees, targetDistanceMeters);
 
@@ -688,6 +786,7 @@ export function calculateSprayMetrics(
         stabilityScore: calculateStability(displacements),
         verticalControlIndex: calculateVerticalControl(displacements, modifiedRecoilPattern, angleConversion),
         horizontalNoiseIndex: calculateHorizontalNoise(displacements, angleConversion),
+        shotAlignmentErrorMs: trajectory.shotAlignmentErrorMs,
         initialRecoilResponseMs: calculateRecoilResponseTime(displacements, firstTimestamp),
         driftDirectionBias: calculateDriftBias(displacements),
         consistencyScore: calculateConsistency(displacements),
@@ -704,6 +803,7 @@ export function calculateSprayMetrics(
         targetDistanceMeters,
         shotResiduals: calculateShotRecoilResiduals(displacements, modifiedExpectedRecoilSequence, angleConversion),
         metricQuality,
+        phaseQuality,
     };
 
     // Calculate final unified sprayScore (0-100)

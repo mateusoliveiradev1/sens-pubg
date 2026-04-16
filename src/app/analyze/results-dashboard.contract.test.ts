@@ -30,4 +30,21 @@ describe('results dashboard visualization contract', () => {
         expect(source).toMatch(/buildProfileHighlights/);
         expect(source).toMatch(/profileMiniScopes/);
     });
+
+    it('renders video quality score and degradation reasons when present', () => {
+        const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/activeSession\.videoQualityReport/);
+        expect(source).toMatch(/Qualidade do clip/);
+        expect(source).toMatch(/blockingReasons/);
+    });
+
+    it('renders technical tracking transparency for spray window, losses, and reacquisition', () => {
+        const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/trackingOverview\.effectiveWindowMs/);
+        expect(source).toMatch(/trackingOverview\.reacquisitionEvents/);
+        expect(source).toMatch(/trackingOverview\.maxReacquisitionFrames/);
+        expect(source).toMatch(/Leitura tecnica do tracking/);
+    });
 });

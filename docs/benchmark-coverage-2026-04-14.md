@@ -10,6 +10,9 @@ Source: `tests/goldens/benchmark/captured-benchmark-draft.json`
 | Total clips | 4 |
 | Clips com diagnostico esperado | 1 |
 | Clips promovidos para golden | 1 |
+| Benchmark captured pass rate | 4/4 |
+| Tracking Brier score | 0.0776 |
+| Tracking expected calibration error | 0.097 |
 
 ## Coverage
 
@@ -49,3 +52,11 @@ Source: `tests/goldens/benchmark/captured-benchmark-draft.json`
 ## Starter Gaps
 
 - Nenhuma lacuna minima detectada para o starter pack capturado.
+
+## Validation Command
+
+```bash
+npx tsx scripts/run-benchmark.ts tests/goldens/benchmark/captured-benchmark-draft.json
+```
+
+Latest V60-T03 validation: `passed=true`, `failedClips=0`, tracking/diagnostics/coach all `4/4`.

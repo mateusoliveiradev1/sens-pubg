@@ -5,7 +5,7 @@
 const ptBR: Record<string, string> = {
     // ═══ Global ═══
     'app.name': 'PUBG Aim Analyzer',
-    'app.description': 'Analise seu spray, entenda sinais de controle e teste ajustes de sensibilidade com IA',
+    'app.description': 'Analise seu spray, veja confianca real e teste ajustes de sensibilidade com IA',
     'app.tagline': 'Seu coach de aim pessoal',
 
     // ═══ Nav ═══
@@ -19,10 +19,10 @@ const ptBR: Record<string, string> = {
 
     // ═══ Landing ═══
     'landing.hero.title': 'Entenda Seu Recoil',
-    'landing.hero.subtitle': 'Analise clips reais, veja confiança e cobertura, e teste ajustes de sensibilidade com inteligência artificial',
+    'landing.hero.subtitle': 'Analise clips reais, veja qualidade, confianca e cobertura, e teste ajustes de sensibilidade com inteligencia artificial',
     'landing.hero.cta': 'Começar Análise',
     'landing.features.analysis': 'Análise Frame a Frame',
-    'landing.features.analysis.desc': 'Estimativa do spray usando visão computacional, cobertura e confiança do tracking',
+    'landing.features.analysis.desc': 'Estimativa do spray com qualidade do clip, cobertura, re-aquisicao e confianca do tracking',
     'landing.features.diagnostic': 'Diagnóstico Inteligente',
     'landing.features.diagnostic.desc': '6 classificações automáticas: overpull, underpull, jitter, drift e mais',
     'landing.features.sensitivity': 'Ajuste de Sensibilidade',
@@ -70,7 +70,7 @@ const ptBR: Record<string, string> = {
     // ═══ Analysis ═══
     'analyze.title': 'Analisar Clip',
     'analyze.upload.title': 'Envie seu clip de spray',
-    'analyze.upload.desc': 'Arraste um clip de 5-15 segundos com spray contínuo',
+    'analyze.upload.desc': 'Arraste um clip de 5-15 segundos com spray continuo e mira visivel',
     'analyze.upload.formats': 'MP4 ou WebM, até 50MB',
     'analyze.upload.drop': 'Solte o arquivo aqui',
     'analyze.upload.browse': 'Ou clique para escolher',

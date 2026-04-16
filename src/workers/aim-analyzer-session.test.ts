@@ -104,9 +104,102 @@ const defaultContext: WorkerAnalysisContext = {
     },
     vsm: 1,
     crosshairColor: 'RED',
+    opticState: '1x',
+    opticStateConfidence: 1,
 };
 
 describe('createAimAnalyzerSession', () => {
+    it('auto-detects the reticle color in the worker when context omits the hint', () => {
+        const session = createAimAnalyzerSession();
+        session.start();
+
+        const progress = session.processFrame({
+            imageData: createFrame(
+                24,
+                24,
+                undefined,
+                { r: 0, g: 0, b: 0 },
+                [
+                    {
+                        x: 10,
+                        y: 10,
+                        size: 5,
+                        color: { r: 0, g: 255, b: 0 },
+                    },
+                ]
+            ),
+            timestamp: 0,
+            context: {
+                ...defaultContext,
+                crosshairColor: undefined,
+            },
+        });
+
+        const result = session.finish();
+
+        expect(progress.statusCounts.tracked).toBe(1);
+        expect(progress.framesLost).toBe(0);
+        expect(result.trackingFrames[0]).toMatchObject({
+            status: 'tracked',
+            colorState: 'green',
+            x: 10,
+            y: 10,
+        });
+    });
+
+    it('propagates exogenous disturbance scores into tracking frame payloads', () => {
+        const session = createAimAnalyzerSession();
+        session.start();
+
+        session.processFrame({
+            imageData: createFrame(
+                32,
+                32,
+                { x: 16, y: 16, shape: 'block', size: 5 },
+                { r: 0, g: 0, b: 0 },
+                [
+                    {
+                        x: 24,
+                        y: 16,
+                        size: 7,
+                        color: { r: 255, g: 220, b: 90 },
+                    },
+                ]
+            ),
+            timestamp: 0,
+            context: defaultContext,
+        });
+
+        const frame = session.finish().trackingFrames[0];
+
+        expect(frame).toMatchObject({
+            status: 'tracked',
+            colorState: 'red',
+        });
+        expect(frame?.exogenousDisturbance.muzzleFlash).toBeGreaterThan(0.2);
+        expect(frame?.confidence).toBeLessThan(1);
+    });
+
+    it('records unknown optic state when the worker has no optic evidence', () => {
+        const session = createAimAnalyzerSession();
+        session.start();
+
+        session.processFrame({
+            imageData: createFrame(24, 24, { x: 10, y: 10, shape: 'block', size: 5 }),
+            timestamp: 0,
+            context: {
+                ...defaultContext,
+                opticState: undefined,
+                opticStateConfidence: undefined,
+            },
+        });
+
+        expect(session.finish().trackingFrames[0]).toMatchObject({
+            opticState: 'unknown',
+            opticStateConfidence: 0,
+        });
+    });
+
     it('tracks visible, uncertain, and occluded frames with auditable counters', () => {
         const session = createAimAnalyzerSession();
         session.start();
@@ -158,6 +251,12 @@ describe('createAimAnalyzerSession', () => {
             'occluded',
             'tracked',
         ]);
+        expect(result.trackingFrames[0]).toMatchObject({
+            colorState: 'red',
+            opticState: '1x',
+            opticStateConfidence: 1,
+        });
+        expect(result.trackingFrames[2]?.exogenousDisturbance.occlusion).toBe(1);
         expect(result.trackingQuality).toBeCloseTo(0.625, 5);
         expect(result.suggestion).toContain('puxando demais');
     });

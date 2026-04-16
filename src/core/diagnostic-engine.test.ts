@@ -12,6 +12,7 @@ const metricQualityKeys: readonly SprayMetricQualityKey[] = [
     'stabilityScore',
     'verticalControlIndex',
     'horizontalNoiseIndex',
+    'shotAlignmentErrorMs',
     'angularErrorDegrees',
     'linearErrorCm',
     'linearErrorSeverity',
@@ -50,6 +51,7 @@ function makeMetrics(overrides: Partial<SprayMetrics> = {}): SprayMetrics {
         stabilityScore: asScore(70),
         verticalControlIndex: 1.0,
         horizontalNoiseIndex: 0.1, // Angular Degrees (AR Threshold is 0.18)
+        shotAlignmentErrorMs: 0,
         angularErrorDegrees: 0.1,
         linearErrorCm: 1,
         linearErrorSeverity: 1,

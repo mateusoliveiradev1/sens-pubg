@@ -1,5 +1,11 @@
 import { createStreamingCrosshairTracker, type CrosshairColor } from '../core/crosshair-tracking';
-import type { TrackingFrameStatus, TrackingStatusCounts } from '../types/engine';
+import { detectOpticState } from '../core/optic-state-detection';
+import type {
+    ReticleExogenousDisturbance,
+    ReticleObservation,
+    TrackingFrameStatus,
+    TrackingStatusCounts,
+} from '../types/engine';
 
 export type WorkerWeaponProfile = {
     readonly id: string;
@@ -19,15 +25,7 @@ export type WorkerTrackingPoint = {
     readonly confidence: number;
 };
 
-export type WorkerTrackingFrameObservation = {
-    readonly frame: number;
-    readonly timestamp: number;
-    readonly status: TrackingFrameStatus;
-    readonly confidence: number;
-    readonly visiblePixels: number;
-    readonly x?: number;
-    readonly y?: number;
-};
+export type WorkerTrackingFrameObservation = ReticleObservation<number, number>;
 
 export type WorkerAnalysisContext = {
     readonly fov: number;
@@ -39,6 +37,8 @@ export type WorkerAnalysisContext = {
     };
     readonly vsm: number;
     readonly crosshairColor?: CrosshairColor;
+    readonly opticState?: string;
+    readonly opticStateConfidence?: number;
 };
 
 export type WorkerAnalysisProgress = {
@@ -121,6 +121,11 @@ function createTrackingFrameObservation(observation: {
     readonly status: TrackingFrameStatus;
     readonly confidence: number;
     readonly visiblePixels: number;
+    readonly reacquisitionFrames?: number | undefined;
+    readonly colorState: WorkerTrackingFrameObservation['colorState'];
+    readonly exogenousDisturbance: ReticleExogenousDisturbance;
+    readonly opticState?: string | undefined;
+    readonly opticStateConfidence?: number | undefined;
     readonly x?: number | undefined;
     readonly y?: number | undefined;
 }): WorkerTrackingFrameObservation {
@@ -130,6 +135,15 @@ function createTrackingFrameObservation(observation: {
         status: observation.status,
         confidence: observation.confidence,
         visiblePixels: observation.visiblePixels,
+        ...(observation.reacquisitionFrames !== undefined
+            ? { reacquisitionFrames: observation.reacquisitionFrames }
+            : {}),
+        colorState: observation.colorState,
+        exogenousDisturbance: observation.exogenousDisturbance,
+        ...(observation.opticState !== undefined ? { opticState: observation.opticState } : {}),
+        ...(observation.opticStateConfidence !== undefined
+            ? { opticStateConfidence: observation.opticStateConfidence }
+            : {}),
     };
 
     if (observation.x === undefined || observation.y === undefined) {
@@ -236,10 +250,17 @@ export function createAimAnalyzerSession() {
             const { imageData, timestamp, context } = input;
 
             state.framesProcessed++;
-
-            const crosshairObservation = state.streamingTracker.track(imageData, {
-                targetColor: context.crosshairColor ?? 'RED',
+            const trackingOptions = context.crosshairColor !== undefined
+                ? { targetColor: context.crosshairColor }
+                : undefined;
+            const opticStateDetection = detectOpticState(imageData, {
+                ...(context.opticState !== undefined ? { opticStateHint: context.opticState } : {}),
+                ...(context.opticStateConfidence !== undefined
+                    ? { opticStateConfidenceHint: context.opticStateConfidence }
+                    : {}),
             });
+
+            const crosshairObservation = state.streamingTracker.track(imageData, trackingOptions);
 
             recordFrameStatus(state, createTrackingFrameObservation({
                 frame: state.framesProcessed - 1,
@@ -247,6 +268,11 @@ export function createAimAnalyzerSession() {
                 status: crosshairObservation.status,
                 confidence: crosshairObservation.confidence,
                 visiblePixels: crosshairObservation.visiblePixels,
+                reacquisitionFrames: crosshairObservation.reacquisitionFrames,
+                colorState: crosshairObservation.colorState,
+                exogenousDisturbance: crosshairObservation.exogenousDisturbance,
+                opticState: opticStateDetection.opticState,
+                opticStateConfidence: opticStateDetection.opticStateConfidence,
                 x: crosshairObservation.x,
                 y: crosshairObservation.y,
             }));

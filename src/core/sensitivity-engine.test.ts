@@ -24,6 +24,7 @@ function makeMetrics(overrides: Partial<SprayMetrics> = {}): SprayMetrics {
         stabilityScore: asScore(70),
         verticalControlIndex: 1.0,
         horizontalNoiseIndex: 2.0,
+        shotAlignmentErrorMs: 0,
         angularErrorDegrees: 0.2,
         linearErrorCm: 2,
         linearErrorSeverity: 1,

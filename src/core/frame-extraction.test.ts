@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { extractFrames, extractFramesFromBitmaps, type ExtractedFrame } from './frame-extraction';
+import {
+    extractFrames,
+    extractFramesFromBitmaps,
+    sliceExtractedFramesToWindow,
+    summarizeFrameTimestampDrift,
+    type ExtractedFrame,
+} from './frame-extraction';
+import { asMilliseconds } from '../types/branded';
 
 type FakeSeekHandler = () => void;
 
@@ -210,5 +217,46 @@ describe('extractFramesFromBitmaps', () => {
             index: 0,
             timestamp: 100,
         });
+    });
+});
+
+describe('summarizeFrameTimestampDrift', () => {
+    it('reports mean and max timestamp drift against expected extraction times', () => {
+        const summary = summarizeFrameTimestampDrift(
+            [
+                { index: 0, timestamp: 100, imageData: { data: new Uint8ClampedArray(), width: 0, height: 0 } as ImageData },
+                { index: 1, timestamp: 240, imageData: { data: new Uint8ClampedArray(), width: 0, height: 0 } as ImageData },
+            ],
+            [100, 250]
+        );
+
+        expect(summary).toEqual({
+            sampleCount: 2,
+            meanErrorMs: 5,
+            maxErrorMs: 10,
+        });
+    });
+});
+
+describe('sliceExtractedFramesToWindow', () => {
+    it('keeps only frames whose timestamps fall inside the detected spray window', () => {
+        const frames: ExtractedFrame[] = [
+            { index: 0, timestamp: 0, imageData: { data: new Uint8ClampedArray(), width: 1, height: 1 } as ImageData },
+            { index: 1, timestamp: 16, imageData: { data: new Uint8ClampedArray(), width: 1, height: 1 } as ImageData },
+            { index: 2, timestamp: 32, imageData: { data: new Uint8ClampedArray(), width: 1, height: 1 } as ImageData },
+            { index: 3, timestamp: 48, imageData: { data: new Uint8ClampedArray(), width: 1, height: 1 } as ImageData },
+            { index: 4, timestamp: 64, imageData: { data: new Uint8ClampedArray(), width: 1, height: 1 } as ImageData },
+        ];
+
+        const filtered = sliceExtractedFramesToWindow(frames, {
+            startMs: asMilliseconds(16),
+            endMs: asMilliseconds(48),
+            confidence: 0.8,
+            shotLikeEvents: 3,
+            rejectedLeadingMs: asMilliseconds(16),
+            rejectedTrailingMs: asMilliseconds(16),
+        });
+
+        expect(filtered.map((frame) => frame.timestamp)).toEqual([16, 32, 48]);
     });
 });

@@ -10,7 +10,9 @@
   "thresholds": {
     "minCoverage": 1,
     "maxMeanErrorPx": 0.01,
-    "maxStatusMismatches": 0
+    "maxStatusMismatches": 0,
+    "maxBrierScore": 0.16,
+    "maxExpectedCalibrationError": 0.2
   },
   "frames": [
     {

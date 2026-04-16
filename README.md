@@ -11,11 +11,15 @@ O motor atual roda localmente no navegador com Web Workers e APIs visuais do bro
 Hoje o sistema entrega:
 
 - rastreio visual do spray em clips curtos
+- relatorio de qualidade do clip: nitidez, compressao, contraste da mira, estabilidade do ROI e FPS
+- transparencia do tracking: cobertura, confianca, frames perdidos, re-aquisicao e janela efetiva analisada
 - diagnostico estruturado em multiplos eixos
 - comparacao entre perfis de sensibilidade guiados pelo hardware
 - historico e coaching orientado pelos sinais medidos
 
-O projeto ainda esta evoluindo para um motor mais patch-aware, com matematica de sensibilidade mais forte e tracking com confianca mais honesta.
+O app pode bloquear clips com qualidade insuficiente para evitar recomendacoes enganadoras. Quando a leitura e possivel, a sensibilidade sugerida deve ser tratada como faixa de teste, nao como valor perfeito ou definitivo.
+
+O projeto ainda esta evoluindo para um motor mais patch-aware, com matematica de sensibilidade mais forte, benchmarks capturados e tracking com confianca cada vez mais honesta.
 
 ## Estado atual
 
@@ -28,7 +32,7 @@ Validacao mais recente em 2026-04-14:
 - `npm run build`: verde
 - `npm run smoke:local`: verde (`21` testes)
 
-Mais detalhes em [docs/baseline-2026-04-13.md](docs/baseline-2026-04-13.md) e [docs/SPRAY-ANALYSIS-EXECUTION-PLAN.md](docs/SPRAY-ANALYSIS-EXECUTION-PLAN.md).
+Mais detalhes em [docs/baseline-2026-04-13.md](docs/baseline-2026-04-13.md), [docs/SPRAY-ANALYSIS-EXECUTION-PLAN.md](docs/SPRAY-ANALYSIS-EXECUTION-PLAN.md), [docs/video-benchmark-spec.md](docs/video-benchmark-spec.md) e [docs/VIDEO-ANALYSIS-EXECUTION-PLAN.md](docs/VIDEO-ANALYSIS-EXECUTION-PLAN.md).
 
 ## Stack
 

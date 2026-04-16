@@ -42,13 +42,14 @@
         "linearErrorCm": 56,
         "linearErrorSeverity": 4,
         "patchVersion": "41.1",
+        "stance": "standing",
         "attachmentCatalogVersion": "41.1"
       },
       "confidence": 0.38,
-      "likelyCause": "Evidencia parcial do tracking",
+      "likelyCause": "Evidencia parcial do tracking O mouse para de descer cedo demais ou perde forca depois do inicio. De pe, qualquer sobra de movimento cobra mais caro.",
       "adjustment": "Hipotese de baixa confianca: Considere reduzir sensibilidade vertical Antes de alterar sensibilidade ou attachments, grave um novo clip com tracking mais limpo para confirmar o padrao.",
-      "drill": "**Drill de Pulldown Gradual**: Atire em uma parede limpa a 50m. Tente fazer um ponto de impactos. Se o spray subir, force o mouse para baixo de forma continua, nao apenas no inicio.",
-      "verifyNextClip": "Grave um novo clip antes de confirmar underpull; busque coverage >= 70% e confidence >= 70%.",
+      "drill": "Drill de Pulldown Gradual: atire em uma parede limpa a 50m. Tente fazer um ponto de impactos. Se o spray subir, force o mouse para baixo de forma continua, nao apenas no inicio.",
+      "verifyNextClip": "Grave um novo clip antes de fechar a leitura; busque VCI mais perto de 1.00 e erro linear abaixo de 39cm.",
       "adaptationTimeDays": 5
     }
   ]

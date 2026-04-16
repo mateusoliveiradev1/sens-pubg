@@ -7,6 +7,7 @@
 
 import { useEffect, useRef } from 'react';
 import type { ShotRecoilResidual, SprayTrajectory } from '@/types/engine';
+import type { TrackingReviewOverlayMarker } from '@/core/captured-frame-labeler-view';
 import { buildSprayVisualizationPaths } from './spray-visualization-paths';
 
 interface Props {
@@ -15,6 +16,40 @@ interface Props {
     readonly width?: number;
     readonly height?: number;
     readonly showIdeal?: boolean;
+    readonly trackingReviewOverlay?: readonly TrackingReviewOverlayMarker[] | undefined;
+}
+
+function getTrackingReviewColor(marker: TrackingReviewOverlayMarker): string {
+    if (marker.statusMatches === false) {
+        return 'rgba(239, 68, 68, 0.95)';
+    }
+
+    switch (marker.status) {
+        case 'tracked':
+            return 'rgba(34, 197, 94, 0.95)';
+        case 'uncertain':
+            return 'rgba(245, 158, 11, 0.95)';
+        case 'occluded':
+            return 'rgba(168, 85, 247, 0.95)';
+        case 'lost':
+            return 'rgba(239, 68, 68, 0.95)';
+    }
+}
+
+function scaleNormalizedPoint(
+    normalizedX: number | undefined,
+    normalizedY: number | undefined,
+    width: number,
+    height: number
+): { readonly x: number; readonly y: number } | null {
+    if (normalizedX === undefined || normalizedY === undefined) {
+        return null;
+    }
+
+    return {
+        x: normalizedX * width,
+        y: normalizedY * height,
+    };
 }
 
 export function SprayVisualization({
@@ -22,7 +57,8 @@ export function SprayVisualization({
     shotResiduals,
     width = 400,
     height = 400,
-    showIdeal = true
+    showIdeal = true,
+    trackingReviewOverlay,
 }: Props): React.JSX.Element {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -120,7 +156,46 @@ export function SprayVisualization({
         });
         ctx.shadowBlur = 0;
 
-    }, [trajectory, shotResiduals, width, height, showIdeal]);
+        if (trackingReviewOverlay && trackingReviewOverlay.length > 0) {
+            ctx.font = '10px var(--font-mono)';
+            ctx.textBaseline = 'middle';
+
+            for (const marker of trackingReviewOverlay) {
+                const observedPoint = scaleNormalizedPoint(marker.normalizedX, marker.normalizedY, width, height);
+                const labelPoint = scaleNormalizedPoint(marker.labelNormalizedX, marker.labelNormalizedY, width, height);
+                const drawPoint = labelPoint ?? observedPoint;
+
+                if (observedPoint && labelPoint && marker.errorPx !== undefined) {
+                    ctx.strokeStyle = 'rgba(239, 68, 68, 0.55)';
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([3, 3]);
+                    ctx.beginPath();
+                    ctx.moveTo(observedPoint.x, observedPoint.y);
+                    ctx.lineTo(labelPoint.x, labelPoint.y);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+
+                if (!drawPoint) {
+                    continue;
+                }
+
+                ctx.fillStyle = getTrackingReviewColor(marker);
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = getTrackingReviewColor(marker);
+                ctx.beginPath();
+                ctx.arc(drawPoint.x, drawPoint.y, marker.statusMatches === false ? 5 : 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                if (marker.errorPx !== undefined) {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+                    ctx.fillText(`${Math.round(marker.errorPx)}px`, drawPoint.x + 7, drawPoint.y - 7);
+                }
+            }
+        }
+
+    }, [trajectory, shotResiduals, width, height, showIdeal, trackingReviewOverlay]);
 
     return (
         <canvas

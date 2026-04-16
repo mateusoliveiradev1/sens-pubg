@@ -6,7 +6,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { AnalysisResult, DiagnosisType, SensitivityProfile } from '@/types/engine';
+import type { AnalysisResult, DiagnosisType, SensitivityProfile, VideoQualityBlockingReason } from '@/types/engine';
 import { formatAnalysisDistancePresentation } from './analysis-distance-presentation';
 import { SprayVisualization } from './spray-visualization';
 import { summarizeAnalysisTracking } from './tracking-summary';
@@ -126,6 +126,38 @@ const METRIC_TOOLTIPS: Record<string, string> = {
     'Consistência': 'Quão similar são seus sprays entre si (0-100).',
     'VSM Sugerido': 'Multiplicador Vertical de Sensibilidade recomendado baseado na sua análise.',
 };
+
+const VIDEO_QUALITY_REASON_LABELS: Record<VideoQualityBlockingReason, string> = {
+    low_sharpness: 'baixa nitidez',
+    high_compression_burden: 'compressao pesada',
+    low_reticle_contrast: 'baixo contraste da mira',
+    unstable_roi: 'instabilidade visual na area da mira',
+    unstable_fps: 'FPS instavel',
+};
+
+function formatVideoQualityReason(reason: VideoQualityBlockingReason): string {
+    return VIDEO_QUALITY_REASON_LABELS[reason];
+}
+
+function formatVideoQualityReasons(reasons: readonly VideoQualityBlockingReason[]): string {
+    if (reasons.length === 0) {
+        return 'nenhum bloqueio detectado';
+    }
+
+    return reasons.map(formatVideoQualityReason).join(', ');
+}
+
+function formatDurationMs(valueMs: number): string {
+    return `${(Math.max(0, valueMs) / 1000).toFixed(2)}s`;
+}
+
+function formatTrackingWindowRange(startMs: number | null, endMs: number | null): string {
+    if (startMs === null || endMs === null) {
+        return 'janela agregada';
+    }
+
+    return `${formatDurationMs(startMs)} - ${formatDurationMs(endMs)}`;
+}
 
 function formatEvidencePercent(value: number): string {
     return `${Math.round(value * 100)}%`;
@@ -309,6 +341,14 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
         : distanceMode === 'exact'
             ? `cm @ ${targetDistanceMeters ?? 30}m`
             : `cm @ aprox. ${targetDistanceMeters ?? 30}m`;
+    const videoQualityReport = activeSession.videoQualityReport;
+    const videoQualityReasons = videoQualityReport
+        ? formatVideoQualityReasons(videoQualityReport.blockingReasons)
+        : null;
+    const trackingWindowRange = formatTrackingWindowRange(
+        trackingOverview.effectiveWindowStartMs,
+        trackingOverview.effectiveWindowEndMs
+    );
 
     const { metrics, diagnoses, sensitivity, coaching } = activeSession;
     const sampleCount = isAggregated ? (result.subSessions?.length ?? 1) : 1;
@@ -398,6 +438,11 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                             Estado óptico assumido
                         </span>
                     ) : null}
+                    {videoQualityReport ? (
+                        <span className="badge badge-info" title={`Motivos: ${videoQualityReasons}`}>
+                            Qualidade do clip {Math.round(videoQualityReport.overallScore)}/100
+                        </span>
+                    ) : null}
                 </div>
                 {isAggregated && result.subSessions && result.subSessions.length > 0 ? (
                     <span className="badge badge-info">
@@ -432,6 +477,91 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                     </div>
                 </section>
             )}
+
+            {videoQualityReport ? (
+                <section className={styles.section}>
+                    <h3 className={styles.sectionTitle}>Qualidade do clip</h3>
+                    <div className="glass-card" style={{ padding: 'var(--space-lg)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-lg)', flexWrap: 'wrap', marginBottom: 'var(--space-md)' }}>
+                            <div style={{ maxWidth: '560px' }}>
+                                <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', marginBottom: '8px', lineHeight: 1.6 }}>
+                                    Score estimado do arquivo analisado. Ele ajuda a separar erro real de leitura limitada por nitidez, compressao, contraste ou estabilidade do video.
+                                </p>
+                                <strong style={{ fontSize: '2rem', color: videoQualityReport.usableForAnalysis ? 'var(--color-success)' : 'var(--color-warning)' }}>
+                                    {Math.round(videoQualityReport.overallScore)}/100
+                                </strong>
+                            </div>
+                            <div style={{ minWidth: '220px' }}>
+                                <span className={`badge ${videoQualityReport.usableForAnalysis ? 'badge-success' : 'badge-warning'}`}>
+                                    {videoQualityReport.usableForAnalysis ? 'Analisavel' : 'Bloqueado'}
+                                </span>
+                                <p style={{ marginTop: '10px', color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+                                    Motivos: {videoQualityReasons}
+                                </p>
+                            </div>
+                        </div>
+                        <div className={styles.metricsGrid}>
+                            {[
+                                { label: 'Nitidez', value: videoQualityReport.sharpness },
+                                { label: 'Compressao', value: 100 - videoQualityReport.compressionBurden },
+                                { label: 'Contraste da mira', value: videoQualityReport.reticleContrast },
+                                { label: 'ROI estavel', value: videoQualityReport.roiStability },
+                                { label: 'FPS estavel', value: videoQualityReport.fpsStability },
+                            ].map((qualityMetric) => (
+                                <div key={qualityMetric.label} className={`glass-card ${styles.metricCard}`}>
+                                    <span className="metric-label">{qualityMetric.label}</span>
+                                    <span className="metric-value" style={{ color: 'var(--color-primary)', WebkitTextFillColor: 'var(--color-primary)', background: 'none' }}>
+                                        {Math.round(qualityMetric.value)}
+                                    </span>
+                                    <span className={styles.metricUnit}>/100</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+            ) : null}
+
+            <section className={styles.section}>
+                <h3 className={styles.sectionTitle}>Leitura tecnica do tracking</h3>
+                <div className="glass-card" style={{ padding: 'var(--space-lg)' }}>
+                    <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-md)', lineHeight: 1.6 }}>
+                        Transparencia da leitura do video: mostra a janela realmente analisada, perdas de mira e quanto o tracker precisou se reacoplar ao reticulo.
+                    </p>
+                    <div className={styles.metricsGrid}>
+                        <div className={`glass-card ${styles.metricCard}`}>
+                            <span className="metric-label">Janela efetiva</span>
+                            <span className="metric-value" style={{ color: 'var(--color-primary)', WebkitTextFillColor: 'var(--color-primary)', background: 'none' }}>
+                                {formatDurationMs(trackingOverview.effectiveWindowMs)}
+                            </span>
+                            <span className={styles.metricUnit}>{trackingWindowRange}</span>
+                        </div>
+                        <div className={`glass-card ${styles.metricCard}`}>
+                            <span className="metric-label">Frames perdidos</span>
+                            <span className="metric-value" style={{ color: trackingOverview.framesLost > 0 ? 'var(--color-warning)' : 'var(--color-success)', WebkitTextFillColor: trackingOverview.framesLost > 0 ? 'var(--color-warning)' : 'var(--color-success)', background: 'none' }}>
+                                {trackingOverview.framesLost}
+                            </span>
+                            <span className={styles.metricUnit}>de {trackingOverview.framesProcessed}</span>
+                        </div>
+                        <div className={`glass-card ${styles.metricCard}`}>
+                            <span className="metric-label">Reaquisicoes</span>
+                            <span className="metric-value" style={{ color: trackingOverview.reacquisitionEvents > 0 ? 'var(--color-warning)' : 'var(--color-success)', WebkitTextFillColor: trackingOverview.reacquisitionEvents > 0 ? 'var(--color-warning)' : 'var(--color-success)', background: 'none' }}>
+                                {trackingOverview.reacquisitionEvents}
+                            </span>
+                            <span className={styles.metricUnit}>media {trackingOverview.meanReacquisitionFrames.toFixed(1)} frames</span>
+                        </div>
+                        <div className={`glass-card ${styles.metricCard}`}>
+                            <span className="metric-label">Maior reacoplamento</span>
+                            <span className="metric-value" style={{ color: trackingOverview.maxReacquisitionFrames > 1 ? 'var(--color-warning)' : 'var(--color-success)', WebkitTextFillColor: trackingOverview.maxReacquisitionFrames > 1 ? 'var(--color-warning)' : 'var(--color-success)', background: 'none' }}>
+                                {trackingOverview.maxReacquisitionFrames}
+                            </span>
+                            <span className={styles.metricUnit}>frames ate voltar</span>
+                        </div>
+                    </div>
+                    <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-xs)', marginTop: 'var(--space-md)', lineHeight: 1.6 }}>
+                        Breakdown: tracked {trackingOverview.statusCounts.tracked}, uncertain {trackingOverview.statusCounts.uncertain}, occluded {trackingOverview.statusCounts.occluded}, lost {trackingOverview.statusCounts.lost}.
+                    </p>
+                </div>
+            </section>
 
             {/* ═══ Metrics & Visualization ═══ */}
             <div className={styles.vizGrid}>

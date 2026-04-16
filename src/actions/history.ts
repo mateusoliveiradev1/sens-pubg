@@ -67,6 +67,7 @@ export async function saveAnalysisResult(
             fullResult: {
                 ...enrichedResult,
                 patchVersion,
+                videoQualityReport: enrichedResult.videoQualityReport,
             } as unknown as Record<string, unknown>,
         }).returning({ id: analysisSessions.id });
 
