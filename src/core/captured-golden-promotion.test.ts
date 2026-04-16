@@ -26,6 +26,9 @@ describe('captured golden promotion', () => {
         expect(promotion.dataset?.clips[0]?.clipId).toBe('captured-clip1-2026-04-14');
         expect(promotion.dataset?.clips[0]?.capture.weaponId).toBe('aug');
         expect(promotion.dataset?.clips[0]?.capture.distanceMeters).toBe(100);
+        expect(promotion.dataset?.clips[0]?.quality.reviewProvenance).toEqual({
+            source: 'machine-assisted',
+        });
         expect(promotion.dataset?.clips[0]?.sprayWindow).toEqual({
             startSeconds: 11.8,
             endSeconds: 14.8,
@@ -105,6 +108,9 @@ describe('captured golden promotion', () => {
         expect(promotion.dataset?.clips[0]?.capture.weaponId).toBe('beryl-m762');
         expect(promotion.dataset?.clips[0]?.quality.sourceType).toBe('captured');
         expect(promotion.dataset?.clips[0]?.quality.reviewStatus).toBe('reviewed');
+        expect(promotion.dataset?.clips[0]?.quality.reviewProvenance).toEqual({
+            source: 'machine-assisted',
+        });
         expect(promotion.dataset?.clips[0]?.quality.visibilityTier).toBe('clean');
     });
 
@@ -123,6 +129,7 @@ describe('captured golden promotion', () => {
                     proposedReviewStatus: 'golden',
                     approvalStatus: 'pending',
                     approvedReviewStatus: null,
+                    approvedReviewProvenance: null,
                     approvedBy: null,
                     approvedAt: null,
                     rationale: 'Candidato limpo aguardando confirmacao humana.',
@@ -140,6 +147,9 @@ describe('captured golden promotion', () => {
 
         expect(promotion.goldenClipCount).toBe(0);
         expect(promotion.dataset?.clips[0]?.quality.reviewStatus).toBe('reviewed');
+        expect(promotion.dataset?.clips[0]?.quality.reviewProvenance).toEqual({
+            source: 'machine-assisted',
+        });
     });
 
     it('promotes a clip to golden only when the decision is explicitly approved', () => {
@@ -157,6 +167,7 @@ describe('captured golden promotion', () => {
                     proposedReviewStatus: 'golden',
                     approvalStatus: 'approved',
                     approvedReviewStatus: 'golden',
+                    approvedReviewProvenance: 'specialist-reviewed',
                     approvedBy: 'human-reviewer',
                     approvedAt: '2026-04-14T22:50:00.000Z',
                     rationale: 'Clip limpo confirmado manualmente como golden inicial.',
@@ -174,7 +185,113 @@ describe('captured golden promotion', () => {
 
         expect(promotion.goldenClipCount).toBe(1);
         expect(promotion.dataset?.clips[0]?.quality.reviewStatus).toBe('golden');
+        expect(promotion.dataset?.clips[0]?.quality.reviewProvenance).toEqual({
+            source: 'specialist-reviewed',
+            reviewerId: 'human-reviewer',
+            reviewedAt: '2026-04-14T22:50:00.000Z',
+        });
         expect(promotion.dataset?.clips[1]?.quality.reviewStatus).toBe('reviewed');
+    });
+
+    it('keeps the approved promotion provenance when a specialist review for the same clip is still pending', () => {
+        const intakeManifest = parseCapturedClipIntakeManifest(readJson('tests/fixtures/captured-clips/intake.v1.json'));
+        const labelSet = parseCapturedClipLabelSet(readJson('tests/fixtures/captured-clips/labels.todo.v1.json'));
+        const reviewDecisionSet = parseCapturedBenchmarkReviewDecisionSet({
+            schemaVersion: 1,
+            decisionSetId: 'captured-review-decisions-mixed',
+            intakeManifestId: intakeManifest.manifestId,
+            labelSetId: labelSet.labelSetId,
+            createdAt: '2026-04-14T22:45:00.000Z',
+            decisions: [
+                {
+                    clipId: 'captured-clip1-2026-04-14',
+                    proposedReviewStatus: 'golden',
+                    approvalStatus: 'approved',
+                    approvedReviewStatus: 'golden',
+                    approvedReviewProvenance: 'codex-assisted',
+                    approvedBy: 'codex-auto-review',
+                    approvedAt: '2026-04-14T22:50:00.000Z',
+                    rationale: 'Promocao proposta automaticamente: clip limpo confirmado.',
+                },
+                {
+                    clipId: 'captured-clip1-2026-04-14',
+                    proposedReviewStatus: 'golden',
+                    approvalStatus: 'pending',
+                    approvedReviewStatus: null,
+                    approvedReviewProvenance: null,
+                    approvedBy: null,
+                    approvedAt: null,
+                    rationale: 'Validacao especialista proposta automaticamente: clip golden ainda nao passou por revisao especialista.',
+                    notes: 'Aprovacao pendente deve registrar approvedBy/approvedAt e approvedReviewProvenance=`specialist-reviewed` quando a revisao especialista concluir.',
+                },
+            ],
+        });
+
+        const promotion = buildCapturedBenchmarkPromotion({
+            datasetId: 'captured-benchmark-draft',
+            createdAt: '2026-04-14T23:00:00.000Z',
+            intakeManifest,
+            labelSet,
+            reviewDecisionSet,
+        });
+
+        expect(promotion.goldenClipCount).toBe(1);
+        expect(promotion.dataset?.clips[0]?.quality.reviewStatus).toBe('golden');
+        expect(promotion.dataset?.clips[0]?.quality.reviewProvenance).toEqual({
+            source: 'codex-assisted',
+            reviewerId: 'codex-auto-review',
+            reviewedAt: '2026-04-14T22:50:00.000Z',
+        });
+    });
+
+    it('prefers a later specialist-reviewed approval over an older codex-assisted promotion for the same clip', () => {
+        const intakeManifest = parseCapturedClipIntakeManifest(readJson('tests/fixtures/captured-clips/intake.v1.json'));
+        const labelSet = parseCapturedClipLabelSet(readJson('tests/fixtures/captured-clips/labels.todo.v1.json'));
+        const reviewDecisionSet = parseCapturedBenchmarkReviewDecisionSet({
+            schemaVersion: 1,
+            decisionSetId: 'captured-review-decisions-specialist-upgrade',
+            intakeManifestId: intakeManifest.manifestId,
+            labelSetId: labelSet.labelSetId,
+            createdAt: '2026-04-14T22:45:00.000Z',
+            decisions: [
+                {
+                    clipId: 'captured-clip1-2026-04-14',
+                    proposedReviewStatus: 'golden',
+                    approvalStatus: 'approved',
+                    approvedReviewStatus: 'golden',
+                    approvedReviewProvenance: 'codex-assisted',
+                    approvedBy: 'codex-auto-review',
+                    approvedAt: '2026-04-14T22:50:00.000Z',
+                    rationale: 'Promocao proposta automaticamente: clip limpo confirmado.',
+                },
+                {
+                    clipId: 'captured-clip1-2026-04-14',
+                    proposedReviewStatus: 'golden',
+                    approvalStatus: 'approved',
+                    approvedReviewStatus: 'golden',
+                    approvedReviewProvenance: 'specialist-reviewed',
+                    approvedBy: 'specialist-reviewer',
+                    approvedAt: '2026-04-15T10:15:00.000Z',
+                    rationale: 'Validacao especialista proposta automaticamente: clip golden revisado por especialista.',
+                },
+            ],
+        });
+
+        const promotion = buildCapturedBenchmarkPromotion({
+            datasetId: 'captured-benchmark-draft',
+            createdAt: '2026-04-14T23:00:00.000Z',
+            intakeManifest,
+            labelSet,
+            reviewDecisionSet,
+        });
+
+        expect(promotion.goldenClipCount).toBe(1);
+        expect(promotion.dataset?.clips[0]?.quality.reviewStatus).toBe('golden');
+        expect(promotion.dataset?.clips[0]?.quality.reviewProvenance).toEqual({
+            source: 'specialist-reviewed',
+            reviewerId: 'specialist-reviewer',
+            reviewedAt: '2026-04-15T10:15:00.000Z',
+        });
     });
 
     it('blocks labels that do not match any captured intake clip', () => {

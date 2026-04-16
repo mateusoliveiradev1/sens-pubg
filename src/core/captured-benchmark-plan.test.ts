@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { CURRENT_PUBG_PATCH_VERSION } from '@/game/pubg/patch';
 import type { BenchmarkDataset } from '@/types/benchmark';
 import type { CapturedClipIntakeManifest } from '@/types/captured-clip-intake';
 import type { CapturedClipLabelSet } from '@/types/captured-clip-labels';
@@ -47,6 +48,9 @@ const dataset: BenchmarkDataset = {
                 occlusionLevel: 'light',
                 compressionLevel: 'light',
                 visibilityTier: 'clean',
+                reviewProvenance: {
+                    source: 'machine-assisted',
+                },
             },
         },
         {
@@ -84,6 +88,9 @@ const dataset: BenchmarkDataset = {
                 occlusionLevel: 'moderate',
                 compressionLevel: 'light',
                 visibilityTier: 'degraded',
+                reviewProvenance: {
+                    source: 'machine-assisted',
+                },
             },
         },
     ],
@@ -224,6 +231,7 @@ describe('captured benchmark plan', () => {
 
         expect(plan.datasetId).toBe('captured-benchmark-draft');
         expect(plan.currentStarterGate.passed).toBe(false);
+        expect(plan.currentSddGate.passed).toBe(false);
         expect(plan.promotionActions).toEqual([
             {
                 clipId: 'captured-clip1-2026-04-14',
@@ -233,18 +241,24 @@ describe('captured benchmark plan', () => {
                 reason: 'clip capturado ja esta em `reviewed`, rotulos completos, intake marcado como `candidate-clean`, pronto para promover sem capturar video novo',
             },
         ]);
+        expect(plan.specialistReviewActions).toEqual([]);
         expect(plan.captureBlueprints).toHaveLength(2);
         expect(plan.captureBlueprints[0]).toMatchObject({
             slotId: 'captured-slot-1',
+            planTier: 'starter',
             targetReviewStatus: 'reviewed',
             targetTrackingTier: 'clean',
             targetVisibilityTier: 'clean',
             targetOcclusionLevel: 'light',
             targetCompressionLevel: 'light',
             targetDistanceBucket: '0-30m',
+            targetPatchVersion: '40.1',
             weaponPolicy: 'new-distinct-weapon',
+            opticPolicy: 'any',
             avoidWeaponIds: ['aug'],
+            avoidOpticKeys: [],
             requiresExpectedDiagnosis: true,
+            requiresSpecialistReview: false,
         });
         expect(plan.captureBlueprints[0].purpose).toEqual([
             'fechar gap de quantidade minima de clips capturados',
@@ -253,16 +267,80 @@ describe('captured benchmark plan', () => {
         ]);
         expect(plan.captureBlueprints[1]).toMatchObject({
             slotId: 'captured-slot-2',
+            planTier: 'starter',
             targetReviewStatus: 'reviewed',
             targetTrackingTier: 'degraded',
             targetVisibilityTier: 'degraded',
             targetOcclusionLevel: 'moderate',
             targetCompressionLevel: 'medium',
             targetDistanceBucket: '101m+',
+            targetPatchVersion: '40.1',
             weaponPolicy: 'any',
+            opticPolicy: 'any',
             requiresExpectedDiagnosis: false,
+            requiresSpecialistReview: false,
         });
+        expect(plan.evidenceCaptureBlueprints).toEqual([
+            expect.objectContaining({
+                slotId: 'sdd-evidence-slot-1',
+                planTier: 'sdd-evidence',
+                purpose: [
+                    `fechar gap de clip capturado no patch atual ${CURRENT_PUBG_PATCH_VERSION}`,
+                    'fechar gap de optic/optic state distinto no corpus SDD',
+                ],
+                targetPatchVersion: CURRENT_PUBG_PATCH_VERSION,
+                targetReviewStatus: 'reviewed',
+                targetTrackingTier: 'clean',
+                targetVisibilityTier: 'clean',
+                targetOcclusionLevel: 'light',
+                targetCompressionLevel: 'light',
+                targetDistanceBucket: '0-30m',
+                weaponPolicy: 'any',
+                opticPolicy: 'new-distinct-optic',
+                avoidOpticKeys: ['red-dot-sight:1x'],
+                requiresExpectedDiagnosis: false,
+                requiresSpecialistReview: true,
+            }),
+        ]);
         expect(plan.projectedStarterGate.passed).toBe(true);
+        expect(plan.projectedSddGate.passed).toBe(false);
+        expect(plan.projectedSddGate.checks).toEqual([
+            {
+                key: 'currentPatchCapturedClips',
+                label: `Current PUBG patch captured clips (${CURRENT_PUBG_PATCH_VERSION})`,
+                actual: 1,
+                required: 1,
+                passed: true,
+            },
+            {
+                key: 'distinctOptics',
+                label: 'Distinct captured optics',
+                actual: 2,
+                required: 2,
+                passed: true,
+            },
+            {
+                key: 'cleanCapturedClips',
+                label: 'Clean captured clips',
+                actual: 2,
+                required: 1,
+                passed: true,
+            },
+            {
+                key: 'degradedCapturedClips',
+                label: 'Degraded captured clips',
+                actual: 1,
+                required: 1,
+                passed: true,
+            },
+            {
+                key: 'specialistReviewedGoldenClips',
+                label: 'Specialist-reviewed golden clips',
+                actual: 0,
+                required: 1,
+                passed: false,
+            },
+        ]);
         expect(plan.projectedStarterGate.checks).toEqual([
             {
                 key: 'capturedClips',
@@ -307,9 +385,16 @@ describe('captured benchmark plan', () => {
         expect(markdown).toContain('# Captured Benchmark Plan 2026-04-14');
         expect(markdown).toContain('## Immediate Promotions');
         expect(markdown).toContain('Promover `captured-clip1-2026-04-14` de `reviewed` para `golden`.');
+        expect(markdown).toContain('## SDD Specialist Review Actions');
+        expect(markdown).toContain('Nenhuma revisao especialista pendente foi planejada enquanto o clip golden ainda nao existe.');
         expect(markdown).toContain('## New Capture Blueprints');
         expect(markdown).toContain('### captured-slot-1');
         expect(markdown).toContain('- Weapon policy: `new-distinct-weapon`');
+        expect(markdown).toContain('## SDD Evidence Capture Blueprints');
+        expect(markdown).toContain(`- Target patch version: \`${CURRENT_PUBG_PATCH_VERSION}\``);
+        expect(markdown).toContain('- Optic policy: `new-distinct-optic`');
+        expect(markdown).toContain('## Current SDD Evidence Gate');
+        expect(markdown).toContain('## Projected SDD Evidence Gate After Plan');
         expect(markdown).toContain('## Projected Starter Gate After Plan');
         expect(markdown).toContain('| Captured golden clips | 1 | 1 | PASS |');
     });
@@ -351,8 +436,31 @@ describe('captured benchmark plan', () => {
                         },
                     ],
                 },
+                currentSddGate: {
+                    passed: false,
+                    checks: [
+                        {
+                            key: 'specialistReviewedGoldenClips',
+                            label: 'Specialist-reviewed golden clips',
+                            actual: 0,
+                            required: 1,
+                            passed: false,
+                        },
+                    ],
+                },
                 promotionActions: [],
+                specialistReviewActions: [
+                    {
+                        clipId: 'captured-clip1-2026-04-14',
+                        currentReviewStatus: 'golden',
+                        currentReviewProvenance: 'codex-assisted',
+                        targetReviewStatus: 'golden',
+                        targetReviewProvenance: 'specialist-reviewed',
+                        reason: 'golden atual ainda nao tem validacao especialista.',
+                    },
+                ],
                 captureBlueprints: [],
+                evidenceCaptureBlueprints: [],
                 projectedStarterGate: {
                     passed: true,
                     checks: [
@@ -386,6 +494,18 @@ describe('captured benchmark plan', () => {
                         },
                     ],
                 },
+                projectedSddGate: {
+                    passed: true,
+                    checks: [
+                        {
+                            key: 'specialistReviewedGoldenClips',
+                            label: 'Specialist-reviewed golden clips',
+                            actual: 1,
+                            required: 1,
+                            passed: true,
+                        },
+                    ],
+                },
             },
             {
                 title: 'Captured Benchmark Plan 2026-04-14',
@@ -394,6 +514,8 @@ describe('captured benchmark plan', () => {
         );
 
         expect(markdown).toContain('Nenhuma promocao imediata restante; o starter gate ja esta fechado com a cobertura atual.');
+        expect(markdown).toContain('Solicitar revisao especialista de `captured-clip1-2026-04-14` para manter `golden` com provenance `specialist-reviewed`.');
         expect(markdown).toContain('- Nenhum clip novo necessario para fechar o starter gate.');
+        expect(markdown).toContain('- Nenhum clip novo necessario para fechar o SDD evidence gate.');
     });
 });

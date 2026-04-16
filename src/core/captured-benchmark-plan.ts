@@ -1,3 +1,4 @@
+import { CURRENT_PUBG_PATCH_VERSION } from '@/game/pubg/patch';
 import type { BenchmarkClip, BenchmarkDataset } from '@/types/benchmark';
 import type { CapturedClipIntakeManifest } from '@/types/captured-clip-intake';
 import {
@@ -15,12 +16,21 @@ const TRACKING_TIERS = ['clean', 'degraded'] as const;
 
 type DistanceBucket = typeof DISTANCE_BUCKET_ORDER[number];
 type TrackingTier = typeof TRACKING_TIERS[number];
+type ReviewProvenanceSource = NonNullable<BenchmarkClip['quality']['reviewProvenance']>['source'] | 'unspecified';
 
 interface StarterGateActuals {
     capturedClips: number;
     distinctWeapons: number;
     capturedDiagnosedClips: number;
     capturedGoldenClips: number;
+}
+
+interface SddGateActuals {
+    currentPatchCapturedClips: number;
+    distinctOptics: number;
+    cleanCapturedClips: number;
+    degradedCapturedClips: number;
+    specialistReviewedGoldenClips: number;
 }
 
 export interface CapturedBenchmarkPromotionAction {
@@ -31,8 +41,18 @@ export interface CapturedBenchmarkPromotionAction {
     readonly reason: string;
 }
 
+export interface CapturedBenchmarkSpecialistReviewAction {
+    readonly clipId: string;
+    readonly currentReviewStatus: BenchmarkClip['quality']['reviewStatus'];
+    readonly currentReviewProvenance: ReviewProvenanceSource;
+    readonly targetReviewStatus: 'golden';
+    readonly targetReviewProvenance: 'specialist-reviewed';
+    readonly reason: string;
+}
+
 export interface CapturedBenchmarkCaptureBlueprint {
     readonly slotId: string;
+    readonly planTier: 'starter' | 'sdd-evidence';
     readonly purpose: readonly string[];
     readonly targetReviewStatus: BenchmarkClip['quality']['reviewStatus'];
     readonly targetTrackingTier: BenchmarkClip['labels']['expectedTrackingTier'];
@@ -40,18 +60,26 @@ export interface CapturedBenchmarkCaptureBlueprint {
     readonly targetOcclusionLevel: BenchmarkClip['quality']['occlusionLevel'];
     readonly targetCompressionLevel: BenchmarkClip['quality']['compressionLevel'];
     readonly targetDistanceBucket: DistanceBucket;
+    readonly targetPatchVersion: string;
     readonly weaponPolicy: 'new-distinct-weapon' | 'any';
+    readonly opticPolicy: 'new-distinct-optic' | 'any';
     readonly avoidWeaponIds: readonly string[];
+    readonly avoidOpticKeys: readonly string[];
     readonly requiresExpectedDiagnosis: boolean;
+    readonly requiresSpecialistReview: boolean;
     readonly notes: string;
 }
 
 export interface CapturedBenchmarkPlan {
     readonly datasetId: string;
     readonly currentStarterGate: BenchmarkCoverageGate;
+    readonly currentSddGate: BenchmarkCoverageGate;
     readonly promotionActions: readonly CapturedBenchmarkPromotionAction[];
+    readonly specialistReviewActions: readonly CapturedBenchmarkSpecialistReviewAction[];
     readonly captureBlueprints: readonly CapturedBenchmarkCaptureBlueprint[];
+    readonly evidenceCaptureBlueprints: readonly CapturedBenchmarkCaptureBlueprint[];
     readonly projectedStarterGate: BenchmarkCoverageGate;
+    readonly projectedSddGate: BenchmarkCoverageGate;
 }
 
 export interface CapturedBenchmarkPlanMarkdownOptions {
@@ -97,6 +125,42 @@ function buildStarterGate(actuals: StarterGateActuals): BenchmarkCoverageGate {
     };
 }
 
+function getSddActual(actuals: SddGateActuals, key: BenchmarkCoverageGateCheck['key']): number {
+    switch (key) {
+        case 'currentPatchCapturedClips':
+            return actuals.currentPatchCapturedClips;
+        case 'distinctOptics':
+            return actuals.distinctOptics;
+        case 'cleanCapturedClips':
+            return actuals.cleanCapturedClips;
+        case 'degradedCapturedClips':
+            return actuals.degradedCapturedClips;
+        case 'specialistReviewedGoldenClips':
+            return actuals.specialistReviewedGoldenClips;
+        default:
+            return 0;
+    }
+}
+
+function buildProjectedSddGate(
+    actuals: SddGateActuals,
+    templates: readonly BenchmarkCoverageGateCheck[],
+): BenchmarkCoverageGate {
+    const checks = templates.map((template) => {
+        const actual = getSddActual(actuals, template.key);
+        return {
+            ...template,
+            actual,
+            passed: actual >= template.required,
+        };
+    });
+
+    return {
+        passed: checks.every((check) => check.passed),
+        checks,
+    };
+}
+
 function chooseDistanceBucket(distanceCounts: Record<DistanceBucket, number>): DistanceBucket {
     return [...DISTANCE_BUCKET_ORDER].sort((left, right) => {
         const byCount = distanceCounts[left] - distanceCounts[right];
@@ -119,15 +183,53 @@ function chooseTrackingTier(trackingCounts: Record<TrackingTier, number>): Track
     })[0] ?? TRACKING_TIERS[0];
 }
 
+function choosePrimaryPatchVersion(capturedClips: readonly BenchmarkClip[]): string {
+    if (capturedClips.length === 0) {
+        return CURRENT_PUBG_PATCH_VERSION;
+    }
+
+    const counts = new Map<string, number>();
+    for (const clip of capturedClips) {
+        counts.set(clip.capture.patchVersion, (counts.get(clip.capture.patchVersion) ?? 0) + 1);
+    }
+
+    return [...counts.entries()]
+        .sort((left, right) => {
+            const byCount = right[1] - left[1];
+            if (byCount !== 0) return byCount;
+            return left[0].localeCompare(right[0]);
+        })[0]?.[0] ?? CURRENT_PUBG_PATCH_VERSION;
+}
+
+function resolveReviewProvenanceSource(clip: BenchmarkClip): ReviewProvenanceSource {
+    return clip.quality.reviewProvenance?.source ?? 'unspecified';
+}
+
 function getPromotionReason(clip: BenchmarkClip, qualityTier: 'candidate-clean' | 'candidate-degraded'): string {
     const qualityLabel = qualityTier === 'candidate-clean' ? 'candidate-clean' : 'candidate-degraded';
 
     return [
         `clip capturado ja esta em \`${clip.quality.reviewStatus}\``,
-        `rotulos completos`,
+        'rotulos completos',
         `intake marcado como \`${qualityLabel}\``,
         'pronto para promover sem capturar video novo',
     ].join(', ');
+}
+
+function getSpecialistReviewReason(clip: BenchmarkClip): string {
+    return `clip \`${clip.clipId}\` ja esta em \`${clip.quality.reviewStatus}\`, mas ainda nao possui provenance \`specialist-reviewed\``;
+}
+
+function renderGateTable(gate: BenchmarkCoverageGate): string[] {
+    return [
+        '| Requirement | Actual | Required | Status |',
+        '|---|---:|---:|---|',
+        ...gate.checks.map((check) => `| ${check.label} | ${check.actual} | ${check.required} | ${check.passed ? 'PASS' : 'FAIL'} |`),
+    ];
+}
+
+function getGateActual(gate: BenchmarkCoverageGate, key: BenchmarkCoverageGateCheck['key']): number {
+    return gate.checks.find((check) => check.key === key)?.actual ?? 0;
 }
 
 export function buildCapturedBenchmarkPlan(
@@ -138,8 +240,10 @@ export function buildCapturedBenchmarkPlan(
     const coverage = buildBenchmarkCoverageSummary(dataset);
     const capturedClips = dataset.clips.filter((clip) => clip.quality.sourceType === 'captured');
     const capturedWeapons = new Set(capturedClips.map((clip) => clip.capture.weaponId));
+    const capturedOptics = new Set(capturedClips.map((clip) => `${clip.capture.optic.opticId}:${clip.capture.optic.stateId}`));
+    const primaryPatchVersion = choosePrimaryPatchVersion(capturedClips);
     const labelSummaryByClipId = new Map(
-        summarizeCapturedClipLabelSet(labelSet).clips.map((clip) => [clip.clipId, clip])
+        summarizeCapturedClipLabelSet(labelSet).clips.map((clip) => [clip.clipId, clip]),
     );
     const intakeByClipId = new Map(intakeManifest.clips.map((clip) => [clip.clipId, clip]));
 
@@ -185,7 +289,7 @@ export function buildCapturedBenchmarkPlan(
     let remainingDistinctWeaponGap = Math.max(0, 2 - capturedWeapons.size);
     let remainingDiagnosedGap = Math.max(0, 1 - coverage.clipsWithDiagnoses);
 
-    const projectedActuals: StarterGateActuals = {
+    const projectedStarterActuals: StarterGateActuals = {
         capturedClips: capturedClips.length,
         distinctWeapons: capturedWeapons.size,
         capturedDiagnosedClips: coverage.clipsWithDiagnoses,
@@ -218,21 +322,21 @@ export function buildCapturedBenchmarkPlan(
             weaponPolicy = 'new-distinct-weapon';
             purpose.push('fechar gap de arma distinta');
             remainingDistinctWeaponGap -= 1;
-            projectedActuals.distinctWeapons += 1;
+            projectedStarterActuals.distinctWeapons += 1;
         }
 
         if (remainingDiagnosedGap > 0) {
             requiresExpectedDiagnosis = true;
             purpose.push('fechar gap de diagnostico esperado');
             remainingDiagnosedGap -= 1;
-            projectedActuals.capturedDiagnosedClips += 1;
+            projectedStarterActuals.capturedDiagnosedClips += 1;
         }
 
         if (remainingGoldenGap > 0) {
             targetReviewStatus = 'golden';
             purpose.push('fechar gap de golden');
             remainingGoldenGap -= 1;
-            projectedActuals.capturedGoldenClips += 1;
+            projectedStarterActuals.capturedGoldenClips += 1;
         }
 
         if (requiresExpectedDiagnosis || targetReviewStatus === 'golden') {
@@ -243,7 +347,7 @@ export function buildCapturedBenchmarkPlan(
 
         trackingCounts[targetTrackingTier] += 1;
         distanceCounts[distanceBucket] += 1;
-        projectedActuals.capturedClips += 1;
+        projectedStarterActuals.capturedClips += 1;
         remainingCaptureGap -= 1;
 
         const targetVisibilityTier = targetTrackingTier === 'clean' ? 'clean' : 'degraded';
@@ -263,6 +367,7 @@ export function buildCapturedBenchmarkPlan(
 
         captureBlueprints.push({
             slotId: `captured-slot-${captureBlueprints.length + 1}`,
+            planTier: 'starter',
             purpose,
             targetReviewStatus,
             targetTrackingTier,
@@ -270,34 +375,122 @@ export function buildCapturedBenchmarkPlan(
             targetOcclusionLevel,
             targetCompressionLevel,
             targetDistanceBucket: distanceBucket,
+            targetPatchVersion: primaryPatchVersion,
             weaponPolicy,
+            opticPolicy: 'any',
             avoidWeaponIds,
+            avoidOpticKeys: [],
             requiresExpectedDiagnosis,
+            requiresSpecialistReview: false,
             notes,
+        });
+    }
+
+    const specialistReviewGap = Math.max(
+        0,
+        (coverage.sddGate.checks.find((check) => check.key === 'specialistReviewedGoldenClips')?.required ?? 0) - coverage.specialistReviewedGoldenClips,
+    );
+    const specialistReviewActions = specialistReviewGap > 0
+        ? capturedClips
+            .filter((clip) => clip.quality.reviewStatus === 'golden' && resolveReviewProvenanceSource(clip) !== 'specialist-reviewed')
+            .sort((left, right) => {
+                const leftProvenance = resolveReviewProvenanceSource(left);
+                const rightProvenance = resolveReviewProvenanceSource(right);
+                if (leftProvenance !== rightProvenance) {
+                    return leftProvenance.localeCompare(rightProvenance);
+                }
+
+                return left.clipId.localeCompare(right.clipId);
+            })
+            .slice(0, specialistReviewGap)
+            .map((clip) => ({
+                clipId: clip.clipId,
+                currentReviewStatus: clip.quality.reviewStatus,
+                currentReviewProvenance: resolveReviewProvenanceSource(clip),
+                targetReviewStatus: 'golden' as const,
+                targetReviewProvenance: 'specialist-reviewed' as const,
+                reason: getSpecialistReviewReason(clip),
+            }))
+        : [];
+
+    const projectedSddActuals: SddGateActuals = {
+        currentPatchCapturedClips: coverage.currentPatchCapturedClips,
+        distinctOptics: coverage.uniqueOptics.length,
+        cleanCapturedClips: coverage.trackingTiers.clean,
+        degradedCapturedClips: coverage.trackingTiers.degraded,
+        specialistReviewedGoldenClips: coverage.specialistReviewedGoldenClips + specialistReviewActions.length,
+    };
+
+    let remainingCurrentPatchGap = Math.max(0, getGateActual(coverage.sddGate, 'currentPatchCapturedClips') === 0 ? 1 : 0);
+    let remainingDistinctOpticGap = Math.max(0, (coverage.sddGate.checks.find((check) => check.key === 'distinctOptics')?.required ?? 0) - coverage.uniqueOptics.length);
+    const evidenceDistanceCounts: Record<DistanceBucket, number> = {
+        '0-30m': coverage.distanceBuckets['0-30m'],
+        '31-60m': coverage.distanceBuckets['31-60m'],
+        '61-100m': coverage.distanceBuckets['61-100m'],
+        '101m+': coverage.distanceBuckets['101m+'],
+    };
+    const evidenceCaptureBlueprints: CapturedBenchmarkCaptureBlueprint[] = [];
+
+    while (remainingCurrentPatchGap > 0 || remainingDistinctOpticGap > 0) {
+        const purpose: string[] = [];
+        const targetPatchVersion = remainingCurrentPatchGap > 0 ? CURRENT_PUBG_PATCH_VERSION : primaryPatchVersion;
+        const opticPolicy = remainingDistinctOpticGap > 0 ? 'new-distinct-optic' : 'any';
+        const distanceBucket = chooseDistanceBucket(evidenceDistanceCounts);
+
+        if (remainingCurrentPatchGap > 0) {
+            purpose.push(`fechar gap de clip capturado no patch atual ${CURRENT_PUBG_PATCH_VERSION}`);
+            remainingCurrentPatchGap -= 1;
+            projectedSddActuals.currentPatchCapturedClips += 1;
+        }
+
+        if (remainingDistinctOpticGap > 0) {
+            purpose.push('fechar gap de optic/optic state distinto no corpus SDD');
+            remainingDistinctOpticGap -= 1;
+            projectedSddActuals.distinctOptics += 1;
+        }
+
+        evidenceDistanceCounts[distanceBucket] += 1;
+        projectedSddActuals.cleanCapturedClips += 1;
+
+        evidenceCaptureBlueprints.push({
+            slotId: `sdd-evidence-slot-${evidenceCaptureBlueprints.length + 1}`,
+            planTier: 'sdd-evidence',
+            purpose,
+            targetReviewStatus: 'reviewed',
+            targetTrackingTier: 'clean',
+            targetVisibilityTier: 'clean',
+            targetOcclusionLevel: 'light',
+            targetCompressionLevel: 'light',
+            targetDistanceBucket: distanceBucket,
+            targetPatchVersion,
+            weaponPolicy: 'any',
+            opticPolicy,
+            avoidWeaponIds: [],
+            avoidOpticKeys: opticPolicy === 'new-distinct-optic' ? [...capturedOptics].sort() : [],
+            requiresExpectedDiagnosis: false,
+            requiresSpecialistReview: true,
+            notes: 'Priorizar um clip limpo no patch atual, preferencialmente com outro optic/optic state, para virar candidato forte a validacao especialista.',
         });
     }
 
     return {
         datasetId: dataset.datasetId,
         currentStarterGate: coverage.starterGate,
+        currentSddGate: coverage.sddGate,
         promotionActions,
+        specialistReviewActions,
         captureBlueprints,
-        projectedStarterGate: buildStarterGate(projectedActuals),
+        evidenceCaptureBlueprints,
+        projectedStarterGate: buildStarterGate(projectedStarterActuals),
+        projectedSddGate: buildProjectedSddGate(projectedSddActuals, coverage.sddGate.checks),
     };
-}
-
-function renderGateTable(gate: BenchmarkCoverageGate): string[] {
-    return [
-        '| Requirement | Actual | Required | Status |',
-        '|---|---:|---:|---|',
-        ...gate.checks.map((check) => `| ${check.label} | ${check.actual} | ${check.required} | ${check.passed ? 'PASS' : 'FAIL'} |`),
-    ];
 }
 
 export function renderCapturedBenchmarkPlanMarkdown(
     plan: CapturedBenchmarkPlan,
     options: CapturedBenchmarkPlanMarkdownOptions,
 ): string {
+    const currentGoldenActual = getGateActual(plan.currentStarterGate, 'capturedGoldenClips');
     const lines = [
         `# ${options.title}`,
         '',
@@ -307,6 +500,10 @@ export function renderCapturedBenchmarkPlanMarkdown(
         '## Current Starter Gate',
         '',
         ...renderGateTable(plan.currentStarterGate),
+        '',
+        '## Current SDD Evidence Gate',
+        '',
+        ...renderGateTable(plan.currentSddGate),
         '',
         '## Immediate Promotions',
         '',
@@ -328,6 +525,25 @@ export function renderCapturedBenchmarkPlanMarkdown(
     }
 
     lines.push('');
+    lines.push('## SDD Specialist Review Actions');
+    lines.push('');
+
+    if (plan.specialistReviewActions.length === 0) {
+        if (currentGoldenActual === 0) {
+            lines.push('- Nenhuma revisao especialista pendente foi planejada enquanto o clip golden ainda nao existe.');
+        } else if (plan.currentSddGate.passed) {
+            lines.push('- Nenhuma revisao especialista pendente; o corpus atual ja cumpre o requisito de provenance especialista.');
+        } else {
+            lines.push('- Nenhuma revisao especialista automatica encontrada; revisar manualmente os goldens atuais.');
+        }
+    } else {
+        for (const action of plan.specialistReviewActions) {
+            lines.push(`- Solicitar revisao especialista de \`${action.clipId}\` para manter \`${action.targetReviewStatus}\` com provenance \`${action.targetReviewProvenance}\`.`);
+            lines.push(`  Motivo: ${action.reason}.`);
+        }
+    }
+
+    lines.push('');
     lines.push('## New Capture Blueprints');
     lines.push('');
 
@@ -338,17 +554,57 @@ export function renderCapturedBenchmarkPlanMarkdown(
             lines.push(`### ${blueprint.slotId}`);
             lines.push('');
             lines.push(`- Purpose: ${blueprint.purpose.join('; ')}.`);
+            lines.push(`- Plan tier: \`${blueprint.planTier}\``);
             lines.push(`- Target review status: \`${blueprint.targetReviewStatus}\``);
             lines.push(`- Target tracking tier: \`${blueprint.targetTrackingTier}\``);
             lines.push(`- Target visibility tier: \`${blueprint.targetVisibilityTier}\``);
             lines.push(`- Target occlusion: \`${blueprint.targetOcclusionLevel}\``);
             lines.push(`- Target compression: \`${blueprint.targetCompressionLevel}\``);
             lines.push(`- Target distance bucket: \`${blueprint.targetDistanceBucket}\``);
+            lines.push(`- Target patch version: \`${blueprint.targetPatchVersion}\``);
             lines.push(`- Weapon policy: \`${blueprint.weaponPolicy}\``);
+            lines.push(`- Optic policy: \`${blueprint.opticPolicy}\``);
             if (blueprint.avoidWeaponIds.length > 0) {
                 lines.push(`- Avoid weapon ids: \`${blueprint.avoidWeaponIds.join('`, `')}\``);
             }
+            if (blueprint.avoidOpticKeys.length > 0) {
+                lines.push(`- Avoid optic keys: \`${blueprint.avoidOpticKeys.join('`, `')}\``);
+            }
             lines.push(`- Requires expected diagnosis: \`${blueprint.requiresExpectedDiagnosis}\``);
+            lines.push(`- Requires specialist review: \`${blueprint.requiresSpecialistReview}\``);
+            lines.push(`- Notes: ${blueprint.notes}`);
+            lines.push('');
+        }
+    }
+
+    lines.push('## SDD Evidence Capture Blueprints');
+    lines.push('');
+
+    if (plan.evidenceCaptureBlueprints.length === 0) {
+        lines.push('- Nenhum clip novo necessario para fechar o SDD evidence gate.');
+    } else {
+        for (const blueprint of plan.evidenceCaptureBlueprints) {
+            lines.push(`### ${blueprint.slotId}`);
+            lines.push('');
+            lines.push(`- Purpose: ${blueprint.purpose.join('; ')}.`);
+            lines.push(`- Plan tier: \`${blueprint.planTier}\``);
+            lines.push(`- Target review status: \`${blueprint.targetReviewStatus}\``);
+            lines.push(`- Target tracking tier: \`${blueprint.targetTrackingTier}\``);
+            lines.push(`- Target visibility tier: \`${blueprint.targetVisibilityTier}\``);
+            lines.push(`- Target occlusion: \`${blueprint.targetOcclusionLevel}\``);
+            lines.push(`- Target compression: \`${blueprint.targetCompressionLevel}\``);
+            lines.push(`- Target distance bucket: \`${blueprint.targetDistanceBucket}\``);
+            lines.push(`- Target patch version: \`${blueprint.targetPatchVersion}\``);
+            lines.push(`- Weapon policy: \`${blueprint.weaponPolicy}\``);
+            lines.push(`- Optic policy: \`${blueprint.opticPolicy}\``);
+            if (blueprint.avoidWeaponIds.length > 0) {
+                lines.push(`- Avoid weapon ids: \`${blueprint.avoidWeaponIds.join('`, `')}\``);
+            }
+            if (blueprint.avoidOpticKeys.length > 0) {
+                lines.push(`- Avoid optic keys: \`${blueprint.avoidOpticKeys.join('`, `')}\``);
+            }
+            lines.push(`- Requires expected diagnosis: \`${blueprint.requiresExpectedDiagnosis}\``);
+            lines.push(`- Requires specialist review: \`${blueprint.requiresSpecialistReview}\``);
             lines.push(`- Notes: ${blueprint.notes}`);
             lines.push('');
         }
@@ -357,6 +613,10 @@ export function renderCapturedBenchmarkPlanMarkdown(
     lines.push('## Projected Starter Gate After Plan');
     lines.push('');
     lines.push(...renderGateTable(plan.projectedStarterGate));
+    lines.push('');
+    lines.push('## Projected SDD Evidence Gate After Plan');
+    lines.push('');
+    lines.push(...renderGateTable(plan.projectedSddGate));
 
     return `${lines.join('\n')}\n`;
 }

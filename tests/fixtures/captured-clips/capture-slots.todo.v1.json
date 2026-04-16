@@ -3,5 +3,37 @@
   "requestSetId": "captured-capture-slots-todo-2026-04-14",
   "datasetId": "captured-benchmark-draft",
   "createdAt": "2026-04-14T23:30:00.000Z",
-  "slots": []
+  "slots": [
+    {
+      "slotId": "sdd-evidence-slot-1",
+      "planTier": "sdd-evidence",
+      "purpose": [
+        "fechar gap de clip capturado no patch atual 41.1",
+        "fechar gap de optic/optic state distinto no corpus SDD"
+      ],
+      "targetReviewStatus": "reviewed",
+      "targetTrackingTier": "clean",
+      "targetVisibilityTier": "clean",
+      "targetOcclusionLevel": "light",
+      "targetCompressionLevel": "light",
+      "targetDistanceBucket": "0-30m",
+      "targetPatchVersion": "41.1",
+      "weaponPolicy": "any",
+      "opticPolicy": "new-distinct-optic",
+      "avoidWeaponIds": [],
+      "avoidOpticKeys": [
+        "red-dot-sight:1x"
+      ],
+      "requiresExpectedDiagnosis": false,
+      "requiresSpecialistReview": true,
+      "notes": "Priorizar um clip limpo no patch atual, preferencialmente com outro optic/optic state, para virar candidato forte a validacao especialista.",
+      "intakeTemplate": {
+        "clipId": "captured-sdd-evidence-slot-1",
+        "videoPath": null,
+        "contactPreviewPath": null,
+        "centerPreviewPath": null,
+        "sha256": null
+      }
+    }
+  ]
 }

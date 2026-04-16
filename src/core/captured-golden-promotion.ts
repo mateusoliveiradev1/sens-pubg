@@ -1,4 +1,4 @@
-import type { BenchmarkClip, BenchmarkDataset } from '@/types/benchmark';
+import type { BenchmarkClip, BenchmarkClipReviewProvenance, BenchmarkDataset } from '@/types/benchmark';
 import { parseBenchmarkDataset } from '@/types/benchmark';
 import type { CapturedClipIntakeClip, CapturedClipIntakeManifest } from '@/types/captured-clip-intake';
 import type { CapturedBenchmarkReviewDecisionSet } from '@/types/captured-benchmark-review-decisions';
@@ -50,6 +50,7 @@ const toBenchmarkClip = (
     intakeClip: CapturedClipIntakeClip,
     label: CapturedClipLabel,
     reviewStatus: BenchmarkClip['quality']['reviewStatus'],
+    reviewProvenance: BenchmarkClipReviewProvenance,
 ): BenchmarkClip => {
     const expectedDiagnoses = required(label.labels.expectedDiagnoses, 'labels.expectedDiagnoses');
     const expectedTrackingTier = required(label.labels.expectedTrackingTier, 'labels.expectedTrackingTier');
@@ -91,6 +92,7 @@ const toBenchmarkClip = (
         quality: {
             sourceType: 'captured',
             reviewStatus,
+            reviewProvenance,
             occlusionLevel: intakeClip.quality.occlusionLevel,
             compressionLevel: intakeClip.quality.compressionLevel,
             visibilityTier: toVisibilityTier(intakeClip),
@@ -99,17 +101,66 @@ const toBenchmarkClip = (
     };
 };
 
+const resolveReviewDecision = (
+    clipId: string,
+    reviewDecisionSet?: CapturedBenchmarkReviewDecisionSet,
+): CapturedBenchmarkReviewDecisionSet['decisions'][number] | undefined => {
+    const approvedDecisions = (reviewDecisionSet?.decisions ?? [])
+        .filter((item) => item.clipId === clipId && item.approvalStatus === 'approved');
+
+    if (approvedDecisions.length === 0) {
+        return undefined;
+    }
+
+    return approvedDecisions.reduce((bestDecision, candidateDecision) => {
+        const bestIsSpecialist = bestDecision.approvedReviewProvenance === 'specialist-reviewed';
+        const candidateIsSpecialist = candidateDecision.approvedReviewProvenance === 'specialist-reviewed';
+
+        if (candidateIsSpecialist && !bestIsSpecialist) {
+            return candidateDecision;
+        }
+
+        if (bestIsSpecialist && !candidateIsSpecialist) {
+            return bestDecision;
+        }
+
+        const bestApprovedAt = bestDecision.approvedAt ? Date.parse(bestDecision.approvedAt) : 0;
+        const candidateApprovedAt = candidateDecision.approvedAt ? Date.parse(candidateDecision.approvedAt) : 0;
+
+        return candidateApprovedAt > bestApprovedAt ? candidateDecision : bestDecision;
+    });
+};
+
 const resolveReviewStatus = (
     clipId: string,
     reviewDecisionSet?: CapturedBenchmarkReviewDecisionSet,
 ): BenchmarkClip['quality']['reviewStatus'] => {
-    const decision = reviewDecisionSet?.decisions.find((item) => item.clipId === clipId);
-
-    if (!decision || decision.approvalStatus !== 'approved') {
-        return 'reviewed';
-    }
+    const decision = resolveReviewDecision(clipId, reviewDecisionSet);
+    if (!decision) return 'reviewed';
 
     return decision.approvedReviewStatus ?? 'reviewed';
+};
+
+const resolveReviewProvenance = (
+    intakeClip: CapturedClipIntakeClip,
+    clipId: string,
+    reviewDecisionSet?: CapturedBenchmarkReviewDecisionSet,
+): BenchmarkClipReviewProvenance => {
+    const decision = resolveReviewDecision(clipId, reviewDecisionSet);
+
+    if (decision) {
+        return {
+            source: decision.approvedReviewProvenance ?? 'human-reviewed',
+            ...(decision.approvedBy ? { reviewerId: decision.approvedBy } : {}),
+            ...(decision.approvedAt ? { reviewedAt: decision.approvedAt } : {}),
+        };
+    }
+
+    return {
+        source: intakeClip.quality.reviewStatus === 'human-reviewed'
+            ? 'machine-assisted'
+            : 'machine-assisted',
+    };
 };
 
 export const buildCapturedBenchmarkPromotion = (
@@ -144,6 +195,7 @@ export const buildCapturedBenchmarkPromotion = (
             intakeClip,
             label,
             resolveReviewStatus(label.clipId, input.reviewDecisionSet),
+            resolveReviewProvenance(intakeClip, label.clipId, input.reviewDecisionSet),
         ));
     }
 

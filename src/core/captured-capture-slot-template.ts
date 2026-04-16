@@ -11,13 +11,19 @@ export interface BuildCapturedCaptureSlotTemplateOptions {
 export function buildCapturedCaptureSlotTemplate(
     options: BuildCapturedCaptureSlotTemplateOptions,
 ): CapturedCaptureSlotRequestSet {
+    const blueprints = [
+        ...options.plan.captureBlueprints,
+        ...options.plan.evidenceCaptureBlueprints,
+    ];
+
     return {
         schemaVersion: 1,
         requestSetId: options.requestSetId,
         datasetId: options.datasetId,
         createdAt: options.createdAt,
-        slots: options.plan.captureBlueprints.map((blueprint) => ({
+        slots: blueprints.map((blueprint) => ({
             slotId: blueprint.slotId,
+            planTier: blueprint.planTier,
             purpose: [...blueprint.purpose],
             targetReviewStatus: blueprint.targetReviewStatus,
             targetTrackingTier: blueprint.targetTrackingTier,
@@ -25,9 +31,13 @@ export function buildCapturedCaptureSlotTemplate(
             targetOcclusionLevel: blueprint.targetOcclusionLevel,
             targetCompressionLevel: blueprint.targetCompressionLevel,
             targetDistanceBucket: blueprint.targetDistanceBucket,
+            targetPatchVersion: blueprint.targetPatchVersion,
             weaponPolicy: blueprint.weaponPolicy,
+            opticPolicy: blueprint.opticPolicy,
             avoidWeaponIds: [...blueprint.avoidWeaponIds],
+            avoidOpticKeys: [...blueprint.avoidOpticKeys],
             requiresExpectedDiagnosis: blueprint.requiresExpectedDiagnosis,
+            requiresSpecialistReview: blueprint.requiresSpecialistReview,
             notes: blueprint.notes,
             intakeTemplate: {
                 clipId: `captured-${blueprint.slotId}`,
