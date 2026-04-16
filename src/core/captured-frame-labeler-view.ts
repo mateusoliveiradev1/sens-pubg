@@ -1,4 +1,175 @@
-export const renderCapturedFrameLabelerHtml = (): string => `<!doctype html>
+import type {
+    ReticleExogenousDisturbance,
+    TrackingFrameObservation,
+    TrackingFrameStatus,
+} from '@/types/engine';
+
+export interface CapturedFrameReviewLabel {
+    readonly frameIndex: number;
+    readonly timestampSeconds: number;
+    readonly label: {
+        readonly status: TrackingFrameStatus;
+        readonly x?: number | null;
+        readonly y?: number | null;
+        readonly notes?: string;
+    };
+}
+
+export interface TrackingReviewFrameSize {
+    readonly width: number;
+    readonly height: number;
+}
+
+export interface TrackingReviewOverlayMarker {
+    readonly frame: number;
+    readonly timestampMs: number;
+    readonly status: TrackingFrameStatus;
+    readonly confidence: number;
+    readonly visiblePixels: number;
+    readonly colorState: TrackingFrameObservation['colorState'];
+    readonly exogenousDisturbance: ReticleExogenousDisturbance;
+    readonly x?: number;
+    readonly y?: number;
+    readonly normalizedX?: number;
+    readonly normalizedY?: number;
+    readonly labelStatus?: TrackingFrameStatus;
+    readonly labelX?: number;
+    readonly labelY?: number;
+    readonly labelNormalizedX?: number;
+    readonly labelNormalizedY?: number;
+    readonly statusMatches?: boolean;
+    readonly errorPx?: number;
+    readonly reacquisitionFrames?: number;
+    readonly notes?: string;
+}
+
+export interface TrackingReviewOverlaySummary {
+    readonly markers: number;
+    readonly labeledMarkers: number;
+    readonly statusMismatches: number;
+    readonly meanErrorPx: number;
+    readonly maxErrorPx: number;
+    readonly reacquisitionEvents: number;
+}
+
+export interface BuildTrackingReviewOverlayInput {
+    readonly trackingFrames: readonly TrackingFrameObservation[];
+    readonly labels?: readonly CapturedFrameReviewLabel[];
+    readonly frameSize?: TrackingReviewFrameSize;
+}
+
+function optionalNumber(value: number | null | undefined): number | undefined {
+    return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function timestampKeyFromMs(timestampMs: number): string {
+    return (timestampMs / 1000).toFixed(3);
+}
+
+function timestampKeyFromSeconds(timestampSeconds: number): string {
+    return timestampSeconds.toFixed(3);
+}
+
+function normalizeCoordinate(value: number | undefined, size: number | undefined): number | undefined {
+    if (value === undefined || size === undefined || size <= 0) {
+        return undefined;
+    }
+
+    return Math.max(0, Math.min(1, value / size));
+}
+
+function calculateErrorPx(
+    observedX: number | undefined,
+    observedY: number | undefined,
+    labelX: number | undefined,
+    labelY: number | undefined
+): number | undefined {
+    if (
+        observedX === undefined
+        || observedY === undefined
+        || labelX === undefined
+        || labelY === undefined
+    ) {
+        return undefined;
+    }
+
+    return Math.hypot(observedX - labelX, observedY - labelY);
+}
+
+export function buildTrackingReviewOverlay({
+    trackingFrames,
+    labels = [],
+    frameSize,
+}: BuildTrackingReviewOverlayInput): readonly TrackingReviewOverlayMarker[] {
+    const labelsByFrame = new Map(labels.map((label) => [label.frameIndex, label]));
+    const labelsByTimestamp = new Map(labels.map((label) => [
+        timestampKeyFromSeconds(label.timestampSeconds),
+        label,
+    ]));
+
+    return trackingFrames.map((frame) => {
+        const timestampMs = Number(frame.timestamp);
+        const label = labelsByFrame.get(frame.frame)
+            ?? labelsByTimestamp.get(timestampKeyFromMs(timestampMs));
+        const observedX = optionalNumber(Number(frame.x));
+        const observedY = optionalNumber(Number(frame.y));
+        const labelX = optionalNumber(label?.label.x);
+        const labelY = optionalNumber(label?.label.y);
+        const errorPx = calculateErrorPx(observedX, observedY, labelX, labelY);
+        const normalizedX = normalizeCoordinate(observedX, frameSize?.width);
+        const normalizedY = normalizeCoordinate(observedY, frameSize?.height);
+        const labelNormalizedX = normalizeCoordinate(labelX, frameSize?.width);
+        const labelNormalizedY = normalizeCoordinate(labelY, frameSize?.height);
+
+        return {
+            frame: frame.frame,
+            timestampMs,
+            status: frame.status,
+            confidence: frame.confidence,
+            visiblePixels: frame.visiblePixels,
+            colorState: frame.colorState,
+            exogenousDisturbance: frame.exogenousDisturbance,
+            ...(observedX !== undefined ? { x: observedX } : {}),
+            ...(observedY !== undefined ? { y: observedY } : {}),
+            ...(normalizedX !== undefined ? { normalizedX } : {}),
+            ...(normalizedY !== undefined ? { normalizedY } : {}),
+            ...(label ? { labelStatus: label.label.status } : {}),
+            ...(labelX !== undefined ? { labelX } : {}),
+            ...(labelY !== undefined ? { labelY } : {}),
+            ...(labelNormalizedX !== undefined ? { labelNormalizedX } : {}),
+            ...(labelNormalizedY !== undefined ? { labelNormalizedY } : {}),
+            ...(label ? { statusMatches: frame.status === label.label.status } : {}),
+            ...(errorPx !== undefined ? { errorPx } : {}),
+            ...(frame.reacquisitionFrames !== undefined
+                ? { reacquisitionFrames: frame.reacquisitionFrames }
+                : {}),
+            ...(label?.label.notes ? { notes: label.label.notes } : {}),
+        };
+    });
+}
+
+export function summarizeTrackingReviewOverlay(
+    markers: readonly TrackingReviewOverlayMarker[]
+): TrackingReviewOverlaySummary {
+    const markersWithLabels = markers.filter((marker) => marker.labelStatus !== undefined);
+    const errors = markers
+        .map((marker) => marker.errorPx)
+        .filter((error): error is number => error !== undefined);
+
+    return {
+        markers: markers.length,
+        labeledMarkers: markersWithLabels.length,
+        statusMismatches: markersWithLabels.filter((marker) => marker.statusMatches === false).length,
+        meanErrorPx: errors.length > 0
+            ? errors.reduce((sum, error) => sum + error, 0) / errors.length
+            : 0,
+        maxErrorPx: errors.length > 0 ? Math.max(...errors) : 0,
+        reacquisitionEvents: markers.filter((marker) => (marker.reacquisitionFrames ?? 0) > 0).length,
+    };
+}
+
+export function renderCapturedFrameLabelerHtml(): string {
+    return `<!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
@@ -6,561 +177,194 @@ export const renderCapturedFrameLabelerHtml = (): string => `<!doctype html>
   <title>Captured Frame Labeler</title>
   <style>
     :root {
-      --bg: #10110d;
-      --panel: #191b14;
-      --panel-2: #23261b;
-      --ink: #f4f0df;
-      --muted: #a9a38f;
-      --line: #383a2b;
-      --accent: #e3b341;
-      --accent-2: #8ccf88;
-      --danger: #e27164;
-      --shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
-      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+      color-scheme: dark;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0b1020;
+      color: #f8fafc;
     }
-
-    * {
-      box-sizing: border-box;
-    }
-
     body {
       margin: 0;
       min-height: 100vh;
-      color: var(--ink);
-      background:
-        radial-gradient(circle at top left, rgba(227, 179, 65, 0.24), transparent 34rem),
-        linear-gradient(135deg, #10110d 0%, #17190f 48%, #0b0c09 100%);
+      background: radial-gradient(circle at top left, rgba(14, 165, 233, 0.22), transparent 34rem), #0b1020;
     }
-
-    body::before {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      content: "";
-      opacity: 0.15;
-      background-image:
-        linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
-      background-size: 24px 24px;
+    main {
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr);
+      gap: 24px;
+      padding: 24px;
     }
-
+    aside,
+    section {
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      border-radius: 18px;
+      background: rgba(15, 23, 42, 0.78);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+      padding: 18px;
+    }
+    h1,
+    h2 {
+      margin: 0 0 12px;
+    }
     button {
-      border: 0;
-      color: inherit;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.92);
+      color: #f8fafc;
       cursor: pointer;
-      font: inherit;
+      padding: 8px 12px;
     }
-
-    .shell {
-      position: relative;
-      display: grid;
-      grid-template-columns: 19rem minmax(0, 1fr) 21rem;
-      gap: 1rem;
-      min-height: 100vh;
-      padding: 1rem;
+    button.active {
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
     }
-
-    .panel {
-      border: 1px solid var(--line);
-      border-radius: 22px;
-      background: rgba(25, 27, 20, 0.9);
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(10px);
-    }
-
-    .sidebar,
-    .inspector {
-      padding: 1rem;
-      overflow: auto;
-    }
-
-    .brand {
-      margin: 0 0 0.3rem;
-      font-family: Georgia, serif;
-      font-size: clamp(2rem, 4vw, 4.4rem);
-      letter-spacing: -0.08em;
-      line-height: 0.9;
-    }
-
-    .eyebrow {
-      margin: 0 0 1rem;
-      color: var(--accent);
-      font-size: 0.72rem;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-    }
-
-    .clip-list {
-      display: grid;
-      gap: 0.75rem;
-    }
-
-    .clip-card {
+    video {
       width: 100%;
-      padding: 0.9rem;
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      text-align: left;
-      background: var(--panel-2);
+      max-height: 68vh;
+      border-radius: 14px;
+      background: #020617;
     }
-
-    .clip-card.active {
-      outline: 2px solid var(--accent);
-    }
-
-    .clip-card strong,
-    .frame-pill strong {
-      display: block;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .meta {
-      color: var(--muted);
-      font-size: 0.78rem;
-    }
-
-    .stage {
-      display: grid;
-      grid-template-rows: auto minmax(0, 1fr) auto;
-      gap: 1rem;
-      padding: 1rem;
-    }
-
+    .templates,
+    .frames,
     .status-row {
       display: flex;
       flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.75rem;
+      gap: 8px;
     }
-
-    .autosave {
-      padding: 0.45rem 0.7rem;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      color: var(--muted);
-      background: rgba(0, 0, 0, 0.18);
-      font-size: 0.8rem;
+    .frames {
+      max-height: 42vh;
+      overflow: auto;
+      margin-top: 12px;
     }
-
-    .video-wrap {
-      position: relative;
-      display: grid;
-      place-items: center;
-      min-height: 24rem;
-      border: 1px solid var(--line);
-      border-radius: 22px;
-      background: #050604;
-      overflow: hidden;
+    .frame-button[data-ready="true"] {
+      border-color: rgba(34, 197, 94, 0.65);
     }
-
-    video {
-      width: 100%;
-      max-height: 70vh;
-      background: #000;
-      object-fit: contain;
+    .hint,
+    .status {
+      color: #cbd5e1;
+      line-height: 1.5;
+      font-size: 0.92rem;
     }
-
-    .reticle {
-      position: absolute;
-      width: 22px;
-      height: 22px;
-      border: 2px solid var(--accent);
-      border-radius: 50%;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-      box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.55), 0 0 28px rgba(227, 179, 65, 0.85);
-    }
-
-    .reticle::before,
-    .reticle::after {
-      position: absolute;
-      content: "";
-      background: var(--accent);
-    }
-
-    .reticle::before {
-      left: 50%;
-      top: -9px;
-      width: 2px;
-      height: 36px;
-    }
-
-    .reticle::after {
-      left: -9px;
-      top: 50%;
-      width: 36px;
-      height: 2px;
-    }
-
-    .toolbar {
-      display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 0.6rem;
-    }
-
-    .tool {
-      padding: 0.8rem 0.7rem;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      background: var(--panel-2);
-    }
-
-    .tool.active {
-      border-color: var(--accent);
-      background: #3a3117;
-    }
-
-    .tool[data-status="tracked"] {
-      color: var(--accent-2);
-    }
-
-    .tool[data-status="uncertain"] {
-      color: var(--accent);
-    }
-
-    .tool[data-status="lost"],
-    .tool.clear {
-      color: var(--danger);
-    }
-
-    .hint {
-      margin: 0.7rem 0 0;
-      color: var(--muted);
-      font-size: 0.9rem;
-    }
-
-    .timeline {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(5.6rem, 1fr));
-      gap: 0.55rem;
-      margin-top: 1rem;
-    }
-
-    .frame-pill {
-      padding: 0.65rem;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      text-align: left;
-      background: rgba(255, 255, 255, 0.04);
-    }
-
-    .frame-pill.active {
-      border-color: var(--accent);
-    }
-
-    .frame-pill.ready {
-      border-color: rgba(140, 207, 136, 0.55);
-    }
-
-    .field {
-      margin-top: 1rem;
-    }
-
-    .field label {
-      display: block;
-      margin-bottom: 0.35rem;
-      color: var(--muted);
-      font-size: 0.8rem;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-    }
-
-    textarea {
-      width: 100%;
-      min-height: 7rem;
-      padding: 0.8rem;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      color: var(--ink);
-      background: #0d0e0a;
-      resize: vertical;
-    }
-
-    .empty {
-      display: grid;
-      place-items: center;
-      min-height: 100%;
-      color: var(--muted);
-      text-align: center;
-    }
-
-    @media (max-width: 1080px) {
-      .shell {
-        grid-template-columns: 1fr;
-      }
+    .status {
+      margin-top: 12px;
+      min-height: 1.5rem;
     }
   </style>
 </head>
 <body>
-  <main class="shell">
-    <aside class="panel sidebar">
-      <p class="eyebrow">PUBG captured goldens</p>
-      <h1 class="brand">Captured Frame Labeler</h1>
-      <p class="meta">Selecione um clipe e rotule os frames amostrados. Autosave grava direto no JSON local.</p>
-      <div id="clip-list" class="clip-list"></div>
+  <main>
+    <aside>
+      <h1>Captured Frame Labeler</h1>
+      <p class="hint">Escolha um template, pule para um frame e marque o status. Click no video grava coordenadas para frames visiveis.</p>
+      <h2>Templates</h2>
+      <div id="templates" class="templates"></div>
+      <h2>Frames</h2>
+      <div id="frames" class="frames"></div>
     </aside>
-
-    <section class="panel stage">
+    <section>
       <div class="status-row">
-        <div>
-          <p class="eyebrow" id="clip-title">Nenhum clipe selecionado</p>
-          <strong id="frame-title">Carregando templates...</strong>
-        </div>
-        <span class="autosave" id="save-state">Autosave aguardando</span>
+        <button data-status="tracked" class="active">tracked</button>
+        <button data-status="uncertain">uncertain</button>
+        <button data-status="occluded">occluded</button>
+        <button data-status="lost">lost</button>
       </div>
-
-      <div class="video-wrap">
-        <div class="empty" id="empty-state">Escolha um clipe na lateral.</div>
-        <video id="video" controls playsinline hidden></video>
-        <div id="reticle" class="reticle" hidden></div>
-      </div>
-
-      <div>
-        <div class="toolbar">
-          <button class="tool active" data-status="tracked">Tracked</button>
-          <button class="tool" data-status="uncertain">Uncertain</button>
-          <button class="tool" data-status="occluded">Occluded</button>
-          <button class="tool" data-status="lost">Lost</button>
-          <button class="tool clear" id="clear-frame">Clear</button>
-        </div>
-        <p class="hint" id="hint">Click no video para marcar x/y quando o status for tracked ou uncertain.</p>
-      </div>
+      <p class="hint">Autosave fica ativo a cada anotacao. Use tracked/uncertain com click no video; occluded/lost limpam coordenadas.</p>
+      <video id="video" controls></video>
+      <p id="status" class="status">Carregando templates de /api/templates...</p>
     </section>
-
-    <aside class="panel inspector">
-      <p class="eyebrow">Frame queue</p>
-      <div id="summary" class="meta">Sem dados ainda.</div>
-      <div class="field">
-        <label for="notes">Notas do frame atual</label>
-        <textarea id="notes" placeholder="Opcional: explique oclusao, ambiguidade ou reticle dificil de ver."></textarea>
-      </div>
-      <div id="timeline" class="timeline"></div>
-    </aside>
   </main>
-
   <script>
     const state = {
       templates: [],
       template: null,
-      activeClipId: null,
       activeFrameIndex: 0,
-      selectedStatus: 'tracked',
-      saveTimer: null
+      activeStatus: 'tracked'
     };
-
-    const elements = {
-      clipList: document.getElementById('clip-list'),
-      clipTitle: document.getElementById('clip-title'),
-      frameTitle: document.getElementById('frame-title'),
-      saveState: document.getElementById('save-state'),
-      video: document.getElementById('video'),
-      emptyState: document.getElementById('empty-state'),
-      reticle: document.getElementById('reticle'),
-      hint: document.getElementById('hint'),
-      timeline: document.getElementById('timeline'),
-      summary: document.getElementById('summary'),
-      notes: document.getElementById('notes'),
-      clearFrame: document.getElementById('clear-frame')
+    const templatesEl = document.querySelector('#templates');
+    const framesEl = document.querySelector('#frames');
+    const videoEl = document.querySelector('#video');
+    const statusEl = document.querySelector('#status');
+    const setStatus = (message) => { statusEl.textContent = message; };
+    const api = async (url, options) => {
+      const response = await fetch(url, options);
+      if (!response.ok) throw new Error(await response.text());
+      return response.json();
     };
-
-    const getCurrentFrame = () => {
-      if (!state.template) return null;
-      return state.template.frames[state.activeFrameIndex] || null;
-    };
-
-    const isReady = (frame) => {
-      if (!frame || !frame.label || frame.label.status === null) return false;
-      if (frame.label.status === 'tracked' || frame.label.status === 'uncertain') {
-        return frame.label.x !== null && frame.label.y !== null;
-      }
-      return true;
-    };
-
-    const setSaveState = (message) => {
-      elements.saveState.textContent = 'Autosave ' + message;
-    };
-
-    const renderClips = () => {
-      elements.clipList.innerHTML = '';
-      state.templates.forEach((clip) => {
-        const button = document.createElement('button');
-        button.className = 'clip-card' + (clip.clipId === state.activeClipId ? ' active' : '');
-        button.innerHTML = '<strong>' + clip.clipId + '</strong><span class="meta">' +
-          clip.summary.missingFrameCount + ' pendentes de ' + clip.summary.totalFrames + '</span>';
-        button.addEventListener('click', () => loadTemplate(clip.clipId));
-        elements.clipList.appendChild(button);
-      });
-    };
-
-    const renderFrame = () => {
-      const frame = getCurrentFrame();
-      if (!state.template || !frame) return;
-
-      elements.clipTitle.textContent = state.template.clipId;
-      elements.frameTitle.textContent = 'Frame ' + frame.frameIndex + ' @ ' + frame.timestampSeconds + 's';
-      elements.notes.value = frame.label.notes || '';
-      elements.video.currentTime = frame.timestampSeconds;
-      renderReticle(frame);
-      renderTimeline();
-      renderSummary();
-    };
-
-    const renderReticle = (frame) => {
-      if (!frame || frame.label.x === null || frame.label.y === null) {
-        elements.reticle.hidden = true;
-        return;
-      }
-
-      const rect = elements.video.getBoundingClientRect();
-      const left = rect.left + (frame.label.x / state.template.frameSize.width) * rect.width;
-      const top = rect.top + (frame.label.y / state.template.frameSize.height) * rect.height;
-      elements.reticle.style.left = left + 'px';
-      elements.reticle.style.top = top + 'px';
-      elements.reticle.hidden = false;
-    };
-
-    const renderSummary = () => {
+    const currentFrame = () => state.template && state.template.frames[state.activeFrameIndex];
+    const renderFrames = () => {
+      framesEl.innerHTML = '';
       if (!state.template) return;
-      const ready = state.template.frames.filter(isReady).length;
-      const total = state.template.frames.length;
-      elements.summary.textContent = ready + '/' + total + ' frames prontos. Faltam ' + (total - ready) + '.';
-    };
-
-    const renderTimeline = () => {
-      elements.timeline.innerHTML = '';
       state.template.frames.forEach((frame, index) => {
         const button = document.createElement('button');
-        button.className = 'frame-pill' +
-          (index === state.activeFrameIndex ? ' active' : '') +
-          (isReady(frame) ? ' ready' : '');
-        button.innerHTML = '<strong>' + frame.timestampSeconds + 's</strong><span class="meta">' +
-          (frame.label.status || 'pending') + '</span>';
-        button.addEventListener('click', () => {
+        button.className = 'frame-button' + (index === state.activeFrameIndex ? ' active' : '');
+        button.dataset.ready = String(frame.label.status !== null);
+        button.textContent = String(frame.frameIndex) + ' @ ' + frame.timestampSeconds.toFixed(2) + 's';
+        button.onclick = () => {
           state.activeFrameIndex = index;
-          renderFrame();
-        });
-        elements.timeline.appendChild(button);
+          videoEl.currentTime = frame.timestampSeconds;
+          renderFrames();
+        };
+        framesEl.appendChild(button);
       });
     };
-
     const saveTemplate = async () => {
       if (!state.template) return;
-      setSaveState('salvando...');
-
-      const response = await fetch('/api/templates/' + encodeURIComponent(state.template.clipId), {
+      await api('/api/templates/' + encodeURIComponent(state.template.clipId), {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(state.template)
       });
-
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({ error: 'erro desconhecido' }));
-        setSaveState('falhou: ' + payload.error);
-        return;
-      }
-
-      setSaveState('ok');
-      await loadTemplates(false);
+      setStatus('Autosave concluido para ' + state.template.clipId);
+      renderFrames();
     };
-
-    const scheduleSave = () => {
-      clearTimeout(state.saveTimer);
-      state.saveTimer = setTimeout(saveTemplate, 220);
-      renderTimeline();
-      renderSummary();
-    };
-
-    const setFrameLabel = (label) => {
-      const frame = getCurrentFrame();
-      if (!frame) return;
-      frame.label = label;
-      scheduleSave();
-      renderFrame();
-    };
-
-    const applyNonVisibleStatus = (status) => {
-      setFrameLabel({ status, x: null, y: null, notes: elements.notes.value.trim() || undefined });
-    };
-
-    const selectStatus = (status) => {
-      state.selectedStatus = status;
-      document.querySelectorAll('[data-status]').forEach((button) => {
-        button.classList.toggle('active', button.dataset.status === status);
-      });
-      if (status === 'occluded' || status === 'lost') {
-        applyNonVisibleStatus(status);
-        return;
-      }
-      elements.hint.textContent = 'Click no video para marcar x/y quando o status for ' + status + '.';
-    };
-
-    const loadTemplates = async (shouldRenderClips = true) => {
-      const response = await fetch('/api/templates');
-      const payload = await response.json();
-      state.templates = payload.templates;
-      if (shouldRenderClips) renderClips();
-    };
-
-    const loadTemplate = async (clipId) => {
-      const response = await fetch('/api/templates/' + encodeURIComponent(clipId));
-      const payload = await response.json();
+    const loadTemplate = async (clipId, mediaUrl) => {
+      const payload = await api('/api/templates/' + encodeURIComponent(clipId));
       state.template = payload.template;
-      state.activeClipId = clipId;
       state.activeFrameIndex = 0;
-      elements.emptyState.hidden = true;
-      elements.video.hidden = false;
-      elements.video.src = '/media/' + encodeURIComponent(clipId);
-      renderClips();
-      renderFrame();
+      videoEl.src = mediaUrl;
+      renderFrames();
+      setStatus('Template carregado: ' + clipId);
     };
-
+    const renderTemplates = () => {
+      templatesEl.innerHTML = '';
+      state.templates.forEach((template) => {
+        const button = document.createElement('button');
+        button.textContent = template.clipId + ' (' + template.summary.missingFrameCount + ' faltando)';
+        button.onclick = () => loadTemplate(template.clipId, template.mediaUrl);
+        templatesEl.appendChild(button);
+      });
+    };
     document.querySelectorAll('[data-status]').forEach((button) => {
-      button.addEventListener('click', () => selectStatus(button.dataset.status));
-    });
-
-    elements.clearFrame.addEventListener('click', () => {
-      setFrameLabel({ status: null, x: null, y: null, notes: elements.notes.value.trim() || undefined });
-    });
-
-    elements.notes.addEventListener('input', () => {
-      const frame = getCurrentFrame();
-      if (!frame) return;
-      const notes = elements.notes.value.trim();
-      frame.label = { ...frame.label, ...(notes ? { notes } : {}) };
-      if (!notes) delete frame.label.notes;
-      scheduleSave();
-    });
-
-    elements.video.addEventListener('click', (event) => {
-      if (!state.template) return;
-      if (state.selectedStatus !== 'tracked' && state.selectedStatus !== 'uncertain') return;
-      const rect = elements.video.getBoundingClientRect();
-      const x = Math.round(((event.clientX - rect.left) / rect.width) * state.template.frameSize.width);
-      const y = Math.round(((event.clientY - rect.top) / rect.height) * state.template.frameSize.height);
-      setFrameLabel({
-        status: state.selectedStatus,
-        x,
-        y,
-        notes: elements.notes.value.trim() || undefined
+      button.addEventListener('click', () => {
+        state.activeStatus = button.dataset.status;
+        document.querySelectorAll('[data-status]').forEach((candidate) => candidate.classList.remove('active'));
+        button.classList.add('active');
       });
     });
-
-    elements.video.addEventListener('seeked', () => renderReticle(getCurrentFrame()));
-    window.addEventListener('resize', () => renderReticle(getCurrentFrame()));
-
-    loadTemplates().then(() => {
-      if (state.templates[0]) {
-        loadTemplate(state.templates[0].clipId);
+    videoEl.addEventListener('click', async (event) => {
+      const frame = currentFrame();
+      if (!frame) return;
+      if (state.activeStatus === 'tracked' || state.activeStatus === 'uncertain') {
+        const rect = videoEl.getBoundingClientRect();
+        const scaleX = state.template.frameSize.width / rect.width;
+        const scaleY = state.template.frameSize.height / rect.height;
+        frame.label = {
+          status: state.activeStatus,
+          x: Math.round((event.clientX - rect.left) * scaleX),
+          y: Math.round((event.clientY - rect.top) * scaleY)
+        };
       } else {
-        elements.frameTitle.textContent = 'Nenhum template encontrado.';
+        frame.label = { status: state.activeStatus, x: null, y: null };
       }
-    }).catch((error) => {
-      elements.frameTitle.textContent = 'Falha ao carregar templates';
-      setSaveState('falhou: ' + error.message);
+      await saveTemplate();
     });
+    api('/api/templates')
+      .then((payload) => {
+        state.templates = payload.templates;
+        renderTemplates();
+        setStatus(payload.templates.length ? 'Selecione um template.' : 'Nenhum template encontrado.');
+      })
+      .catch((error) => setStatus('Erro: ' + error.message));
   </script>
 </body>
 </html>`;
+}

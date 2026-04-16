@@ -14,27 +14,28 @@ const idealClipDurationLabel = formatSprayClipDurationLabel('pt-BR', 'natural');
 const SLIDES = [
     {
         title: 'Qualidade Define Confianca',
-        content: 'O motor precisa ver a mira com nitidez para estimar cobertura e confianca. Videos borrados, muito comprimidos ou com poucos frames deixam partes do spray incertas.',
+        content: 'O motor mede a qualidade do clip antes de recomendar qualquer ajuste. Videos borrados, muito comprimidos, com baixo contraste ou FPS instavel podem ser bloqueados ou gerar uma leitura conservadora.',
         items: [
             'Resolucao recomendada: 1080p ou maior',
             'Taxa de quadros recomendada: 60 FPS',
+            'O resultado mostra score de qualidade e motivos de degradacao',
             `Duracao ideal: ${idealClipDurationLabel}`,
         ],
         icon: '*',
     },
     {
         title: 'Centralize o Alvo',
-        content: 'O rastreador usa a regiao da mira como referencia. Se overlays, fumaca ou cortes esconderem o reticulo, o resultado pode cair para incerto ou perdido.',
+        content: 'O rastreador usa a regiao da mira como referencia e mostra quando perdeu ou precisou re-adquirir o reticulo. Se overlays, fumaca ou cortes esconderem a mira, a confianca cai e o resultado vira ponto de partida.',
         items: [
             'Sem overlays cobrindo a mira',
             'Mantenha o HUD do PUBG visivel',
-            'Evite fumaca densa no clipe',
+            'Confira cobertura, frames perdidos e re-aquisicao no resultado',
         ],
         icon: 'O',
     },
     {
         title: 'Presets de Gravacao',
-        content: 'Configure seu software de captura para melhorar a fidelidade visual. Isso aumenta a cobertura util, mas nao remove os limites do clipe original:',
+        content: 'Configure seu software de captura para melhorar a fidelidade visual. Isso aumenta a cobertura util, mas nao garante sens perfeita nem remove os limites do clipe original:',
         presets: [
             { name: 'OBS Studio', tip: 'Bitrate > 20,000 Kbps | Encoder: NVENC' },
             { name: 'Shadowplay', tip: 'Qualidade: Alta | 60 FPS' },

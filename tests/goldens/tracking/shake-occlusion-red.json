@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "name": "shake-occlusion-red",
+  "color": "RED",
+  "frameSize": {
+    "width": 40,
+    "height": 40
+  },
+  "roiRadiusPx": 8,
+  "tracker": {
+    "templateSize": 9,
+    "searchRadius": 12,
+    "globalMotionCompensation": true,
+    "globalMotionSearchRadiusPx": 6
+  },
+  "backgroundPattern": "anchor-blocks",
+  "thresholds": {
+    "minCoverage": 1,
+    "maxMeanErrorPx": 0.01,
+    "maxStatusMismatches": 0,
+    "maxBrierScore": 0.22,
+    "maxExpectedCalibrationError": 0.29
+  },
+  "frames": [
+    {
+      "timestamp": 0,
+      "backgroundOffset": { "x": 0, "y": 0 },
+      "reticle": { "x": 20, "y": 20, "shape": "block", "size": 5 },
+      "expected": { "status": "tracked", "x": 20, "y": 20 }
+    },
+    {
+      "timestamp": 16,
+      "backgroundOffset": { "x": 4, "y": 3 },
+      "reticle": { "x": 21, "y": 20, "shape": "plus" },
+      "expected": { "status": "uncertain", "x": 21, "y": 20 }
+    },
+    {
+      "timestamp": 32,
+      "backgroundOffset": { "x": 0, "y": 0 },
+      "reticle": { "x": 22, "y": 20, "shape": "block", "size": 5 },
+      "expected": { "status": "tracked", "x": 22, "y": 20 }
+    }
+  ]
+}

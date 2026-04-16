@@ -12,6 +12,7 @@ const trajectory: SprayTrajectory = {
     ],
     totalFrames: 2,
     durationMs: asMilliseconds(86),
+    shotAlignmentErrorMs: 0,
     weaponId: 'm416',
     trackingQuality: 1,
     framesTracked: 2,

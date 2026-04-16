@@ -3,6 +3,9 @@ import {
     MIN_SPRAY_CLIP_DURATION_SECONDS,
     isSupportedSprayClipDuration,
 } from './video-ingestion-contract';
+import { analyzeCaptureQualityFrames, createVideoQualityReport } from './capture-quality';
+import { extractFrames } from './frame-extraction';
+import type { VideoQualityReport } from '../types/engine';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 const ALLOWED_MIMES = ['video/mp4', 'video/webm'] as const;
@@ -20,6 +23,7 @@ export interface VideoMetadata {
     readonly height: number;
     readonly duration: number;
     readonly fps: number;
+    readonly qualityReport: VideoQualityReport;
 }
 
 export interface VideoValidationError {
@@ -30,6 +34,25 @@ export interface VideoValidationError {
 export type VideoValidationResult =
     | { readonly valid: true; readonly metadata: VideoMetadata }
     | { readonly valid: false; readonly error: VideoValidationError };
+
+interface LoadedVideoMetadata {
+    readonly width: number;
+    readonly height: number;
+    readonly duration: number;
+    readonly url: string;
+}
+
+export interface VideoValidationDependencies {
+    readonly validateMagicBytes?: (file: File) => Promise<boolean>;
+    readonly loadVideoMetadata?: (file: File) => Promise<LoadedVideoMetadata>;
+    readonly estimateFps?: (url: string) => Promise<number>;
+    readonly assessQuality?: (input: {
+        readonly url: string;
+        readonly fps: number;
+        readonly duration: number;
+    }) => Promise<VideoQualityReport>;
+    readonly revokeObjectUrl?: (url: string) => void;
+}
 
 async function validateMagicBytes(file: File): Promise<boolean> {
     const buffer = await file.slice(0, 12).arrayBuffer();
@@ -52,12 +75,7 @@ async function validateMagicBytes(file: File): Promise<boolean> {
     return false;
 }
 
-function loadVideoMetadata(file: File): Promise<{
-    width: number;
-    height: number;
-    duration: number;
-    url: string;
-}> {
+function loadVideoMetadata(file: File): Promise<LoadedVideoMetadata> {
     return new Promise((resolve, reject) => {
         const url = URL.createObjectURL(file);
         const video = document.createElement('video');
@@ -139,6 +157,34 @@ async function estimateFps(url: string): Promise<number> {
     });
 }
 
+async function assessVideoQuality(input: {
+    readonly url: string;
+    readonly fps: number;
+    readonly duration: number;
+}): Promise<VideoQualityReport> {
+    try {
+        const sampleFps = Math.max(1, Math.min(4, Math.round(input.fps / 15)));
+        const sampleDuration = Math.min(input.duration, 1.5);
+        const frames = await extractFrames(input.url, sampleFps, 0, sampleDuration);
+
+        return analyzeCaptureQualityFrames(
+            frames.map((frame) => frame.imageData),
+            {
+                roiStability: 100,
+                fpsStability: input.fps >= 59 ? 100 : Math.max(45, (input.fps / 60) * 100),
+            }
+        );
+    } catch {
+        return createVideoQualityReport({
+            sharpness: 55,
+            compressionBurden: 45,
+            reticleContrast: 55,
+            roiStability: 100,
+            fpsStability: input.fps >= 59 ? 100 : 70,
+        });
+    }
+}
+
 function formatObservedDuration(durationSeconds: number): string {
     const hasFraction = Math.abs(durationSeconds - Math.round(durationSeconds)) >= 0.05;
 
@@ -148,7 +194,16 @@ function formatObservedDuration(durationSeconds: number): string {
     }).format(durationSeconds);
 }
 
-export async function validateAndPrepareVideo(file: File): Promise<VideoValidationResult> {
+export async function validateAndPrepareVideo(
+    file: File,
+    dependencies: VideoValidationDependencies = {}
+): Promise<VideoValidationResult> {
+    const validateMagicBytesFn = dependencies.validateMagicBytes ?? validateMagicBytes;
+    const loadVideoMetadataFn = dependencies.loadVideoMetadata ?? loadVideoMetadata;
+    const estimateFpsFn = dependencies.estimateFps ?? estimateFps;
+    const assessQualityFn = dependencies.assessQuality ?? assessVideoQuality;
+    const revokeObjectUrl = dependencies.revokeObjectUrl ?? URL.revokeObjectURL;
+
     if (file.size > MAX_FILE_SIZE) {
         return {
             valid: false,
@@ -169,7 +224,7 @@ export async function validateAndPrepareVideo(file: File): Promise<VideoValidati
         };
     }
 
-    const validMagic = await validateMagicBytes(file);
+    const validMagic = await validateMagicBytesFn(file);
     if (!validMagic) {
         return {
             valid: false,
@@ -180,9 +235,9 @@ export async function validateAndPrepareVideo(file: File): Promise<VideoValidati
         };
     }
 
-    let meta: Awaited<ReturnType<typeof loadVideoMetadata>>;
+    let meta: Awaited<ReturnType<typeof loadVideoMetadataFn>>;
     try {
-        meta = await loadVideoMetadata(file);
+        meta = await loadVideoMetadataFn(file);
     } catch {
         return {
             valid: false,
@@ -194,7 +249,7 @@ export async function validateAndPrepareVideo(file: File): Promise<VideoValidati
     }
 
     if (!isSupportedSprayClipDuration(meta.duration)) {
-        URL.revokeObjectURL(meta.url);
+        revokeObjectUrl(meta.url);
         return {
             valid: false,
             error: {
@@ -205,7 +260,7 @@ export async function validateAndPrepareVideo(file: File): Promise<VideoValidati
     }
 
     if (meta.width < 640 || meta.height < 360) {
-        URL.revokeObjectURL(meta.url);
+        revokeObjectUrl(meta.url);
         return {
             valid: false,
             error: {
@@ -215,7 +270,12 @@ export async function validateAndPrepareVideo(file: File): Promise<VideoValidati
         };
     }
 
-    const fps = await estimateFps(meta.url);
+    const fps = await estimateFpsFn(meta.url);
+    const qualityReport = await assessQualityFn({
+        url: meta.url,
+        fps,
+        duration: meta.duration,
+    });
 
     return {
         valid: true,
@@ -227,6 +287,7 @@ export async function validateAndPrepareVideo(file: File): Promise<VideoValidati
             height: meta.height,
             duration: meta.duration,
             fps,
+            qualityReport,
         },
     };
 }

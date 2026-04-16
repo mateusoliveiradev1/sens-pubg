@@ -19,7 +19,11 @@ const FAQS: FaqItem[] = [
     },
     {
         q: 'Como o app descobre minha sensibilidade?',
-        a: 'Voce configura seu perfil de hardware e de jogo. O motor combina o rastreio visual com dados patch-aware da arma, mira e distancia para sugerir faixas de teste, sempre mostrando confianca e cobertura da analise.',
+        a: 'Voce configura seu perfil de hardware e de jogo. O motor combina rastreio visual, qualidade do clip, dados patch-aware da arma, mira e distancia para sugerir faixas de teste. Ele mostra confianca, cobertura e sinais de tracking para voce validar no proximo bloco de sprays.',
+    },
+    {
+        q: 'O app acerta a sensibilidade perfeita?',
+        a: 'Nao. Ele entrega uma leitura tecnica do clip e uma faixa de teste baseada nos sinais medidos. Se a qualidade do video, a cobertura ou a re-aquisicao do tracking forem fracas, trate o resultado como ponto de partida ou grave outro clip.',
     },
     {
         q: 'Funciona com qualquer arma do PUBG?',
@@ -27,7 +31,7 @@ const FAQS: FaqItem[] = [
     },
     {
         q: 'Quais sao os limites da analise?',
-        a: 'Clipes com fumaca, overlays, baixa nitidez ou mira fora do centro reduzem a confianca. Use a cobertura, os frames perdidos e o patch exibido no resultado para decidir se a recomendacao serve como sinal forte ou apenas como ponto de partida.',
+        a: 'Clipes com fumaca, overlays, baixa nitidez, compressao pesada, FPS instavel ou mira fora do centro reduzem a confianca. O app pode bloquear videos ruins e, quando analisa, mostra score de qualidade, motivos de degradacao, frames perdidos, re-aquisicao e patch para voce julgar a forca do sinal.',
     },
     {
         q: 'O que e o Vertical Sensitivity Multiplier (VSM) e como ajustar?',

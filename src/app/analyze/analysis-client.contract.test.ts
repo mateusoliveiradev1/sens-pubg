@@ -87,4 +87,14 @@ describe('analysis worker tracking contract', () => {
         expect(source).toMatch(/if\s*\(persisted\.result\)/);
         expect(source).toMatch(/setResult\(resultToDisplay\)/);
     });
+
+    it('attaches the validated video quality report to every analysis result', () => {
+        const source = readFileSync(new URL('./analysis-client.tsx', import.meta.url), 'utf8');
+        const engineTypes = readFileSync(new URL('../../types/engine.ts', import.meta.url), 'utf8');
+        const historySource = readFileSync(new URL('../../actions/history.ts', import.meta.url), 'utf8');
+
+        expect(engineTypes).toMatch(/readonly videoQualityReport\?: VideoQualityReport/);
+        expect(source).toMatch(/videoQualityReport:\s*video\.qualityReport/);
+        expect(historySource).toMatch(/videoQualityReport:\s*enrichedResult\.videoQualityReport/);
+    });
 });

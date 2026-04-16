@@ -36,6 +36,14 @@ export interface TrackingPoint {
 }
 
 export type TrackingFrameStatus = 'tracked' | 'occluded' | 'lost' | 'uncertain';
+export type ReticleColorState = 'red' | 'green' | 'neutral' | 'unknown';
+
+export interface ReticleExogenousDisturbance {
+    readonly muzzleFlash: number;
+    readonly blur: number;
+    readonly shake: number;
+    readonly occlusion: number;
+}
 
 export interface TrackingStatusCounts {
     readonly tracked: number;
@@ -44,15 +52,26 @@ export interface TrackingStatusCounts {
     readonly uncertain: number;
 }
 
-export interface TrackingFrameObservation {
-    readonly frame: number;
-    readonly timestamp: Milliseconds;
+export interface ReticleObservationShape<TCoordinate = number> {
     readonly status: TrackingFrameStatus;
     readonly confidence: number;
     readonly visiblePixels: number;
-    readonly x?: Pixels;
-    readonly y?: Pixels;
+    readonly reacquisitionFrames?: number;
+    readonly colorState: ReticleColorState;
+    readonly opticState?: string;
+    readonly opticStateConfidence?: number;
+    readonly exogenousDisturbance: ReticleExogenousDisturbance;
+    readonly x?: TCoordinate;
+    readonly y?: TCoordinate;
 }
+
+export interface ReticleObservation<TTimestamp = number, TCoordinate = number>
+    extends ReticleObservationShape<TCoordinate> {
+    readonly frame: number;
+    readonly timestamp: TTimestamp;
+}
+
+export type TrackingFrameObservation = ReticleObservation<Milliseconds, Pixels>;
 
 export interface TrackingQualitySummary {
     readonly trackingQuality: number;
@@ -61,6 +80,50 @@ export interface TrackingQualitySummary {
     readonly visibleFrames: number;
     readonly framesProcessed: number;
     readonly statusCounts: TrackingStatusCounts;
+}
+
+export interface TrackingConfidenceCalibration {
+    readonly sampleCount: number;
+    readonly meanConfidence: number;
+    readonly observedVisibleRate: number;
+    readonly brierScore: number;
+    readonly expectedCalibrationError: number;
+}
+
+export interface TrackingEvidence extends TrackingQualitySummary {
+    readonly coverage: number;
+    readonly meanErrorPx: number;
+    readonly maxErrorPx: number;
+    readonly meanReacquisitionFrames: number;
+    readonly falseReacquisitionRate: number;
+    readonly confidenceCalibration: TrackingConfidenceCalibration;
+}
+
+export type VideoQualityBlockingReason =
+    | 'low_sharpness'
+    | 'high_compression_burden'
+    | 'low_reticle_contrast'
+    | 'unstable_roi'
+    | 'unstable_fps';
+
+export interface VideoQualityReport {
+    readonly overallScore: Score;
+    readonly sharpness: Score;
+    readonly compressionBurden: Score;
+    readonly reticleContrast: Score;
+    readonly roiStability: Score;
+    readonly fpsStability: Score;
+    readonly usableForAnalysis: boolean;
+    readonly blockingReasons: readonly VideoQualityBlockingReason[];
+}
+
+export interface SprayWindowDetection {
+    readonly startMs: Milliseconds;
+    readonly endMs: Milliseconds;
+    readonly confidence: number;
+    readonly shotLikeEvents: number;
+    readonly rejectedLeadingMs: Milliseconds;
+    readonly rejectedTrailingMs: Milliseconds;
 }
 
 export interface DisplacementVector {
@@ -88,6 +151,7 @@ export type SprayMetricQualityKey =
     | 'stabilityScore'
     | 'verticalControlIndex'
     | 'horizontalNoiseIndex'
+    | 'shotAlignmentErrorMs'
     | 'angularErrorDegrees'
     | 'linearErrorCm'
     | 'linearErrorSeverity'
@@ -110,9 +174,14 @@ export interface MetricEvidenceQuality {
     readonly framesTracked: number;
     readonly framesLost: number;
     readonly framesProcessed: number;
+    readonly visibilityCoverage?: number;
+    readonly disturbancePenalty?: number;
+    readonly reacquisitionPenalty?: number;
+    readonly confidenceSource?: 'summary' | 'tracking_frames';
 }
 
 export type SprayMetricQuality = Record<SprayMetricQualityKey, MetricEvidenceQuality>;
+export type SprayPhaseQuality = Record<'burst' | 'sustained' | 'fatigue', MetricEvidenceQuality>;
 
 export interface SprayTrajectory extends TrackingQualitySummary {
     readonly points: readonly TrackingPoint[];
@@ -120,6 +189,7 @@ export interface SprayTrajectory extends TrackingQualitySummary {
     readonly displacements: readonly DisplacementVector[];
     readonly totalFrames: number;
     readonly durationMs: Milliseconds;
+    readonly shotAlignmentErrorMs: number;
     readonly weaponId: string;
 }
 
@@ -131,6 +201,7 @@ export interface SprayMetrics {
     readonly stabilityScore: Score;
     readonly verticalControlIndex: number;
     readonly horizontalNoiseIndex: number;
+    readonly shotAlignmentErrorMs: number;
     readonly angularErrorDegrees: number;
     readonly linearErrorCm: number;
     readonly linearErrorSeverity: number;
@@ -147,6 +218,7 @@ export interface SprayMetrics {
     readonly fatigueHNI: number;
     readonly shotResiduals?: readonly ShotRecoilResidual[];
     readonly metricQuality?: SprayMetricQuality;
+    readonly phaseQuality?: SprayPhaseQuality;
     readonly sprayScore: number;
 }
 
@@ -345,6 +417,7 @@ export interface AnalysisResult {
     readonly timestamp: Date;
     readonly patchVersion: string;
     readonly analysisContext?: AnalysisContextDetails;
+    readonly videoQualityReport?: VideoQualityReport;
     readonly trajectory: SprayTrajectory;
     readonly loadout: WeaponLoadout;
     readonly metrics: SprayMetrics;

@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildDisplacements, buildTrajectory, calculateShotRecoilResiduals, calculateSprayMetrics, segmentSprayPhases } from './spray-metrics';
 import { CURRENT_PUBG_PATCH_VERSION, getExpectedRecoilSequence, getWeapon } from '../game/pubg';
-import type { TrackingPoint, WeaponLoadout } from '../types/engine';
+import type { TrackingFrameObservation, TrackingFrameStatus, TrackingPoint, WeaponLoadout } from '../types/engine';
 import { asPixels, asMilliseconds, asScore } from '../types/branded';
 
 const defaultLoadout: WeaponLoadout = {
@@ -43,6 +43,47 @@ function generateTrackingPoints(count: number, options?: {
     }
 
     return points;
+}
+
+function makeTrackingFrame(frame: number, status: TrackingFrameStatus = 'tracked'): TrackingFrameObservation {
+    const base = {
+        frame,
+        timestamp: asMilliseconds(frame * 33),
+        status,
+        confidence: status === 'tracked' ? 1 : 0,
+        visiblePixels: status === 'tracked' ? 25 : 0,
+        colorState: 'red' as const,
+        exogenousDisturbance: {
+            muzzleFlash: 0,
+            blur: status === 'tracked' ? 0 : 0.25,
+            shake: 0,
+            occlusion: status === 'tracked' ? 0 : 1,
+        },
+    };
+
+    if (status === 'tracked' || status === 'uncertain') {
+        return {
+            ...base,
+            x: asPixels(960),
+            y: asPixels(540 + frame),
+        };
+    }
+
+    return base;
+}
+
+function makeDegradedTrackingFrame(frame: number): TrackingFrameObservation {
+    return {
+        ...makeTrackingFrame(frame, 'tracked'),
+        confidence: 0.55,
+        reacquisitionFrames: 3,
+        exogenousDisturbance: {
+            muzzleFlash: 0.8,
+            blur: 0.45,
+            shake: 0.6,
+            occlusion: 0,
+        },
+    };
 }
 
 describe('buildDisplacements', () => {
@@ -140,6 +181,7 @@ describe('calculateSprayMetrics', () => {
         expect(trajectory.framesLost).toBe(2);
         expect(trajectory.visibleFrames).toBe(3);
         expect(trajectory.framesProcessed).toBe(5);
+        expect(trajectory.shotAlignmentErrorMs).toBeGreaterThanOrEqual(0);
     });
 
     it('should return all 6 metrics', () => {
@@ -160,6 +202,7 @@ describe('calculateSprayMetrics', () => {
         expect(metrics).toHaveProperty('initialRecoilResponseMs');
         expect(metrics).toHaveProperty('driftDirectionBias');
         expect(metrics).toHaveProperty('consistencyScore');
+        expect(metrics).toHaveProperty('shotAlignmentErrorMs');
         expect(metrics).toHaveProperty('shotResiduals');
         expect(metrics.shotResiduals).toHaveLength(trajectory.displacements.length);
         expect(metrics.shotResiduals?.[0]?.shotIndex).toBe(0);
@@ -192,6 +235,104 @@ describe('calculateSprayMetrics', () => {
         expect(quality?.verticalControlIndex.coverage).toBeCloseTo(7 / 12, 5);
         expect(quality?.verticalControlIndex.confidence).toBeCloseTo(0.58, 5);
         expect(quality?.shotResiduals.sampleSize).toBe(trajectory.displacements.length);
+    });
+
+    it('reports phase-level quality when one segment of the clip is degraded', () => {
+        const points = generateTrackingPoints(26, { verticalDrift: 1 });
+        const displacements = buildDisplacements(points);
+        const trackingFrames = Array.from({ length: 26 }, (_, frame) => (
+            frame >= 11 && frame <= 19
+                ? makeTrackingFrame(frame, 'lost')
+                : makeTrackingFrame(frame)
+        ));
+        const trajectory = {
+            points,
+            displacements,
+            totalFrames: points.length,
+            durationMs: asMilliseconds(25 * 33),
+            shotAlignmentErrorMs: 0,
+            weaponId: weapon.id,
+            trackingFrames,
+            trackingQuality: 17 / 26,
+            framesTracked: 17,
+            framesLost: 9,
+            visibleFrames: 17,
+            framesProcessed: 26,
+            statusCounts: {
+                tracked: 17,
+                uncertain: 0,
+                occluded: 0,
+                lost: 9,
+            },
+        };
+
+        const metrics = calculateSprayMetrics(trajectory, weapon, defaultLoadout);
+
+        expect(metrics.phaseQuality?.burst.coverage).toBe(1);
+        expect(metrics.phaseQuality?.sustained.coverage).toBeLessThan(0.3);
+        expect(metrics.phaseQuality?.fatigue.coverage).toBe(1);
+        expect(metrics.metricQuality?.burstVCI.coverage).toBe(metrics.phaseQuality?.burst.coverage);
+        expect(metrics.metricQuality?.sustainedVCI.coverage).toBe(metrics.phaseQuality?.sustained.coverage);
+        expect(metrics.metricQuality?.fatigueVCI.coverage).toBe(metrics.phaseQuality?.fatigue.coverage);
+    });
+
+    it('derives metric quality from frame disturbance and reacquisition evidence', () => {
+        const points = generateTrackingPoints(12, { verticalDrift: 1 });
+        const trackingFrames = Array.from({ length: 12 }, (_, frame) => (
+            frame >= 4 && frame <= 7
+                ? makeDegradedTrackingFrame(frame)
+                : makeTrackingFrame(frame)
+        ));
+        const trajectory = buildTrajectory({
+            points,
+            trackingFrames,
+            trackingQuality: 1,
+            framesTracked: 12,
+            framesLost: 0,
+            visibleFrames: 12,
+            framesProcessed: 12,
+        }, weapon);
+
+        const metrics = calculateSprayMetrics(trajectory, weapon, defaultLoadout);
+        const quality = metrics.metricQuality?.verticalControlIndex;
+
+        expect(quality?.coverage).toBeLessThan(1);
+        expect(quality?.confidence).toBeLessThan(0.9);
+        expect(quality?.visibilityCoverage).toBe(1);
+        expect(quality?.disturbancePenalty).toBeGreaterThan(0);
+        expect(quality?.reacquisitionPenalty).toBeGreaterThan(0);
+        expect(quality?.confidenceSource).toBe('tracking_frames');
+    });
+
+    it('measures the temporal correction applied when dead lead-in frames are skipped', () => {
+        const syntheticTemporalWeapon = {
+            ...weapon,
+            id: 'm416-temporal-fixture',
+            fireRateRPM: 1500,
+            msPerShot: 40,
+        };
+        const points: TrackingPoint[] = [
+            { frame: 0, x: asPixels(960), y: asPixels(540), timestamp: asMilliseconds(0), confidence: 0.95 },
+            { frame: 1, x: asPixels(960), y: asPixels(540), timestamp: asMilliseconds(20), confidence: 0.95 },
+            { frame: 2, x: asPixels(960), y: asPixels(536), timestamp: asMilliseconds(40), confidence: 0.95 },
+            { frame: 3, x: asPixels(960), y: asPixels(532), timestamp: asMilliseconds(60), confidence: 0.95 },
+            { frame: 4, x: asPixels(960), y: asPixels(528), timestamp: asMilliseconds(80), confidence: 0.95 },
+            { frame: 5, x: asPixels(960), y: asPixels(524), timestamp: asMilliseconds(100), confidence: 0.95 },
+            { frame: 6, x: asPixels(960), y: asPixels(520), timestamp: asMilliseconds(120), confidence: 0.95 },
+        ];
+
+        const trajectory = buildTrajectory({
+            points,
+            trackingQuality: 0.95,
+            framesTracked: 7,
+            framesLost: 0,
+            visibleFrames: 7,
+            framesProcessed: 7,
+        }, syntheticTemporalWeapon);
+        const metrics = calculateSprayMetrics(trajectory, syntheticTemporalWeapon, defaultLoadout);
+
+        expect(trajectory.shotAlignmentErrorMs).toBe(40);
+        expect(metrics.shotAlignmentErrorMs).toBe(40);
     });
 
     it('should give high stability for static spray', () => {

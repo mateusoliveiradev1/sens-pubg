@@ -4,6 +4,8 @@
  * fallback para seek + draw para compatibilidade.
  */
 
+import type { SprayWindowDetection } from '../types/engine';
+
 export interface ExtractedFrame {
     readonly index: number;
     readonly timestamp: number;    // ms
@@ -14,6 +16,12 @@ export interface ExtractionProgress {
     readonly current: number;
     readonly total: number;
     readonly percent: number;
+}
+
+export interface FrameTimestampDriftSummary {
+    readonly sampleCount: number;
+    readonly meanErrorMs: number;
+    readonly maxErrorMs: number;
 }
 
 export type ExtractionProgressCallback = (progress: ExtractionProgress) => void;
@@ -140,4 +148,41 @@ export async function extractFramesFromBitmaps(
     }
 
     return frames;
+}
+
+export function summarizeFrameTimestampDrift(
+    frames: readonly Pick<ExtractedFrame, 'timestamp'>[],
+    expectedTimestamps: readonly number[]
+): FrameTimestampDriftSummary {
+    const sampleCount = Math.min(frames.length, expectedTimestamps.length);
+
+    if (sampleCount === 0) {
+        return {
+            sampleCount: 0,
+            meanErrorMs: 0,
+            maxErrorMs: 0,
+        };
+    }
+
+    let totalErrorMs = 0;
+    let maxErrorMs = 0;
+
+    for (let index = 0; index < sampleCount; index++) {
+        const errorMs = Math.abs(frames[index]!.timestamp - expectedTimestamps[index]!);
+        totalErrorMs += errorMs;
+        maxErrorMs = Math.max(maxErrorMs, errorMs);
+    }
+
+    return {
+        sampleCount,
+        meanErrorMs: totalErrorMs / sampleCount,
+        maxErrorMs,
+    };
+}
+
+export function sliceExtractedFramesToWindow(
+    frames: readonly ExtractedFrame[],
+    window: SprayWindowDetection
+): ExtractedFrame[] {
+    return frames.filter((frame) => frame.timestamp >= Number(window.startMs) && frame.timestamp <= Number(window.endMs));
 }

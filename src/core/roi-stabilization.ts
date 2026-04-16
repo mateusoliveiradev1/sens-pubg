@@ -37,7 +37,9 @@ export function createCenteredRoi(
     return normalizeTrackingRoi({
         x: centerX - radiusPx,
         y: centerY - radiusPx,
-        width: radiusPx * 2,
-        height: radiusPx * 2,
+        // Include both radius endpoints so a candidate sitting exactly on the edge
+        // is still fully visible inside the ROI.
+        width: (radiusPx * 2) + 1,
+        height: (radiusPx * 2) + 1,
     }, frameWidth, frameHeight);
 }

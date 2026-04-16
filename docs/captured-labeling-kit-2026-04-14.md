@@ -11,7 +11,24 @@ npm run validate:captured-labels
 npm run generate:captured-frame-labels
 npm run label:captured-frames
 npm run promote:captured-clips
+npx tsx scripts/run-benchmark.ts tests/goldens/benchmark/captured-benchmark-draft.json
 ```
+
+## Starter Pack Validation
+
+Current starter evidence:
+
+| Check | Result |
+|---|---:|
+| Captured clips | 4 |
+| Clean tracking tier clips | 2 |
+| Degraded tracking tier clips | 2 |
+| Clips with frame labels | 4 |
+| Benchmark tracking pass rate | 4/4 |
+| Benchmark diagnostics pass rate | 4/4 |
+| Benchmark coach pass rate | 4/4 |
+| Tracking Brier score | 0.0776 |
+| Tracking expected calibration error | 0.097 |
 
 ## Frame Labeler UI
 
@@ -116,4 +133,3 @@ Labeling notes:
 - If the spray window is ambiguous, keep it null and capture a cleaner clip.
 - Fill sampled frame labels before copying the template path into `labels.todo.v1.json`.
 - Use `tracked`/`uncertain` with x/y coordinates, or `occluded`/`lost` without coordinates.
-

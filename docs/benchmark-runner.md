@@ -32,6 +32,7 @@ O runner imprime um JSON com:
 
 - o runner local ja cobre a regressao estrutural do pipeline com fixtures sinteticos
 - o relatorio ja separa resultados por origem para evitar misturar clips sinteticos e capturados
-- o relatorio ja expoe calibracao inicial de confianca do tracking por Brier score
-- `W60-T02` ainda nao esta concluido: os clips reais existem no intake local, mas ainda precisam de labels humanos antes da promocao para golden
-- quando os clips reais forem rotulados, basta adicionar um novo dataset ou expandir o dataset atual com `sourceType: captured`
+- o relatorio expoe calibracao de confianca do tracking por Brier score e expected calibration error
+- o starter pack capturado roda com `npx tsx scripts/run-benchmark.ts tests/goldens/benchmark/captured-benchmark-draft.json`
+- `captured-benchmark-draft` cobre 4 clips reais: 2 clean, 2 degraded, todos com frame labels minimos para regressao local
+- novos clips capturados devem seguir `docs/video-benchmark-spec.md` antes de entrar no dataset

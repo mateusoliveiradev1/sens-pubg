@@ -36,6 +36,7 @@ export interface BenchmarkClipResult {
         readonly actualTier: 'clean' | 'degraded';
         readonly coverage: number;
         readonly meanErrorPx: number;
+        readonly shotAlignmentErrorMs: number;
         readonly statusMismatches: number;
         readonly confidenceCalibration: ConfidenceCalibrationSummary;
         readonly error?: string;
@@ -67,6 +68,7 @@ export interface BenchmarkReportSummary {
         readonly total: number;
         readonly meanCoverage: number;
         readonly meanErrorPx: number;
+        readonly meanShotAlignmentErrorMs: number;
         readonly confidenceCalibration: ConfidenceCalibrationSummary;
     };
     readonly diagnostics: {
@@ -88,6 +90,7 @@ export interface BenchmarkRegressionBaseline {
         readonly score: number;
         readonly trackingMeanCoverage: number;
         readonly trackingMeanErrorPx: number;
+        readonly trackingMeanShotAlignmentErrorMs: number;
         readonly diagnosticsPassRate: number;
         readonly coachPassRate: number;
     };
@@ -101,6 +104,7 @@ export interface BenchmarkRegressionResult {
         readonly score: number;
         readonly trackingMeanCoverage: number;
         readonly trackingMeanErrorPx: number;
+        readonly trackingMeanShotAlignmentErrorMs: number;
         readonly diagnosticsPassRate: number;
         readonly coachPassRate: number;
     };
@@ -184,6 +188,45 @@ function confidenceForTrackingStatus(status: TrackingFrameStatus): number {
     return 0;
 }
 
+function createSyntheticTrackingFrameObservation(input: {
+    readonly frame: number;
+    readonly timestamp: ReturnType<typeof asMilliseconds>;
+    readonly status: TrackingFrameStatus;
+    readonly confidence: number;
+    readonly visiblePixels: number;
+    readonly x?: ReturnType<typeof asPixels>;
+    readonly y?: ReturnType<typeof asPixels>;
+}): TrackingResult['trackingFrames'][number] {
+    const base = {
+        frame: input.frame,
+        timestamp: input.timestamp,
+        status: input.status,
+        confidence: input.confidence,
+        visiblePixels: input.visiblePixels,
+        colorState: 'unknown' as const,
+        exogenousDisturbance: {
+            muzzleFlash: 0,
+            blur: input.visiblePixels > 0 ? Math.max(0, Math.min(1, 1 - input.confidence)) : 0.25,
+            shake: 0,
+            occlusion: input.status === 'lost' || input.status === 'occluded'
+                ? 1
+                : input.visiblePixels === 0
+                    ? 0.65
+                    : 0,
+        },
+    };
+
+    if (input.x === undefined || input.y === undefined) {
+        return base;
+    }
+
+    return {
+        ...base,
+        x: input.x,
+        y: input.y,
+    };
+}
+
 function createTrackingStatusCounts(): Record<TrackingFrameStatus, number> {
     return {
         tracked: 0,
@@ -204,6 +247,7 @@ function calculateTrackingQuality(
 interface CapturedBenchmarkProxy {
     readonly trackingFixture: TrackingGoldenFixture;
     readonly actualTrackingTier: 'clean' | 'degraded';
+    readonly shotAlignmentErrorMs: number;
     readonly diagnoses: readonly Diagnosis[];
     readonly coaching: readonly CoachFeedback[];
 }
@@ -258,6 +302,8 @@ function buildTrackingGoldenFixtureFromCapturedLabels(
             minCoverage: 1,
             maxMeanErrorPx: 0.01,
             maxStatusMismatches: 0,
+            maxBrierScore: 0.25,
+            maxExpectedCalibrationError: 0.25,
         },
         frames: template.frames.map((frame) => {
             const { status, x, y } = frame.label;
@@ -299,6 +345,76 @@ function buildTrackingGoldenFixtureFromCapturedLabels(
                 },
             };
         }),
+    };
+}
+
+function buildTrackingResultFromTrackingFixture(
+    fixture: TrackingGoldenFixture
+): TrackingResult {
+    const points: TrackingResult['points'][number][] = [];
+    const trackingFrames: TrackingResult['trackingFrames'][number][] = [];
+    const statusCounts = createTrackingStatusCounts();
+
+    let lastKnownPosition: { readonly x: ReturnType<typeof asPixels>; readonly y: ReturnType<typeof asPixels> } | undefined;
+    let framesLost = 0;
+
+    for (let frameIndex = 0; frameIndex < fixture.frames.length; frameIndex++) {
+        const frame = fixture.frames[frameIndex]!;
+        const status = frame.expected.status;
+        const isVisible = isVisibleTrackingStatus(status);
+        const timestamp = asMilliseconds(frame.timestamp);
+        const confidence = confidenceForTrackingStatus(status);
+
+        if (isVisible) {
+            lastKnownPosition = {
+                x: asPixels(frame.expected.x!),
+                y: asPixels(frame.expected.y!),
+            };
+        } else {
+            framesLost++;
+        }
+
+        statusCounts[status]++;
+        trackingFrames.push(createSyntheticTrackingFrameObservation({
+            frame: frameIndex,
+            timestamp,
+            status,
+            confidence,
+            visiblePixels: isVisible ? 25 : 0,
+            ...(isVisible
+                ? {
+                    x: lastKnownPosition!.x,
+                    y: lastKnownPosition!.y,
+                }
+                : {}),
+        }));
+
+        if (isVisible || lastKnownPosition) {
+            points.push({
+                frame: frameIndex,
+                timestamp,
+                x: isVisible ? lastKnownPosition!.x : lastKnownPosition!.x,
+                y: isVisible ? lastKnownPosition!.y : lastKnownPosition!.y,
+                confidence,
+            });
+        }
+    }
+
+    if (points.length === 0) {
+        throw new Error(`Fixture ${fixture.name} nao possui pontos suficientes para calcular alinhamento temporal`);
+    }
+
+    const framesTracked = statusCounts.tracked + statusCounts.uncertain;
+
+    return {
+        points,
+        trackingFrames,
+        trackingQuality: calculateTrackingQuality(statusCounts, fixture.frames.length),
+        framesTracked,
+        framesLost,
+        visibleFrames: framesTracked,
+        framesProcessed: fixture.frames.length,
+        statusCounts,
     };
 }
 
@@ -363,7 +479,7 @@ function buildCapturedTrackingResult(
         }
 
         statusCounts[status]++;
-        trackingFrames.push({
+        trackingFrames.push(createSyntheticTrackingFrameObservation({
             frame: frame.frameIndex,
             timestamp,
             status,
@@ -375,7 +491,7 @@ function buildCapturedTrackingResult(
                     y: lastKnownPosition!.y,
                 }
                 : {}),
-        });
+        }));
 
         if (isVisible || lastKnownPosition) {
             points.push({
@@ -453,6 +569,7 @@ function buildCapturedBenchmarkProxy(
     return {
         trackingFixture: buildTrackingGoldenFixtureFromCapturedLabels(clip, template),
         actualTrackingTier: toCapturedTrackingTier(clip),
+        shotAlignmentErrorMs: trajectory.shotAlignmentErrorMs,
         diagnoses,
         coaching,
     };
@@ -509,6 +626,16 @@ async function runTrackingBenchmark(
         }
 
         const result = evaluateTrackingGoldenFixture(fixture);
+        const shotAlignmentErrorMs = fixturePath
+            ? (() => {
+                const weapon = getWeapon(clip.capture.weaponId);
+                if (!weapon) {
+                    throw new Error(`weaponId "${clip.capture.weaponId}" nao existe para o clip ${clip.clipId}`);
+                }
+
+                return buildTrajectory(buildTrackingResultFromTrackingFixture(fixture), weapon).shotAlignmentErrorMs;
+            })()
+            : (await loadCapturedProxy?.())?.shotAlignmentErrorMs ?? 0;
         const actualTier = fixturePath
             ? deriveTrackingTier(result)
             : (await loadCapturedProxy?.())?.actualTrackingTier ?? deriveTrackingTier(result);
@@ -520,6 +647,7 @@ async function runTrackingBenchmark(
             actualTier,
             coverage: toFixedNumber(result.coverage),
             meanErrorPx: toFixedNumber(result.meanErrorPx),
+            shotAlignmentErrorMs: toFixedNumber(shotAlignmentErrorMs),
             statusMismatches: result.statusMismatches,
             confidenceCalibration: result.confidenceCalibration,
         };
@@ -531,6 +659,7 @@ async function runTrackingBenchmark(
             actualTier: clip.labels.expectedTrackingTier,
             coverage: 0,
             meanErrorPx: 0,
+            shotAlignmentErrorMs: 0,
             statusMismatches: 0,
             confidenceCalibration: emptyConfidenceCalibration(),
             error: error instanceof Error ? error.message : 'erro desconhecido no benchmark de tracking',
@@ -651,6 +780,9 @@ function buildSummary(clips: readonly BenchmarkClipResult[]): BenchmarkReportSum
     const trackingMeanErrorPx = totalClips > 0
         ? clips.reduce((sum, clip) => sum + clip.tracking.meanErrorPx, 0) / totalClips
         : 0;
+    const trackingMeanShotAlignmentErrorMs = totalClips > 0
+        ? clips.reduce((sum, clip) => sum + clip.tracking.shotAlignmentErrorMs, 0) / totalClips
+        : 0;
     const trackingConfidenceCalibration = aggregateConfidenceCalibration(
         clips.map((clip) => clip.tracking.confidenceCalibration)
     );
@@ -668,6 +800,7 @@ function buildSummary(clips: readonly BenchmarkClipResult[]): BenchmarkReportSum
             total: totalClips,
             meanCoverage: toFixedNumber(trackingMeanCoverage),
             meanErrorPx: toFixedNumber(trackingMeanErrorPx),
+            meanShotAlignmentErrorMs: toFixedNumber(trackingMeanShotAlignmentErrorMs),
             confidenceCalibration: trackingConfidenceCalibration,
         },
         diagnostics: {
@@ -704,6 +837,7 @@ export function createBenchmarkRegressionBaseline(report: BenchmarkReport): Benc
             score: report.summary.score,
             trackingMeanCoverage: report.summary.tracking.meanCoverage,
             trackingMeanErrorPx: report.summary.tracking.meanErrorPx,
+            trackingMeanShotAlignmentErrorMs: report.summary.tracking.meanShotAlignmentErrorMs,
             diagnosticsPassRate: toFixedNumber(passRate(report.summary.diagnostics.passed, report.summary.diagnostics.total)),
             coachPassRate: toFixedNumber(passRate(report.summary.coach.passed, report.summary.coach.total)),
         },
@@ -721,6 +855,7 @@ function compareAgainstBaseline(
         score: toFixedNumber(summary.score - baseline.summary.score, 2),
         trackingMeanCoverage: toFixedNumber(summary.tracking.meanCoverage - baseline.summary.trackingMeanCoverage),
         trackingMeanErrorPx: toFixedNumber(summary.tracking.meanErrorPx - baseline.summary.trackingMeanErrorPx),
+        trackingMeanShotAlignmentErrorMs: toFixedNumber(summary.tracking.meanShotAlignmentErrorMs - baseline.summary.trackingMeanShotAlignmentErrorMs),
         diagnosticsPassRate: toFixedNumber(diagnosticsPassRate - baseline.summary.diagnosticsPassRate),
         coachPassRate: toFixedNumber(coachPassRate - baseline.summary.coachPassRate),
     };
@@ -730,6 +865,7 @@ function compareAgainstBaseline(
         deltas.score < 0 ||
         deltas.trackingMeanCoverage < 0 ||
         deltas.trackingMeanErrorPx > 0 ||
+        deltas.trackingMeanShotAlignmentErrorMs > 0 ||
         deltas.diagnosticsPassRate < 0 ||
         deltas.coachPassRate < 0
     );

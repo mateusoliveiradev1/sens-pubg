@@ -1,14 +1,14 @@
 # Captured Clips Intake - 2026-04-14
 
-Status: auto-triage, pending human labels
+Status: starter pack benchmark-ready
 
 ## Summary
 
-Two local PUBG clips were placed in `tests/fixtures/captured-clips/` and registered in `tests/fixtures/captured-clips/intake.v1.json`.
+Four local PUBG clips are registered in `tests/goldens/benchmark/captured-benchmark-draft.json` with clean and degraded tracking tiers represented.
 
-The raw video files are intentionally ignored by git. The manifest and preview images can be versioned because they are lightweight evidence for the intake decision.
+The raw video files are intentionally ignored by git. The benchmark dataset, label templates and preview images are lightweight evidence for the intake decision.
 
-The pending label worksheet is `tests/fixtures/captured-clips/labels.todo.v1.json`. It intentionally keeps uncertain game facts as `null` until a human label pass fills them.
+Frame label templates live in `tests/fixtures/captured-clips/labels/*.frames.todo.json`. Despite the historical `.todo` suffix, the current starter pack has enough tracking labels to run the pure benchmark path.
 
 Validation command:
 
@@ -24,7 +24,7 @@ Promotion command:
 npm run promote:captured-clips
 ```
 
-This command combines the intake manifest and label worksheet into a benchmark dataset draft only after every clip is fully labeled. Until then it reports `blockedClips` and exits non-zero.
+This command combines the intake manifest and label worksheet into a benchmark dataset draft only after every clip is fully labeled.
 
 Labeling guide command:
 
@@ -38,8 +38,10 @@ This command regenerates `docs/captured-labeling-kit-2026-04-14.md` from the cur
 
 | Clip | Preliminary tier | Evidence | Blocker before golden |
 |---|---|---|---|
-| `clip1.mp4` | `candidate-clean` | 1744x1080, ~143.5 fps, 15.278s, HEVC, reticle visible in ADS samples | One sampled frame has inventory open; needs spray start/end and human labels |
-| `clip2.mp4` | `candidate-degraded` | 1728x1080, ~143.7 fps, 14.951s, HEVC, usable ADS samples | Moderate occlusion/foreground structure and mixed framing; needs human labels |
+| `clip1.mp4` | `clean` | 1744x1080, ~143.5 fps, AUG red dot, light occlusion, frame labels present | Keep as single `golden` control with notes about inventory overlay |
+| `clip2.mp4` | `degraded` | 1728x1080, ~143.7 fps, AUG red dot, moderate foreground occlusion | Keep as reviewed degraded starter clip |
+| `clip3.mp4` | `clean` | 1728x1080, ~143.6 fps, AUG red dot, clear reticle samples | Keep as reviewed clean starter clip |
+| `clip4.mp4` | `degraded` | 1920x1080, ~120 fps, Beryl M762 red dot, stream/HUD clutter | Keep as reviewed degraded starter clip with expected overpull |
 
 ## Required Human Labels
 
@@ -55,4 +57,10 @@ This command regenerates `docs/captured-labeling-kit-2026-04-14.md` from the cur
 
 ## Next Step
 
-Promote these from intake candidates to real goldens only after the missing labels are filled. Until then they should not be used to claim tracking, diagnosis, or coaching accuracy.
+The starter pack can be used for local regression claims with:
+
+```bash
+npx tsx scripts/run-benchmark.ts tests/goldens/benchmark/captured-benchmark-draft.json
+```
+
+Only promote additional clips to `golden` after a second human review; `reviewed` clips are sufficient for starter coverage but should not be treated as immutable truth.

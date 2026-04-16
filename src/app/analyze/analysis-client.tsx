@@ -5,9 +5,31 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { validateAndPrepareVideo, releaseVideoUrl, extractFrames, buildTrajectory, calculateSprayMetrics, runDiagnostics, generateSensitivityRecommendation, generateCoaching } from '@/core';
+import {
+    validateAndPrepareVideo,
+    releaseVideoUrl,
+    extractFrames,
+    detectSprayWindow,
+    sliceExtractedFramesToWindow,
+    buildTrajectory,
+    calculateSprayMetrics,
+    runDiagnostics,
+    generateSensitivityRecommendation,
+    generateCoaching,
+} from '@/core';
 import type { VideoMetadata } from '@/core';
-import type { AnalysisDistanceMode, AnalysisResult, GripAttachment, GripStyle, MuzzleAttachment, PlayStyle, PlayerStance, StockAttachment, WeaponLoadout } from '@/types/engine';
+import type {
+    AnalysisDistanceMode,
+    AnalysisResult,
+    GripAttachment,
+    GripStyle,
+    MuzzleAttachment,
+    PlayStyle,
+    PlayerStance,
+    StockAttachment,
+    VideoQualityBlockingReason,
+    WeaponLoadout,
+} from '@/types/engine';
 import type { WeaponCategory } from '@/game/pubg/weapon-data';
 import { CURRENT_PUBG_PATCH_VERSION, SCOPE_LIST } from '@/game/pubg';
 import { saveAnalysisResult } from '@/actions/history';
@@ -65,6 +87,13 @@ const STOCK_LABELS: Record<StockAttachment, string> = {
 const DISTANCE_PRESETS = [25, 50, 75, 100, 150, 200] as const;
 const DISTANCE_UNKNOWN_REFERENCE_METERS = 30;
 const GRIP_OPTIONS: readonly GripAttachment[] = ['none', 'vertical', 'angled', 'half', 'thumb', 'lightweight', 'laser', 'ergonomic', 'tilted'];
+const QUALITY_BLOCKING_REASON_LABELS: Record<VideoQualityBlockingReason, string> = {
+    low_sharpness: 'baixa nitidez',
+    high_compression_burden: 'compressao pesada',
+    low_reticle_contrast: 'baixo contraste da mira',
+    unstable_roi: 'instabilidade visual na area da mira',
+    unstable_fps: 'instabilidade de frame rate',
+};
 
 type AnalysisStep = 'upload' | 'settings' | 'processing' | 'done' | 'error';
 type ProcessingPhase = 'extracting' | 'tracking' | 'calculating' | 'diagnosing' | 'done';
@@ -83,6 +112,10 @@ function formatPreviewClipDuration(durationSeconds: number): string {
     }).format(durationSeconds);
 
     return `${formatted}s`;
+}
+
+function formatQualityBlockingReasons(reasons: readonly VideoQualityBlockingReason[]): string {
+    return reasons.map((reason) => QUALITY_BLOCKING_REASON_LABELS[reason] ?? reason).join(', ');
 }
 
 export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element {
@@ -162,10 +195,20 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
             return;
         }
 
+        if (!prepared.metadata.qualityReport.usableForAnalysis) {
+            releaseVideoUrl(prepared.metadata.url);
+            setError(
+                `A qualidade do clip nao esta boa o suficiente para uma analise precisa. Problemas detectados: ${formatQualityBlockingReasons(prepared.metadata.qualityReport.blockingReasons)}.`
+            );
+            return;
+        }
+
         if (prepared.metadata.height < 1080) {
             setQualityWarning(`Resolucao detectada: ${prepared.metadata.height}p. Recomendamos 1080p para maior precisao.`);
         } else if (prepared.metadata.fps < 59) {
             setQualityWarning(`Framerate detectado: ${Math.round(prepared.metadata.fps)} FPS. Recomendamos 60 FPS para capturar cada micro-ajuste.`);
+        } else if (prepared.metadata.qualityReport.overallScore < 80) {
+            setQualityWarning(`Qualidade estimada do clip: ${Math.round(prepared.metadata.qualityReport.overallScore)}/100. O video e analisavel, mas ainda pode limitar a precisao fina.`);
         }
 
         setVideo(prepared.metadata);
@@ -278,16 +321,28 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                     multipliers: currentMultipliers,
                     vsm: profile.verticalMultiplier || 1.0,
                     crosshairColor,
+                    opticState: analysisContext.optic.opticStateId,
+                    opticStateConfidence: analysisContext.optic.ambiguityNote ? 0.5 : 1,
                 };
 
-                await extractFrames(video.url, Math.min(video.fps, 60), marker.time, expectedDurationSecs, (frameProgress) => {
+                const extractedFrames = await extractFrames(video.url, Math.min(video.fps, 60), marker.time, expectedDurationSecs, (frameProgress) => {
                     setProgress((index * stepIncrement) + (frameProgress.percent * 0.5 * (stepIncrement / 100)));
-                }, (frame) => {
+                });
+                const detectedSprayWindow = detectSprayWindow(extractedFrames, {
+                    targetColor: crosshairColor,
+                });
+                const framesForTracking = detectedSprayWindow
+                    ? sliceExtractedFramesToWindow(extractedFrames, detectedSprayWindow)
+                    : extractedFrames;
+
+                setPhase('tracking');
+
+                for (const frame of framesForTracking) {
                     worker.postMessage(
                         { type: 'PROCESS_FRAME', payload: { imageData: frame.imageData, timestamp: frame.timestamp, context } },
                         [frame.imageData.data.buffer]
                     );
-                });
+                }
 
                 setPhase('calculating');
 
@@ -319,6 +374,7 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                     timestamp: new Date(),
                     patchVersion: CURRENT_PUBG_PATCH_VERSION,
                     analysisContext,
+                    videoQualityReport: video.qualityReport,
                     trajectory,
                     loadout,
                     metrics: sprayMetrics,
@@ -361,6 +417,7 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                 timestamp: new Date(),
                 patchVersion: CURRENT_PUBG_PATCH_VERSION,
                 analysisContext,
+                videoQualityReport: video.qualityReport,
                 trajectory: subSessions[0]!.trajectory,
                 loadout: { stance, muzzle, grip, stock },
                 metrics: finalMetrics,
