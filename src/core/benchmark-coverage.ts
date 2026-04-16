@@ -1,7 +1,9 @@
+import { CURRENT_PUBG_PATCH_VERSION } from '@/game/pubg/patch';
 import type { BenchmarkClip, BenchmarkDataset } from '@/types/benchmark';
 
 type BenchmarkSourceType = BenchmarkClip['quality']['sourceType'];
 type ReviewStatus = BenchmarkClip['quality']['reviewStatus'];
+type ReviewProvenanceSource = NonNullable<BenchmarkClip['quality']['reviewProvenance']>['source'] | 'unspecified';
 type TrackingTier = BenchmarkClip['labels']['expectedTrackingTier'];
 type VisibilityTier = BenchmarkClip['quality']['visibilityTier'];
 type OcclusionLevel = BenchmarkClip['quality']['occlusionLevel'];
@@ -9,11 +11,24 @@ type CompressionLevel = BenchmarkClip['quality']['compressionLevel'];
 
 const SOURCE_TYPES = ['captured', 'synthetic', 'augmented'] as const satisfies readonly BenchmarkSourceType[];
 const REVIEW_STATUSES = ['draft', 'reviewed', 'golden'] as const satisfies readonly ReviewStatus[];
+const REVIEW_PROVENANCE_SOURCES = [
+    'unspecified',
+    'machine-assisted',
+    'codex-assisted',
+    'human-reviewed',
+    'specialist-reviewed',
+] as const satisfies readonly ReviewProvenanceSource[];
 const TRACKING_TIERS = ['clean', 'degraded'] as const satisfies readonly TrackingTier[];
 const VISIBILITY_TIERS = ['clean', 'degraded', 'rejected'] as const satisfies readonly VisibilityTier[];
 const OCCLUSION_LEVELS = ['none', 'light', 'moderate', 'heavy'] as const satisfies readonly OcclusionLevel[];
 const COMPRESSION_LEVELS = ['lossless', 'light', 'medium', 'heavy'] as const satisfies readonly CompressionLevel[];
 const DISTANCE_BUCKETS = ['0-30m', '31-60m', '61-100m', '101m+'] as const;
+
+const SDD_CURRENT_PATCH_CAPTURED_REQUIRED = 1;
+const SDD_DISTINCT_OPTICS_REQUIRED = 2;
+const SDD_CLEAN_CAPTURED_REQUIRED = 1;
+const SDD_DEGRADED_CAPTURED_REQUIRED = 1;
+const SDD_SPECIALIST_GOLDEN_REQUIRED = 1;
 
 export interface BenchmarkCoverageSummary {
     readonly datasetId: string;
@@ -21,6 +36,7 @@ export interface BenchmarkCoverageSummary {
     readonly generatedFrom: 'all-clips';
     readonly sourceTypes: Record<BenchmarkSourceType, number>;
     readonly reviewStatuses: Record<ReviewStatus, number>;
+    readonly reviewProvenanceSources: Record<ReviewProvenanceSource, number>;
     readonly trackingTiers: Record<TrackingTier, number>;
     readonly visibilityTiers: Record<VisibilityTier, number>;
     readonly occlusionLevels: Record<OcclusionLevel, number>;
@@ -34,12 +50,25 @@ export interface BenchmarkCoverageSummary {
     readonly uniqueOptics: readonly string[];
     readonly clipsWithDiagnoses: number;
     readonly goldenClips: number;
+    readonly currentPatchCapturedClips: number;
+    readonly specialistReviewedGoldenClips: number;
     readonly starterGate: BenchmarkCoverageGate;
     readonly starterGaps: readonly string[];
+    readonly sddGate: BenchmarkCoverageGate;
+    readonly sddGaps: readonly string[];
 }
 
 export interface BenchmarkCoverageGateCheck {
-    readonly key: 'capturedClips' | 'distinctWeapons' | 'capturedDiagnosedClips' | 'capturedGoldenClips';
+    readonly key:
+        | 'capturedClips'
+        | 'distinctWeapons'
+        | 'capturedDiagnosedClips'
+        | 'capturedGoldenClips'
+        | 'currentPatchCapturedClips'
+        | 'distinctOptics'
+        | 'cleanCapturedClips'
+        | 'degradedCapturedClips'
+        | 'specialistReviewedGoldenClips';
     readonly label: string;
     readonly actual: number;
     readonly required: number;
@@ -75,8 +104,20 @@ function getDistanceBucket(distanceMeters: number): typeof DISTANCE_BUCKETS[numb
     return '101m+';
 }
 
+function getCapturedClips(dataset: BenchmarkDataset): BenchmarkClip[] {
+    return dataset.clips.filter((clip) => clip.quality.sourceType === 'captured');
+}
+
+function getOpticKey(clip: BenchmarkClip): string {
+    return `${clip.capture.optic.opticId}:${clip.capture.optic.stateId}`;
+}
+
+function isSpecialistReviewedGoldenClip(clip: BenchmarkClip): boolean {
+    return clip.quality.reviewStatus === 'golden' && clip.quality.reviewProvenance?.source === 'specialist-reviewed';
+}
+
 function buildStarterGaps(dataset: BenchmarkDataset): readonly string[] {
-    const capturedClips = dataset.clips.filter((clip) => clip.quality.sourceType === 'captured');
+    const capturedClips = getCapturedClips(dataset);
     const capturedWeapons = new Set(capturedClips.map((clip) => clip.capture.weaponId));
     const capturedGoldenClips = capturedClips.filter((clip) => clip.quality.reviewStatus === 'golden').length;
     const capturedDiagnosedClips = capturedClips.filter((clip) => clip.labels.expectedDiagnoses.length > 0).length;
@@ -102,7 +143,7 @@ function buildStarterGaps(dataset: BenchmarkDataset): readonly string[] {
 }
 
 function buildStarterGate(dataset: BenchmarkDataset): BenchmarkCoverageGate {
-    const capturedClips = dataset.clips.filter((clip) => clip.quality.sourceType === 'captured');
+    const capturedClips = getCapturedClips(dataset);
     const distinctWeapons = new Set(capturedClips.map((clip) => clip.capture.weaponId)).size;
     const capturedDiagnosedClips = capturedClips.filter((clip) => clip.labels.expectedDiagnoses.length > 0).length;
     const capturedGoldenClips = capturedClips.filter((clip) => clip.quality.reviewStatus === 'golden').length;
@@ -143,9 +184,92 @@ function buildStarterGate(dataset: BenchmarkDataset): BenchmarkCoverageGate {
     };
 }
 
+function buildSddGate(dataset: BenchmarkDataset): BenchmarkCoverageGate {
+    const capturedClips = getCapturedClips(dataset);
+    const currentPatchCapturedClips = capturedClips.filter((clip) => clip.capture.patchVersion === CURRENT_PUBG_PATCH_VERSION).length;
+    const distinctOptics = new Set(capturedClips.map(getOpticKey)).size;
+    const cleanCapturedClips = capturedClips.filter((clip) => clip.labels.expectedTrackingTier === 'clean').length;
+    const degradedCapturedClips = capturedClips.filter((clip) => clip.labels.expectedTrackingTier === 'degraded').length;
+    const specialistReviewedGoldenClips = capturedClips.filter(isSpecialistReviewedGoldenClip).length;
+    const checks: BenchmarkCoverageGateCheck[] = [
+        {
+            key: 'currentPatchCapturedClips',
+            label: `Current PUBG patch captured clips (${CURRENT_PUBG_PATCH_VERSION})`,
+            actual: currentPatchCapturedClips,
+            required: SDD_CURRENT_PATCH_CAPTURED_REQUIRED,
+            passed: currentPatchCapturedClips >= SDD_CURRENT_PATCH_CAPTURED_REQUIRED,
+        },
+        {
+            key: 'distinctOptics',
+            label: 'Distinct captured optics',
+            actual: distinctOptics,
+            required: SDD_DISTINCT_OPTICS_REQUIRED,
+            passed: distinctOptics >= SDD_DISTINCT_OPTICS_REQUIRED,
+        },
+        {
+            key: 'cleanCapturedClips',
+            label: 'Clean captured clips',
+            actual: cleanCapturedClips,
+            required: SDD_CLEAN_CAPTURED_REQUIRED,
+            passed: cleanCapturedClips >= SDD_CLEAN_CAPTURED_REQUIRED,
+        },
+        {
+            key: 'degradedCapturedClips',
+            label: 'Degraded captured clips',
+            actual: degradedCapturedClips,
+            required: SDD_DEGRADED_CAPTURED_REQUIRED,
+            passed: degradedCapturedClips >= SDD_DEGRADED_CAPTURED_REQUIRED,
+        },
+        {
+            key: 'specialistReviewedGoldenClips',
+            label: 'Specialist-reviewed golden clips',
+            actual: specialistReviewedGoldenClips,
+            required: SDD_SPECIALIST_GOLDEN_REQUIRED,
+            passed: specialistReviewedGoldenClips >= SDD_SPECIALIST_GOLDEN_REQUIRED,
+        },
+    ];
+
+    return {
+        passed: checks.every((check) => check.passed),
+        checks,
+    };
+}
+
+function buildSddGaps(dataset: BenchmarkDataset): readonly string[] {
+    const sddGate = buildSddGate(dataset);
+    const gaps: string[] = [];
+
+    for (const check of sddGate.checks) {
+        if (check.passed) continue;
+
+        switch (check.key) {
+            case 'currentPatchCapturedClips':
+                gaps.push(`Adicionar pelo menos ${check.required - check.actual} clip capturado no patch atual ${CURRENT_PUBG_PATCH_VERSION}.`);
+                break;
+            case 'distinctOptics':
+                gaps.push(`Adicionar pelo menos ${check.required - check.actual} optic/optic state capturado distinto ao corpus SDD.`);
+                break;
+            case 'specialistReviewedGoldenClips':
+                gaps.push(`Promover pelo menos ${check.required - check.actual} clip golden com reviewProvenance.source=specialist-reviewed.`);
+                break;
+            case 'cleanCapturedClips':
+                gaps.push(`Adicionar pelo menos ${check.required - check.actual} clip capturado limpo ao corpus SDD.`);
+                break;
+            case 'degradedCapturedClips':
+                gaps.push(`Adicionar pelo menos ${check.required - check.actual} clip capturado degradado ao corpus SDD.`);
+                break;
+            default:
+                break;
+        }
+    }
+
+    return gaps;
+}
+
 export function buildBenchmarkCoverageSummary(dataset: BenchmarkDataset): BenchmarkCoverageSummary {
     const sourceTypes = createCounter(SOURCE_TYPES);
     const reviewStatuses = createCounter(REVIEW_STATUSES);
+    const reviewProvenanceSources = createCounter(REVIEW_PROVENANCE_SOURCES);
     const trackingTiers = createCounter(TRACKING_TIERS);
     const visibilityTiers = createCounter(VISIBILITY_TIERS);
     const occlusionLevels = createCounter(OCCLUSION_LEVELS);
@@ -158,10 +282,13 @@ export function buildBenchmarkCoverageSummary(dataset: BenchmarkDataset): Benchm
 
     let clipsWithDiagnoses = 0;
     let goldenClips = 0;
+    let currentPatchCapturedClips = 0;
+    let specialistReviewedGoldenClips = 0;
 
     for (const clip of dataset.clips) {
         countBy(sourceTypes, clip.quality.sourceType);
         countBy(reviewStatuses, clip.quality.reviewStatus);
+        countBy(reviewProvenanceSources, clip.quality.reviewProvenance?.source ?? 'unspecified');
         countBy(trackingTiers, clip.labels.expectedTrackingTier);
         countBy(visibilityTiers, clip.quality.visibilityTier);
         countBy(occlusionLevels, clip.quality.occlusionLevel);
@@ -169,7 +296,7 @@ export function buildBenchmarkCoverageSummary(dataset: BenchmarkDataset): Benchm
         countBy(distanceBuckets, getDistanceBucket(clip.capture.distanceMeters));
         countLoose(patchVersions, clip.capture.patchVersion);
         countLoose(weapons, clip.capture.weaponId);
-        countLoose(optics, `${clip.capture.optic.opticId}:${clip.capture.optic.stateId}`);
+        countLoose(optics, getOpticKey(clip));
 
         if (clip.labels.expectedDiagnoses.length > 0) {
             clipsWithDiagnoses++;
@@ -179,10 +306,21 @@ export function buildBenchmarkCoverageSummary(dataset: BenchmarkDataset): Benchm
             goldenClips++;
         }
 
+        if (clip.quality.sourceType === 'captured' && clip.capture.patchVersion === CURRENT_PUBG_PATCH_VERSION) {
+            currentPatchCapturedClips++;
+        }
+
+        if (clip.quality.sourceType === 'captured' && isSpecialistReviewedGoldenClip(clip)) {
+            specialistReviewedGoldenClips++;
+        }
+
         for (const diagnosisType of clip.labels.expectedDiagnoses) {
             countLoose(diagnosisTypes, diagnosisType);
         }
     }
+
+    const starterGate = buildStarterGate(dataset);
+    const sddGate = buildSddGate(dataset);
 
     return {
         datasetId: dataset.datasetId,
@@ -190,6 +328,7 @@ export function buildBenchmarkCoverageSummary(dataset: BenchmarkDataset): Benchm
         generatedFrom: 'all-clips',
         sourceTypes,
         reviewStatuses,
+        reviewProvenanceSources,
         trackingTiers,
         visibilityTiers,
         occlusionLevels,
@@ -203,8 +342,12 @@ export function buildBenchmarkCoverageSummary(dataset: BenchmarkDataset): Benchm
         uniqueOptics: Object.keys(optics).sort(),
         clipsWithDiagnoses,
         goldenClips,
-        starterGate: buildStarterGate(dataset),
+        currentPatchCapturedClips,
+        specialistReviewedGoldenClips,
+        starterGate,
         starterGaps: buildStarterGaps(dataset),
+        sddGate,
+        sddGaps: buildSddGaps(dataset),
     };
 }
 
@@ -232,6 +375,8 @@ export function renderBenchmarkCoverageMarkdown(
         `| Total clips | ${summary.totalClips} |`,
         `| Clips com diagnostico esperado | ${summary.clipsWithDiagnoses} |`,
         `| Clips promovidos para golden | ${summary.goldenClips} |`,
+        `| Clips capturados no patch atual ${CURRENT_PUBG_PATCH_VERSION} | ${summary.currentPatchCapturedClips} |`,
+        `| Goldens validados por especialista | ${summary.specialistReviewedGoldenClips} |`,
         '',
         '## Coverage',
         '',
@@ -239,6 +384,7 @@ export function renderBenchmarkCoverageMarkdown(
         '|---|---:|',
         ...renderCounterRows(summary.sourceTypes, 'Source type'),
         ...renderCounterRows(summary.reviewStatuses, 'Review status'),
+        ...renderCounterRows(summary.reviewProvenanceSources, 'Review provenance'),
         ...renderCounterRows(summary.trackingTiers, 'Tracking tier'),
         ...renderCounterRows(summary.visibilityTiers, 'Visibility tier'),
         ...renderCounterRows(summary.occlusionLevels, 'Occlusion'),
@@ -264,6 +410,18 @@ export function renderBenchmarkCoverageMarkdown(
         ...(summary.starterGaps.length > 0
             ? summary.starterGaps.map((gap) => `- ${gap}`)
             : ['- Nenhuma lacuna minima detectada para o starter pack capturado.']),
+        '',
+        '## SDD Evidence Gate',
+        '',
+        '| Requirement | Actual | Required | Status |',
+        '|---|---:|---:|---|',
+        ...summary.sddGate.checks.map((check) => `| ${check.label} | ${check.actual} | ${check.required} | ${check.passed ? 'PASS' : 'FAIL'} |`),
+        '',
+        '## SDD Gaps',
+        '',
+        ...(summary.sddGaps.length > 0
+            ? summary.sddGaps.map((gap) => `- ${gap}`)
+            : ['- Nenhuma lacuna SDD de evidencia detectada para o corpus capturado atual.']),
     ];
 
     return `${lines.join('\n')}\n`;

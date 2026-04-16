@@ -22,6 +22,7 @@ const coachModeSchema = z.enum(['standard', 'low-confidence', 'inconclusive']);
 const trackingTierSchema = z.enum(['clean', 'degraded']);
 const sourceTypeSchema = z.enum(['captured', 'synthetic', 'augmented']);
 const reviewStatusSchema = z.enum(['draft', 'reviewed', 'golden']);
+const reviewProvenanceSourceSchema = z.enum(['machine-assisted', 'codex-assisted', 'human-reviewed', 'specialist-reviewed']);
 const occlusionLevelSchema = z.enum(['none', 'light', 'moderate', 'heavy']);
 const compressionLevelSchema = z.enum(['lossless', 'light', 'medium', 'heavy']);
 const visibilityTierSchema = z.enum(['clean', 'degraded', 'rejected']);
@@ -87,6 +88,13 @@ export const benchmarkClipLabelsSchema = z.object({
     }
 });
 
+export const benchmarkClipReviewProvenanceSchema = z.object({
+    source: reviewProvenanceSourceSchema,
+    reviewerId: z.string().min(1).optional(),
+    reviewedAt: z.string().datetime().optional(),
+    notes: z.string().min(1).optional(),
+});
+
 export const benchmarkClipQualitySchema = z.object({
     sourceType: sourceTypeSchema,
     reviewStatus: reviewStatusSchema,
@@ -94,6 +102,7 @@ export const benchmarkClipQualitySchema = z.object({
     compressionLevel: compressionLevelSchema,
     visibilityTier: visibilityTierSchema,
     notes: z.string().min(1).optional(),
+    reviewProvenance: benchmarkClipReviewProvenanceSchema.optional(),
 });
 
 export const benchmarkClipFixturesSchema = z.object({
@@ -173,6 +182,7 @@ export type BenchmarkClipSprayWindow = z.infer<typeof benchmarkClipSprayWindowSc
 export type BenchmarkClipOptic = z.infer<typeof benchmarkClipOpticSchema>;
 export type BenchmarkClipCapture = z.infer<typeof benchmarkClipCaptureSchema>;
 export type BenchmarkClipLabels = z.infer<typeof benchmarkClipLabelsSchema>;
+export type BenchmarkClipReviewProvenance = z.infer<typeof benchmarkClipReviewProvenanceSchema>;
 export type BenchmarkClipQuality = z.infer<typeof benchmarkClipQualitySchema>;
 export type BenchmarkClipFixtures = z.infer<typeof benchmarkClipFixturesSchema>;
 export type BenchmarkClip = z.infer<typeof benchmarkClipSchema>;

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { CURRENT_PUBG_PATCH_VERSION } from '@/game/pubg/patch';
 import type { BenchmarkDataset } from '@/types/benchmark';
 import {
     buildBenchmarkCoverageSummary,
@@ -45,6 +46,11 @@ const dataset: BenchmarkDataset = {
                 occlusionLevel: 'light',
                 compressionLevel: 'light',
                 visibilityTier: 'clean',
+                reviewProvenance: {
+                    source: 'codex-assisted',
+                    reviewerId: 'codex-auto-review',
+                    reviewedAt: '2026-04-14T22:10:00.000Z',
+                },
             },
         },
         {
@@ -103,6 +109,12 @@ describe('benchmark coverage', () => {
         expect(summary.uniqueOptics).toEqual(['red-dot-sight:1x']);
         expect(summary.clipsWithDiagnoses).toBe(0);
         expect(summary.goldenClips).toBe(0);
+        expect(summary.currentPatchCapturedClips).toBe(0);
+        expect(summary.specialistReviewedGoldenClips).toBe(0);
+        expect(summary.reviewProvenanceSources).toMatchObject({
+            'codex-assisted': 1,
+            unspecified: 1,
+        });
         expect(summary.starterGate.passed).toBe(false);
         expect(summary.starterGate.checks).toEqual([
             {
@@ -140,6 +152,49 @@ describe('benchmark coverage', () => {
             'Adicionar pelo menos 1 clip capturado com diagnostico esperado nao vazio.',
             'Promover pelo menos 1 clip capturado para reviewStatus=golden.',
         ]);
+        expect(summary.sddGate.passed).toBe(false);
+        expect(summary.sddGate.checks).toEqual([
+            {
+                key: 'currentPatchCapturedClips',
+                label: `Current PUBG patch captured clips (${CURRENT_PUBG_PATCH_VERSION})`,
+                actual: 0,
+                required: 1,
+                passed: false,
+            },
+            {
+                key: 'distinctOptics',
+                label: 'Distinct captured optics',
+                actual: 1,
+                required: 2,
+                passed: false,
+            },
+            {
+                key: 'cleanCapturedClips',
+                label: 'Clean captured clips',
+                actual: 1,
+                required: 1,
+                passed: true,
+            },
+            {
+                key: 'degradedCapturedClips',
+                label: 'Degraded captured clips',
+                actual: 1,
+                required: 1,
+                passed: true,
+            },
+            {
+                key: 'specialistReviewedGoldenClips',
+                label: 'Specialist-reviewed golden clips',
+                actual: 0,
+                required: 1,
+                passed: false,
+            },
+        ]);
+        expect(summary.sddGaps).toEqual([
+            `Adicionar pelo menos 1 clip capturado no patch atual ${CURRENT_PUBG_PATCH_VERSION}.`,
+            'Adicionar pelo menos 1 optic/optic state capturado distinto ao corpus SDD.',
+            'Promover pelo menos 1 clip golden com reviewProvenance.source=specialist-reviewed.',
+        ]);
     });
 
     it('renders a markdown report with coverage counts and starter gaps', () => {
@@ -156,6 +211,9 @@ describe('benchmark coverage', () => {
         expect(markdown).toContain('| Tracking tier degraded | 1 |');
         expect(markdown).toContain('## Starter Gate');
         expect(markdown).toContain('| Captured clips | 2 | 4 | FAIL |');
+        expect(markdown).toContain('## SDD Evidence Gate');
+        expect(markdown).toContain(`| Current PUBG patch captured clips (${CURRENT_PUBG_PATCH_VERSION}) | 0 | 1 | FAIL |`);
+        expect(markdown).toContain('- Promover pelo menos 1 clip golden com reviewProvenance.source=specialist-reviewed.');
         expect(markdown).toContain('- Adicionar pelo menos 1 arma distinta ao corpus capturado inicial.');
     });
 });

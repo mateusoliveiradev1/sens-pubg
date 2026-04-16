@@ -44,4 +44,14 @@ describe('CI benchmark workflow', () => {
         expect(packageJson.scripts?.['verify:release']).toContain('npm run build');
         expect(packageJson.scripts?.['verify:release']).toContain('npm run smoke:local');
     });
+
+    it('exposes a stricter SDD coverage gate without making the starter CI gate claim full SDD readiness', () => {
+        const packageJson = JSON.parse(readWorkspaceFile('package.json')) as {
+            scripts?: Record<string, string>;
+        };
+
+        expect(packageJson.scripts?.['validate:sdd-coverage']).toContain('scripts/validate-benchmark-coverage.ts --sdd');
+        expect(packageJson.scripts?.['benchmark:gate']).not.toContain('validate:sdd-coverage');
+        expect(packageJson.scripts?.['verify:release']).not.toContain('validate:sdd-coverage');
+    });
 });
