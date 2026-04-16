@@ -4,6 +4,8 @@ Data: 2026-04-14
 Base: `docs/SDD-analise-spray.md` e `docs/SPRAY-ANALYSIS-EXECUTION-PLAN.md`  
 Escopo: estado local do repositorio apos as tarefas de tracking, dominio, coach, UX e CI benchmark.
 
+Atualizacao: ver `docs/sdd-compliance-2026-04-16.md` para o gate executavel mais recente, que separa `starter gate` de `SDD evidence gate`.
+
 ## Veredito curto
 
 O projeto nao esta 100% conforme o SDD em criterio de confiabilidade real.

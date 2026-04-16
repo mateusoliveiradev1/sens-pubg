@@ -40,7 +40,13 @@
         "occlusionLevel": "light",
         "compressionLevel": "light",
         "visibilityTier": "clean",
-        "notes": "Alta resolucao e cerca de 144 fps, com reticulo visivel nos samples de ADS. Um sample mostra inventario aberto, entao o trecho de spray precisa de rotulo humano antes de virar golden."
+        "notes": "Alta resolucao e cerca de 144 fps, com reticulo visivel nos samples de ADS. Um sample mostra inventario aberto, entao o trecho de spray precisa de rotulo humano antes de virar golden.",
+        "reviewProvenance": {
+          "source": "codex-assisted",
+          "reviewerId": "codex-auto-review",
+          "reviewedAt": "2026-04-15T02:43:48.597Z",
+          "notes": "Promovido pelo fluxo local de autopilot; nao equivale a validacao de especialista."
+        }
       }
     },
     {
@@ -80,7 +86,13 @@
         "occlusionLevel": "moderate",
         "compressionLevel": "light",
         "visibilityTier": "degraded",
-        "notes": "Alta resolucao e cerca de 144 fps, mas os samples mostram janela/estrutura no primeiro plano e alternancia de enquadramento. E util como candidato degradado, nao como golden limpo."
+        "notes": "Alta resolucao e cerca de 144 fps, mas os samples mostram janela/estrutura no primeiro plano e alternancia de enquadramento. E util como candidato degradado, nao como golden limpo.",
+        "reviewProvenance": {
+          "source": "machine-assisted",
+          "reviewerId": "captured-autopilot",
+          "reviewedAt": "2026-04-15T02:43:48.597Z",
+          "notes": "Metadados e labels estimados pelo fluxo local; precisa revisao humana antes de virar golden."
+        }
       }
     },
     {
@@ -120,7 +132,13 @@
         "occlusionLevel": "light",
         "compressionLevel": "light",
         "visibilityTier": "clean",
-        "notes": "Clip do training range com leitura clara do reticulo e do alvo a 100 m. O inventario confirma AUG com red dot e compensator; o corrimao ocupa apenas a faixa inferior e nao compromete o sample principal."
+        "notes": "Clip do training range com leitura clara do reticulo e do alvo a 100 m. O inventario confirma AUG com red dot e compensator; o corrimao ocupa apenas a faixa inferior e nao compromete o sample principal.",
+        "reviewProvenance": {
+          "source": "machine-assisted",
+          "reviewerId": "captured-autopilot",
+          "reviewedAt": "2026-04-15T02:43:48.597Z",
+          "notes": "Metadados e labels estimados pelo fluxo local; precisa revisao humana antes de virar golden."
+        }
       }
     },
     {
@@ -163,7 +181,13 @@
         "occlusionLevel": "moderate",
         "compressionLevel": "medium",
         "visibilityTier": "degraded",
-        "notes": "Clip novo com Beryl M762 em ADS a 100 m, mas com HUD de stream, webcam e elementos de TDM ocupando parte do quadro. Continua util para benchmark degradado e para cobrir arma distinta do corpus inicial."
+        "notes": "Clip novo com Beryl M762 em ADS a 100 m, mas com HUD de stream, webcam e elementos de TDM ocupando parte do quadro. Continua util para benchmark degradado e para cobrir arma distinta do corpus inicial.",
+        "reviewProvenance": {
+          "source": "machine-assisted",
+          "reviewerId": "captured-autopilot",
+          "reviewedAt": "2026-04-15T02:43:48.597Z",
+          "notes": "Metadados e labels estimados pelo fluxo local; precisa revisao humana antes de virar golden."
+        }
       }
     }
   ]

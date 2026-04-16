@@ -14,26 +14,31 @@ async function loadBenchmarkDataset(datasetPath: string) {
 }
 
 async function main(): Promise<void> {
-    const [, , datasetArg] = process.argv;
+    const args = process.argv.slice(2);
+    const gateMode = args.includes('--sdd') ? 'sdd' : 'starter';
+    const datasetArg = args.find((arg) => !arg.startsWith('--'));
     const datasetPath = datasetArg ?? 'tests/goldens/benchmark/captured-benchmark-draft.json';
     const dataset = await loadBenchmarkDataset(datasetPath);
     const summary = buildBenchmarkCoverageSummary(dataset);
+    const gate = gateMode === 'sdd' ? summary.sddGate : summary.starterGate;
+    const gaps = gateMode === 'sdd' ? summary.sddGaps : summary.starterGaps;
+    const gateLabel = gateMode === 'sdd' ? 'sdd evidence gate' : 'starter gate';
 
     console.log(`benchmark coverage validation for ${summary.datasetId}`);
-    for (const check of summary.starterGate.checks) {
+    for (const check of gate.checks) {
         console.log(`- ${check.label}: ${check.actual}/${check.required} ${check.passed ? 'PASS' : 'FAIL'}`);
     }
 
-    if (summary.starterGate.passed) {
-        console.log('starter gate: PASS');
+    if (gate.passed) {
+        console.log(`${gateLabel}: PASS`);
         process.exitCode = 0;
         return;
     }
 
-    console.log('starter gate: FAIL');
-    if (summary.starterGaps.length > 0) {
+    console.log(`${gateLabel}: FAIL`);
+    if (gaps.length > 0) {
         console.log('gaps:');
-        for (const gap of summary.starterGaps) {
+        for (const gap of gaps) {
             console.log(`- ${gap}`);
         }
     }
