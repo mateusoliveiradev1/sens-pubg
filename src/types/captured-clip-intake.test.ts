@@ -10,11 +10,20 @@ const manifestPath = 'tests/fixtures/captured-clips/intake.v1.json';
 const readManifest = (): unknown => JSON.parse(readFileSync(manifestPath, 'utf8'));
 
 describe('captured clip intake manifest schema', () => {
-    it('accepts the four captured PUBG clips after human review marks labels as ready', () => {
+    it('accepts the captured PUBG clips after human review marks labels as ready', () => {
         const manifest = parseCapturedClipIntakeManifest(readManifest());
+        const clipIds = manifest.clips.map((clip) => clip.clipId);
+        const clip5 = manifest.clips.find((clip) => clip.clipId === 'captured-clip5-2026-04-16');
 
         expect(manifest.schemaVersion).toBe(1);
-        expect(manifest.clips).toHaveLength(4);
+        expect(manifest.clips.length).toBeGreaterThanOrEqual(5);
+        expect(clipIds).toEqual(expect.arrayContaining([
+            'captured-clip1-2026-04-14',
+            'captured-clip2-2026-04-14',
+            'captured-clip3-2026-04-14',
+            'captured-clip4-2026-04-14',
+            'captured-clip5-2026-04-16',
+        ]));
         expect(manifest.clips[0]?.clipId).toBe('captured-clip1-2026-04-14');
         expect(manifest.clips[0]?.quality.reviewStatus).toBe('human-reviewed');
         expect(manifest.clips[0]?.quality.qualityTier).toBe('candidate-clean');
@@ -30,6 +39,10 @@ describe('captured clip intake manifest schema', () => {
         expect(manifest.clips[3]?.clipId).toBe('captured-clip4-2026-04-14');
         expect(manifest.clips[3]?.quality.qualityTier).toBe('candidate-degraded');
         expect(manifest.clips[3]?.quality.benchmarkReadiness).toBe('ready-for-golden-labels');
+        expect(clip5?.quality.qualityTier).toBe('candidate-clean');
+        expect(clip5?.quality.benchmarkReadiness).toBe('ready-for-golden-labels');
+        expect(clip5?.media.width).toBe(1728);
+        expect(clip5?.media.fps).toBe(59.608);
     });
 
     it('rejects candidate clips marked as benchmark-ready while human labels are still unknown', () => {

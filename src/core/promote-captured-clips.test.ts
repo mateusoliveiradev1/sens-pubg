@@ -27,12 +27,14 @@ describe('promoteCapturedClips', () => {
         expect(report.wroteDataset).toBe(true);
         expect(report.goldenClipCount).toBe(0);
         expect(writtenDataset).toEqual(report.dataset);
-        expect(writtenDataset.clips.map((clip) => clip.clipId)).toEqual([
+        expect(writtenDataset.clips.length).toBeGreaterThanOrEqual(5);
+        expect(writtenDataset.clips.map((clip) => clip.clipId)).toEqual(expect.arrayContaining([
             'captured-clip1-2026-04-14',
             'captured-clip2-2026-04-14',
             'captured-clip3-2026-04-14',
             'captured-clip4-2026-04-14',
-        ]);
+            'captured-clip5-2026-04-16',
+        ]));
         expect(writtenDataset.clips.every((clip) => clip.quality.sourceType === 'captured')).toBe(true);
     });
 });

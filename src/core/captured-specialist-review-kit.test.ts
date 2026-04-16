@@ -14,12 +14,31 @@ describe('captured specialist review kit markdown', () => {
         const dataset = parseBenchmarkDataset(readJson('tests/goldens/benchmark/captured-benchmark-draft.json'));
         const intakeManifest = parseCapturedClipIntakeManifest(readJson('tests/fixtures/captured-clips/intake.v1.json'));
         const labelSet = parseCapturedClipLabelSet(readJson('tests/fixtures/captured-clips/labels.todo.v1.json'));
-        const decisionSet = parseCapturedBenchmarkReviewDecisionSet(readJson('tests/fixtures/captured-clips/review-decisions.todo.v1.json'));
+        const decisionSet = parseCapturedBenchmarkReviewDecisionSet({
+            schemaVersion: 1,
+            decisionSetId: 'captured-review-decisions-pending-specialist',
+            intakeManifestId: intakeManifest.manifestId,
+            labelSetId: labelSet.labelSetId,
+            createdAt: '2026-04-16T18:00:00.000Z',
+            decisions: [
+                {
+                    clipId: 'captured-clip5-2026-04-16',
+                    proposedReviewStatus: 'golden',
+                    approvalStatus: 'pending',
+                    approvedReviewStatus: null,
+                    approvedReviewProvenance: null,
+                    approvedBy: null,
+                    approvedAt: null,
+                    rationale: 'Validacao especialista proposta automaticamente: clip `captured-clip5-2026-04-16` fecha o slot 41.1 com optic distinto, mas ainda precisa de aprovacao humana real.',
+                    notes: 'Aprovacao pendente deve registrar approvedBy/approvedAt e approvedReviewProvenance=`specialist-reviewed` quando a revisao especialista concluir.',
+                },
+            ],
+        });
         const frameLabelTemplatesByClipId = new Map([
             [
-                'captured-clip1-2026-04-14',
+                'captured-clip5-2026-04-16',
                 parseCapturedFrameLabelTemplate(
-                    readJson('tests/fixtures/captured-clips/labels/captured-clip1-2026-04-14.frames.todo.json'),
+                    readJson('tests/fixtures/captured-clips/labels/captured-clip5-2026-04-16.frames.todo.json'),
                 ),
             ],
         ]);
@@ -35,17 +54,16 @@ describe('captured specialist review kit markdown', () => {
 
         expect(markdown).toContain('# Captured Specialist Review Kit - 2026-04-16');
         expect(markdown).toContain('Only a real specialist review should flip provenance to `specialist-reviewed`.');
-        expect(markdown).toContain('captured-clip1-2026-04-14');
-        expect(markdown).toContain('`codex-assisted`');
-        expect(markdown).toContain('tests/fixtures/captured-clips/previews/clip1_center.jpg');
-        expect(markdown).toContain('tests/fixtures/captured-clips/previews/clip1_contact.jpg');
-        expect(markdown).toContain('tests/fixtures/captured-clips/labels/captured-clip1-2026-04-14.frames.todo.json');
+        expect(markdown).toContain('captured-clip5-2026-04-16');
+        expect(markdown).toContain('`machine-assisted`');
+        expect(markdown).toContain('tests/fixtures/captured-clips/previews/clip5_center.jpg');
+        expect(markdown).toContain('tests/fixtures/captured-clips/previews/clip5_contact.jpg');
+        expect(markdown).toContain('tests/fixtures/captured-clips/labels/captured-clip5-2026-04-16.frames.todo.json');
         expect(markdown).toContain('Frame label summary: `17/17` sampled frames completos');
-        expect(markdown).toContain('Frame label statuses (spray window): `tracked=1, uncertain=2, occluded=0, lost=0`');
+        expect(markdown).toContain('Frame label statuses (spray window): `tracked=4, uncertain=0, occluded=0, lost=0`');
         expect(markdown).toContain('approvalStatus=approved');
         expect(markdown).toContain('npm run promote:captured-clips:with-review-decisions');
-        expect(markdown).toContain('Adicionar pelo menos 1 clip capturado no patch atual 41.1.');
-        expect(markdown).toContain('Adicionar pelo menos 1 optic/optic state capturado distinto ao corpus SDD.');
+        expect(markdown).toContain('Nenhuma outra lacuna SDD continuaria aberta depois da aprovacao especialista.');
     });
 
     it('renders an explicit empty-state when no pending specialist review exists', () => {

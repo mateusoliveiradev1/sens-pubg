@@ -20,28 +20,40 @@ describe('captured golden promotion', () => {
         });
 
         expect(promotion.dataset).toBeDefined();
-        expect(promotion.promotedClipCount).toBe(4);
+        expect(promotion.promotedClipCount).toBe(intakeManifest.clips.length);
         expect(promotion.goldenClipCount).toBe(0);
         expect(promotion.blockedClips).toEqual([]);
-        expect(promotion.dataset?.clips[0]?.clipId).toBe('captured-clip1-2026-04-14');
-        expect(promotion.dataset?.clips[0]?.capture.weaponId).toBe('aug');
-        expect(promotion.dataset?.clips[0]?.capture.distanceMeters).toBe(100);
-        expect(promotion.dataset?.clips[0]?.quality.reviewProvenance).toEqual({
+        const clip1 = promotion.dataset?.clips.find((clip) => clip.clipId === 'captured-clip1-2026-04-14');
+        const clip2 = promotion.dataset?.clips.find((clip) => clip.clipId === 'captured-clip2-2026-04-14');
+        const clip3 = promotion.dataset?.clips.find((clip) => clip.clipId === 'captured-clip3-2026-04-14');
+        const clip4 = promotion.dataset?.clips.find((clip) => clip.clipId === 'captured-clip4-2026-04-14');
+        const clip5 = promotion.dataset?.clips.find((clip) => clip.clipId === 'captured-clip5-2026-04-16');
+
+        expect(clip1?.capture.weaponId).toBe('aug');
+        expect(clip1?.capture.distanceMeters).toBe(100);
+        expect(clip1?.quality.reviewProvenance).toEqual({
             source: 'machine-assisted',
         });
-        expect(promotion.dataset?.clips[0]?.sprayWindow).toEqual({
+        expect(clip1?.sprayWindow).toEqual({
             startSeconds: 11.8,
             endSeconds: 14.8,
         });
-        expect(promotion.dataset?.clips[0]?.labels.expectedDiagnoses).toEqual([]);
-        expect(promotion.dataset?.clips[1]?.clipId).toBe('captured-clip2-2026-04-14');
-        expect(promotion.dataset?.clips[1]?.capture.distanceMeters).toBe(50);
-        expect(promotion.dataset?.clips[1]?.quality.visibilityTier).toBe('degraded');
-        expect(promotion.dataset?.clips[2]?.clipId).toBe('captured-clip3-2026-04-14');
-        expect(promotion.dataset?.clips[2]?.capture.weaponId).toBe('aug');
-        expect(promotion.dataset?.clips[3]?.clipId).toBe('captured-clip4-2026-04-14');
-        expect(promotion.dataset?.clips[3]?.capture.weaponId).toBe('beryl-m762');
-        expect(promotion.dataset?.clips[3]?.labels.expectedDiagnoses).toEqual(['overpull']);
+        expect(clip1?.labels.expectedDiagnoses).toEqual([]);
+        expect(clip2?.capture.distanceMeters).toBe(50);
+        expect(clip2?.quality.visibilityTier).toBe('degraded');
+        expect(clip3?.capture.weaponId).toBe('aug');
+        expect(clip4?.capture.weaponId).toBe('beryl-m762');
+        expect(clip4?.labels.expectedDiagnoses).toEqual(['overpull']);
+        expect(clip5?.capture.patchVersion).toBe('41.1');
+        expect(clip5?.capture.optic).toEqual({
+            opticId: '2x',
+            stateId: '2x',
+        });
+        expect(clip5?.capture.attachments).toEqual({
+            muzzle: 'muzzle_brake',
+            grip: 'tilted',
+            stock: 'none',
+        });
     });
 
     it('promotes a fully labeled captured clip into a benchmark dataset draft', () => {
