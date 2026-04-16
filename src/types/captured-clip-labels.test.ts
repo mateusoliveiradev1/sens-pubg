@@ -10,12 +10,13 @@ const labelsPath = 'tests/fixtures/captured-clips/labels.todo.v1.json';
 const readLabels = (): unknown => JSON.parse(readFileSync(labelsPath, 'utf8'));
 
 describe('captured clip labels workflow', () => {
-    it('loads the todo labels file and marks the captured starter corpus as golden-ready', () => {
+    it('loads the todo labels file and marks the captured corpus as golden-ready', () => {
         const labelSet = parseCapturedClipLabelSet(readLabels());
         const summary = summarizeCapturedClipLabelSet(labelSet);
+        const clip5 = summary.clips.find((clip) => clip.clipId === 'captured-clip5-2026-04-16');
 
-        expect(summary.readyClipCount).toBe(4);
-        expect(summary.clips).toHaveLength(4);
+        expect(summary.readyClipCount).toBe(summary.clips.length);
+        expect(summary.clips.length).toBeGreaterThanOrEqual(5);
         expect(summary.clips[0]?.clipId).toBe('captured-clip1-2026-04-14');
         expect(summary.clips[0]?.readyForGoldenLabels).toBe(true);
         expect(summary.clips[0]?.missingFieldPaths).toEqual([]);
@@ -28,6 +29,8 @@ describe('captured clip labels workflow', () => {
         expect(summary.clips[3]?.clipId).toBe('captured-clip4-2026-04-14');
         expect(summary.clips[3]?.readyForGoldenLabels).toBe(true);
         expect(summary.clips[3]?.missingFieldPaths).toEqual([]);
+        expect(clip5?.readyForGoldenLabels).toBe(true);
+        expect(clip5?.missingFieldPaths).toEqual([]);
     });
 
     it('marks a fully labeled clip as ready for golden labeling', () => {

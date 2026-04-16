@@ -30,6 +30,11 @@ interface PixelBounds {
     maxY: number;
 }
 
+interface StrongComponent {
+    readonly strongPixelCount: number;
+    readonly bounds: PixelBounds;
+}
+
 function normalizeScore(value: number): number {
     return Number(asScore(value));
 }
@@ -119,6 +124,131 @@ function expandBounds(
     };
 }
 
+function getCenterFocusBounds(width: number, height: number): PixelBounds {
+    const halfSize = Math.max(48, Math.round(Math.min(width, height) * 0.18));
+    const centerX = Math.floor(width / 2);
+    const centerY = Math.floor(height / 2);
+
+    return {
+        minX: Math.max(0, centerX - halfSize),
+        maxX: Math.min(width - 1, centerX + halfSize),
+        minY: Math.max(0, centerY - halfSize),
+        maxY: Math.min(height - 1, centerY + halfSize),
+    };
+}
+
+function findFocusedStrongComponent(
+    frame: ImageData,
+    targetColor: CrosshairColor,
+): StrongComponent | null {
+    const focusBounds = getCenterFocusBounds(frame.width, frame.height);
+    const focusWidth = focusBounds.maxX - focusBounds.minX + 1;
+    const focusHeight = focusBounds.maxY - focusBounds.minY + 1;
+    const strongMask = new Uint8Array(focusWidth * focusHeight);
+
+    for (let y = focusBounds.minY; y <= focusBounds.maxY; y++) {
+        for (let x = focusBounds.minX; x <= focusBounds.maxX; x++) {
+            const index = ((y * frame.width) + x) * 4;
+            const r = frame.data[index] ?? 0;
+            const g = frame.data[index + 1] ?? 0;
+            const b = frame.data[index + 2] ?? 0;
+
+            if (!isStrongTargetPixel(r, g, b, targetColor)) {
+                continue;
+            }
+
+            const focusIndex = ((y - focusBounds.minY) * focusWidth) + (x - focusBounds.minX);
+            strongMask[focusIndex] = 1;
+        }
+    }
+
+    const visited = new Uint8Array(strongMask.length);
+    const queueX = new Int32Array(strongMask.length);
+    const queueY = new Int32Array(strongMask.length);
+    const centerX = Math.floor(frame.width / 2);
+    const centerY = Math.floor(frame.height / 2);
+
+    let bestComponent: StrongComponent | null = null;
+    let bestScore = Number.NEGATIVE_INFINITY;
+
+    for (let localY = 0; localY < focusHeight; localY++) {
+        for (let localX = 0; localX < focusWidth; localX++) {
+            const startIndex = (localY * focusWidth) + localX;
+            if (strongMask[startIndex] === 0 || visited[startIndex] === 1) {
+                continue;
+            }
+
+            visited[startIndex] = 1;
+            queueX[0] = localX;
+            queueY[0] = localY;
+
+            let head = 0;
+            let tail = 1;
+            let strongPixelCount = 0;
+            let sumX = 0;
+            let sumY = 0;
+            const bounds = createBounds(localX + focusBounds.minX, localY + focusBounds.minY);
+
+            while (head < tail) {
+                const currentLocalX = queueX[head]!;
+                const currentLocalY = queueY[head]!;
+                head++;
+
+                const globalX = currentLocalX + focusBounds.minX;
+                const globalY = currentLocalY + focusBounds.minY;
+                strongPixelCount++;
+                sumX += globalX;
+                sumY += globalY;
+                extendBounds(bounds, globalX, globalY);
+
+                for (let offsetY = -1; offsetY <= 1; offsetY++) {
+                    for (let offsetX = -1; offsetX <= 1; offsetX++) {
+                        if (offsetX === 0 && offsetY === 0) {
+                            continue;
+                        }
+
+                        const nextLocalX = currentLocalX + offsetX;
+                        const nextLocalY = currentLocalY + offsetY;
+                        if (
+                            nextLocalX < 0
+                            || nextLocalY < 0
+                            || nextLocalX >= focusWidth
+                            || nextLocalY >= focusHeight
+                        ) {
+                            continue;
+                        }
+
+                        const nextIndex = (nextLocalY * focusWidth) + nextLocalX;
+                        if (strongMask[nextIndex] === 0 || visited[nextIndex] === 1) {
+                            continue;
+                        }
+
+                        visited[nextIndex] = 1;
+                        queueX[tail] = nextLocalX;
+                        queueY[tail] = nextLocalY;
+                        tail++;
+                    }
+                }
+            }
+
+            const centroidX = sumX / strongPixelCount;
+            const centroidY = sumY / strongPixelCount;
+            const distanceToCenter = Math.hypot(centroidX - centerX, centroidY - centerY);
+            const score = strongPixelCount - (distanceToCenter * 0.35);
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestComponent = {
+                    strongPixelCount,
+                    bounds,
+                };
+            }
+        }
+    }
+
+    return bestComponent;
+}
+
 export function deriveVideoQualityBlockingReasons(
     input: CreateVideoQualityReportInput
 ): readonly VideoQualityBlockingReason[] {
@@ -156,13 +286,23 @@ export function measureCaptureQualityFrame(
     frame: ImageData,
     targetColor: CrosshairColor = 'RED'
 ): CaptureQualityMetrics {
+    const focusedComponent = findFocusedStrongComponent(frame, targetColor);
+    if (!focusedComponent) {
+        return {
+            sharpness: 0,
+            compressionBurden: 100,
+            reticleContrast: 0,
+        };
+    }
+
+    const measurementBounds = expandBounds(focusedComponent.bounds, frame.width, frame.height, 4);
     let strongPixelCount = 0;
     let strongDominanceSum = 0;
     let strongBounds: PixelBounds | null = null;
     let looseBounds: PixelBounds | null = null;
 
-    for (let y = 0; y < frame.height; y++) {
-        for (let x = 0; x < frame.width; x++) {
+    for (let y = measurementBounds.minY; y <= measurementBounds.maxY; y++) {
+        for (let x = measurementBounds.minX; x <= measurementBounds.maxX; x++) {
             const index = ((y * frame.width) + x) * 4;
             const r = frame.data[index] ?? 0;
             const g = frame.data[index + 1] ?? 0;

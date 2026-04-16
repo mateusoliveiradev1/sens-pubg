@@ -114,6 +114,34 @@
         "rationale": "Clip novo com Beryl M762 em ADS a 100 m, mas com HUD de stream, webcam e elementos de TDM ocupando parte do quadro. Continua util para benchmark degradado e para cobrir arma distinta do corpus inicial."
       },
       "unknownCaptureFields": []
+    },
+    {
+      "clipId": "captured-clip5-2026-04-16",
+      "media": {
+        "videoPath": "tests/fixtures/captured-clips/clip5.mp4",
+        "contactPreviewPath": "tests/fixtures/captured-clips/previews/clip5_contact.jpg",
+        "centerPreviewPath": "tests/fixtures/captured-clips/previews/clip5_center.jpg",
+        "sha256": "516ddde9bd3e8b26a780292adb27e81be6db608bd5b0403ec89c920f630facd9",
+        "sizeBytes": 48135881,
+        "width": 1728,
+        "height": 1080,
+        "fps": 59.608,
+        "frameCount": 911,
+        "durationSeconds": 15.283,
+        "codecFourcc": "hevc",
+        "meanBlurLaplacian": 423,
+        "meanCenterBlurLaplacian": 306.07
+      },
+      "quality": {
+        "reviewStatus": "human-reviewed",
+        "qualityTier": "candidate-clean",
+        "occlusionLevel": "light",
+        "compressionLevel": "light",
+        "reticleVisibility": "intermittent",
+        "benchmarkReadiness": "ready-for-golden-labels",
+        "rationale": "Clip 1728x1080 a ~60 fps com leitura central util para benchmark capturado. O material fecha o slot 41.1 com optic distinto (2x); a rejeicao atual do app vem da heuristica de qualidade full-frame, que confunde HUD vermelho com reticulo e superestima compressao."
+      },
+      "unknownCaptureFields": []
     }
   ]
 }
