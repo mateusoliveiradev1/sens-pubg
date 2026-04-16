@@ -21,9 +21,12 @@ export const metadata: Metadata = {
 export default async function AnalyzePage() {
     const profileBundle = await getProfile();
     const profile = profileBundle?.profile ?? null;
-    const dbWeaponProfiles = await db.query.weaponProfiles.findMany({
-        orderBy: (wp, { asc }) => [asc(wp.name)],
-    });
+    const profileReady = isProfileReadyForAnalysis(profile);
+    const dbWeaponProfiles = profileReady
+        ? await db.query.weaponProfiles.findMany({
+            orderBy: (wp, { asc }) => [asc(wp.name)],
+        })
+        : [];
 
     return (
         <>
@@ -36,7 +39,7 @@ export default async function AnalyzePage() {
                         rastrear sua mira e estimar metricas de controle para gerar um diagnostico guiado.
                     </p>
 
-                    {!isProfileReadyForAnalysis(profile) ? (
+                    {!profileReady ? (
                         <div className="glass-card" style={{ textAlign: 'center', padding: 'var(--space-4xl) var(--space-xl)' }}>
                             <div style={{ fontSize: '48px', marginBottom: 'var(--space-md)' }}>!</div>
                             <h2 style={{ marginBottom: 'var(--space-md)' }}>Configuracao de Setup Requerida</h2>

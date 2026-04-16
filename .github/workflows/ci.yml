@@ -63,6 +63,10 @@ jobs:
         env:
           DATABASE_URL: "postgresql://ci:ci@localhost/ci"
           AUTH_SECRET: "ci-placeholder-secret-not-real"
+          AUTH_GOOGLE_ID: "ci-google-id"
+          AUTH_GOOGLE_SECRET: "ci-google-secret"
+          AUTH_DISCORD_ID: "ci-discord-id"
+          AUTH_DISCORD_SECRET: "ci-discord-secret"
           AUTH_URL: "http://localhost:3000"
           AUTH_TRUST_HOST: "true"
 
@@ -73,6 +77,10 @@ jobs:
     env:
       DATABASE_URL: "postgresql://ci:ci@localhost/ci"
       AUTH_SECRET: "ci-placeholder-secret-not-real"
+      AUTH_GOOGLE_ID: "ci-google-id"
+      AUTH_GOOGLE_SECRET: "ci-google-secret"
+      AUTH_DISCORD_ID: "ci-discord-id"
+      AUTH_DISCORD_SECRET: "ci-discord-secret"
       AUTH_URL: "http://localhost:3000"
       AUTH_TRUST_HOST: "true"
 
