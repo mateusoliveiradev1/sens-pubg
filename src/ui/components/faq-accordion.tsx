@@ -22,7 +22,7 @@ const FAQS: FaqItem[] = [
         a: 'Voce configura seu perfil de hardware e de jogo. O motor combina rastreio visual, qualidade do clip, dados patch-aware da arma, mira e distancia para sugerir faixas de teste. Ele mostra confianca, cobertura e sinais de tracking para voce validar no proximo bloco de sprays.',
     },
     {
-        q: 'O app acerta a sensibilidade perfeita?',
+        q: 'O app encontra minha sensibilidade ideal sozinho?',
         a: 'Nao. Ele entrega uma leitura tecnica do clip e uma faixa de teste baseada nos sinais medidos. Se a qualidade do video, a cobertura ou a re-aquisicao do tracking forem fracas, trate o resultado como ponto de partida ou grave outro clip.',
     },
     {

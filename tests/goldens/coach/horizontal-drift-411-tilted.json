@@ -36,6 +36,7 @@
         "linearErrorCm": 0,
         "linearErrorSeverity": 4,
         "patchVersion": "41.1",
+        "stance": "standing",
         "attachmentCatalogVersion": "41.1",
         "recommendedAttachments": [
           {
@@ -53,10 +54,10 @@
         ]
       },
       "confidence": 1,
-      "likelyCause": "Controle horizontal insuficiente",
+      "likelyCause": "Controle horizontal insuficiente O eixo lateral esta viciado para um lado e repete o mesmo escape. De pe, qualquer sobra de movimento cobra mais caro.",
       "adjustment": "Estabilize o eixo horizontal Dica (41.1): Tilted Grip ou Half Grip ajudam a conter a oscilacao lateral neste patch. Lembre-se: Agachar (Crouch) reduz o recuo em cerca de 20%. Use isso a seu favor em sprays longos.",
-      "drill": "**Linha de Tracejo**: Siga uma linha vertical na parede enquanto faz o spray. Se a mira fugir da linha para o mesmo lado sempre, ajuste a posicao do braco e mousepad.",
-      "verifyNextClip": "No proximo clip, confirme se horizontal_drift melhora na fase overall com coverage >= 100% e confidence >= 100%.",
+      "drill": "Linha de Tracejo: siga uma linha vertical na parede enquanto faz o spray. Se a mira fugir da linha para o mesmo lado sempre, ajuste a posicao do braco e do mousepad.",
+      "verifyNextClip": "No proximo clip, cheque a spray inteiro: desvio lateral abaixo de 1.0px/frame, com coverage >= 100% e confidence >= 100%.",
       "adaptationTimeDays": 5
     }
   ]

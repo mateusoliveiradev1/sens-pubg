@@ -44,6 +44,7 @@
         "linearErrorCm": 73,
         "linearErrorSeverity": 4,
         "patchVersion": "41.1",
+        "stance": "standing",
         "attachmentCatalogVersion": "41.1",
         "recommendedAttachments": [
           {
@@ -61,10 +62,10 @@
         ]
       },
       "confidence": 0.82,
-      "likelyCause": "Pulldown insuficiente sustentado",
+      "likelyCause": "Pulldown insuficiente sustentado O mouse para de descer cedo demais ou perde forca depois do inicio. O erro aparece mais na fadiga. De pe, qualquer sobra de movimento cobra mais caro.",
       "adjustment": "Reduza sens ou puxe mais no sustain Dica (41.1): Vertical Foregrip ou Compensator sao validos neste patch para reduzir o recuo vertical. Lembre-se: Agachar (Crouch) reduz o recuo em cerca de 20%. Use isso a seu favor em sprays longos.",
-      "drill": "**Drill de Pulldown Gradual**: Atire em uma parede limpa a 50m. Tente fazer um ponto de impactos. Se o spray subir, force o mouse para baixo de forma continua, nao apenas no inicio.",
-      "verifyNextClip": "No proximo clip, confirme se underpull melhora na fase fatigue com coverage >= 91% e confidence >= 82%.",
+      "drill": "Drill de Pulldown Gradual: atire em uma parede limpa a 50m. Tente fazer um ponto de impactos. Se o spray subir, force o mouse para baixo de forma continua, nao apenas no inicio.",
+      "verifyNextClip": "No proximo clip, cheque a fadiga: VCI mais perto de 1.00 e erro linear abaixo de 51cm, com coverage >= 91% e confidence >= 82%.",
       "adaptationTimeDays": 5
     }
   ]

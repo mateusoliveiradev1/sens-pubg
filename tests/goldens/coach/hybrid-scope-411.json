@@ -44,6 +44,7 @@
         "linearErrorCm": 31,
         "linearErrorSeverity": 3,
         "patchVersion": "41.1",
+        "stance": "crouching",
         "attachmentCatalogVersion": "41.1",
         "optic": {
           "id": "hybrid-scope",
@@ -54,10 +55,10 @@
         }
       },
       "confidence": 0.9,
-      "likelyCause": "O state de 4x exige controle vertical mais firme",
+      "likelyCause": "O state de 4x exige controle vertical mais firme O mouse para de descer cedo demais ou perde forca depois do inicio. A leitura foi feita com Hybrid Scope no state 4x.",
       "adjustment": "Repita o spray no mesmo state do optic",
-      "drill": "**Drill de Pulldown Gradual**: Atire em uma parede limpa a 50m. Tente fazer um ponto de impactos. Se o spray subir, force o mouse para baixo de forma continua, nao apenas no inicio.",
-      "verifyNextClip": "No proximo clip, confirme se underpull melhora na fase overall usando Hybrid Scope no state 4x com coverage >= 95% e confidence >= 90%.",
+      "drill": "Drill de Pulldown Gradual: atire em uma parede limpa a 50m. Tente fazer um ponto de impactos. Se o spray subir, force o mouse para baixo de forma continua, nao apenas no inicio.",
+      "verifyNextClip": "No proximo clip, cheque a spray inteiro (Hybrid Scope (4x)): VCI mais perto de 1.00 e erro linear abaixo de 22cm, com coverage >= 95% e confidence >= 90%.",
       "adaptationTimeDays": 3
     }
   ]
