@@ -196,14 +196,11 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
         }
 
         if (!prepared.metadata.qualityReport.usableForAnalysis) {
-            releaseVideoUrl(prepared.metadata.url);
-            setError(
-                `A qualidade do clip nao esta boa o suficiente para uma analise precisa. Problemas detectados: ${formatQualityBlockingReasons(prepared.metadata.qualityReport.blockingReasons)}.`
+            setQualityWarning(
+                `Qualidade estimada do clip: ${Math.round(prepared.metadata.qualityReport.overallScore)}/100. A leitura vai seguir, mas pode ficar mais conservadora. Pontos detectados: ${formatQualityBlockingReasons(prepared.metadata.qualityReport.blockingReasons)}.`
             );
-            return;
         }
-
-        if (prepared.metadata.height < 1080) {
+        else if (prepared.metadata.height < 1080) {
             setQualityWarning(`Resolucao detectada: ${prepared.metadata.height}p. Recomendamos 1080p para maior precisao.`);
         } else if (prepared.metadata.fps < 59) {
             setQualityWarning(`Framerate detectado: ${Math.round(prepared.metadata.fps)} FPS. Recomendamos 60 FPS para capturar cada micro-ajuste.`);

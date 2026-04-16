@@ -97,4 +97,15 @@ describe('analysis worker tracking contract', () => {
         expect(source).toMatch(/videoQualityReport:\s*video\.qualityReport/);
         expect(historySource).toMatch(/videoQualityReport:\s*enrichedResult\.videoQualityReport/);
     });
+
+    it('treats heuristic low-quality uploads as warnings instead of blocking the setup flow', () => {
+        const source = readFileSync(new URL('./analysis-client.tsx', import.meta.url), 'utf8');
+        const lowQualityBranch = source.match(
+            /if\s*\(!prepared\.metadata\.qualityReport\.usableForAnalysis\)\s*\{([\s\S]*?)\n\s*\}\s*else if/
+        );
+
+        expect(lowQualityBranch?.[1]).toMatch(/setQualityWarning/);
+        expect(lowQualityBranch?.[1]).not.toMatch(/setError/);
+        expect(lowQualityBranch?.[1]).not.toMatch(/releaseVideoUrl/);
+    });
 });

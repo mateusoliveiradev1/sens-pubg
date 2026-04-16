@@ -14,7 +14,7 @@ const idealClipDurationLabel = formatSprayClipDurationLabel('pt-BR', 'natural');
 const SLIDES = [
     {
         title: 'Qualidade Define Confianca',
-        content: 'O motor mede a qualidade do clip antes de recomendar qualquer ajuste. Videos borrados, muito comprimidos, com baixo contraste ou FPS instavel podem ser bloqueados ou gerar uma leitura conservadora.',
+        content: 'O motor mede a qualidade do clip antes de recomendar qualquer ajuste. Videos borrados, muito comprimidos, com baixo contraste ou FPS instavel geram alertas e uma leitura mais conservadora.',
         items: [
             'Resolucao recomendada: 1080p ou maior',
             'Taxa de quadros recomendada: 60 FPS',

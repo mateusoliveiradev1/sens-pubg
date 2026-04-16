@@ -493,7 +493,7 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                             </div>
                             <div style={{ minWidth: '220px' }}>
                                 <span className={`badge ${videoQualityReport.usableForAnalysis ? 'badge-success' : 'badge-warning'}`}>
-                                    {videoQualityReport.usableForAnalysis ? 'Analisavel' : 'Bloqueado'}
+                                    {videoQualityReport.usableForAnalysis ? 'Analisavel' : 'Leitura limitada'}
                                 </span>
                                 <p style={{ marginTop: '10px', color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
                                     Motivos: {videoQualityReasons}
