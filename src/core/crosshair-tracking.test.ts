@@ -36,6 +36,7 @@ type TrackerConfig = {
     normalizeBeforeTracking?: boolean;
     globalMotionCompensation?: boolean;
     globalMotionSearchRadiusPx?: number;
+    globalMotionSampleStepPx?: number;
 };
 
 function makeImageData(

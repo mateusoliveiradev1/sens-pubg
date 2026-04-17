@@ -164,7 +164,8 @@ function createInitialState(): SessionState {
         streamingTracker: createStreamingCrosshairTracker({
             normalizeBeforeTracking: true,
             globalMotionCompensation: true,
-            globalMotionSearchRadiusPx: 8,
+            globalMotionSearchRadiusPx: 6,
+            globalMotionSampleStepPx: 16,
         }),
         totalJitter: 0,
         totalDrift: 0,

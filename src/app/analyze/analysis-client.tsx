@@ -52,7 +52,8 @@ import {
     resolveWorkerAttachmentMultipliers,
 } from './analysis-session-config';
 import { formatSprayClipDurationLabel } from '@/core';
-import { mapWorkerTrackingResultToEngine, type WorkerTrackingResult } from './tracking-result-mapper';
+import { mapWorkerTrackingResultToEngine } from './tracking-result-mapper';
+import { runWorkerTrackingAnalysis } from './analysis-worker-runner';
 import styles from './analysis.module.css';
 
 const clipDurationLabel = formatSprayClipDurationLabel('pt-BR');
@@ -362,8 +363,6 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
             for (let index = 0; index < markers.length; index++) {
                 const marker = markers[index]!;
 
-                worker.postMessage({ type: 'START_ANALYSIS', payload: { startX: video.width / 2, startY: video.height / 2 } });
-
                 const context = {
                     fov: profile.fov ?? 90,
                     resolutionY: resolveAnalysisResolutionY(profile),
@@ -395,26 +394,22 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
 
                 setPhase('tracking');
 
-                for (const frame of framesForTracking) {
-                    worker.postMessage(
-                        { type: 'PROCESS_FRAME', payload: { imageData: frame.imageData, timestamp: frame.timestamp, context } },
-                        [frame.imageData.data.buffer]
-                    );
-                }
+                const trackingProgressStart = (index * stepIncrement) + (stepIncrement * 0.5);
+                const trackingProgressEnd = (index * stepIncrement) + (stepIncrement * 0.85);
+
+                const workerResult = await runWorkerTrackingAnalysis({
+                    worker,
+                    frames: framesForTracking,
+                    context,
+                    startX: video.width / 2,
+                    startY: video.height / 2,
+                    progressStart: trackingProgressStart,
+                    progressEnd: trackingProgressEnd,
+                    onProgress: setProgress,
+                });
 
                 setPhase('calculating');
-
-                const workerResult = await new Promise<WorkerTrackingResult>((resolve) => {
-                    const handler = (message: MessageEvent) => {
-                        if (message.data.type === 'RESULT') {
-                            worker.removeEventListener('message', handler);
-                            resolve(message.data.payload);
-                        }
-                    };
-
-                    worker.addEventListener('message', handler);
-                    worker.postMessage({ type: 'FINISH_ANALYSIS' });
-                });
+                setProgress((index * stepIncrement) + (stepIncrement * 0.9));
 
                 const trajectory = buildTrajectory(mapWorkerTrackingResultToEngine(workerResult), weaponData);
                 const sprayMetrics = calculateSprayMetrics(trajectory, weaponData, loadout, projectionConfig, effectiveDistanceMeters);

@@ -126,4 +126,12 @@ describe('analysis worker tracking contract', () => {
         expect(source).toMatch(/degradedSegments\.map/);
         expect(source).toMatch(/Evidencia frame-a-frame/);
     });
+
+    it('routes worker tracking through the backpressure runner instead of fire-and-forget frame posts', () => {
+        const source = readFileSync(new URL('./analysis-client.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/runWorkerTrackingAnalysis/);
+        expect(source).not.toMatch(/for\s*\(const frame of framesForTracking\)[\s\S]*worker\.postMessage/);
+        expect(source).not.toMatch(/new Promise<WorkerTrackingResult>/);
+    });
 });

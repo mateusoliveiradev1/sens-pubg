@@ -55,6 +55,7 @@ export interface StreamingCrosshairTrackerConfig extends Partial<TemplateMatchin
     readonly normalizeBeforeTracking?: boolean;
     readonly globalMotionCompensation?: boolean;
     readonly globalMotionSearchRadiusPx?: number;
+    readonly globalMotionSampleStepPx?: number;
 }
 
 export interface StreamingCrosshairTracker {
@@ -767,9 +768,14 @@ export function createStreamingCrosshairTracker(
             return null;
         }
 
-        const motionOptions = fullConfig.globalMotionSearchRadiusPx !== undefined
-            ? { searchRadiusPx: fullConfig.globalMotionSearchRadiusPx }
-            : undefined;
+        const motionOptions = {
+            ...(fullConfig.globalMotionSearchRadiusPx !== undefined
+                ? { searchRadiusPx: fullConfig.globalMotionSearchRadiusPx }
+                : {}),
+            ...(fullConfig.globalMotionSampleStepPx !== undefined
+                ? { sampleStepPx: fullConfig.globalMotionSampleStepPx }
+                : {}),
+        };
         const estimate = estimateGlobalMotion(previousTrackingFrame, imageData, motionOptions);
 
         return estimate.confidence > 0.2 ? estimate : null;

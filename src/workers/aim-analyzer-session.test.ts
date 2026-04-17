@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { createAimAnalyzerSession, type WorkerAnalysisContext } from './aim-analyzer-session';
 
 function createFrame(
@@ -109,6 +110,14 @@ const defaultContext: WorkerAnalysisContext = {
 };
 
 describe('createAimAnalyzerSession', () => {
+    it('uses coarse global-motion sampling in the production worker to avoid long full-frame stalls', () => {
+        const source = readFileSync(new URL('./aim-analyzer-session.ts', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/globalMotionCompensation:\s*true/);
+        expect(source).toMatch(/globalMotionSearchRadiusPx:\s*6/);
+        expect(source).toMatch(/globalMotionSampleStepPx:\s*16/);
+    });
+
     it('auto-detects the reticle color in the worker when context omits the hint', () => {
         const session = createAimAnalyzerSession();
         session.start();
