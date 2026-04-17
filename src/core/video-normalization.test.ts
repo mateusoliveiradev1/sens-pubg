@@ -4,9 +4,17 @@ import { normalizeTrackingFrame } from './video-normalization';
 function makeImageData(
     width: number,
     height: number,
-    pixels: readonly { x: number; y: number; r: number; g: number; b: number }[]
+    pixels: readonly { x: number; y: number; r: number; g: number; b: number }[],
+    background: { r: number; g: number; b: number } = { r: 0, g: 0, b: 0 }
 ): ImageData {
     const data = new Uint8ClampedArray(width * height * 4);
+    for (let index = 0; index < data.length; index += 4) {
+        data[index] = background.r;
+        data[index + 1] = background.g;
+        data[index + 2] = background.b;
+        data[index + 3] = 255;
+    }
+
     for (let i = 3; i < data.length; i += 4) {
         data[i] = 255;
     }
@@ -57,5 +65,28 @@ describe('normalizeTrackingFrame', () => {
         expect(Math.abs(neutralPixel[0] - neutralPixel[1])).toBeLessThanOrEqual(5);
         expect(Math.abs(neutralPixel[1] - neutralPixel[2])).toBeLessThanOrEqual(5);
         expect(redPixel[3]).toBe(255);
+    });
+
+    it('focuses preprocessing around the center so outer-frame pixels stay stable', () => {
+        const imageData = makeImageData(
+            9,
+            9,
+            [
+                { x: 4, y: 4, r: 150, g: 108, b: 108 },
+                { x: 4, y: 3, r: 142, g: 112, b: 112 },
+                { x: 4, y: 5, r: 142, g: 112, b: 112 },
+                { x: 3, y: 4, r: 142, g: 112, b: 112 },
+                { x: 5, y: 4, r: 142, g: 112, b: 112 },
+            ],
+            { r: 92, g: 92, b: 92 }
+        );
+
+        const normalized = normalizeTrackingFrame(imageData);
+        const centerPixel = readPixel(normalized, 4, 4);
+        const cornerPixel = readPixel(normalized, 0, 0);
+
+        expect(centerPixel[0] - Math.max(centerPixel[1], centerPixel[2])).toBeGreaterThan(35);
+        expect(centerPixel[0]).toBeGreaterThan(170);
+        expect(cornerPixel).toEqual([92, 92, 92, 255]);
     });
 });

@@ -18,6 +18,7 @@ import type {
 import { formatAnalysisDistancePresentation } from './analysis-distance-presentation';
 import { SprayVisualization } from './spray-visualization';
 import { summarizeAnalysisTracking } from './tracking-summary';
+import { createTrackingTimeline } from './tracking-timeline';
 import styles from './analysis.module.css';
 
 // ═══ Radial Gauge Component ═══
@@ -155,6 +156,12 @@ const VIDEO_QUALITY_FRAME_ISSUE_LABELS: Record<VideoQualityFrameIssue, string> =
     low_reticle_contrast: 'baixo contraste',
     reticle_lost: 'mira perdida',
 };
+const TRACKING_DISTURBANCE_LABELS = {
+    muzzleFlash: 'muzzle flash',
+    blur: 'blur',
+    shake: 'camera shake',
+    occlusion: 'oclusao',
+} as const;
 
 function formatVideoQualityReason(reason: VideoQualityBlockingReason): string {
     return VIDEO_QUALITY_REASON_LABELS[reason];
@@ -178,6 +185,47 @@ function formatTrackingWindowRange(startMs: number | null, endMs: number | null)
     }
 
     return `${formatDurationMs(startMs)} - ${formatDurationMs(endMs)}`;
+}
+
+function formatTrackingSegmentTitle(status: AnalysisResult['trajectory']['trackingFrames'][number]['status']): string {
+    switch (status) {
+        case 'tracked':
+            return 'Mira rastreada';
+        case 'uncertain':
+            return 'Tracking instavel';
+        case 'occluded':
+            return 'Mira ocluida';
+        case 'lost':
+            return 'Mira perdida';
+    }
+}
+
+function getTrackingSegmentBadge(status: AnalysisResult['trajectory']['trackingFrames'][number]['status']): string {
+    switch (status) {
+        case 'tracked':
+            return 'badge-success';
+        case 'uncertain':
+        case 'occluded':
+        case 'lost':
+            return 'badge-warning';
+    }
+}
+
+function buildTrackingSegmentSummary(segment: ReturnType<typeof createTrackingTimeline>['segments'][number]): string {
+    const confidenceText = `confianca media ${Math.round(segment.meanConfidence * 100)}%`;
+    const disturbanceText = segment.dominantDisturbance
+        ? `Disturbio dominante: ${TRACKING_DISTURBANCE_LABELS[segment.dominantDisturbance]} (${Math.round(segment.dominantDisturbanceLevel * 100)}%).`
+        : 'Sem disturbio dominante acima do ruido base.';
+
+    if (segment.status === 'tracked') {
+        return `${segment.frameCount} frames com ${confidenceText}. ${disturbanceText}`;
+    }
+
+    const reacquisitionText = segment.maxReacquisitionFrames > 0
+        ? ` Reacoplou em ate ${segment.maxReacquisitionFrames} frames.`
+        : '';
+
+    return `${segment.frameCount} frames em janela de atencao, ${confidenceText}.${reacquisitionText} ${disturbanceText}`;
 }
 
 function VideoQualityTimelineEvidence({ timeline }: { readonly timeline: VideoQualityFrameTimeline }): React.JSX.Element {
@@ -413,6 +461,10 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
         trackingOverview.effectiveWindowStartMs,
         trackingOverview.effectiveWindowEndMs
     );
+    const trackingTimelineFrames = isAggregated && activeSession.subSessions && activeSession.subSessions.length > 0
+        ? activeSession.subSessions.flatMap((session) => session.trajectory.trackingFrames ?? [])
+        : activeSession.trajectory.trackingFrames ?? [];
+    const trackingTimeline = createTrackingTimeline(trackingTimelineFrames);
 
     const { metrics, diagnoses, sensitivity, coaching } = activeSession;
     const sampleCount = isAggregated ? (result.subSessions?.length ?? 1) : 1;
@@ -661,6 +713,50 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                     <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-xs)', marginTop: 'var(--space-md)', lineHeight: 1.6 }}>
                         Breakdown: tracked {trackingOverview.statusCounts.tracked}, uncertain {trackingOverview.statusCounts.uncertain}, occluded {trackingOverview.statusCounts.occluded}, lost {trackingOverview.statusCounts.lost}.
                     </p>
+                    {trackingTimeline.segments.length > 0 ? (
+                        <div style={{ marginTop: 'var(--space-lg)', display: 'grid', gap: 'var(--space-md)' }}>
+                            <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap', alignItems: 'center' }}>
+                                <span className="badge badge-info">Linha do tracking</span>
+                                <span className="badge badge-success">
+                                    Janelas rastreadas {trackingTimeline.summary.trackedSegments}
+                                </span>
+                                <span className="badge badge-warning">
+                                    Janelas de atencao {trackingTimeline.summary.attentionSegments}
+                                </span>
+                                {trackingTimeline.summary.worstReacquisitionFrames > 0 ? (
+                                    <span className="badge badge-warning">
+                                        Pior reacoplamento {trackingTimeline.summary.worstReacquisitionFrames} frames
+                                    </span>
+                                ) : null}
+                            </div>
+                            <div style={{ display: 'grid', gap: '10px' }}>
+                                {trackingTimeline.segments.map((segment) => (
+                                    <div
+                                        key={`${segment.status}-${segment.startMs}-${segment.endMs}`}
+                                        className="glass-card"
+                                        style={{ padding: 'var(--space-md)' }}
+                                    >
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-sm)', flexWrap: 'wrap', marginBottom: '6px' }}>
+                                            <strong style={{ fontSize: 'var(--text-sm)' }}>
+                                                {formatTrackingSegmentTitle(segment.status)}
+                                            </strong>
+                                            <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
+                                                <span className={`badge ${getTrackingSegmentBadge(segment.status)}`}>
+                                                    {formatTrackingWindowRange(segment.startMs, segment.endMs)}
+                                                </span>
+                                                <span className="badge badge-info">
+                                                    {segment.frameCount} frames
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-xs)', lineHeight: 1.6 }}>
+                                            {buildTrackingSegmentSummary(segment)}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ) : null}
                 </div>
             </section>
 

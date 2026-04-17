@@ -48,6 +48,15 @@ describe('results dashboard visualization contract', () => {
         expect(source).toMatch(/Leitura tecnica do tracking/);
     });
 
+    it('renders a tracking timeline with tracked and degraded windows instead of only aggregate counters', () => {
+        const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/createTrackingTimeline/);
+        expect(source).toMatch(/trackingTimeline\.segments\.map/);
+        expect(source).toMatch(/Linha do tracking/);
+        expect(source).toMatch(/Janelas rastreadas/);
+    });
+
     it('renders the enriched video quality diagnostic with preprocessing evidence', () => {
         const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
 
