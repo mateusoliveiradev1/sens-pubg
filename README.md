@@ -23,16 +23,17 @@ O projeto ainda esta evoluindo para um motor mais patch-aware, com matematica de
 
 ## Estado atual
 
-Validacao mais recente em 2026-04-14:
+Validacao mais recente em 2026-04-17:
 
 - `npm run verify:release`: verde
-- `npx vitest run`: verde (`58` arquivos, `190` testes)
+- `npx vitest run`: verde (`72` arquivos, `280` testes)
 - `npm run benchmark:gate`: verde
-- `npm run benchmark:captured`: verde (`4/4` tracking, `4/4` diagnostico, `4/4` coach; starter gate capturado em `PASS`)
+- `npm run benchmark:captured`: verde (`5/5` tracking, `5/5` diagnostico, `5/5` coach; starter gate capturado em `PASS`)
 - `npm run build`: verde
 - `npm run smoke:local`: verde (`21` testes)
+- `npm run readiness:local`: automatiza o gate local/browser e explicita se o backend ffmpeg ainda esta bloqueado
 
-Mais detalhes em [docs/baseline-2026-04-13.md](docs/baseline-2026-04-13.md), [docs/SPRAY-ANALYSIS-EXECUTION-PLAN.md](docs/SPRAY-ANALYSIS-EXECUTION-PLAN.md), [docs/video-benchmark-spec.md](docs/video-benchmark-spec.md) e [docs/VIDEO-ANALYSIS-EXECUTION-PLAN.md](docs/VIDEO-ANALYSIS-EXECUTION-PLAN.md).
+Mais detalhes em [docs/baseline-2026-04-13.md](docs/baseline-2026-04-13.md), [docs/SPRAY-ANALYSIS-EXECUTION-PLAN.md](docs/SPRAY-ANALYSIS-EXECUTION-PLAN.md), [docs/video-benchmark-spec.md](docs/video-benchmark-spec.md), [docs/VIDEO-ANALYSIS-EXECUTION-PLAN.md](docs/VIDEO-ANALYSIS-EXECUTION-PLAN.md) e [docs/launch-readiness-2026-04-17.md](docs/launch-readiness-2026-04-17.md).
 
 ## Stack
 
@@ -67,6 +68,8 @@ Copie `.env.example` para `.env.local` e preencha os valores reais:
 ```env
 DATABASE_URL=postgresql://seu_usuario:sua_senha@localhost:5432/sens_pubg
 AUTH_SECRET=um_segredo_muito_seguro
+AUTH_URL=http://localhost:3000
+AUTH_TRUST_HOST=true
 AUTH_GOOGLE_ID=seu_google_client_id
 AUTH_GOOGLE_SECRET=seu_google_client_secret
 AUTH_DISCORD_ID=seu_discord_client_id
@@ -81,6 +84,7 @@ Observacoes:
 - `BOT_API_KEY` so e necessario para os endpoints do bot/admin.
 - `GROQ_API_KEY` e opcional e habilita o rewrite do coach com LLM, mantendo fallback deterministico se a chave nao existir.
 - `GROQ_COACH_MODEL` e opcional. O padrao atual e `openai/gpt-oss-20b`.
+- `AUTH_URL` e `AUTH_TRUST_HOST` deixam o fluxo de auth explicito em local e em deploy.
 
 Para validar a integracao do coach com Groq depois de preencher a chave:
 
@@ -115,9 +119,17 @@ Para validar o pacote tecnico local antes de publicar:
 
 ```bash
 npm run verify:release
+npm run readiness:local
 ```
 
-Checklist sugerido em [docs/launch-readiness-2026-04-14.md](docs/launch-readiness-2026-04-14.md).
+Para exigir um veredito de deploy final ou backend server-side:
+
+```bash
+npm run readiness:deploy
+npm run readiness:backend
+```
+
+Checklist sugerido em [docs/launch-readiness-2026-04-17.md](docs/launch-readiness-2026-04-17.md).
 
 ## Licenca
 
