@@ -307,7 +307,7 @@ export function deriveVideoQualityBlockingReasons(
         pushReason(reasons, 'high_compression_burden');
     }
 
-    if (reticleContrast < 30) {
+    if (reticleContrast < 20) {
         pushReason(reasons, 'low_reticle_contrast');
     }
 

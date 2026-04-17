@@ -105,17 +105,17 @@ describe('createVideoQualityReport', () => {
         const report = createVideoQualityReport({
             sharpness: -10,
             compressionBurden: 130,
-            reticleContrast: 20,
+            reticleContrast: 10,
             roiStability: 35,
             fpsStability: 55,
             blockingReasons: ['low_sharpness', 'low_sharpness', 'high_compression_burden'],
         });
 
         expect(report).toEqual({
-            overallScore: 22,
+            overallScore: 20,
             sharpness: 0,
             compressionBurden: 100,
-            reticleContrast: 20,
+            reticleContrast: 10,
             roiStability: 35,
             fpsStability: 55,
             usableForAnalysis: false,
@@ -142,6 +142,27 @@ describe('createVideoQualityReport', () => {
             sharpness: 33,
             compressionBurden: 89,
             reticleContrast: 34,
+            roiStability: 100,
+            fpsStability: 100,
+            usableForAnalysis: true,
+            blockingReasons: [],
+        });
+    });
+
+    it('allows lower reticle contrast during real spray windows when the reticle remains trackable', () => {
+        const report = createVideoQualityReport({
+            sharpness: 42,
+            compressionBurden: 77,
+            reticleContrast: 24,
+            roiStability: 100,
+            fpsStability: 100,
+        });
+
+        expect(report).toEqual({
+            overallScore: 58,
+            sharpness: 42,
+            compressionBurden: 77,
+            reticleContrast: 24,
             roiStability: 100,
             fpsStability: 100,
             usableForAnalysis: true,

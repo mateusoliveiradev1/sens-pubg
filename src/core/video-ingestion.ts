@@ -4,8 +4,10 @@ import {
     isSupportedSprayClipDuration,
 } from './video-ingestion-contract';
 import { analyzeCaptureQualityFrames, createVideoQualityReport } from './capture-quality';
-import { extractFrames } from './frame-extraction';
+import { extractFrames, type ExtractedFrame } from './frame-extraction';
+import { detectSprayWindow } from './spray-window-detection';
 import type { VideoQualityReport } from '../types/engine';
+import type { CrosshairColor } from './crosshair-tracking';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 const ALLOWED_MIMES = ['video/mp4', 'video/webm'] as const;
@@ -52,6 +54,13 @@ export interface VideoValidationDependencies {
         readonly duration: number;
     }) => Promise<VideoQualityReport>;
     readonly revokeObjectUrl?: (url: string) => void;
+}
+
+export interface SelectVideoQualityFramesOptions {
+    readonly targetColor?: CrosshairColor;
+    readonly fallbackFrameCount: number;
+    readonly minDisplacementPx?: number;
+    readonly minShotLikeEvents?: number;
 }
 
 async function validateMagicBytes(file: File): Promise<boolean> {
@@ -163,12 +172,17 @@ async function assessVideoQuality(input: {
     readonly duration: number;
 }): Promise<VideoQualityReport> {
     try {
-        const sampleFps = Math.max(1, Math.min(4, Math.round(input.fps / 15)));
-        const sampleDuration = Math.min(input.duration, 1.5);
-        const frames = await extractFrames(input.url, sampleFps, 0, sampleDuration);
+        const sampleFps = Math.max(1, Math.min(2, Math.round(input.fps / 30)));
+        const fallbackFrameCount = Math.max(1, Math.floor(Math.min(input.duration, 1.5) * sampleFps));
+        const frames = await extractFrames(input.url, sampleFps, 0, input.duration);
+        const qualityFrames = selectVideoQualityFrames(frames, {
+            fallbackFrameCount,
+            minDisplacementPx: 2,
+            minShotLikeEvents: 2,
+        });
 
         return analyzeCaptureQualityFrames(
-            frames.map((frame) => frame.imageData),
+            qualityFrames.map((frame) => frame.imageData),
             {
                 roiStability: 100,
                 fpsStability: input.fps >= 59 ? 100 : Math.max(45, (input.fps / 60) * 100),
@@ -183,6 +197,36 @@ async function assessVideoQuality(input: {
             fpsStability: input.fps >= 59 ? 100 : 70,
         });
     }
+}
+
+export function selectVideoQualityFrames(
+    frames: readonly ExtractedFrame[],
+    options: SelectVideoQualityFramesOptions
+): readonly ExtractedFrame[] {
+    if (frames.length === 0) {
+        return frames;
+    }
+
+    const fallbackFrameCount = Math.max(1, options.fallbackFrameCount);
+    const sprayWindowOptions = {
+        targetColor: options.targetColor ?? 'RED',
+        preRollFrames: 1,
+        postRollFrames: 1,
+        ...(options.minDisplacementPx === undefined ? {} : { minDisplacementPx: options.minDisplacementPx }),
+        ...(options.minShotLikeEvents === undefined ? {} : { minShotLikeEvents: options.minShotLikeEvents }),
+    };
+    const sprayWindow = detectSprayWindow(frames, sprayWindowOptions);
+
+    if (!sprayWindow) {
+        return frames.slice(0, fallbackFrameCount);
+    }
+
+    const selectedFrames = frames.filter((frame) => (
+        frame.timestamp >= Number(sprayWindow.startMs)
+        && frame.timestamp <= Number(sprayWindow.endMs)
+    ));
+
+    return selectedFrames.length > 0 ? selectedFrames : frames.slice(0, fallbackFrameCount);
 }
 
 function formatObservedDuration(durationSeconds: number): string {
