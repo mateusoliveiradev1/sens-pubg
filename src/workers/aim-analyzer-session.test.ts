@@ -147,6 +147,41 @@ describe('createAimAnalyzerSession', () => {
         });
     });
 
+    it('normalizes degraded Medal-like reticle colors before worker tracking', () => {
+        const session = createAimAnalyzerSession();
+        session.start();
+
+        const progress = session.processFrame({
+            imageData: createFrame(
+                24,
+                24,
+                undefined,
+                { r: 0, g: 0, b: 0 },
+                [
+                    {
+                        x: 12,
+                        y: 12,
+                        size: 5,
+                        color: { r: 190, g: 80, b: 80 },
+                    },
+                ]
+            ),
+            timestamp: 0,
+            context: defaultContext,
+        });
+
+        const result = session.finish();
+
+        expect(progress.statusCounts.tracked).toBe(1);
+        expect(progress.framesLost).toBe(0);
+        expect(result.trackingFrames[0]).toMatchObject({
+            status: 'tracked',
+            colorState: 'red',
+        });
+        expect(result.trackingFrames[0]?.x).toBeCloseTo(12, 3);
+        expect(result.trackingFrames[0]?.y).toBeCloseTo(12, 3);
+    });
+
     it('propagates exogenous disturbance scores into tracking frame payloads', () => {
         const session = createAimAnalyzerSession();
         session.start();

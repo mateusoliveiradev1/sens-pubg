@@ -6,7 +6,13 @@
 'use client';
 
 import { useState } from 'react';
-import type { AnalysisResult, DiagnosisType, SensitivityProfile, VideoQualityBlockingReason } from '@/types/engine';
+import type {
+    AnalysisResult,
+    DiagnosisType,
+    SensitivityProfile,
+    VideoQualityBlockingReason,
+    VideoQualityTier,
+} from '@/types/engine';
 import { formatAnalysisDistancePresentation } from './analysis-distance-presentation';
 import { SprayVisualization } from './spray-visualization';
 import { summarizeAnalysisTracking } from './tracking-summary';
@@ -133,6 +139,13 @@ const VIDEO_QUALITY_REASON_LABELS: Record<VideoQualityBlockingReason, string> = 
     low_reticle_contrast: 'baixo contraste da mira',
     unstable_roi: 'instabilidade visual na area da mira',
     unstable_fps: 'FPS instavel',
+};
+const VIDEO_QUALITY_TIER_LABELS: Record<VideoQualityTier, string> = {
+    cinematic: 'Cinematico',
+    production_ready: 'Producao',
+    analysis_ready: 'Analisavel',
+    limited: 'Limitado',
+    poor: 'Fraco',
 };
 
 function formatVideoQualityReason(reason: VideoQualityBlockingReason): string {
@@ -345,6 +358,7 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
     const videoQualityReasons = videoQualityReport
         ? formatVideoQualityReasons(videoQualityReport.blockingReasons)
         : null;
+    const videoQualityDiagnostic = videoQualityReport?.diagnostic;
     const trackingWindowRange = formatTrackingWindowRange(
         trackingOverview.effectiveWindowStartMs,
         trackingOverview.effectiveWindowEndMs
@@ -517,6 +531,40 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                                 </div>
                             ))}
                         </div>
+                        {videoQualityDiagnostic ? (
+                            <div style={{ marginTop: 'var(--space-lg)', display: 'grid', gap: 'var(--space-md)' }}>
+                                <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap', alignItems: 'center' }}>
+                                    <span className="badge badge-info">Laudo automatico</span>
+                                    <span className={`badge ${videoQualityDiagnostic.tier === 'cinematic' ? 'badge-success' : 'badge-info'}`}>
+                                        {VIDEO_QUALITY_TIER_LABELS[videoQualityDiagnostic.tier]}
+                                    </span>
+                                    <span className="badge badge-info">
+                                        {videoQualityDiagnostic.preprocessing.normalizationApplied ? 'Normalizacao aplicada' : 'Sem normalizacao'}
+                                    </span>
+                                    <span className="badge badge-info">
+                                        {videoQualityDiagnostic.preprocessing.selectedFrames}/{videoQualityDiagnostic.preprocessing.sampledFrames} frames uteis
+                                    </span>
+                                    {videoQualityDiagnostic.preprocessing.sprayWindow ? (
+                                        <span className="badge badge-success">
+                                            Janela {formatTrackingWindowRange(
+                                                Number(videoQualityDiagnostic.preprocessing.sprayWindow.startMs),
+                                                Number(videoQualityDiagnostic.preprocessing.sprayWindow.endMs)
+                                            )}
+                                        </span>
+                                    ) : null}
+                                </div>
+                                <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+                                    {videoQualityDiagnostic.summary}
+                                </p>
+                                <div style={{ display: 'grid', gap: '8px' }}>
+                                    {videoQualityDiagnostic.recommendations.map((recommendation) => (
+                                        <p key={recommendation} style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
+                                            - {recommendation}
+                                        </p>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : null}
                     </div>
                 </section>
             ) : null}

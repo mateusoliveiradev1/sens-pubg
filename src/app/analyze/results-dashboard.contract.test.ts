@@ -47,4 +47,13 @@ describe('results dashboard visualization contract', () => {
         expect(source).toMatch(/trackingOverview\.maxReacquisitionFrames/);
         expect(source).toMatch(/Leitura tecnica do tracking/);
     });
+
+    it('renders the enriched video quality diagnostic with preprocessing evidence', () => {
+        const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/videoQualityDiagnostic/);
+        expect(source).toMatch(/preprocessing\.normalizationApplied/);
+        expect(source).toMatch(/recommendations\.map/);
+        expect(source).toMatch(/Laudo automatico/);
+    });
 });

@@ -108,4 +108,13 @@ describe('analysis worker tracking contract', () => {
         expect(lowQualityBranch?.[1]).not.toMatch(/setError/);
         expect(lowQualityBranch?.[1]).not.toMatch(/releaseVideoUrl/);
     });
+
+    it('surfaces the upload quality diagnostic before the user starts analysis', () => {
+        const source = readFileSync(new URL('./analysis-client.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/uploadedQualityDiagnostic/);
+        expect(source).toMatch(/Laudo do clip/);
+        expect(source).toMatch(/recommendations\.map/);
+        expect(source).toMatch(/normalizationApplied/);
+    });
 });

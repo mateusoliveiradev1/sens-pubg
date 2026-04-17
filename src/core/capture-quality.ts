@@ -1,6 +1,13 @@
 import { asScore } from '../types/branded';
-import type { VideoQualityBlockingReason, VideoQualityReport } from '../types/engine';
+import type {
+    SprayWindowDetection,
+    VideoQualityBlockingReason,
+    VideoQualityDiagnosticReport,
+    VideoQualityReport,
+    VideoQualityTier,
+} from '../types/engine';
 import type { CrosshairColor } from './crosshair-tracking';
+import { normalizeTrackingFrame } from './video-normalization';
 
 export interface CreateVideoQualityReportInput {
     readonly sharpness: number;
@@ -9,18 +16,28 @@ export interface CreateVideoQualityReportInput {
     readonly roiStability: number;
     readonly fpsStability: number;
     readonly blockingReasons?: readonly VideoQualityBlockingReason[];
+    readonly diagnostic?: VideoQualityDiagnosticReport;
 }
 
 export interface AnalyzeCaptureQualityFramesOptions {
     readonly targetColor?: CrosshairColor;
     readonly roiStability?: number;
     readonly fpsStability?: number;
+    readonly normalizeBeforeScoring?: boolean;
 }
 
 export interface CaptureQualityMetrics {
     readonly sharpness: number;
     readonly compressionBurden: number;
     readonly reticleContrast: number;
+}
+
+export interface CreateVideoQualityDiagnosticReportInput {
+    readonly report: VideoQualityReport;
+    readonly sampledFrames: number;
+    readonly selectedFrames: number;
+    readonly normalizationApplied: boolean;
+    readonly sprayWindow?: SprayWindowDetection | null;
 }
 
 interface PixelBounds {
@@ -307,7 +324,11 @@ export function deriveVideoQualityBlockingReasons(
         pushReason(reasons, 'high_compression_burden');
     }
 
-    if (reticleContrast < 20) {
+    const severeReticleContrast = reticleContrast < 15;
+    const lowContrastWithNoisySignal = reticleContrast < 20
+        && (sharpness < 50 || compressionBurden > 80);
+
+    if (severeReticleContrast || lowContrastWithNoisySignal) {
         pushReason(reasons, 'low_reticle_contrast');
     }
 
@@ -440,7 +461,10 @@ export function analyzeCaptureQualityFrames(
         });
     }
 
-    const metrics = frames.map((frame) => measureCaptureQualityFrame(frame, options.targetColor ?? 'RED'));
+    const metrics = frames.map((frame) => measureCaptureQualityFrame(
+        options.normalizeBeforeScoring ? normalizeTrackingFrame(frame) : frame,
+        options.targetColor ?? 'RED'
+    ));
     const summarizeMetric = (selector: (metric: CaptureQualityMetrics) => number): number => (
         metrics.reduce((sum, metric) => sum + selector(metric), 0) / metrics.length
     );
@@ -452,6 +476,118 @@ export function analyzeCaptureQualityFrames(
         roiStability: options.roiStability ?? 100,
         fpsStability: options.fpsStability ?? 100,
     });
+}
+
+function classifyVideoQualityTier(report: VideoQualityReport): VideoQualityTier {
+    const score = Number(report.overallScore);
+
+    if (score >= 80 && report.usableForAnalysis && report.blockingReasons.length === 0) {
+        return 'cinematic';
+    }
+
+    if (score >= 70 && report.usableForAnalysis) {
+        return 'production_ready';
+    }
+
+    if (score >= 55 && report.usableForAnalysis) {
+        return 'analysis_ready';
+    }
+
+    if (score >= 40) {
+        return 'limited';
+    }
+
+    return 'poor';
+}
+
+function createVideoQualitySummary(
+    tier: VideoQualityTier,
+    input: CreateVideoQualityDiagnosticReportInput
+): string {
+    const score = Math.round(Number(input.report.overallScore));
+    const sprayWindowText = input.sprayWindow
+        ? 'janela util do spray detectada'
+        : 'janela util do spray nao detectada';
+
+    switch (tier) {
+        case 'cinematic':
+            return `Clip em nivel cinematico para analise: ${score}/100, ${sprayWindowText}.`;
+        case 'production_ready':
+            return `Clip pronto para producao: ${score}/100, ${sprayWindowText}.`;
+        case 'analysis_ready':
+            return `Clip analisavel: ${score}/100, ${sprayWindowText}.`;
+        case 'limited':
+            return `Leitura limitada: ${score}/100, ${sprayWindowText}.`;
+        case 'poor':
+            return `Clip fraco para diagnostico: ${score}/100, ${sprayWindowText}.`;
+        default:
+            return `Qualidade estimada: ${score}/100, ${sprayWindowText}.`;
+    }
+}
+
+function createVideoQualityRecommendations(
+    tier: VideoQualityTier,
+    input: CreateVideoQualityDiagnosticReportInput
+): readonly string[] {
+    const recommendations: string[] = [];
+    const reasons = input.report.blockingReasons;
+
+    if (input.normalizationApplied) {
+        recommendations.push('O pipeline aplicou normalizacao de cor/contraste antes da leitura.');
+    }
+
+    if (!input.sprayWindow) {
+        recommendations.push('Marque o inicio do spray o mais perto possivel do primeiro tiro para reduzir frames mortos.');
+    }
+
+    if (reasons.includes('low_sharpness')) {
+        recommendations.push('Aumente nitidez gravando em 1080p/60 FPS ou subindo o bitrate do gravador.');
+    }
+
+    if (reasons.includes('high_compression_burden')) {
+        recommendations.push('Reduza compressao pesada no Medal/OBS; prefira bitrate alto e evite reexportar o clip.');
+    }
+
+    if (reasons.includes('low_reticle_contrast')) {
+        recommendations.push('Use reticulo vermelho ou verde bem saturado e evite fundos com cor parecida.');
+    }
+
+    if (reasons.includes('unstable_fps')) {
+        recommendations.push('Priorize 60 FPS estavel para capturar micro-ajustes entre tiros.');
+    }
+
+    if (reasons.includes('unstable_roi')) {
+        recommendations.push('Centralize a mira e evite cortes que mudem a area util durante o spray.');
+    }
+
+    if (tier !== 'cinematic' && input.report.usableForAnalysis) {
+        recommendations.push('Para subir para nivel cinematico, combine 1080p/60 FPS, bitrate alto e reticulo saturado.');
+    }
+
+    if (recommendations.length === 0) {
+        recommendations.push('Clip excelente; mantenha as mesmas configs de gravacao para os proximos testes.');
+    }
+
+    return recommendations;
+}
+
+export function createVideoQualityDiagnosticReport(
+    input: CreateVideoQualityDiagnosticReportInput
+): VideoQualityDiagnosticReport {
+    const tier = classifyVideoQualityTier(input.report);
+    const sprayWindow = input.sprayWindow ?? undefined;
+
+    return {
+        tier,
+        summary: createVideoQualitySummary(tier, input),
+        recommendations: createVideoQualityRecommendations(tier, input),
+        preprocessing: {
+            normalizationApplied: input.normalizationApplied,
+            sampledFrames: input.sampledFrames,
+            selectedFrames: input.selectedFrames,
+            ...(sprayWindow ? { sprayWindow } : {}),
+        },
+    };
 }
 
 export function createVideoQualityReport(
@@ -491,5 +627,6 @@ export function createVideoQualityReport(
         fpsStability: asScore(fpsStability),
         usableForAnalysis: blockingReasons.length === 0 && overallScore >= 55,
         blockingReasons,
+        ...(input.diagnostic ? { diagnostic: input.diagnostic } : {}),
     };
 }

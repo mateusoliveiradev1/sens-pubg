@@ -3,7 +3,11 @@ import {
     MIN_SPRAY_CLIP_DURATION_SECONDS,
     isSupportedSprayClipDuration,
 } from './video-ingestion-contract';
-import { analyzeCaptureQualityFrames, createVideoQualityReport } from './capture-quality';
+import {
+    analyzeCaptureQualityFrames,
+    createVideoQualityDiagnosticReport,
+    createVideoQualityReport,
+} from './capture-quality';
 import { extractFrames, type ExtractedFrame } from './frame-extraction';
 import { detectSprayWindow } from './spray-window-detection';
 import type { VideoQualityReport } from '../types/engine';
@@ -61,6 +65,11 @@ export interface SelectVideoQualityFramesOptions {
     readonly fallbackFrameCount: number;
     readonly minDisplacementPx?: number;
     readonly minShotLikeEvents?: number;
+}
+
+export interface VideoQualityFrameSample {
+    readonly frames: readonly ExtractedFrame[];
+    readonly sprayWindow?: ReturnType<typeof detectSprayWindow>;
 }
 
 async function validateMagicBytes(file: File): Promise<boolean> {
@@ -175,36 +184,58 @@ async function assessVideoQuality(input: {
         const sampleFps = Math.max(1, Math.min(2, Math.round(input.fps / 30)));
         const fallbackFrameCount = Math.max(1, Math.floor(Math.min(input.duration, 1.5) * sampleFps));
         const frames = await extractFrames(input.url, sampleFps, 0, input.duration);
-        const qualityFrames = selectVideoQualityFrames(frames, {
+        const qualityFrameSample = selectVideoQualityFrameSample(frames, {
             fallbackFrameCount,
             minDisplacementPx: 2,
             minShotLikeEvents: 2,
         });
-
-        return analyzeCaptureQualityFrames(
-            qualityFrames.map((frame) => frame.imageData),
+        const report = analyzeCaptureQualityFrames(
+            qualityFrameSample.frames.map((frame) => frame.imageData),
             {
                 roiStability: 100,
                 fpsStability: input.fps >= 59 ? 100 : Math.max(45, (input.fps / 60) * 100),
+                normalizeBeforeScoring: true,
             }
         );
+
+        return {
+            ...report,
+            diagnostic: createVideoQualityDiagnosticReport({
+                report,
+                sampledFrames: frames.length,
+                selectedFrames: qualityFrameSample.frames.length,
+                normalizationApplied: true,
+                sprayWindow: qualityFrameSample.sprayWindow ?? null,
+            }),
+        };
     } catch {
-        return createVideoQualityReport({
+        const report = createVideoQualityReport({
             sharpness: 55,
             compressionBurden: 45,
             reticleContrast: 55,
             roiStability: 100,
             fpsStability: input.fps >= 59 ? 100 : 70,
         });
+
+        return {
+            ...report,
+            diagnostic: createVideoQualityDiagnosticReport({
+                report,
+                sampledFrames: 0,
+                selectedFrames: 0,
+                normalizationApplied: false,
+                sprayWindow: null,
+            }),
+        };
     }
 }
 
-export function selectVideoQualityFrames(
+export function selectVideoQualityFrameSample(
     frames: readonly ExtractedFrame[],
     options: SelectVideoQualityFramesOptions
-): readonly ExtractedFrame[] {
+): VideoQualityFrameSample {
     if (frames.length === 0) {
-        return frames;
+        return { frames };
     }
 
     const fallbackFrameCount = Math.max(1, options.fallbackFrameCount);
@@ -218,7 +249,7 @@ export function selectVideoQualityFrames(
     const sprayWindow = detectSprayWindow(frames, sprayWindowOptions);
 
     if (!sprayWindow) {
-        return frames.slice(0, fallbackFrameCount);
+        return { frames: frames.slice(0, fallbackFrameCount) };
     }
 
     const selectedFrames = frames.filter((frame) => (
@@ -226,7 +257,17 @@ export function selectVideoQualityFrames(
         && frame.timestamp <= Number(sprayWindow.endMs)
     ));
 
-    return selectedFrames.length > 0 ? selectedFrames : frames.slice(0, fallbackFrameCount);
+    return {
+        frames: selectedFrames.length > 0 ? selectedFrames : frames.slice(0, fallbackFrameCount),
+        sprayWindow,
+    };
+}
+
+export function selectVideoQualityFrames(
+    frames: readonly ExtractedFrame[],
+    options: SelectVideoQualityFramesOptions
+): readonly ExtractedFrame[] {
+    return selectVideoQualityFrameSample(frames, options).frames;
 }
 
 function formatObservedDuration(durationSeconds: number): string {

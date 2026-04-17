@@ -106,6 +106,27 @@ export type VideoQualityBlockingReason =
     | 'unstable_roi'
     | 'unstable_fps';
 
+export type VideoQualityTier =
+    | 'cinematic'
+    | 'production_ready'
+    | 'analysis_ready'
+    | 'limited'
+    | 'poor';
+
+export interface VideoQualityPreprocessingReport {
+    readonly normalizationApplied: boolean;
+    readonly sampledFrames: number;
+    readonly selectedFrames: number;
+    readonly sprayWindow?: SprayWindowDetection;
+}
+
+export interface VideoQualityDiagnosticReport {
+    readonly tier: VideoQualityTier;
+    readonly summary: string;
+    readonly recommendations: readonly string[];
+    readonly preprocessing: VideoQualityPreprocessingReport;
+}
+
 export interface VideoQualityReport {
     readonly overallScore: Score;
     readonly sharpness: Score;
@@ -115,6 +136,7 @@ export interface VideoQualityReport {
     readonly fpsStability: Score;
     readonly usableForAnalysis: boolean;
     readonly blockingReasons: readonly VideoQualityBlockingReason[];
+    readonly diagnostic?: VideoQualityDiagnosticReport;
 }
 
 export interface SprayWindowDetection {

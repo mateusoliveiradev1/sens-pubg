@@ -5,7 +5,10 @@
 export {
     validateAndPrepareVideo,
     releaseVideoUrl,
+    selectVideoQualityFrameSample,
+    selectVideoQualityFrames,
     type VideoMetadata,
+    type VideoQualityFrameSample,
     type VideoValidationResult,
     type VideoValidationError,
 } from './video-ingestion';
@@ -46,8 +49,10 @@ export {
 
 export {
     analyzeCaptureQualityFrames,
+    createVideoQualityDiagnosticReport,
     createVideoQualityReport,
     deriveVideoQualityBlockingReasons,
+    type CreateVideoQualityDiagnosticReportInput,
     type CreateVideoQualityReportInput,
     measureCaptureQualityFrame,
     type AnalyzeCaptureQualityFramesOptions,

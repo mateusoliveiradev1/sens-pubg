@@ -15,9 +15,11 @@ function normalizePixel(r: number, g: number, b: number): [number, number, numbe
     const suppressCompetingChannel = (channel: number): number => clampByte(channel - (chroma * 0.2));
 
     if (chroma >= 40) {
+        const boostedDominantChannel = (channel: number): number => clampByte(channel + (chroma * 0.8));
+
         if (r === maxChannel && r > g && r > b) {
             return [
-                clampByte(r + (chroma * 0.6)),
+                boostedDominantChannel(r),
                 suppressCompetingChannel(g),
                 suppressCompetingChannel(b),
             ];
@@ -26,7 +28,7 @@ function normalizePixel(r: number, g: number, b: number): [number, number, numbe
         if (g === maxChannel && g > r && g > b) {
             return [
                 suppressCompetingChannel(r),
-                clampByte(g + (chroma * 0.6)),
+                boostedDominantChannel(g),
                 suppressCompetingChannel(b),
             ];
         }
@@ -35,7 +37,7 @@ function normalizePixel(r: number, g: number, b: number): [number, number, numbe
             return [
                 suppressCompetingChannel(r),
                 suppressCompetingChannel(g),
-                clampByte(b + (chroma * 0.6)),
+                boostedDominantChannel(b),
             ];
         }
     }

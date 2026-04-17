@@ -28,6 +28,7 @@ import type {
     PlayerStance,
     StockAttachment,
     VideoQualityBlockingReason,
+    VideoQualityTier,
     WeaponLoadout,
 } from '@/types/engine';
 import type { WeaponCategory } from '@/game/pubg/weapon-data';
@@ -94,6 +95,13 @@ const QUALITY_BLOCKING_REASON_LABELS: Record<VideoQualityBlockingReason, string>
     unstable_roi: 'instabilidade visual na area da mira',
     unstable_fps: 'instabilidade de frame rate',
 };
+const QUALITY_TIER_LABELS: Record<VideoQualityTier, string> = {
+    cinematic: 'Cinematico',
+    production_ready: 'Producao',
+    analysis_ready: 'Analisavel',
+    limited: 'Limitado',
+    poor: 'Fraco',
+};
 
 type AnalysisStep = 'upload' | 'settings' | 'processing' | 'done' | 'error';
 type ProcessingPhase = 'extracting' | 'tracking' | 'calculating' | 'diagnosing' | 'done';
@@ -116,6 +124,10 @@ function formatPreviewClipDuration(durationSeconds: number): string {
 
 function formatQualityBlockingReasons(reasons: readonly VideoQualityBlockingReason[]): string {
     return reasons.map((reason) => QUALITY_BLOCKING_REASON_LABELS[reason] ?? reason).join(', ');
+}
+
+function formatDiagnosticWindow(startMs: number, endMs: number): string {
+    return `${(startMs / 1000).toFixed(2)}s - ${(endMs / 1000).toFixed(2)}s`;
 }
 
 export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element {
@@ -462,6 +474,7 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
         diagnosing: 'Diagnosticando...',
         done: 'Analise concluida!',
     };
+    const uploadedQualityDiagnostic = video?.qualityReport.diagnostic;
 
     if (step === 'upload') {
         return (
@@ -527,6 +540,47 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                         <span className={styles.warningIcon}>!</span>
                         <div className={styles.warningText}>
                             <strong>Aviso de Qualidade:</strong> {qualityWarning}
+                        </div>
+                    </div>
+                ) : null}
+
+                {uploadedQualityDiagnostic ? (
+                    <div className="glass-card" style={{ padding: 'var(--space-lg)', marginBottom: 'var(--space-lg)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-md)', flexWrap: 'wrap', marginBottom: 'var(--space-md)' }}>
+                            <div>
+                                <span className="metric-label">Laudo do clip</span>
+                                <h3 style={{ marginTop: '6px', marginBottom: '6px' }}>
+                                    {QUALITY_TIER_LABELS[uploadedQualityDiagnostic.tier]}
+                                </h3>
+                                <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+                                    {uploadedQualityDiagnostic.summary}
+                                </p>
+                            </div>
+                            <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap', alignContent: 'flex-start' }}>
+                                <span className="badge badge-info">
+                                    {uploadedQualityDiagnostic.preprocessing.normalizationApplied ? 'Normalizacao ativa' : 'Sem normalizacao'}
+                                </span>
+                                <span className="badge badge-info">
+                                    {uploadedQualityDiagnostic.preprocessing.selectedFrames}/{uploadedQualityDiagnostic.preprocessing.sampledFrames} frames uteis
+                                </span>
+                                {uploadedQualityDiagnostic.preprocessing.sprayWindow ? (
+                                    <span className="badge badge-success">
+                                        Janela {formatDiagnosticWindow(
+                                            Number(uploadedQualityDiagnostic.preprocessing.sprayWindow.startMs),
+                                            Number(uploadedQualityDiagnostic.preprocessing.sprayWindow.endMs)
+                                        )}
+                                    </span>
+                                ) : (
+                                    <span className="badge badge-warning">Janela automatica nao encontrada</span>
+                                )}
+                            </div>
+                        </div>
+                        <div style={{ display: 'grid', gap: '8px' }}>
+                            {uploadedQualityDiagnostic.recommendations.map((recommendation) => (
+                                <p key={recommendation} style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
+                                    - {recommendation}
+                                </p>
+                            ))}
                         </div>
                     </div>
                 ) : null}

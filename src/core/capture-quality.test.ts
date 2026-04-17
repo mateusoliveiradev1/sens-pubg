@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeCaptureQualityFrames, createVideoQualityReport } from './capture-quality';
+import {
+    analyzeCaptureQualityFrames,
+    createVideoQualityDiagnosticReport,
+    createVideoQualityReport,
+} from './capture-quality';
 
 type RgbColor = {
     readonly r: number;
@@ -169,6 +173,20 @@ describe('createVideoQualityReport', () => {
             blockingReasons: [],
         });
     });
+
+    it('does not hard-block slightly low contrast when normalized sharpness and compression are healthy', () => {
+        const report = createVideoQualityReport({
+            sharpness: 70,
+            compressionBurden: 38,
+            reticleContrast: 18,
+            roiStability: 100,
+            fpsStability: 100,
+        });
+
+        expect(report.usableForAnalysis).toBe(true);
+        expect(report.blockingReasons).toEqual([]);
+        expect(report.overallScore).toBe(70);
+    });
 });
 
 describe('analyzeCaptureQualityFrames', () => {
@@ -205,5 +223,66 @@ describe('analyzeCaptureQualityFrames', () => {
         expect(noisyHudReport.sharpness).toBeGreaterThan(80);
         expect(noisyHudReport.compressionBurden).toBeLessThan(20);
         expect(noisyHudReport.reticleContrast).toBeGreaterThan(80);
+    });
+
+    it('can normalize degraded Medal-like frames before quality scoring', () => {
+        const rawReport = analyzeCaptureQualityFrames([
+            createDegradedFixtureFrame(),
+            createDegradedFixtureFrame(),
+        ]);
+        const normalizedReport = analyzeCaptureQualityFrames(
+            [
+                createDegradedFixtureFrame(),
+                createDegradedFixtureFrame(),
+            ],
+            { normalizeBeforeScoring: true }
+        );
+
+        expect(normalizedReport.overallScore).toBeGreaterThan(rawReport.overallScore);
+        expect(normalizedReport.reticleContrast).toBeGreaterThan(rawReport.reticleContrast);
+        expect(normalizedReport.usableForAnalysis).toBe(true);
+    });
+});
+
+describe('createVideoQualityDiagnosticReport', () => {
+    it('summarizes preprocessing, spray-window evidence, and upgrade recommendations', () => {
+        const report = createVideoQualityReport({
+            sharpness: 54,
+            compressionBurden: 31,
+            reticleContrast: 56,
+            roiStability: 100,
+            fpsStability: 100,
+        });
+
+        const diagnostic = createVideoQualityDiagnosticReport({
+            report,
+            sampledFrames: 9,
+            selectedFrames: 5,
+            normalizationApplied: true,
+            sprayWindow: {
+                startMs: 1000 as never,
+                endMs: 3000 as never,
+                confidence: 0.86,
+                shotLikeEvents: 4,
+                rejectedLeadingMs: 1000 as never,
+                rejectedTrailingMs: 500 as never,
+            },
+        });
+
+        expect(diagnostic).toMatchObject({
+            tier: 'production_ready',
+            preprocessing: {
+                normalizationApplied: true,
+                sampledFrames: 9,
+                selectedFrames: 5,
+                sprayWindow: {
+                    startMs: 1000,
+                    endMs: 3000,
+                    confidence: 0.86,
+                },
+            },
+        });
+        expect(diagnostic.summary).toContain('janela util');
+        expect(diagnostic.recommendations).toContain('O pipeline aplicou normalizacao de cor/contraste antes da leitura.');
     });
 });

@@ -161,7 +161,11 @@ function createInitialState(): SessionState {
     return {
         previousCrosshairX: null,
         previousCrosshairY: null,
-        streamingTracker: createStreamingCrosshairTracker(),
+        streamingTracker: createStreamingCrosshairTracker({
+            normalizeBeforeTracking: true,
+            globalMotionCompensation: true,
+            globalMotionSearchRadiusPx: 8,
+        }),
         totalJitter: 0,
         totalDrift: 0,
         totalVerticalError: 0,

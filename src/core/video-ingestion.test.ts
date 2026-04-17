@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { createVideoQualityReport } from './capture-quality';
-import { selectVideoQualityFrames, validateAndPrepareVideo } from './video-ingestion';
+import {
+    selectVideoQualityFrameSample,
+    selectVideoQualityFrames,
+    validateAndPrepareVideo,
+} from './video-ingestion';
 import type { ExtractedFrame } from './frame-extraction';
 
 function createFrame(
@@ -160,5 +164,36 @@ describe('selectVideoQualityFrames', () => {
         });
 
         expect(selected.map((frame) => frame.timestamp)).toEqual([0, 500]);
+    });
+
+    it('returns spray-window metadata for upload quality diagnostics', () => {
+        const frames = createExtractedFrames([
+            { timestamp: 0, x: 20, y: 20 },
+            { timestamp: 500, x: 20, y: 20 },
+            { timestamp: 1000, x: 20, y: 20 },
+            { timestamp: 1500, x: 20, y: 18 },
+            { timestamp: 2000, x: 21, y: 15 },
+            { timestamp: 2500, x: 23, y: 11 },
+            { timestamp: 3000, x: 23, y: 11 },
+        ]);
+
+        const sample = selectVideoQualityFrameSample(frames, {
+            fallbackFrameCount: 3,
+            minDisplacementPx: 2,
+            minShotLikeEvents: 2,
+        });
+
+        expect(sample.frames.map((frame) => frame.timestamp)).toEqual([
+            1000,
+            1500,
+            2000,
+            2500,
+            3000,
+        ]);
+        expect(sample.sprayWindow).toMatchObject({
+            startMs: 1000,
+            endMs: 3000,
+            shotLikeEvents: 3,
+        });
     });
 });
