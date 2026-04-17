@@ -1,9 +1,14 @@
-import { asScore } from '../types/branded';
+import { asMilliseconds, asScore } from '../types/branded';
 import type {
     SprayWindowDetection,
     VideoQualityBlockingReason,
     VideoQualityDiagnosticReport,
+    VideoQualityFrameDiagnostic,
+    VideoQualityFrameIssue,
+    VideoQualityFrameStatus,
+    VideoQualityFrameTimeline,
     VideoQualityReport,
+    VideoQualitySegmentSeverity,
     VideoQualityTier,
 } from '../types/engine';
 import type { CrosshairColor } from './crosshair-tracking';
@@ -38,6 +43,18 @@ export interface CreateVideoQualityDiagnosticReportInput {
     readonly selectedFrames: number;
     readonly normalizationApplied: boolean;
     readonly sprayWindow?: SprayWindowDetection | null;
+    readonly timeline?: VideoQualityFrameTimeline;
+}
+
+export interface VideoQualityDiagnosticFrameInput {
+    readonly index: number;
+    readonly timestamp: number;
+    readonly imageData: ImageData;
+}
+
+export interface CreateVideoQualityFrameDiagnosticsOptions {
+    readonly targetColor?: CrosshairColor;
+    readonly normalizeBeforeScoring?: boolean;
 }
 
 interface PixelBounds {
@@ -478,6 +495,155 @@ export function analyzeCaptureQualityFrames(
     });
 }
 
+function classifyFrameIssues(metrics: CaptureQualityMetrics): readonly VideoQualityFrameIssue[] {
+    const issues: VideoQualityFrameIssue[] = [];
+
+    if (metrics.sharpness <= 0 || metrics.reticleContrast <= 0) {
+        issues.push('reticle_lost');
+        return issues;
+    }
+
+    if (metrics.sharpness < 45) {
+        issues.push('low_sharpness');
+    }
+
+    if (metrics.compressionBurden >= 60) {
+        issues.push('compression');
+    }
+
+    if (metrics.reticleContrast < 35) {
+        issues.push('low_reticle_contrast');
+    }
+
+    return issues;
+}
+
+function classifyFrameStatus(issues: readonly VideoQualityFrameIssue[]): VideoQualityFrameStatus {
+    if (issues.includes('reticle_lost')) {
+        return 'lost';
+    }
+
+    return issues.length > 0 ? 'degraded' : 'good';
+}
+
+function rankFrameIssue(issue: VideoQualityFrameIssue): number {
+    switch (issue) {
+        case 'reticle_lost':
+            return 4;
+        case 'compression':
+            return 3;
+        case 'low_sharpness':
+            return 2;
+        case 'low_reticle_contrast':
+            return 1;
+        default:
+            return 0;
+    }
+}
+
+function selectSegmentPrimaryIssue(frames: readonly VideoQualityFrameDiagnostic[]): VideoQualityFrameIssue {
+    let primaryIssue: VideoQualityFrameIssue = 'low_reticle_contrast';
+    let primaryRank = 0;
+
+    for (const frame of frames) {
+        for (const issue of frame.issues) {
+            const rank = rankFrameIssue(issue);
+            if (rank > primaryRank) {
+                primaryIssue = issue;
+                primaryRank = rank;
+            }
+        }
+    }
+
+    return primaryIssue;
+}
+
+function createDegradedSegments(
+    frames: readonly VideoQualityFrameDiagnostic[]
+): VideoQualityFrameTimeline['degradedSegments'] {
+    const segments: VideoQualityFrameTimeline['degradedSegments'][number][] = [];
+    let current: VideoQualityFrameDiagnostic[] = [];
+
+    const flush = (): void => {
+        if (current.length === 0) {
+            return;
+        }
+
+        const first = current[0]!;
+        const last = current[current.length - 1]!;
+        const severity: VideoQualitySegmentSeverity = current.some((frame) => frame.status === 'lost')
+            ? 'critical'
+            : 'warning';
+        const primaryIssue = selectSegmentPrimaryIssue(current);
+
+        segments.push({
+            startMs: first.timestampMs,
+            endMs: last.timestampMs,
+            severity,
+            primaryIssue,
+            frameCount: current.length,
+        });
+        current = [];
+    };
+
+    for (const frame of frames) {
+        if (frame.status === 'good') {
+            flush();
+            continue;
+        }
+
+        current.push(frame);
+    }
+
+    flush();
+    return segments;
+}
+
+export function createVideoQualityFrameDiagnostics(
+    frames: readonly VideoQualityDiagnosticFrameInput[],
+    options: CreateVideoQualityFrameDiagnosticsOptions = {}
+): VideoQualityFrameTimeline {
+    const diagnostics = frames.map((frame): VideoQualityFrameDiagnostic => {
+        const metrics = measureCaptureQualityFrame(
+            options.normalizeBeforeScoring ? normalizeTrackingFrame(frame.imageData) : frame.imageData,
+            options.targetColor ?? 'RED'
+        );
+        const issues = classifyFrameIssues(metrics);
+        const status = classifyFrameStatus(issues);
+
+        return {
+            frameIndex: frame.index,
+            timestampMs: asMilliseconds(frame.timestamp),
+            sharpness: asScore(metrics.sharpness),
+            compressionBurden: asScore(metrics.compressionBurden),
+            reticleContrast: asScore(metrics.reticleContrast),
+            status,
+            issues,
+        };
+    });
+
+    const summary = diagnostics.reduce(
+        (current, frame) => ({
+            totalFrames: current.totalFrames + 1,
+            goodFrames: current.goodFrames + (frame.status === 'good' ? 1 : 0),
+            degradedFrames: current.degradedFrames + (frame.status === 'degraded' ? 1 : 0),
+            lostFrames: current.lostFrames + (frame.status === 'lost' ? 1 : 0),
+        }),
+        {
+            totalFrames: 0,
+            goodFrames: 0,
+            degradedFrames: 0,
+            lostFrames: 0,
+        }
+    );
+
+    return {
+        frames: diagnostics,
+        degradedSegments: createDegradedSegments(diagnostics),
+        summary,
+    };
+}
+
 function classifyVideoQualityTier(report: VideoQualityReport): VideoQualityTier {
     const score = Number(report.overallScore);
 
@@ -587,6 +753,7 @@ export function createVideoQualityDiagnosticReport(
             selectedFrames: input.selectedFrames,
             ...(sprayWindow ? { sprayWindow } : {}),
         },
+        ...(input.timeline ? { timeline: input.timeline } : {}),
     };
 }
 

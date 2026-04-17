@@ -50,13 +50,16 @@ export {
 export {
     analyzeCaptureQualityFrames,
     createVideoQualityDiagnosticReport,
+    createVideoQualityFrameDiagnostics,
     createVideoQualityReport,
     deriveVideoQualityBlockingReasons,
     type CreateVideoQualityDiagnosticReportInput,
+    type CreateVideoQualityFrameDiagnosticsOptions,
     type CreateVideoQualityReportInput,
     measureCaptureQualityFrame,
     type AnalyzeCaptureQualityFramesOptions,
     type CaptureQualityMetrics,
+    type VideoQualityDiagnosticFrameInput,
 } from './capture-quality';
 
 export {

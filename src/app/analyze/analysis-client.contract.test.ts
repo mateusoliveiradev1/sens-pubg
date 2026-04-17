@@ -117,4 +117,13 @@ describe('analysis worker tracking contract', () => {
         expect(source).toMatch(/recommendations\.map/);
         expect(source).toMatch(/normalizationApplied/);
     });
+
+    it('surfaces frame-by-frame quality evidence in the upload diagnostic', () => {
+        const source = readFileSync(new URL('./analysis-client.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/uploadedQualityTimeline/);
+        expect(source).toMatch(/timeline\.summary\.goodFrames/);
+        expect(source).toMatch(/degradedSegments\.map/);
+        expect(source).toMatch(/Evidencia frame-a-frame/);
+    });
 });

@@ -6,6 +6,7 @@ import {
 import {
     analyzeCaptureQualityFrames,
     createVideoQualityDiagnosticReport,
+    createVideoQualityFrameDiagnostics,
     createVideoQualityReport,
 } from './capture-quality';
 import { extractFrames, type ExtractedFrame } from './frame-extraction';
@@ -205,6 +206,9 @@ async function assessVideoQuality(input: {
                 sampledFrames: frames.length,
                 selectedFrames: qualityFrameSample.frames.length,
                 normalizationApplied: true,
+                timeline: createVideoQualityFrameDiagnostics(qualityFrameSample.frames, {
+                    normalizeBeforeScoring: true,
+                }),
                 sprayWindow: qualityFrameSample.sprayWindow ?? null,
             }),
         };

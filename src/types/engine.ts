@@ -125,6 +125,48 @@ export interface VideoQualityDiagnosticReport {
     readonly summary: string;
     readonly recommendations: readonly string[];
     readonly preprocessing: VideoQualityPreprocessingReport;
+    readonly timeline?: VideoQualityFrameTimeline;
+}
+
+export type VideoQualityFrameStatus = 'good' | 'degraded' | 'lost';
+
+export type VideoQualityFrameIssue =
+    | 'low_sharpness'
+    | 'compression'
+    | 'low_reticle_contrast'
+    | 'reticle_lost';
+
+export type VideoQualitySegmentSeverity = 'warning' | 'critical';
+
+export interface VideoQualityFrameDiagnostic {
+    readonly frameIndex: number;
+    readonly timestampMs: Milliseconds;
+    readonly sharpness: Score;
+    readonly compressionBurden: Score;
+    readonly reticleContrast: Score;
+    readonly status: VideoQualityFrameStatus;
+    readonly issues: readonly VideoQualityFrameIssue[];
+}
+
+export interface VideoQualityDegradedSegment {
+    readonly startMs: Milliseconds;
+    readonly endMs: Milliseconds;
+    readonly severity: VideoQualitySegmentSeverity;
+    readonly primaryIssue: VideoQualityFrameIssue;
+    readonly frameCount: number;
+}
+
+export interface VideoQualityTimelineSummary {
+    readonly totalFrames: number;
+    readonly goodFrames: number;
+    readonly degradedFrames: number;
+    readonly lostFrames: number;
+}
+
+export interface VideoQualityFrameTimeline {
+    readonly frames: readonly VideoQualityFrameDiagnostic[];
+    readonly degradedSegments: readonly VideoQualityDegradedSegment[];
+    readonly summary: VideoQualityTimelineSummary;
 }
 
 export interface VideoQualityReport {

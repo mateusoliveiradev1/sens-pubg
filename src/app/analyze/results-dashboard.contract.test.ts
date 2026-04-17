@@ -56,4 +56,13 @@ describe('results dashboard visualization contract', () => {
         expect(source).toMatch(/recommendations\.map/);
         expect(source).toMatch(/Laudo automatico/);
     });
+
+    it('renders frame-by-frame quality evidence and degraded segments in the dashboard', () => {
+        const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/videoQualityTimeline/);
+        expect(source).toMatch(/timeline\.summary\.lostFrames/);
+        expect(source).toMatch(/degradedSegments\.map/);
+        expect(source).toMatch(/Evidencia frame-a-frame/);
+    });
 });

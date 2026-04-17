@@ -11,6 +11,8 @@ import type {
     DiagnosisType,
     SensitivityProfile,
     VideoQualityBlockingReason,
+    VideoQualityFrameIssue,
+    VideoQualityFrameTimeline,
     VideoQualityTier,
 } from '@/types/engine';
 import { formatAnalysisDistancePresentation } from './analysis-distance-presentation';
@@ -147,6 +149,12 @@ const VIDEO_QUALITY_TIER_LABELS: Record<VideoQualityTier, string> = {
     limited: 'Limitado',
     poor: 'Fraco',
 };
+const VIDEO_QUALITY_FRAME_ISSUE_LABELS: Record<VideoQualityFrameIssue, string> = {
+    low_sharpness: 'baixa nitidez',
+    compression: 'compressao',
+    low_reticle_contrast: 'baixo contraste',
+    reticle_lost: 'mira perdida',
+};
 
 function formatVideoQualityReason(reason: VideoQualityBlockingReason): string {
     return VIDEO_QUALITY_REASON_LABELS[reason];
@@ -170,6 +178,47 @@ function formatTrackingWindowRange(startMs: number | null, endMs: number | null)
     }
 
     return `${formatDurationMs(startMs)} - ${formatDurationMs(endMs)}`;
+}
+
+function VideoQualityTimelineEvidence({ timeline }: { readonly timeline: VideoQualityFrameTimeline }): React.JSX.Element {
+    const totalFrames = Math.max(timeline.summary.totalFrames, 1);
+    const readableFrames = timeline.summary.goodFrames + timeline.summary.degradedFrames;
+    const readablePercent = Math.round((readableFrames / totalFrames) * 100);
+
+    return (
+        <div style={{ display: 'grid', gap: '8px' }}>
+            <span className="metric-label">Evidencia frame-a-frame</span>
+            <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
+                <span className="badge badge-success">
+                    Bons {timeline.summary.goodFrames}/{timeline.summary.totalFrames}
+                </span>
+                <span className="badge badge-warning">
+                    Degradados {timeline.summary.degradedFrames}
+                </span>
+                <span className="badge badge-info">
+                    Leitura {readablePercent}%
+                </span>
+                {timeline.summary.lostFrames > 0 ? (
+                    <span className="badge badge-warning">
+                        Mira perdida {timeline.summary.lostFrames}
+                    </span>
+                ) : null}
+            </div>
+            {timeline.degradedSegments.length > 0 ? (
+                <div style={{ display: 'grid', gap: '6px' }}>
+                    {timeline.degradedSegments.map((segment) => (
+                        <p key={`${Number(segment.startMs)}-${Number(segment.endMs)}-${segment.primaryIssue}`} style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-xs)', lineHeight: 1.5 }}>
+                            Trecho {formatTrackingWindowRange(Number(segment.startMs), Number(segment.endMs))}: {VIDEO_QUALITY_FRAME_ISSUE_LABELS[segment.primaryIssue]} ({segment.frameCount} frames)
+                        </p>
+                    ))}
+                </div>
+            ) : (
+                <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-xs)', lineHeight: 1.5 }}>
+                    Nenhum trecho degradado dentro da janela selecionada.
+                </p>
+            )}
+        </div>
+    );
 }
 
 function formatEvidencePercent(value: number): string {
@@ -359,6 +408,7 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
         ? formatVideoQualityReasons(videoQualityReport.blockingReasons)
         : null;
     const videoQualityDiagnostic = videoQualityReport?.diagnostic;
+    const videoQualityTimeline = videoQualityDiagnostic?.timeline;
     const trackingWindowRange = formatTrackingWindowRange(
         trackingOverview.effectiveWindowStartMs,
         trackingOverview.effectiveWindowEndMs
@@ -563,6 +613,9 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                                         </p>
                                     ))}
                                 </div>
+                                {videoQualityTimeline ? (
+                                    <VideoQualityTimelineEvidence timeline={videoQualityTimeline} />
+                                ) : null}
                             </div>
                         ) : null}
                     </div>

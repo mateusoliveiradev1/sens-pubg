@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
     analyzeCaptureQualityFrames,
     createVideoQualityDiagnosticReport,
+    createVideoQualityFrameDiagnostics,
     createVideoQualityReport,
 } from './capture-quality';
 
@@ -81,6 +82,10 @@ function createHudNoiseFixtureFrame(): ImageData {
     paintSquare(frame, 144, 144, 21, { r: 255, g: 0, b: 0 });
 
     return frame;
+}
+
+function createBlankFixtureFrame(): ImageData {
+    return createFrame();
 }
 
 describe('createVideoQualityReport', () => {
@@ -245,7 +250,53 @@ describe('analyzeCaptureQualityFrames', () => {
 });
 
 describe('createVideoQualityDiagnosticReport', () => {
+    it('labels frame-by-frame quality evidence and degraded timeline segments', () => {
+        const timeline = createVideoQualityFrameDiagnostics([
+            { index: 0, timestamp: 0, imageData: createCleanFixtureFrame() },
+            { index: 1, timestamp: 500, imageData: createBlankFixtureFrame() },
+            { index: 2, timestamp: 1000, imageData: createDegradedFixtureFrame() },
+        ]);
+
+        expect(timeline.summary).toMatchObject({
+            totalFrames: 3,
+            goodFrames: 1,
+            degradedFrames: 1,
+            lostFrames: 1,
+        });
+        expect(timeline.frames[0]).toMatchObject({
+            frameIndex: 0,
+            timestampMs: 0,
+            status: 'good',
+            issues: [],
+        });
+        expect(timeline.frames[1]).toMatchObject({
+            frameIndex: 1,
+            timestampMs: 500,
+            status: 'lost',
+        });
+        expect(timeline.frames[1]?.issues).toContain('reticle_lost');
+        expect(timeline.frames[2]).toMatchObject({
+            frameIndex: 2,
+            timestampMs: 1000,
+            status: 'degraded',
+        });
+        expect(timeline.frames[2]?.issues).toContain('compression');
+        expect(timeline.degradedSegments).toEqual([
+            {
+                startMs: 500,
+                endMs: 1000,
+                severity: 'critical',
+                primaryIssue: 'reticle_lost',
+                frameCount: 2,
+            },
+        ]);
+    });
+
     it('summarizes preprocessing, spray-window evidence, and upgrade recommendations', () => {
+        const timeline = createVideoQualityFrameDiagnostics([
+            { index: 0, timestamp: 1000, imageData: createCleanFixtureFrame() },
+            { index: 1, timestamp: 1500, imageData: createCleanFixtureFrame() },
+        ]);
         const report = createVideoQualityReport({
             sharpness: 54,
             compressionBurden: 31,
@@ -259,6 +310,7 @@ describe('createVideoQualityDiagnosticReport', () => {
             sampledFrames: 9,
             selectedFrames: 5,
             normalizationApplied: true,
+            timeline,
             sprayWindow: {
                 startMs: 1000 as never,
                 endMs: 3000 as never,
@@ -279,6 +331,12 @@ describe('createVideoQualityDiagnosticReport', () => {
                     startMs: 1000,
                     endMs: 3000,
                     confidence: 0.86,
+                },
+            },
+            timeline: {
+                summary: {
+                    totalFrames: 2,
+                    goodFrames: 2,
                 },
             },
         });
