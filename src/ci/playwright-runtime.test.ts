@@ -6,6 +6,7 @@ describe('playwright runtime config', () => {
         expect(getPlaywrightRuntimeConfig({})).toEqual({
             baseURL: 'http://localhost:3000',
             shouldStartWebServer: true,
+            webServerCommand: 'node scripts/clean-next-dev-cache.cjs && npm run dev',
         });
     });
 
@@ -15,6 +16,7 @@ describe('playwright runtime config', () => {
         })).toEqual({
             baseURL: 'https://sens-pubg.example.com',
             shouldStartWebServer: false,
+            webServerCommand: 'node scripts/clean-next-dev-cache.cjs && npm run dev',
         });
     });
 
@@ -25,7 +27,7 @@ describe('playwright runtime config', () => {
         })).toEqual({
             baseURL: 'http://localhost:3000',
             shouldStartWebServer: false,
+            webServerCommand: 'node scripts/clean-next-dev-cache.cjs && npm run dev',
         });
     });
 });
-

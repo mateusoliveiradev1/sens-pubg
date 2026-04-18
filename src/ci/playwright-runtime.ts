@@ -1,8 +1,10 @@
 const DEFAULT_PLAYWRIGHT_BASE_URL = 'http://localhost:3000';
+const DEFAULT_PLAYWRIGHT_WEB_SERVER_COMMAND = 'node scripts/clean-next-dev-cache.cjs && npm run dev';
 
 export interface PlaywrightRuntimeConfig {
     readonly baseURL: string;
     readonly shouldStartWebServer: boolean;
+    readonly webServerCommand: string;
 }
 
 const normalizeBaseUrl = (value: string | undefined): string => {
@@ -19,6 +21,6 @@ export const getPlaywrightRuntimeConfig = (
     return {
         baseURL,
         shouldStartWebServer: !skipWebServer && baseURL === DEFAULT_PLAYWRIGHT_BASE_URL,
+        webServerCommand: DEFAULT_PLAYWRIGHT_WEB_SERVER_COMMAND,
     };
 };
-

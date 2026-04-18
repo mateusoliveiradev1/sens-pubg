@@ -23,7 +23,7 @@ export default defineConfig({
     ],
     ...(runtime.shouldStartWebServer ? {
         webServer: {
-            command: 'npm run dev',
+            command: runtime.webServerCommand,
             url: runtime.baseURL,
             reuseExistingServer: true,
             timeout: 30000,
