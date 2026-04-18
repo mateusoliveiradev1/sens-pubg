@@ -23,3 +23,11 @@
 - RED: `npx vitest run src/db/schema.test.ts` falhou com 4 falhas porque `community_profiles`, `community_posts` e `community_post_analysis_snapshots` ainda nao existiam no schema
 - GREEN: `npx vitest run src/db/schema.test.ts` passou com 8/8 testes; `npm run typecheck` passou sem erros
 - Acceptance: o schema agora possui as tres tabelas core, FKs principais com `users`/`analysis_sessions`, slug unico para `community_posts` e persistencia completa do contrato travado em `src/core/community-post-snapshot.ts`
+
+## W10-T03 - Adicionar tabelas de engagement e moderacao
+
+- Status: concluida
+- Escopo: apenas `src/db/schema.ts`, `src/db/schema.test.ts`, `drizzle/0005_community_engagement.sql` e evidencias documentais
+- RED: `npx vitest run src/db/schema.test.ts` falhou com 6 falhas porque `community_post_likes`, `community_post_saves`, `community_post_comments`, `community_follows`, `community_reports` e `community_moderation_actions` ainda nao existiam no schema
+- GREEN: `npx vitest run src/db/schema.test.ts` passou com 14/14 testes; `npm run typecheck` passou sem erros
+- Acceptance: likes/saves/follows ficaram com chaves compostas e FKs corretas; comentarios e reports ganharam estados minimos (`visible` e `open`); reports e moderation actions ficaram auditaveis com revisor/ator, notas e metadata

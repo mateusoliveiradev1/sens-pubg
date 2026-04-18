@@ -269,6 +269,19 @@ TDD:
 - primeiro expressar constraints e estados em teste;
 - depois implementar no schema.
 
+Status:
+
+- concluida em 2026-04-18
+
+Evidence:
+
+- `src/db/schema.test.ts` foi atualizado primeiro para cobrir `community_post_likes`, `community_post_saves`, `community_post_comments`, `community_follows`, `community_reports` e `community_moderation_actions`, incluindo PKs compostas, FKs e defaults de estado
+- `src/db/schema.ts` foi estendido com as seis tabelas de engagement/moderacao, preservando o escopo estrito da W10-T03
+- `community_post_comments.status` ficou com default `visible` e `community_reports.status` ficou com default `open`, mantendo os estados minimos exigidos pelo SDD
+- `community_reports` e `community_moderation_actions` ficaram auditaveis com rastreamento de `reported_by_user_id`, `reviewed_by_user_id`, `actor_user_id`, `notes` e `metadata`
+- `drizzle/0005_community_engagement.sql` foi criado para materializar as seis tabelas e constraints correspondentes
+- validacoes executadas: `npx vitest run src/db/schema.test.ts` -> RED com 6 falhas por ausencia das novas tabelas/exports; `npx vitest run src/db/schema.test.ts` -> GREEN com 14 testes verdes; `npm run typecheck` -> ok
+
 ### W10-T04 - Adicionar tabela de copy events e scaffold de entitlements
 
 Goal:

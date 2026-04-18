@@ -81,6 +81,9 @@ export type CommunityProfileLink = {
     readonly url: string;
 };
 export type CommunityPostCopySensPreset = CommunityPostAnalysisSnapshot['sensSnapshot'];
+export type CommunityCommentStatus = 'visible' | 'author_deleted' | 'moderator_hidden';
+export type CommunityReportEntityType = 'post' | 'comment' | 'profile';
+export type CommunityReportStatus = 'open' | 'reviewed' | 'dismissed' | 'actioned';
 
 // ═══════════════════════════════════════════
 // Auth.js Tables (NextAuth adapter)
@@ -502,8 +505,183 @@ export const communityPostAnalysisSnapshotsRelations = relations(
 );
 
 // ═══════════════════════════════════════════
-// System / Bot Status
+// Community Engagement & Moderation
 // ═══════════════════════════════════════════
+
+export const communityPostLikes = pgTable(
+    'community_post_likes',
+    {
+        postId: uuid('post_id')
+            .notNull()
+            .references(() => communityPosts.id, { onDelete: 'cascade' }),
+        userId: uuid('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    },
+    (table) => [
+        primaryKey({
+            columns: [table.postId, table.userId],
+            name: 'community_post_likes_post_id_user_id_pk',
+        }),
+    ],
+);
+
+export const communityPostLikesRelations = relations(communityPostLikes, ({ one }) => ({
+    post: one(communityPosts, {
+        fields: [communityPostLikes.postId],
+        references: [communityPosts.id],
+    }),
+    user: one(users, {
+        fields: [communityPostLikes.userId],
+        references: [users.id],
+    }),
+}));
+
+export const communityPostSaves = pgTable(
+    'community_post_saves',
+    {
+        postId: uuid('post_id')
+            .notNull()
+            .references(() => communityPosts.id, { onDelete: 'cascade' }),
+        userId: uuid('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    },
+    (table) => [
+        primaryKey({
+            columns: [table.postId, table.userId],
+            name: 'community_post_saves_post_id_user_id_pk',
+        }),
+    ],
+);
+
+export const communityPostSavesRelations = relations(communityPostSaves, ({ one }) => ({
+    post: one(communityPosts, {
+        fields: [communityPostSaves.postId],
+        references: [communityPosts.id],
+    }),
+    user: one(users, {
+        fields: [communityPostSaves.userId],
+        references: [users.id],
+    }),
+}));
+
+export const communityPostComments = pgTable('community_post_comments', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    postId: uuid('post_id')
+        .notNull()
+        .references(() => communityPosts.id, { onDelete: 'cascade' }),
+    authorId: uuid('author_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    status: text('status').$type<CommunityCommentStatus>().notNull().default('visible'),
+    bodyMarkdown: text('body_markdown').notNull(),
+    diagnosisContextKey: text('diagnosis_context_key'),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+});
+
+export const communityPostCommentsRelations = relations(communityPostComments, ({ one }) => ({
+    post: one(communityPosts, {
+        fields: [communityPostComments.postId],
+        references: [communityPosts.id],
+    }),
+    author: one(users, {
+        fields: [communityPostComments.authorId],
+        references: [users.id],
+    }),
+}));
+
+export const communityFollows = pgTable(
+    'community_follows',
+    {
+        followerUserId: uuid('follower_user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        followedUserId: uuid('followed_user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    },
+    (table) => [
+        primaryKey({
+            columns: [table.followerUserId, table.followedUserId],
+            name: 'community_follows_follower_user_id_followed_user_id_pk',
+        }),
+    ],
+);
+
+export const communityFollowsRelations = relations(communityFollows, ({ one }) => ({
+    follower: one(users, {
+        relationName: 'community_follows_follower',
+        fields: [communityFollows.followerUserId],
+        references: [users.id],
+    }),
+    followed: one(users, {
+        relationName: 'community_follows_followed',
+        fields: [communityFollows.followedUserId],
+        references: [users.id],
+    }),
+}));
+
+export const communityReports = pgTable('community_reports', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    entityType: text('entity_type').$type<CommunityReportEntityType>().notNull(),
+    entityId: uuid('entity_id').notNull(),
+    reportedByUserId: uuid('reported_by_user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'no action' }),
+    reasonKey: text('reason_key').notNull(),
+    details: text('details'),
+    status: text('status').$type<CommunityReportStatus>().notNull().default('open'),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    reviewedAt: timestamp('reviewed_at', { mode: 'date' }),
+    reviewedByUserId: uuid('reviewed_by_user_id').references(() => users.id, {
+        onDelete: 'set null',
+    }),
+});
+
+export const communityReportsRelations = relations(communityReports, ({ one }) => ({
+    reporter: one(users, {
+        relationName: 'community_reports_reporter',
+        fields: [communityReports.reportedByUserId],
+        references: [users.id],
+    }),
+    reviewer: one(users, {
+        relationName: 'community_reports_reviewer',
+        fields: [communityReports.reviewedByUserId],
+        references: [users.id],
+    }),
+}));
+
+export const communityModerationActions = pgTable('community_moderation_actions', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    entityType: text('entity_type').$type<CommunityReportEntityType>().notNull(),
+    entityId: uuid('entity_id').notNull(),
+    actionKey: text('action_key').notNull(),
+    actorUserId: uuid('actor_user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'no action' }),
+    notes: text('notes'),
+    metadata: jsonb('metadata').notNull().default('{}').$type<Record<string, unknown>>(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+});
+
+export const communityModerationActionsRelations = relations(
+    communityModerationActions,
+    ({ one }) => ({
+        actor: one(users, {
+            fields: [communityModerationActions.actorUserId],
+            references: [users.id],
+        }),
+    }),
+);
+
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// System / Bot Status
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 export const botHeartbeat = pgTable('bot_heartbeat', {
     id: text('id').primaryKey().default('main_bot'),
@@ -562,3 +740,15 @@ export type CommunityPostRow = typeof communityPosts.$inferSelect;
 export type NewCommunityPost = typeof communityPosts.$inferInsert;
 export type CommunityPostAnalysisSnapshotRow = typeof communityPostAnalysisSnapshots.$inferSelect;
 export type NewCommunityPostAnalysisSnapshot = typeof communityPostAnalysisSnapshots.$inferInsert;
+export type CommunityPostLikeRow = typeof communityPostLikes.$inferSelect;
+export type NewCommunityPostLike = typeof communityPostLikes.$inferInsert;
+export type CommunityPostSaveRow = typeof communityPostSaves.$inferSelect;
+export type NewCommunityPostSave = typeof communityPostSaves.$inferInsert;
+export type CommunityPostCommentRow = typeof communityPostComments.$inferSelect;
+export type NewCommunityPostComment = typeof communityPostComments.$inferInsert;
+export type CommunityFollowRow = typeof communityFollows.$inferSelect;
+export type NewCommunityFollow = typeof communityFollows.$inferInsert;
+export type CommunityReportRow = typeof communityReports.$inferSelect;
+export type NewCommunityReport = typeof communityReports.$inferInsert;
+export type CommunityModerationActionRow = typeof communityModerationActions.$inferSelect;
+export type NewCommunityModerationAction = typeof communityModerationActions.$inferInsert;
