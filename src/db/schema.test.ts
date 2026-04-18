@@ -434,3 +434,88 @@ describe('communityModerationActions schema', () => {
         expect(actorForeignKey.onDelete).toBe('no action');
     });
 });
+
+describe('communityPostCopyEvents schema', () => {
+    it('defines copy event tracking with a nullable actor and copy target contract', () => {
+        const communityPostCopyEvents = getExportedTable('communityPostCopyEvents');
+
+        const id = getColumn(communityPostCopyEvents, 'id');
+        const postId = getColumn(communityPostCopyEvents, 'post_id');
+        const copiedByUserId = getColumn(communityPostCopyEvents, 'copied_by_user_id');
+        const copyTarget = getColumn(communityPostCopyEvents, 'copy_target');
+        const createdAt = getColumn(communityPostCopyEvents, 'created_at');
+
+        expect(id.primary).toBe(true);
+        expect(postId.notNull).toBe(true);
+        expect(copiedByUserId.notNull).toBe(false);
+        expect(copyTarget.notNull).toBe(true);
+        expect(createdAt.notNull).toBe(true);
+
+        const postForeignKey = getForeignKey(
+            communityPostCopyEvents,
+            'community_post_copy_events_post_id_community_posts_id_fk',
+        );
+        const copiedByUserForeignKey = getForeignKey(
+            communityPostCopyEvents,
+            'community_post_copy_events_copied_by_user_id_users_id_fk',
+        );
+
+        expect(postForeignKey.onDelete).toBe('cascade');
+        expect(copiedByUserForeignKey.onDelete).toBe('set null');
+    });
+});
+
+describe('featureEntitlements schema', () => {
+    it('defines an inactive-by-default feature entitlement catalog', () => {
+        const featureEntitlements = getExportedTable('featureEntitlements');
+
+        const key = getColumn(featureEntitlements, 'key');
+        const description = getColumn(featureEntitlements, 'description');
+        const status = getColumn(featureEntitlements, 'status');
+        const createdAt = getColumn(featureEntitlements, 'created_at');
+
+        expect(key.primary).toBe(true);
+        expect(description.notNull).toBe(true);
+        expect(status.notNull).toBe(true);
+        expect(status.default).toBe('inactive');
+        expect(createdAt.notNull).toBe(true);
+    });
+});
+
+describe('userEntitlements schema', () => {
+    it('defines user-to-entitlement assignments without enabling premium by default', () => {
+        const userEntitlements = getExportedTable('userEntitlements');
+
+        const userId = getColumn(userEntitlements, 'user_id');
+        const entitlementKey = getColumn(userEntitlements, 'entitlement_key');
+        const source = getColumn(userEntitlements, 'source');
+        const expiresAt = getColumn(userEntitlements, 'expires_at');
+        const createdAt = getColumn(userEntitlements, 'created_at');
+
+        expect(userId.notNull).toBe(true);
+        expect(entitlementKey.notNull).toBe(true);
+        expect(source.notNull).toBe(true);
+        expect(expiresAt.notNull).toBe(false);
+        expect(createdAt.notNull).toBe(true);
+
+        const primaryKey = getPrimaryKey(
+            userEntitlements,
+            'user_entitlements_user_id_entitlement_key_pk',
+        );
+        const userForeignKey = getForeignKey(
+            userEntitlements,
+            'user_entitlements_user_id_users_id_fk',
+        );
+        const entitlementForeignKey = getForeignKey(
+            userEntitlements,
+            'user_entitlements_entitlement_key_feature_entitlements_key_fk',
+        );
+
+        expect(primaryKey.columns.map((column) => column.name)).toEqual([
+            'user_id',
+            'entitlement_key',
+        ]);
+        expect(userForeignKey.onDelete).toBe('cascade');
+        expect(entitlementForeignKey.onDelete).toBe('no action');
+    });
+});

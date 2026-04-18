@@ -12,6 +12,7 @@ import {
     real,
     jsonb,
     uuid,
+    index,
     primaryKey,
     uniqueIndex,
 } from 'drizzle-orm/pg-core';
@@ -81,9 +82,15 @@ export type CommunityProfileLink = {
     readonly url: string;
 };
 export type CommunityPostCopySensPreset = CommunityPostAnalysisSnapshot['sensSnapshot'];
+export type CommunityPostCopyTarget = 'clipboard' | 'profile_draft' | 'preset';
 export type CommunityCommentStatus = 'visible' | 'author_deleted' | 'moderator_hidden';
 export type CommunityReportEntityType = 'post' | 'comment' | 'profile';
 export type CommunityReportStatus = 'open' | 'reviewed' | 'dismissed' | 'actioned';
+export type CommunityFeatureEntitlementStatus = 'inactive' | 'active';
+export type CommunityUserEntitlementSource =
+    | 'manual'
+    | 'subscription_future'
+    | 'creator_program_future';
 
 // ═══════════════════════════════════════════
 // Auth.js Tables (NextAuth adapter)
@@ -124,6 +131,8 @@ export const usersRelations = relations(users, ({ one, many }) => ({
         references: [communityProfiles.userId],
     }),
     communityPosts: many(communityPosts),
+    communityPostCopyEvents: many(communityPostCopyEvents),
+    userEntitlements: many(userEntitlements),
 }));
 
 export const accounts = pgTable(
@@ -434,7 +443,7 @@ export const communityPosts = pgTable(
     (table) => [uniqueIndex('community_posts_slug_uidx').on(table.slug)],
 );
 
-export const communityPostsRelations = relations(communityPosts, ({ one }) => ({
+export const communityPostsRelations = relations(communityPosts, ({ one, many }) => ({
     author: one(users, {
         fields: [communityPosts.authorId],
         references: [users.id],
@@ -451,6 +460,7 @@ export const communityPostsRelations = relations(communityPosts, ({ one }) => ({
         fields: [communityPosts.id],
         references: [communityPostAnalysisSnapshots.postId],
     }),
+    copyEvents: many(communityPostCopyEvents),
 }));
 
 export const communityPostAnalysisSnapshots = pgTable('community_post_analysis_snapshots', {
@@ -568,6 +578,38 @@ export const communityPostSavesRelations = relations(communityPostSaves, ({ one 
     }),
 }));
 
+export const communityPostCopyEvents = pgTable(
+    'community_post_copy_events',
+    {
+        id: uuid('id').defaultRandom().primaryKey(),
+        postId: uuid('post_id')
+            .notNull()
+            .references(() => communityPosts.id, { onDelete: 'cascade' }),
+        copiedByUserId: uuid('copied_by_user_id').references(() => users.id, {
+            onDelete: 'set null',
+        }),
+        copyTarget: text('copy_target').$type<CommunityPostCopyTarget>().notNull(),
+        createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    },
+    (table) => [
+        index('community_post_copy_events_post_id_created_at_idx').on(
+            table.postId,
+            table.createdAt,
+        ),
+    ],
+);
+
+export const communityPostCopyEventsRelations = relations(communityPostCopyEvents, ({ one }) => ({
+    post: one(communityPosts, {
+        fields: [communityPostCopyEvents.postId],
+        references: [communityPosts.id],
+    }),
+    copiedByUser: one(users, {
+        fields: [communityPostCopyEvents.copiedByUserId],
+        references: [users.id],
+    }),
+}));
+
 export const communityPostComments = pgTable('community_post_comments', {
     id: uuid('id').defaultRandom().primaryKey(),
     postId: uuid('post_id')
@@ -679,6 +721,53 @@ export const communityModerationActionsRelations = relations(
     }),
 );
 
+export const featureEntitlements = pgTable('feature_entitlements', {
+    key: text('key').$type<CommunityEntitlementKey>().primaryKey(),
+    description: text('description').notNull(),
+    status: text('status')
+        .$type<CommunityFeatureEntitlementStatus>()
+        .notNull()
+        .default('inactive'),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+});
+
+export const featureEntitlementsRelations = relations(featureEntitlements, ({ many }) => ({
+    userEntitlements: many(userEntitlements),
+}));
+
+export const userEntitlements = pgTable(
+    'user_entitlements',
+    {
+        userId: uuid('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        entitlementKey: text('entitlement_key')
+            .$type<CommunityEntitlementKey>()
+            .notNull()
+            .references(() => featureEntitlements.key),
+        source: text('source').$type<CommunityUserEntitlementSource>().notNull(),
+        expiresAt: timestamp('expires_at', { mode: 'date' }),
+        createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    },
+    (table) => [
+        primaryKey({
+            columns: [table.userId, table.entitlementKey],
+            name: 'user_entitlements_user_id_entitlement_key_pk',
+        }),
+    ],
+);
+
+export const userEntitlementsRelations = relations(userEntitlements, ({ one }) => ({
+    user: one(users, {
+        fields: [userEntitlements.userId],
+        references: [users.id],
+    }),
+    featureEntitlement: one(featureEntitlements, {
+        fields: [userEntitlements.entitlementKey],
+        references: [featureEntitlements.key],
+    }),
+}));
+
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // System / Bot Status
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -744,6 +833,8 @@ export type CommunityPostLikeRow = typeof communityPostLikes.$inferSelect;
 export type NewCommunityPostLike = typeof communityPostLikes.$inferInsert;
 export type CommunityPostSaveRow = typeof communityPostSaves.$inferSelect;
 export type NewCommunityPostSave = typeof communityPostSaves.$inferInsert;
+export type CommunityPostCopyEventRow = typeof communityPostCopyEvents.$inferSelect;
+export type NewCommunityPostCopyEvent = typeof communityPostCopyEvents.$inferInsert;
 export type CommunityPostCommentRow = typeof communityPostComments.$inferSelect;
 export type NewCommunityPostComment = typeof communityPostComments.$inferInsert;
 export type CommunityFollowRow = typeof communityFollows.$inferSelect;
@@ -752,3 +843,7 @@ export type CommunityReportRow = typeof communityReports.$inferSelect;
 export type NewCommunityReport = typeof communityReports.$inferInsert;
 export type CommunityModerationActionRow = typeof communityModerationActions.$inferSelect;
 export type NewCommunityModerationAction = typeof communityModerationActions.$inferInsert;
+export type FeatureEntitlementRow = typeof featureEntitlements.$inferSelect;
+export type NewFeatureEntitlement = typeof featureEntitlements.$inferInsert;
+export type UserEntitlementRow = typeof userEntitlements.$inferSelect;
+export type NewUserEntitlement = typeof userEntitlements.$inferInsert;

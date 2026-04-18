@@ -312,6 +312,18 @@ TDD:
 - primeiro testar o contrato das tabelas novas;
 - depois implementar schema e migration.
 
+Status:
+
+- concluida em 2026-04-18
+
+Evidence:
+
+- `src/db/schema.test.ts` foi atualizado primeiro para cobrir `community_post_copy_events`, `feature_entitlements` e `user_entitlements`, incluindo nullable actor em copy events, PK composta em user entitlements e default `inactive` no catalogo de features
+- `src/db/schema.ts` foi estendido com as tres tabelas novas, FKs para `community_posts`, `users` e `feature_entitlements`, mantendo o scaffold de monetizacao inativo
+- `community_post_copy_events` ficou com `post_id`, `copied_by_user_id` nullable, `copy_target`, `created_at` e indice por `post_id + created_at`
+- `drizzle/0006_community_copy_and_entitlements.sql` foi criado para materializar copy events e o catalogo/mapa de entitlements sem ativar nenhuma feature premium
+- validacoes executadas: `npx vitest run src/db/schema.test.ts` -> RED com 3 falhas por ausencia dos novos exports/tabelas; `npx vitest run src/db/schema.test.ts` -> GREEN com 17 testes verdes; `npm run typecheck` -> ok
+
 ---
 
 ## W20 - Publishing

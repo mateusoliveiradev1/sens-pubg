@@ -31,3 +31,11 @@
 - RED: `npx vitest run src/db/schema.test.ts` falhou com 6 falhas porque `community_post_likes`, `community_post_saves`, `community_post_comments`, `community_follows`, `community_reports` e `community_moderation_actions` ainda nao existiam no schema
 - GREEN: `npx vitest run src/db/schema.test.ts` passou com 14/14 testes; `npm run typecheck` passou sem erros
 - Acceptance: likes/saves/follows ficaram com chaves compostas e FKs corretas; comentarios e reports ganharam estados minimos (`visible` e `open`); reports e moderation actions ficaram auditaveis com revisor/ator, notas e metadata
+
+## W10-T04 - Adicionar tabela de copy events e scaffold de entitlements
+
+- Status: concluida
+- Escopo: apenas `src/db/schema.ts`, `src/db/schema.test.ts`, `drizzle/0006_community_copy_and_entitlements.sql` e evidencias documentais
+- RED: `npx vitest run src/db/schema.test.ts` falhou com 3 falhas porque `community_post_copy_events`, `feature_entitlements` e `user_entitlements` ainda nao existiam no schema
+- GREEN: `npx vitest run src/db/schema.test.ts` passou com 17/17 testes; `npm run typecheck` passou sem erros
+- Acceptance: `community_post_copy_events` ficou com `postId`, `copiedByUserId` nullable, `copyTarget` e `createdAt`; `feature_entitlements` e `user_entitlements` foram adicionadas com FKs/PKs corretas e default `inactive`, sem ativar nenhuma feature premium
