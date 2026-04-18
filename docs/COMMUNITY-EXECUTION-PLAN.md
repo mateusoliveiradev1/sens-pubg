@@ -225,6 +225,19 @@ TDD:
 - primeiro testar relacoes e constraints esperadas;
 - depois atualizar schema e migration.
 
+Status:
+
+- concluida em 2026-04-18
+
+Evidence:
+
+- `src/db/schema.ts` estendido com `community_profiles`, `community_posts` e `community_post_analysis_snapshots`
+- `community_posts` ficou com FKs para `users`, `community_profiles` e `analysis_sessions`, com `community_posts_slug_uidx` para o slug publico
+- `community_post_analysis_snapshots` passou a persistir o contrato travado em `src/core/community-post-snapshot.ts`, incluindo `analysis_result_id`, `analysis_timestamp`, `analysis_result_schema_version`, `attachments_snapshot`, `metrics_snapshot`, `diagnoses_snapshot`, `coaching_snapshot`, `sens_snapshot` e `tracking_snapshot`
+- `src/db/schema.test.ts` foi atualizado para cobrir campos obrigatorios, unicidade principal e FKs das tres tabelas core
+- `drizzle/0004_community_core.sql` criado para materializar as tres tabelas e constraints principais
+- validacoes executadas: `npx vitest run src/db/schema.test.ts` -> 8 testes verdes; `npm run typecheck` -> ok
+
 ### W10-T03 - Adicionar tabelas de engagement e moderacao
 
 Goal:

@@ -15,3 +15,11 @@
 - RED: `npx vitest run src/core/community-post-snapshot.test.ts` falhou com 2 falhas porque `src/core/community-post-snapshot.ts` ainda nao existia
 - GREEN: `npx vitest run src/core/community-post-snapshot.test.ts` passou com 2/2 testes
 - Acceptance: o snapshot tecnico ficou travado com mapper deterministico de `AnalysisResult` + sessao, incluindo patch, arma, scope, distance, attachments, metrics, diagnoses, coaching, sens e tracking pronto para sustentar `community_post_analysis_snapshots`
+
+## W10-T02 - Estender schema com tabelas comunitarias core
+
+- Status: concluida
+- Escopo: apenas `src/db/schema.ts`, `src/db/schema.test.ts`, `drizzle/0004_community_core.sql` e evidencias documentais
+- RED: `npx vitest run src/db/schema.test.ts` falhou com 4 falhas porque `community_profiles`, `community_posts` e `community_post_analysis_snapshots` ainda nao existiam no schema
+- GREEN: `npx vitest run src/db/schema.test.ts` passou com 8/8 testes; `npm run typecheck` passou sem erros
+- Acceptance: o schema agora possui as tres tabelas core, FKs principais com `users`/`analysis_sessions`, slug unico para `community_posts` e persistencia completa do contrato travado em `src/core/community-post-snapshot.ts`
