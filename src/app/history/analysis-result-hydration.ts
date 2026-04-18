@@ -1,6 +1,11 @@
 import { createAnalysisContext } from '@/app/analyze/analysis-context';
 import { normalizePatchVersion } from '@/game/pubg';
-import type { AnalysisResult } from '@/types/engine';
+import type {
+    AnalysisResult,
+    ProfileType,
+    SensitivityAcceptanceFeedback,
+    SensitivityAcceptanceOutcome,
+} from '@/types/engine';
 
 export interface HydrateAnalysisResultFromHistoryInput {
     readonly fullResult: Record<string, unknown>;
@@ -37,6 +42,41 @@ function normalizeTrackingStatusCounts(
     };
 }
 
+function normalizeSensitivityAcceptanceOutcome(
+    value: unknown,
+): SensitivityAcceptanceOutcome | undefined {
+    return value === 'improved' || value === 'same' || value === 'worse'
+        ? value
+        : undefined;
+}
+
+function normalizeSensitivityAcceptanceFeedback(
+    value: unknown,
+): SensitivityAcceptanceFeedback | undefined {
+    if (!value || typeof value !== 'object') {
+        return undefined;
+    }
+
+    const feedback = value as Partial<SensitivityAcceptanceFeedback>;
+    const outcome = normalizeSensitivityAcceptanceOutcome(feedback.outcome);
+    const testedProfile = feedback.testedProfile;
+    const recordedAt = feedback.recordedAt;
+
+    if (
+        outcome === undefined
+        || (testedProfile !== 'low' && testedProfile !== 'balanced' && testedProfile !== 'high')
+        || typeof recordedAt !== 'string'
+    ) {
+        return undefined;
+    }
+
+    return {
+        outcome,
+        testedProfile: testedProfile as ProfileType,
+        recordedAt,
+    };
+}
+
 function normalizeSensitivityRecommendation(
     result: AnalysisResult
 ): AnalysisResult['sensitivity'] | undefined {
@@ -52,6 +92,10 @@ function normalizeSensitivityRecommendation(
         : 0.5;
     const clipCount = result.subSessions?.length ?? 1;
     const hasLegacyRecommendationMetadata = sensitivity.evidenceTier !== undefined || typeof sensitivity.confidenceScore === 'number';
+    const {
+        acceptanceFeedback: rawAcceptanceFeedback,
+        ...restSensitivity
+    } = sensitivity;
     const tier = sensitivity.tier
         ?? (!hasLegacyRecommendationMetadata
             ? 'test_profiles'
@@ -60,12 +104,14 @@ function normalizeSensitivityRecommendation(
             : evidenceTier === 'strong' && confidenceScore >= 0.8 && clipCount >= 3
                 ? 'apply_ready'
                 : 'test_profiles');
+    const acceptanceFeedback = normalizeSensitivityAcceptanceFeedback(rawAcceptanceFeedback);
 
     return {
-        ...sensitivity,
+        ...restSensitivity,
         evidenceTier,
         confidenceScore,
         tier,
+        ...(acceptanceFeedback ? { acceptanceFeedback } : {}),
     };
 }
 

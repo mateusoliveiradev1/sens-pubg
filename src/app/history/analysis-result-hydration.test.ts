@@ -153,4 +153,26 @@ describe('hydrateAnalysisResultFromHistory', () => {
         expect(result.sensitivity.confidenceScore).toBe(0.5);
         expect(result.sensitivity.tier).toBe('test_profiles');
     });
+
+    it('drops malformed sensitivity acceptance feedback from legacy payloads', () => {
+        const result = hydrateAnalysisResultFromHistory({
+            fullResult: createStoredResult({
+                sensitivity: {
+                    profiles: [],
+                    recommended: 'balanced',
+                    reasoning: 'legacy recommendation',
+                    acceptanceFeedback: {
+                        outcome: 'great',
+                        testedProfile: 'balanced',
+                        recordedAt: 123,
+                    },
+                },
+            }),
+            recordPatchVersion: '41.1',
+            scopeId: 'red-dot',
+            distanceMeters: 30,
+        });
+
+        expect(result.sensitivity.acceptanceFeedback).toBeUndefined();
+    });
 });

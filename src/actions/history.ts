@@ -1,6 +1,7 @@
 'use server';
 
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
+import { revalidatePath } from 'next/cache';
 
 import { auth } from '@/auth';
 import { enrichAnalysisResultCoaching } from '@/core/analysis-result-coach-enrichment';
@@ -14,7 +15,10 @@ import { normalizePatchVersion } from '@/game/pubg';
 import { createGroqCoachClient } from '@/server/coach/groq-coach-client';
 import type {
     AnalysisResult,
+    ProfileType,
     RecommendationEvidenceTier,
+    SensitivityAcceptanceFeedback,
+    SensitivityAcceptanceOutcome,
     SensitivityRecommendationTier,
 } from '@/types/engine';
 
@@ -68,6 +72,41 @@ function normalizeHistoryEvidenceTier(value: unknown): RecommendationEvidenceTie
         : 'moderate';
 }
 
+function normalizeHistoryAcceptanceOutcome(
+    value: unknown,
+): SensitivityAcceptanceOutcome | undefined {
+    return value === 'improved' || value === 'same' || value === 'worse'
+        ? value
+        : undefined;
+}
+
+function normalizeStoredAcceptanceFeedback(
+    value: unknown,
+): SensitivityAcceptanceFeedback | undefined {
+    if (!value || typeof value !== 'object') {
+        return undefined;
+    }
+
+    const feedback = value as Partial<SensitivityAcceptanceFeedback>;
+    const outcome = normalizeHistoryAcceptanceOutcome(feedback.outcome);
+    const testedProfile = feedback.testedProfile;
+    const recordedAt = feedback.recordedAt;
+
+    if (
+        outcome === undefined
+        || (testedProfile !== 'low' && testedProfile !== 'balanced' && testedProfile !== 'high')
+        || typeof recordedAt !== 'string'
+    ) {
+        return undefined;
+    }
+
+    return {
+        outcome,
+        testedProfile: testedProfile as ProfileType,
+        recordedAt,
+    };
+}
+
 function normalizeHistoryTier(
     value: unknown,
     evidenceTier: RecommendationEvidenceTier,
@@ -108,18 +147,35 @@ function extractHistoricalSensitivitySignal(
     const confidenceScore = typeof storedSensitivity.confidenceScore === 'number'
         ? storedSensitivity.confidenceScore
         : 0.5;
-    const evidenceTier = normalizeHistoryEvidenceTier(storedSensitivity.evidenceTier);
+    const acceptanceFeedback = normalizeStoredAcceptanceFeedback(storedSensitivity.acceptanceFeedback);
+    let evidenceTier = normalizeHistoryEvidenceTier(storedSensitivity.evidenceTier);
     const clipCount = Array.isArray(fullResult?.subSessions)
         ? fullResult.subSessions.length
         : 1;
+    let adjustedConfidenceScore = confidenceScore;
+
+    if (acceptanceFeedback?.outcome === 'improved') {
+        adjustedConfidenceScore = Math.min(0.98, adjustedConfidenceScore + 0.06);
+    } else if (acceptanceFeedback?.outcome === 'same') {
+        adjustedConfidenceScore = Math.min(0.96, adjustedConfidenceScore + 0.02);
+    } else if (acceptanceFeedback?.outcome === 'worse') {
+        adjustedConfidenceScore = Math.max(0.35, adjustedConfidenceScore - 0.3);
+        evidenceTier = 'weak';
+    }
+
+    let tier = normalizeHistoryTier(storedSensitivity.tier, evidenceTier, adjustedConfidenceScore, clipCount);
+    if (acceptanceFeedback?.outcome === 'worse') {
+        tier = 'capture_again';
+    }
 
     return {
         sessionId: session.id,
         createdAt: session.createdAt,
         recommendedProfile,
-        tier: normalizeHistoryTier(storedSensitivity.tier, evidenceTier, confidenceScore, clipCount),
+        tier,
         evidenceTier,
-        confidenceScore,
+        confidenceScore: adjustedConfidenceScore,
+        ...(acceptanceFeedback ? { acceptanceOutcome: acceptanceFeedback.outcome } : {}),
     };
 }
 
@@ -276,6 +332,114 @@ export async function saveAnalysisResult(
     }
 }
 
+export async function recordSensitivityAcceptance(
+    sessionId: string,
+    outcome: SensitivityAcceptanceOutcome,
+) {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return {
+            success: false as const,
+            error: 'Nao autenticado.',
+        };
+    }
+
+    try {
+        const [storedSession] = await db
+            .select({
+                id: analysisSessions.id,
+                fullResult: analysisSessions.fullResult,
+            })
+            .from(analysisSessions)
+            .where(
+                and(
+                    eq(analysisSessions.id, sessionId),
+                    eq(analysisSessions.userId, session.user.id),
+                ),
+            )
+            .limit(1);
+
+        if (!storedSession) {
+            return {
+                success: false as const,
+                error: 'Sessao nao encontrada.',
+            };
+        }
+
+        const fullResult: Record<string, unknown> = storedSession.fullResult && typeof storedSession.fullResult === 'object'
+            ? storedSession.fullResult
+            : {};
+        const sensitivity = fullResult.sensitivity;
+
+        if (!sensitivity || typeof sensitivity !== 'object') {
+            return {
+                success: false as const,
+                error: 'Sessao sem recomendacao de sens.',
+            };
+        }
+
+        const storedSensitivity = sensitivity as Record<string, unknown>;
+        const testedProfile = storedSensitivity.recommended;
+
+        if (testedProfile !== 'low' && testedProfile !== 'balanced' && testedProfile !== 'high') {
+            return {
+                success: false as const,
+                error: 'Perfil de sensibilidade invalido no historico.',
+            };
+        }
+
+        const acceptanceFeedback: SensitivityAcceptanceFeedback = {
+            outcome,
+            testedProfile,
+            recordedAt: new Date().toISOString(),
+        };
+
+        await db.update(analysisSessions)
+            .set({
+                fullResult: {
+                    ...fullResult,
+                    sensitivity: {
+                        ...storedSensitivity,
+                        acceptanceFeedback,
+                    },
+                },
+            })
+            .where(
+                and(
+                    eq(analysisSessions.id, sessionId),
+                    eq(analysisSessions.userId, session.user.id),
+                ),
+            );
+
+        await db.update(sensitivityHistory)
+            .set({ applied: false })
+            .where(eq(sensitivityHistory.sessionId, sessionId));
+
+        await db.update(sensitivityHistory)
+            .set({ applied: true })
+            .where(
+                and(
+                    eq(sensitivityHistory.sessionId, sessionId),
+                    eq(sensitivityHistory.profileType, testedProfile),
+                ),
+            );
+
+        revalidatePath('/history');
+        revalidatePath(`/history/${sessionId}`);
+
+        return {
+            success: true as const,
+            acceptanceFeedback,
+        };
+    } catch (err) {
+        console.error('[recordSensitivityAcceptance] Error:', err);
+        return {
+            success: false as const,
+            error: 'Erro ao salvar o resultado do teste da sens.',
+        };
+    }
+}
+
 export async function getHistorySessions() {
     const session = await auth();
     if (!session?.user?.id) {
@@ -295,6 +459,7 @@ export async function getHistorySessions() {
                 createdAt: analysisSessions.createdAt,
                 weaponName: weaponProfiles.name,
                 weaponCategory: weaponProfiles.category,
+                fullResult: analysisSessions.fullResult,
             })
             .from(analysisSessions)
             .leftJoin(
@@ -304,7 +469,24 @@ export async function getHistorySessions() {
             .where(eq(analysisSessions.userId, session.user.id))
             .orderBy(analysisSessions.createdAt);
 
-        return result;
+        return result.map(({ fullResult, ...historySession }) => {
+            const sensitivity = fullResult && typeof fullResult === 'object'
+                ? (fullResult as Record<string, unknown>).sensitivity
+                : undefined;
+            const storedSensitivity = sensitivity && typeof sensitivity === 'object'
+                ? sensitivity as Record<string, unknown>
+                : undefined;
+            const recommendedProfile = storedSensitivity?.recommended;
+            const acceptanceFeedback = normalizeStoredAcceptanceFeedback(storedSensitivity?.acceptanceFeedback);
+
+            return {
+                ...historySession,
+                ...(recommendedProfile === 'low' || recommendedProfile === 'balanced' || recommendedProfile === 'high'
+                    ? { recommendedProfile }
+                    : {}),
+                ...(acceptanceFeedback ? { acceptanceFeedback } : {}),
+            };
+        });
     } catch (err) {
         console.error('[getHistorySessions] Error:', err);
         return [];

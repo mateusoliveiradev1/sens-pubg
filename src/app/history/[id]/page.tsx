@@ -8,6 +8,7 @@ import { SCOPE_LIST } from '@/game/pubg';
 import { formatAnalysisDistancePresentation } from '@/app/analyze/analysis-distance-presentation';
 import { ResultsDashboard } from '@/app/analyze/results-dashboard';
 import { hydrateAnalysisResultFromHistory } from '../analysis-result-hydration';
+import { SensitivityAcceptancePanel } from './sensitivity-acceptance-panel';
 
 interface Props {
     params: Promise<{ id: string }>;
@@ -118,6 +119,10 @@ export default async function HistoryDetailRoute({ params }: Props) {
                         </div>
                     </div>
 
+                    <SensitivityAcceptancePanel
+                        sessionId={record.id}
+                        sensitivity={analysisResult.sensitivity}
+                    />
                     <ResultsDashboard result={analysisResult} />
                 </div>
             </div>

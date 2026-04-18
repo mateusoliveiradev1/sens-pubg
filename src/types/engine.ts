@@ -382,6 +382,7 @@ export type ProfileType = 'low' | 'balanced' | 'high';
 export type RecommendationEvidenceTier = 'weak' | 'moderate' | 'strong';
 export type SensitivityRecommendationTier = 'capture_again' | 'test_profiles' | 'apply_ready';
 export type SensitivityHistoryAgreement = 'aligned' | 'mixed' | 'conflicting';
+export type SensitivityAcceptanceOutcome = 'improved' | 'same' | 'worse';
 
 export interface ScopeSensitivity {
     readonly scopeName: string;
@@ -409,6 +410,12 @@ export interface SensitivityHistoryConvergence {
     readonly summary: string;
 }
 
+export interface SensitivityAcceptanceFeedback {
+    readonly outcome: SensitivityAcceptanceOutcome;
+    readonly testedProfile: ProfileType;
+    readonly recordedAt: string;
+}
+
 export interface SensitivityRecommendation {
     readonly profiles: readonly [
         SensitivityProfile, // LOW
@@ -421,6 +428,7 @@ export interface SensitivityRecommendation {
     readonly confidenceScore: number;
     readonly reasoning: string;
     readonly historyConvergence?: SensitivityHistoryConvergence;
+    readonly acceptanceFeedback?: SensitivityAcceptanceFeedback;
     readonly suggestedVSM?: number; // Recomendaçao do Vertical Sensitivity Multiplier (1.0-2.0)
 }
 

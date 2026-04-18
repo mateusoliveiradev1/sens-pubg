@@ -10,6 +10,7 @@ import type {
     AnalysisResult,
     DiagnosisType,
     RecommendationEvidenceTier,
+    SensitivityAcceptanceOutcome,
     SensitivityProfile,
     SensitivityRecommendationTier,
     VideoQualityBlockingReason,
@@ -311,6 +312,18 @@ function formatSensitivityEvidenceTier(evidenceTier: RecommendationEvidenceTier)
     return 'moderada';
 }
 
+function formatSensitivityAcceptanceOutcome(outcome: SensitivityAcceptanceOutcome): string {
+    if (outcome === 'improved') {
+        return 'melhorou';
+    }
+
+    if (outcome === 'worse') {
+        return 'piorou';
+    }
+
+    return 'ficou igual';
+}
+
 function buildSensitivityTierExplanation(
     tier: SensitivityRecommendationTier,
     sampleCount: number
@@ -555,6 +568,10 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
         sensitivity.tier,
         sampleCount
     );
+    const sensitivityAcceptanceFeedback = sensitivity.acceptanceFeedback;
+    const sensitivityAcceptanceLabel = sensitivityAcceptanceFeedback
+        ? formatSensitivityAcceptanceOutcome(sensitivityAcceptanceFeedback.outcome)
+        : null;
 
     // Group coach feedback by similar diagnosis types for deduplication
     const groupedCoaching = [...coaching].reduce<{ key: string; items: (typeof coaching)[number][] }[]>((acc, c) => {
@@ -1010,6 +1027,11 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                             Historico {sensitivity.historyConvergence.consideredSessions} sessoes
                         </span>
                     ) : null}
+                    {sensitivity.acceptanceFeedback ? (
+                        <span className={sensitivity.acceptanceFeedback.outcome === 'improved' ? 'badge badge-success' : sensitivity.acceptanceFeedback.outcome === 'worse' ? 'badge badge-warning' : 'badge badge-info'}>
+                            Teste real {sensitivityAcceptanceLabel}
+                        </span>
+                    ) : null}
                 </div>
                 <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-lg)', lineHeight: 1.6 }}>
                     {sensitivityTierExplanation}
@@ -1017,6 +1039,11 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                 {sensitivity.historyConvergence ? (
                     <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-lg)', lineHeight: 1.6 }}>
                         {sensitivity.historyConvergence.summary}
+                    </p>
+                ) : null}
+                {sensitivity.acceptanceFeedback ? (
+                    <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-lg)', lineHeight: 1.6 }}>
+                        Resultado validado no historico: o perfil {recommendedProfile?.label ?? sensitivity.acceptanceFeedback.testedProfile} {sensitivityAcceptanceLabel} em teste real. Ultimo registro em {new Date(sensitivity.acceptanceFeedback.recordedAt).toLocaleString('pt-BR')}.
                     </p>
                 ) : null}
                 <div className={styles.profilesGrid}>

@@ -1,6 +1,7 @@
 import type {
     ProfileType,
     RecommendationEvidenceTier,
+    SensitivityAcceptanceOutcome,
     SensitivityHistoryConvergence,
     SensitivityRecommendation,
     SensitivityRecommendationTier,
@@ -13,6 +14,7 @@ export interface HistoricalSensitivitySignal {
     readonly tier: SensitivityRecommendationTier;
     readonly evidenceTier: RecommendationEvidenceTier;
     readonly confidenceScore: number;
+    readonly acceptanceOutcome?: SensitivityAcceptanceOutcome;
 }
 
 const PROFILE_LABELS: Record<ProfileType, string> = {
@@ -36,7 +38,8 @@ function formatProfileLabel(profile: ProfileType): string {
 }
 
 function isEligibleHistorySignal(signal: HistoricalSensitivitySignal): boolean {
-    return signal.tier !== 'capture_again'
+    return signal.acceptanceOutcome !== 'worse'
+        && signal.tier !== 'capture_again'
         && signal.evidenceTier !== 'weak'
         && signal.confidenceScore >= 0.58;
 }
@@ -46,8 +49,13 @@ function getSignalWeight(signal: HistoricalSensitivitySignal, index: number): nu
     const tierWeight = signal.tier === 'apply_ready' ? 1.08 : 1;
     const recencyWeight = Math.max(0.72, 1 - (index * 0.08));
     const confidenceWeight = clamp(signal.confidenceScore, 0.5, 1);
+    const feedbackWeight = signal.acceptanceOutcome === 'improved'
+        ? 1.12
+        : signal.acceptanceOutcome === 'same'
+            ? 1.04
+            : 1;
 
-    return baseWeight * tierWeight * recencyWeight * confidenceWeight;
+    return baseWeight * tierWeight * recencyWeight * confidenceWeight * feedbackWeight;
 }
 
 function buildHistoryConvergenceSummary(

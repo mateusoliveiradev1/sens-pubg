@@ -199,4 +199,50 @@ describe('applySensitivityHistoryConvergence', () => {
             consensusProfile: 'balanced',
         });
     });
+
+    it('stops counting history marked as worse when reinforcing future recommendations', () => {
+        const recommendation = createRecommendation({
+            recommended: 'balanced',
+            tier: 'test_profiles',
+            evidenceTier: 'moderate',
+            confidenceScore: 0.71,
+        });
+
+        const converged = applySensitivityHistoryConvergence(recommendation, [
+            createSignal({
+                sessionId: 'history-1',
+                createdAt: new Date('2026-04-16T12:00:00.000Z'),
+                recommendedProfile: 'balanced',
+                tier: 'apply_ready',
+                evidenceTier: 'strong',
+                confidenceScore: 0.89,
+                acceptanceOutcome: 'improved',
+            }),
+            createSignal({
+                sessionId: 'history-2',
+                createdAt: new Date('2026-04-15T12:00:00.000Z'),
+                recommendedProfile: 'balanced',
+                tier: 'apply_ready',
+                evidenceTier: 'strong',
+                confidenceScore: 0.9,
+                acceptanceOutcome: 'worse',
+            }),
+            createSignal({
+                sessionId: 'history-3',
+                createdAt: new Date('2026-04-14T12:00:00.000Z'),
+                recommendedProfile: 'balanced',
+                tier: 'test_profiles',
+                evidenceTier: 'moderate',
+                confidenceScore: 0.78,
+            }),
+        ]);
+
+        expect(converged.historyConvergence).toMatchObject({
+            matchingSessions: 3,
+            consideredSessions: 2,
+            consensusProfile: 'balanced',
+            agreement: 'aligned',
+        });
+        expect(converged.reasoning).toContain('historySessions=2');
+    });
 });

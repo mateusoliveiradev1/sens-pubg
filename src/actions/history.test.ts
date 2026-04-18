@@ -8,12 +8,18 @@ const mocks = vi.hoisted(() => {
     const auth = vi.fn();
     const select = vi.fn();
     const from = vi.fn();
+    const leftJoin = vi.fn();
     const where = vi.fn();
     const limit = vi.fn();
+    const orderBy = vi.fn();
     const insert = vi.fn();
     const sessionValues = vi.fn();
     const returning = vi.fn();
     const historyValues = vi.fn();
+    const update = vi.fn();
+    const updateSet = vi.fn();
+    const updateWhere = vi.fn();
+    const revalidatePath = vi.fn();
     const enrichAnalysisResultCoaching = vi.fn();
     const createGroqCoachClient = vi.fn();
 
@@ -21,12 +27,18 @@ const mocks = vi.hoisted(() => {
         auth,
         select,
         from,
+        leftJoin,
         where,
         limit,
+        orderBy,
         insert,
         sessionValues,
         returning,
         historyValues,
+        update,
+        updateSet,
+        updateWhere,
+        revalidatePath,
         enrichAnalysisResultCoaching,
         createGroqCoachClient,
     };
@@ -40,7 +52,12 @@ vi.mock('@/db', () => ({
     db: {
         select: mocks.select,
         insert: mocks.insert,
+        update: mocks.update,
     },
+}));
+
+vi.mock('next/cache', () => ({
+    revalidatePath: mocks.revalidatePath,
 }));
 
 vi.mock('@/core/analysis-result-coach-enrichment', () => ({
@@ -51,7 +68,7 @@ vi.mock('@/server/coach/groq-coach-client', () => ({
     createGroqCoachClient: mocks.createGroqCoachClient,
 }));
 
-import { saveAnalysisResult } from './history';
+import { getHistorySessions, recordSensitivityAcceptance, saveAnalysisResult } from './history';
 
 function createAnalysisResult(): AnalysisResult {
     return {
@@ -157,11 +174,17 @@ describe('saveAnalysisResult', () => {
         });
         mocks.from.mockReturnValue({
             where: mocks.where,
+            leftJoin: mocks.leftJoin,
+        });
+        mocks.leftJoin.mockReturnValue({
+            where: mocks.where,
         });
         mocks.where.mockReturnValue({
             limit: mocks.limit,
+            orderBy: mocks.orderBy,
         });
         mocks.limit.mockResolvedValue([{ id: 'profile-1' }]);
+        mocks.orderBy.mockResolvedValue([]);
 
         mocks.insert.mockImplementation((table) => {
             if (table === analysisSessions) {
@@ -185,6 +208,13 @@ describe('saveAnalysisResult', () => {
         mocks.returning.mockResolvedValue([{ id: 'session-1' }]);
         mocks.limit.mockResolvedValueOnce([{ id: 'profile-1' }]).mockResolvedValue([]);
         mocks.historyValues.mockResolvedValue(undefined);
+        mocks.update.mockReturnValue({
+            set: mocks.updateSet,
+        });
+        mocks.updateSet.mockReturnValue({
+            where: mocks.updateWhere,
+        });
+        mocks.updateWhere.mockResolvedValue(undefined);
         mocks.createGroqCoachClient.mockReturnValue(undefined);
         mocks.enrichAnalysisResultCoaching.mockImplementation(async (result) => result);
     });
@@ -320,5 +350,143 @@ describe('saveAnalysisResult', () => {
                 }),
             }),
         }));
+    });
+
+    it('records real-world acceptance feedback for the recommended profile and syncs applied history', async () => {
+        const result = createAnalysisResult();
+
+        mocks.limit.mockReset();
+        mocks.limit.mockResolvedValueOnce([
+            {
+                id: 'session-1',
+                fullResult: result as unknown as Record<string, unknown>,
+            },
+        ]);
+
+        const saved = await recordSensitivityAcceptance('session-1', 'improved');
+
+        expect(saved).toMatchObject({
+            success: true,
+            acceptanceFeedback: {
+                outcome: 'improved',
+                testedProfile: 'balanced',
+            },
+        });
+        expect(mocks.update).toHaveBeenNthCalledWith(1, analysisSessions);
+        expect(mocks.updateSet).toHaveBeenNthCalledWith(1, expect.objectContaining({
+            fullResult: expect.objectContaining({
+                sensitivity: expect.objectContaining({
+                    acceptanceFeedback: expect.objectContaining({
+                        outcome: 'improved',
+                        testedProfile: 'balanced',
+                    }),
+                }),
+            }),
+        }));
+        expect(mocks.update).toHaveBeenNthCalledWith(2, sensitivityHistory);
+        expect(mocks.updateSet).toHaveBeenNthCalledWith(2, { applied: false });
+        expect(mocks.update).toHaveBeenNthCalledWith(3, sensitivityHistory);
+        expect(mocks.updateSet).toHaveBeenNthCalledWith(3, { applied: true });
+    });
+});
+
+describe('getHistorySessions', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+
+        mocks.auth.mockResolvedValue({
+            user: { id: 'user-1' },
+        });
+
+        mocks.select.mockReturnValue({
+            from: mocks.from,
+        });
+        mocks.from.mockReturnValue({
+            where: mocks.where,
+            leftJoin: mocks.leftJoin,
+        });
+        mocks.leftJoin.mockReturnValue({
+            where: mocks.where,
+        });
+        mocks.where.mockReturnValue({
+            limit: mocks.limit,
+            orderBy: mocks.orderBy,
+        });
+    });
+
+    it('returns normalized recommended profile and acceptance feedback for history cards', async () => {
+        mocks.orderBy.mockResolvedValue([
+            {
+                id: 'session-1',
+                weaponId: 'beryl-m762',
+                scopeId: 'red-dot',
+                patchVersion: CURRENT_PUBG_PATCH_VERSION,
+                stabilityScore: 78,
+                verticalControl: 1.02,
+                horizontalNoise: 0.18,
+                createdAt: new Date('2026-04-17T12:00:00.000Z'),
+                weaponName: 'Beryl M762',
+                weaponCategory: 'ar',
+                fullResult: {
+                    sensitivity: {
+                        recommended: 'balanced',
+                        acceptanceFeedback: {
+                            outcome: 'same',
+                            testedProfile: 'balanced',
+                            recordedAt: '2026-04-17T12:30:00.000Z',
+                        },
+                    },
+                },
+            },
+        ]);
+
+        const sessions = await getHistorySessions();
+
+        expect(sessions).toEqual([
+            expect.objectContaining({
+                id: 'session-1',
+                recommendedProfile: 'balanced',
+                acceptanceFeedback: expect.objectContaining({
+                    outcome: 'same',
+                    testedProfile: 'balanced',
+                    recordedAt: '2026-04-17T12:30:00.000Z',
+                }),
+            }),
+        ]);
+    });
+
+    it('drops malformed acceptance feedback instead of leaking invalid payloads to the page', async () => {
+        mocks.orderBy.mockResolvedValue([
+            {
+                id: 'session-2',
+                weaponId: 'm416',
+                scopeId: 'red-dot',
+                patchVersion: CURRENT_PUBG_PATCH_VERSION,
+                stabilityScore: 84,
+                verticalControl: 0.98,
+                horizontalNoise: 0.14,
+                createdAt: new Date('2026-04-17T13:00:00.000Z'),
+                weaponName: 'M416',
+                weaponCategory: 'ar',
+                fullResult: {
+                    sensitivity: {
+                        recommended: 'balanced',
+                        acceptanceFeedback: {
+                            outcome: 'broken',
+                            testedProfile: 'balanced',
+                            recordedAt: 123,
+                        },
+                    },
+                },
+            },
+        ]);
+
+        const [session] = await getHistorySessions();
+
+        expect(session).toMatchObject({
+            id: 'session-2',
+            recommendedProfile: 'balanced',
+        });
+        expect(session).not.toHaveProperty('acceptanceFeedback');
     });
 });
