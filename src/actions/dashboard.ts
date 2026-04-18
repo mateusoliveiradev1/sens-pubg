@@ -1,7 +1,7 @@
 'use server';
 
 import { db } from '@/db';
-import { analysisSessions, weaponProfiles } from '@/db/schema';
+import { analysisSessions, weaponProfiles, weaponRegistry } from '@/db/schema';
 import { auth } from '@/auth';
 import { eq, sql, gte, and, desc } from 'drizzle-orm';
 
@@ -13,7 +13,7 @@ export interface DashboardStats {
     bestSprayScore: number;
     lastSessionDelta: number; // diff between last 2 sessions
     weeklyTrend: { date: string; avgScore: number; peakScore: number }[];
-    weaponStats: { weaponId: string; weaponName: string; avgScore: number; count: number }[];
+    weaponStats: { weaponId: string; weaponName: string; weaponCategory: string | null; avgScore: number; count: number }[];
 }
 
 export async function getDashboardStats(): Promise<DashboardStats | null> {
@@ -74,14 +74,19 @@ export async function getDashboardStats(): Promise<DashboardStats | null> {
         const weapons = await db
             .select({
                 weaponId: analysisSessions.weaponId,
-                weaponName: sql<string>`MAX(${weaponProfiles.name})`,
+                weaponName: sql<string>`COALESCE(MAX(${weaponRegistry.name}), MAX(${weaponProfiles.name}))`,
+                weaponCategory: sql<string | null>`COALESCE(MAX(${weaponRegistry.category}), MAX(${weaponProfiles.category}))`,
                 avgScore: sql<number>`ROUND(avg(${scoreExpr}))`,
                 count: sql<number>`count(*)`,
             })
             .from(analysisSessions)
             .leftJoin(
+                weaponRegistry,
+                sql`${analysisSessions.weaponId} = ${weaponRegistry.weaponId}`
+            )
+            .leftJoin(
                 weaponProfiles,
-                sql`${analysisSessions.weaponId} = LOWER(REPLACE(${weaponProfiles.name}, ' ', '-'))`
+                sql`CASE WHEN ${analysisSessions.weaponId} ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN ${analysisSessions.weaponId}::uuid ELSE NULL END = ${weaponProfiles.id}`
             )
             .where(eq(analysisSessions.userId, userId))
             .groupBy(analysisSessions.weaponId)
@@ -102,6 +107,7 @@ export async function getDashboardStats(): Promise<DashboardStats | null> {
             weaponStats: weapons.map(w => ({
                 weaponId: w.weaponId,
                 weaponName: w.weaponName || w.weaponId.toUpperCase(),
+                weaponCategory: w.weaponCategory,
                 avgScore: Number(w.avgScore),
                 count: Number(w.count),
             })),
