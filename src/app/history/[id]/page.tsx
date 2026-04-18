@@ -8,6 +8,7 @@ import { SCOPE_LIST } from '@/game/pubg';
 import { formatAnalysisDistancePresentation } from '@/app/analyze/analysis-distance-presentation';
 import { ResultsDashboard } from '@/app/analyze/results-dashboard';
 import { hydrateAnalysisResultFromHistory } from '../analysis-result-hydration';
+import { PublishAnalysisButton } from './publish-analysis-button';
 import { SensitivityAcceptancePanel } from './sensitivity-acceptance-panel';
 import type { CoachDecisionTier } from '@/types/engine';
 
@@ -101,14 +102,23 @@ export default async function HistoryDetailRoute({ params }: Props) {
                 style={{ padding: 'calc(var(--header-height) + var(--space-2xl)) var(--space-md) var(--space-3xl)' }}
             >
                 <div style={{ maxWidth: 800, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 'var(--space-xl)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-md)' }}>
-                        <Link
-                            href="/history"
-                            className="btn btn-outline"
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-sm)' }}
-                        >
-                            <span>{'<-'}</span> Voltar
-                        </Link>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-md)' }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-sm)' }}>
+                            <Link
+                                href="/history"
+                                className="btn btn-outline"
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-sm)' }}
+                            >
+                                <span>{'<-'}</span> Voltar
+                            </Link>
+                            <PublishAnalysisButton
+                                analysisSessionId={record.id}
+                                weaponName={displayName}
+                                scopeName={scope?.name || record.scopeId}
+                                patchVersion={analysisResult.patchVersion}
+                                createdAtIso={record.createdAt.toISOString()}
+                            />
+                        </div>
                         <div style={{ textAlign: 'right' }}>
                             <h1
                                 style={{

@@ -448,6 +448,11 @@ TDD:
 - primeiro escrever E2E/interaction test da entrada;
 - depois implementar UI minima.
 
+- o RED foi confirmado com `npx playwright test e2e/community.publish-entry.spec.ts` falhando porque o CTA `Publicar na comunidade` ainda nao existia no detalhe do historico
+- `e2e/community.publish-entry.spec.ts` foi criado com seed real de `analysis_sessions`, cookie Auth.js local e cobertura para CTA visivel ao usuario autenticado e ausencia do CTA para usuario sem acesso ao detalhe
+- `src/app/history/[id]/publish-analysis-button.tsx` foi criado e integrado em `src/app/history/[id]/page.tsx` com acao minima para criar rascunho, preservando o layout atual do historico sem tocar em feed, post detail, queries publicas ou entitlement runtime
+- validacoes executadas: `npx playwright test e2e/community.publish-entry.spec.ts` -> 2 testes verdes; `npm run typecheck` -> ok
+
 ### W20-T04 - Implementar copy sens snapshot-first e copy event logging
 
 Goal:

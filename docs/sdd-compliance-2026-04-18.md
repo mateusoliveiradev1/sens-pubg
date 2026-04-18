@@ -56,3 +56,12 @@
 - GREEN: `npx vitest run src/lib/community-access.test.ts` passou com 6/6 testes; `npm run typecheck` passou sem erros
 - REFACTOR: helper interno de autor foi simplificado para remover non-null assertion, sem alterar a matriz de acesso
 - Acceptance: autor pode ver `draft`, `hidden` e `archived`; publico nao ve `draft`, `hidden`, `archived` nem `deleted`; `published` segue publico; o retorno da policy preserva `requiredEntitlementKey` com enforcement inativo para a futura W60
+
+## W20-T03 - Criar ponto de entrada na pagina de historico/detalhe
+
+- Status: concluida
+- Escopo: apenas `e2e/community.publish-entry.spec.ts`, `src/app/history/[id]/publish-analysis-button.tsx`, `src/app/history/[id]/page.tsx` e evidencias documentais
+- RED: `npx playwright test e2e/community.publish-entry.spec.ts` falhou porque o CTA `Publicar na comunidade` ainda nao existia no detalhe do historico
+- GREEN: `npx playwright test e2e/community.publish-entry.spec.ts` passou com 2/2 testes; `npm run typecheck` passou sem erros
+- REFACTOR: a linha superior do detalhe ganhou `flexWrap` para acomodar o CTA sem apertar a UX existente em larguras menores
+- Acceptance: usuario autenticado agora ve um CTA claro para publicar a analise; usuario sem acesso ao detalhe nao recebe CTA invalida; o fluxo legado do historico permaneceu carregando normalmente com o novo ponto de entrada
