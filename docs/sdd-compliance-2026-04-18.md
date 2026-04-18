@@ -65,3 +65,12 @@
 - GREEN: `npx playwright test e2e/community.publish-entry.spec.ts` passou com 2/2 testes; `npm run typecheck` passou sem erros
 - REFACTOR: a linha superior do detalhe ganhou `flexWrap` para acomodar o CTA sem apertar a UX existente em larguras menores
 - Acceptance: usuario autenticado agora ve um CTA claro para publicar a analise; usuario sem acesso ao detalhe nao recebe CTA invalida; o fluxo legado do historico permaneceu carregando normalmente com o novo ponto de entrada
+
+## W20-T04 - Implementar copy sens snapshot-first e copy event logging
+
+- Status: concluida
+- Escopo: apenas `src/actions/community-copy.ts`, `src/actions/community-copy.test.ts`, `src/app/community/[slug]/copy-sens-button.tsx` e evidencias documentais
+- RED: `npx vitest run src/actions/community-copy.test.ts` falhou porque `src/actions/community-copy.ts` ainda nao existia
+- GREEN: `npx vitest run src/actions/community-copy.test.ts` passou com 2/2 testes; `npm run typecheck` passou sem erros
+- REFACTOR: a action passou a normalizar `slug` e extrair `copySensPreset`/`clipboardText` para variaveis locais, sem alterar contrato nem persistencia
+- Acceptance: o copy agora usa `community_posts.copySensPreset` persistido, registra `community_post_copy_events` com `copiedByUserId` nullable e entrega payload de `clipboard` pronto para integracao futura via botao isolado

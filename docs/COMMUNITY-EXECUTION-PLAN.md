@@ -484,6 +484,19 @@ TDD:
 - primeiro testar persistencia e payload copiado;
 - depois implementar action.
 
+Status:
+
+- concluida em 2026-04-18
+
+Evidence:
+
+- `src/actions/community-copy.test.ts` foi criado primeiro cobrindo payload de clipboard derivado do `copySensPreset` persistido e logging em `community_post_copy_events`, incluindo caso anonimo com `copiedByUserId = null`
+- o RED foi confirmado com `npx vitest run src/actions/community-copy.test.ts` falhando porque `src/actions/community-copy.ts` ainda nao existia
+- `src/actions/community-copy.ts` foi criado com `copyCommunityPostSens`, lendo `community_posts.copySensPreset` por `slug`, sem reconstruir preset a partir de `analysis_sessions`, e persistindo `copyTarget = clipboard` em `community_post_copy_events`
+- a action devolve `copySensPreset` persistido e `clipboardText` formatado a partir do preset recomendado, deixando o cliente pronto para copiar sem acoplar feed, detalhe publico completo ou entitlement runtime
+- `src/app/community/[slug]/copy-sens-button.tsx` foi criado como botao cliente isolado, pronto para integracao futura, consumindo a action server-side e escrevendo no clipboard quando disponivel
+- validacoes executadas: `npx vitest run src/actions/community-copy.test.ts` -> RED por modulo ausente; `npx vitest run src/actions/community-copy.test.ts` -> GREEN com 2 testes verdes; `npm run typecheck` -> ok
+
 ---
 
 ## W30 - Feed & Discovery
