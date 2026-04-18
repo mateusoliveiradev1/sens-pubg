@@ -29,14 +29,14 @@ function extractVideoQualitySignals(report: VideoQualityReport | undefined): rea
 
     if (!report.usableForAnalysis) {
         const reasons = report.blockingReasons.length > 0
-            ? report.blockingReasons.join(', ')
-            : 'unknown capture blocker';
+            ? report.blockingReasons.map(formatVideoQualityBlockingReason).join(', ')
+            : 'bloqueio de captura desconhecido';
 
         return [{
             source: 'video_quality',
             area: 'capture_quality',
             key: 'video_quality.unusable',
-            summary: `Clip is not usable for analysis; blockers: ${reasons}.`,
+            summary: `O video ainda nao sustenta analise; bloqueios: ${reasons}.`,
             confidence: 1,
             coverage: 1,
             weight: 1,
@@ -49,7 +49,7 @@ function extractVideoQualitySignals(report: VideoQualityReport | undefined): rea
         source: 'video_quality',
         area: 'capture_quality',
         key: `video_quality.${tier}`,
-        summary: report.diagnostic?.summary ?? 'Clip is usable for coaching analysis.',
+        summary: report.diagnostic?.summary ?? 'O video esta usavel para a leitura do coach.',
         confidence: scoreToUnit(report.overallScore),
         coverage: 1,
         weight: 0.5,
@@ -64,7 +64,7 @@ function extractDiagnosisSignal(diagnosis: Diagnosis): CoachSignal {
         source: 'diagnosis',
         area,
         key: `diagnosis.${diagnosis.type}`,
-        summary: `${diagnosis.description} Cause: ${diagnosis.cause}`,
+        summary: `${diagnosis.description} Causa: ${diagnosis.cause}`,
         confidence: clampUnit(evidence?.confidence ?? diagnosis.confidence ?? 0.5),
         coverage: clampUnit(evidence?.coverage ?? 0.5),
         weight: clampUnit(diagnosis.severity / 5),
@@ -74,14 +74,14 @@ function extractDiagnosisSignal(diagnosis: Diagnosis): CoachSignal {
 function extractSensitivitySignal(sensitivity: SensitivityRecommendation): CoachSignal {
     const isCaptureBlocked = sensitivity.tier === 'capture_again';
     const blockerSuffix = isCaptureBlocked
-        ? ' This blocks aggressive sensitivity changes.'
+        ? ' Isso bloqueia mudancas agressivas de sensibilidade.'
         : '';
 
     return {
         source: 'sensitivity',
         area: 'sensitivity',
         key: `sensitivity.${sensitivity.tier}`,
-        summary: `Sensitivity tier ${sensitivity.tier} with ${sensitivity.evidenceTier} evidence and confidence ${sensitivity.confidenceScore}.${blockerSuffix}`,
+        summary: `Recomendacao de sensibilidade em modo ${formatSensitivityTier(sensitivity.tier)}, com evidencia ${formatSensitivityEvidenceTier(sensitivity.evidenceTier)} e confianca ${sensitivity.confidenceScore}.${blockerSuffix}`,
         confidence: clampUnit(sensitivity.confidenceScore),
         coverage: evidenceTierCoverage(sensitivity.evidenceTier),
         weight: isCaptureBlocked ? 1 : evidenceTierCoverage(sensitivity.evidenceTier),
@@ -108,7 +108,7 @@ function extractContextSignals(analysisResult: AnalysisResult): readonly CoachSi
         source: 'context',
         area: 'validation',
         key: 'context.optic',
-        summary: `Optic ${context.optic.opticName} (${context.optic.opticStateName}).`,
+        summary: `Mira ${context.optic.opticName} (${context.optic.opticStateName}).`,
         confidence: 1,
         coverage: 1,
         weight: 0.25,
@@ -118,7 +118,7 @@ function extractContextSignals(analysisResult: AnalysisResult): readonly CoachSi
         source: 'context',
         area: 'validation',
         key: 'context.distance',
-        summary: `Target distance ${formatMeters(context.targetDistanceMeters)}m (${context.distanceMode ?? 'unknown'}).`,
+        summary: `Distancia alvo ${formatMeters(context.targetDistanceMeters)}m (${formatDistanceMode(context.distanceMode)}).`,
         confidence: context.distanceMode === 'exact' ? 1 : 0.65,
         coverage: 1,
         weight: 0.25,
@@ -152,6 +152,55 @@ function evidenceTierCoverage(tier: SensitivityRecommendation['evidenceTier']): 
             return 0.65;
         case 'strong':
             return 0.9;
+    }
+}
+
+function formatVideoQualityBlockingReason(reason: VideoQualityReport['blockingReasons'][number]): string {
+    switch (reason) {
+        case 'low_sharpness':
+            return 'baixa nitidez';
+        case 'high_compression_burden':
+            return 'compressao pesada';
+        case 'low_reticle_contrast':
+            return 'baixo contraste da mira';
+        case 'unstable_roi':
+            return 'area da mira instavel';
+        case 'unstable_fps':
+            return 'FPS instavel';
+    }
+}
+
+function formatSensitivityTier(tier: SensitivityRecommendation['tier']): string {
+    switch (tier) {
+        case 'capture_again':
+            return 'capturar novamente';
+        case 'test_profiles':
+            return 'testar perfis';
+        case 'apply_ready':
+            return 'pronto para aplicar';
+    }
+}
+
+function formatSensitivityEvidenceTier(tier: SensitivityRecommendation['evidenceTier']): string {
+    switch (tier) {
+        case 'weak':
+            return 'fraca';
+        case 'moderate':
+            return 'moderada';
+        case 'strong':
+            return 'forte';
+    }
+}
+
+function formatDistanceMode(mode: NonNullable<AnalysisResult['analysisContext']>['distanceMode'] | undefined): string {
+    switch (mode) {
+        case 'exact':
+            return 'exata';
+        case 'estimated':
+            return 'estimada';
+        case 'unknown':
+        case undefined:
+            return 'nao informada';
     }
 }
 

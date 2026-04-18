@@ -248,6 +248,75 @@ describe('hydrateAnalysisResultFromHistory', () => {
         expect(result.coachPlan).toEqual(coachPlan);
     });
 
+    it('localizes legacy saved coach plan copy before rendering history', () => {
+        const coachPlan: CoachPlan = {
+            ...createStoredCoachPlan(),
+            sessionSummary: 'CoachPlan contract stub awaiting signal extraction and ranking.',
+            primaryFocus: {
+                ...createStoredCoachPlan().primaryFocus,
+                title: 'Vertical control',
+                whyNow: 'Compensacao vertical abaixo do ideal. Cause: sensibilidade alta.',
+            },
+            actionProtocols: [
+                {
+                    id: 'vertical-control-drill-protocol',
+                    kind: 'drill',
+                    instruction: 'Run three sprays focused on steady downward pull through the sustained phase.',
+                    expectedEffect: 'Confirms whether the vertical error improves before escalating to a sensitivity change.',
+                    risk: 'low',
+                    applyWhen: 'Use when vertical control is the primary focus and sensitivity is still experimental.',
+                    avoidWhen: 'Avoid changing sensitivity during the same three-spray comparison.',
+                },
+            ],
+            nextBlock: {
+                title: 'Short vertical control test block',
+                durationMinutes: 12,
+                steps: [
+                    'Run 3 comparable sprays focused on vertical control.',
+                    'Keep weapon, optic, distance, stance, attachments, and sensitivity fixed.',
+                    'Use the next clip to confirm whether the same signal repeats.',
+                ],
+                checks: [
+                    {
+                        label: 'vertical control validation',
+                        target: 'lower sustained vertical error across comparable sprays',
+                        minimumCoverage: 0.8,
+                        minimumConfidence: 0.75,
+                        successCondition: 'Success when vertical control improves while coverage and confidence stay above threshold.',
+                        failCondition: 'Fail if vertical control does not improve or evidence falls below threshold.',
+                    },
+                ],
+            },
+            stopConditions: [
+                'Stop if vertical control is no longer the dominant repeated signal.',
+                'Stop if capture, optic, distance, or stance changes during the test block.',
+            ],
+        };
+
+        const result = hydrateAnalysisResultFromHistory({
+            fullResult: createStoredResult({ coachPlan }),
+            recordPatchVersion: '41.1',
+            scopeId: 'red-dot',
+            distanceMeters: 30,
+        });
+
+        expect(result.coachPlan).toEqual(expect.objectContaining({
+            sessionSummary: expect.stringContaining('controle vertical'),
+            primaryFocus: expect.objectContaining({
+                title: 'Controle vertical',
+                whyNow: 'Compensacao vertical abaixo do ideal. Causa: sensibilidade alta.',
+            }),
+            nextBlock: expect.objectContaining({
+                title: 'Bloco curto de teste de controle vertical',
+                steps: expect.arrayContaining([
+                    expect.stringContaining('sprays comparaveis focados em controle vertical'),
+                ]),
+            }),
+        }));
+        expect(result.coachPlan?.nextBlock.checks[0]?.successCondition).toContain('Sucesso quando controle vertical');
+        expect(JSON.stringify(result.coachPlan)).not.toMatch(/Short vertical|Success when|Fail if|threshold|loadout|sensitivity profile/i);
+    });
+
     it('drops malformed coach plan payloads so legacy history can render safely', () => {
         const result = hydrateAnalysisResultFromHistory({
             fullResult: createStoredResult({

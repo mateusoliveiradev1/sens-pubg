@@ -6,7 +6,7 @@ import {
     buildCoachLlmPayload,
     type CoachLlmClient,
 } from './coach-llm-adapter';
-import { buildCoachInput, CoachBatchSchema } from './coach-llm-contract';
+import { buildCoachInput, buildCoachInstructions, CoachBatchSchema } from './coach-llm-contract';
 
 const deterministicFeedback: CoachFeedback = {
     diagnosis: {
@@ -265,6 +265,41 @@ describe('adaptCoachWithOptionalLlm', () => {
             coachPlan: deterministicCoachPlan,
         });
     });
+
+    it('falls back when expanded LLM coach plan copy is still in English', async () => {
+        const client: CoachLlmClient = {
+            generate: async () => ({
+                items: [
+                    {
+                        problem: 'Pulldown baixo, explicado melhor',
+                        likelyCause: 'Controle vertical insuficiente sustentado',
+                        adjustment: 'Ajuste o pulldown com cautela',
+                        drill: 'Drill deterministico refinado',
+                        verifyNextClip: 'Verifique no proximo clip com o mesmo loadout',
+                    },
+                ],
+                coachPlan: {
+                    sessionSummary: 'Coach plan summary in Portuguese.',
+                    primaryFocusWhyNow: 'Motivo reescrito sem mudar score.',
+                    actionProtocols: [
+                        {
+                            id: 'vertical-control-drill-protocol',
+                            instruction: 'Run 3 comparable sprays focused on vertical control.',
+                        },
+                    ],
+                    nextBlockTitle: 'Short vertical control test block',
+                },
+            }),
+        };
+
+        await expect(adaptCoachResultWithOptionalLlm({
+            coaching: [deterministicFeedback],
+            coachPlan: deterministicCoachPlan,
+        }, client)).resolves.toEqual({
+            coaching: [deterministicFeedback],
+            coachPlan: deterministicCoachPlan,
+        });
+    });
 });
 
 describe('coach LLM contract V2', () => {
@@ -321,6 +356,11 @@ describe('coach LLM contract V2', () => {
                 nextBlockTitle: 'Titulo reescrito',
             },
         });
+    });
+
+    it('documents the pt-BR-only copy requirement in the LLM instructions', () => {
+        expect(buildCoachInstructions()).toContain('Todos os campos de texto devem sair em PT-BR natural');
+        expect(buildCoachInstructions()).toContain('Nao escreva frases em ingles');
     });
 
     it('rejects coach plan rewrites that try to mutate forbidden facts', () => {

@@ -265,6 +265,34 @@ describe('buildCoachPlan', () => {
         ))).toBe(true);
     });
 
+    it('keeps deterministic coach plan copy in pt-BR for user-facing fields', () => {
+        const plan = buildCoachPlan({ analysisResult: analysisResultBase });
+        const copy = [
+            plan.sessionSummary,
+            plan.primaryFocus.title,
+            plan.primaryFocus.whyNow,
+            ...plan.actionProtocols.flatMap((protocol) => [
+                protocol.instruction,
+                protocol.expectedEffect,
+                protocol.applyWhen,
+                protocol.avoidWhen ?? '',
+            ]),
+            plan.nextBlock.title,
+            ...plan.nextBlock.steps,
+            ...plan.nextBlock.checks.flatMap((check) => [
+                check.label,
+                check.target,
+                check.successCondition,
+                check.failCondition,
+            ]),
+            ...plan.stopConditions,
+        ].join(' ');
+
+        expect(copy).not.toMatch(/short vertical|vertical control|success when|fail if|threshold|setup|drift|grip|loadout|sensitivity profile/i);
+        expect(copy).toContain('controle vertical');
+        expect(copy).toContain('Sucesso quando');
+    });
+
     it('adds stop conditions and an adaptation window for the current tier', () => {
         const testPlan = buildCoachPlan({ analysisResult: analysisResultBase });
         const weakCapturePlan = buildCoachPlan({ analysisResult: analysisResultWithWeakCapture });
@@ -274,7 +302,7 @@ describe('buildCoachPlan', () => {
         expect(testPlan.adaptationWindowDays).toBeGreaterThan(0);
 
         expect(weakCapturePlan.stopConditions).toEqual(expect.arrayContaining([
-            expect.stringContaining('capture'),
+            expect.stringContaining('captura'),
         ]));
         expect(weakCapturePlan.adaptationWindowDays).toBe(1);
 

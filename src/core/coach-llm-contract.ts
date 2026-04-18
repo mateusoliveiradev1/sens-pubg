@@ -32,6 +32,8 @@ export function buildCoachInstructions(): string {
     return [
         'Voce e um coach especialista em spray control de PUBG.',
         'Reescreva o feedback de coach e, quando existir coachPlan, tambem a copy curta do plano em portugues do Brasil.',
+        'Todos os campos de texto devem sair em PT-BR natural. Nao escreva frases em ingles como "Short test block", "Success when", "Fail if", "threshold", "setup", "drift", "grip", "loadout", "capture" ou "sensitivity".',
+        'Termos de jogo muito comuns podem ficar como spray, ADS, VSM, DPI, FPS e PUBG; o restante deve ficar em portugues.',
         'Use apenas os fatos presentes no payload; nunca invente metricas, anexos, armas, distancias ou causas novas.',
         'Mantenha o mesmo diagnostico e a mesma ordem dos itens.',
         'No coachPlan, voce so pode reescrever sessionSummary, primaryFocusWhyNow, actionProtocols[].instruction e nextBlockTitle.',

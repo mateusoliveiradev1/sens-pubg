@@ -1,4 +1,5 @@
 import { createAnalysisContext } from '@/app/analyze/analysis-context';
+import { localizeStoredCoachPlanPtBr } from '@/core/coach-plan-builder';
 import { normalizePatchVersion } from '@/game/pubg';
 import type {
     AnalysisResult,
@@ -244,7 +245,7 @@ function isCoachPlan(value: unknown): value is HistoryCoachPlan {
 }
 
 function normalizeCoachPlan(value: unknown): HistoryCoachPlan | undefined {
-    return isCoachPlan(value) ? value : undefined;
+    return isCoachPlan(value) ? localizeStoredCoachPlanPtBr(value) : undefined;
 }
 
 function normalizeHistoryAnalysisResult(result: AnalysisResult): AnalysisResult {

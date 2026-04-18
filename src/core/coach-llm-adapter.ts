@@ -132,7 +132,8 @@ function isValidPlanProtocolOutput(value: unknown): value is CoachLlmPlanProtoco
     }
 
     return hasExactKeys(value, PLAN_PROTOCOL_OUTPUT_KEYS)
-        && PLAN_PROTOCOL_OUTPUT_KEYS.every((key) => typeof value[key] === 'string');
+        && PLAN_PROTOCOL_OUTPUT_KEYS.every((key) => typeof value[key] === 'string')
+        && !containsBlockedEnglishPlanCopy(value.instruction as string);
 }
 
 function isValidPlanOutput(value: unknown): value is CoachLlmPlanOutput {
@@ -144,7 +145,36 @@ function isValidPlanOutput(value: unknown): value is CoachLlmPlanOutput {
         && typeof value.primaryFocusWhyNow === 'string'
         && Array.isArray(value.actionProtocols)
         && value.actionProtocols.every(isValidPlanProtocolOutput)
-        && typeof value.nextBlockTitle === 'string';
+        && typeof value.nextBlockTitle === 'string'
+        && !containsBlockedEnglishPlanCopy(value.sessionSummary)
+        && !containsBlockedEnglishPlanCopy(value.primaryFocusWhyNow)
+        && !containsBlockedEnglishPlanCopy(value.nextBlockTitle);
+}
+
+function containsBlockedEnglishPlanCopy(value: string): boolean {
+    const normalized = value.toLowerCase();
+
+    return [
+        'short test block',
+        'short vertical',
+        'short horizontal',
+        'clean capture',
+        'stabilization block',
+        'apply and validate',
+        'success when',
+        'fail if',
+        'threshold',
+        'setup',
+        'drift',
+        'grip',
+        'keep weapon',
+        'use the next clip',
+        'loadout',
+        'capture quality',
+        'vertical control',
+        'horizontal control',
+        'sensitivity profile',
+    ].some((marker) => normalized.includes(marker));
 }
 
 function parseBatchOutput(

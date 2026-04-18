@@ -181,27 +181,27 @@ function maxSignalValue(
 
 function summarizeWhyNow(signals: readonly CoachSignal[]): string {
     const strongestSignal = [...signals].sort((left, right) => right.weight - left.weight)[0];
-    return strongestSignal?.summary ?? 'Priority grouped from coach signals.';
+    return strongestSignal?.summary ?? 'Prioridade agrupada a partir dos sinais do coach.';
 }
 
 function titleForArea(area: CoachFocusArea): string {
     switch (area) {
         case 'capture_quality':
-            return 'Capture quality';
+            return 'Qualidade da captura';
         case 'vertical_control':
-            return 'Vertical control';
+            return 'Controle vertical';
         case 'horizontal_control':
-            return 'Horizontal control';
+            return 'Controle horizontal';
         case 'timing':
-            return 'Timing';
+            return 'Tempo de resposta';
         case 'consistency':
-            return 'Consistency';
+            return 'Consistencia';
         case 'sensitivity':
-            return 'Sensitivity';
+            return 'Sensibilidade';
         case 'loadout':
-            return 'Loadout';
+            return 'Equipamento';
         case 'validation':
-            return 'Validation';
+            return 'Validacao';
     }
 }
 
