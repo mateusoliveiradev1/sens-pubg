@@ -28,7 +28,7 @@ describe('extractCoachSignals', () => {
                 area: 'sensitivity',
                 key: 'sensitivity.test_profiles',
                 confidence: 0.78,
-                summary: expect.stringContaining('moderate'),
+                summary: expect.stringContaining('moderada'),
             }),
             expect.objectContaining({
                 source: 'context',
@@ -62,7 +62,7 @@ describe('extractCoachSignals', () => {
                 confidence: 1,
                 coverage: 1,
                 weight: 1,
-                summary: expect.stringContaining('low_sharpness'),
+                summary: expect.stringContaining('baixa nitidez'),
             }),
             expect.objectContaining({
                 source: 'sensitivity',
@@ -70,7 +70,7 @@ describe('extractCoachSignals', () => {
                 key: 'sensitivity.capture_again',
                 confidence: 0.34,
                 weight: 1,
-                summary: expect.stringContaining('blocks aggressive sensitivity changes'),
+                summary: expect.stringContaining('bloqueia mudancas agressivas'),
             }),
         ]));
     });

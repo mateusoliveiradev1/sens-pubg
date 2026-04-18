@@ -35,7 +35,7 @@
         "expectedCoachPlan": {
           "tier": "test_protocol",
           "primaryFocusArea": "sensitivity",
-          "nextBlockTitle": "Short sensitivity test block"
+          "nextBlockTitle": "Bloco curto de teste de sensibilidade"
         },
         "expectedTrackingTier": "clean"
       },
@@ -85,7 +85,7 @@
         "expectedCoachPlan": {
           "tier": "apply_protocol",
           "primaryFocusArea": "sensitivity",
-          "nextBlockTitle": "Apply and validate sensitivity"
+          "nextBlockTitle": "Aplicar e validar sensibilidade"
         },
         "expectedTrackingTier": "degraded"
       },
@@ -133,7 +133,7 @@
         "expectedCoachPlan": {
           "tier": "apply_protocol",
           "primaryFocusArea": "sensitivity",
-          "nextBlockTitle": "Apply and validate sensitivity"
+          "nextBlockTitle": "Aplicar e validar sensibilidade"
         },
         "expectedTrackingTier": "clean"
       },
@@ -184,7 +184,7 @@
         "expectedCoachPlan": {
           "tier": "apply_protocol",
           "primaryFocusArea": "vertical_control",
-          "nextBlockTitle": "Apply and validate vertical control"
+          "nextBlockTitle": "Aplicar e validar controle vertical"
         },
         "expectedTrackingTier": "degraded"
       },
@@ -232,7 +232,7 @@
         "expectedCoachPlan": {
           "tier": "apply_protocol",
           "primaryFocusArea": "sensitivity",
-          "nextBlockTitle": "Apply and validate sensitivity"
+          "nextBlockTitle": "Aplicar e validar sensibilidade"
         },
         "expectedTrackingTier": "clean"
       },

@@ -34,11 +34,12 @@ describe('rankCoachPriorities', () => {
 
         expect(priorities[0]).toEqual(expect.objectContaining({
             area: 'vertical_control',
-            title: 'Vertical control',
+            title: 'Controle vertical',
             severity: 0.8,
             confidence: 0.86,
             coverage: 0.9,
         }));
+        expect(priorities[0]?.whyNow).toContain('Causa:');
         expect(priorities.map((priority) => priority.area)).toContain('sensitivity');
         expect(priorities.map((priority) => priority.area)).toContain('capture_quality');
     });
