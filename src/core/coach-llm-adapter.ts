@@ -1,4 +1,4 @@
-import type { CoachEvidence, CoachFeedback, CoachMode } from '@/types/engine';
+import type { CoachEvidence, CoachFeedback, CoachMode, CoachPlan } from '@/types/engine';
 
 export interface CoachLlmPayloadItem {
     readonly mode: CoachMode;
@@ -19,8 +19,38 @@ export interface CoachLlmTextOutput {
     readonly verifyNextClip: string;
 }
 
+export interface CoachLlmPlanProtocolOutput {
+    readonly id: string;
+    readonly instruction: string;
+}
+
+export interface CoachLlmPlanOutput {
+    readonly sessionSummary: string;
+    readonly primaryFocusWhyNow: string;
+    readonly actionProtocols: readonly CoachLlmPlanProtocolOutput[];
+    readonly nextBlockTitle: string;
+}
+
+export interface CoachLlmBatchOutput {
+    readonly items: readonly CoachLlmTextOutput[];
+    readonly coachPlan?: CoachLlmPlanOutput;
+}
+
 export interface CoachLlmClient {
-    generate(payload: readonly CoachLlmPayloadItem[]): Promise<unknown>;
+    generate(
+        payload: readonly CoachLlmPayloadItem[],
+        coachPlan?: CoachPlan
+    ): Promise<unknown>;
+}
+
+export interface AdaptCoachResultInput {
+    readonly coaching: readonly CoachFeedback[];
+    readonly coachPlan?: CoachPlan;
+}
+
+export interface AdaptCoachResultOutput {
+    readonly coaching: readonly CoachFeedback[];
+    readonly coachPlan?: CoachPlan;
 }
 
 const TEXT_OUTPUT_KEYS = [
@@ -29,6 +59,18 @@ const TEXT_OUTPUT_KEYS = [
     'adjustment',
     'drill',
     'verifyNextClip',
+] as const;
+
+const PLAN_OUTPUT_KEYS = [
+    'sessionSummary',
+    'primaryFocusWhyNow',
+    'actionProtocols',
+    'nextBlockTitle',
+] as const;
+
+const PLAN_PROTOCOL_OUTPUT_KEYS = [
+    'id',
+    'instruction',
 ] as const;
 
 export function buildCoachLlmPayload(
@@ -50,17 +92,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function hasExactKeys(
+    value: Record<string, unknown>,
+    expectedKeys: readonly string[]
+): boolean {
+    const keys = Object.keys(value);
+
+    return keys.length === expectedKeys.length
+        && expectedKeys.every((key) => Object.prototype.hasOwnProperty.call(value, key));
+}
+
 function isValidTextOutput(value: unknown): value is CoachLlmTextOutput {
     if (!isRecord(value)) {
         return false;
     }
 
-    const keys = Object.keys(value);
-    if (keys.length !== TEXT_OUTPUT_KEYS.length) {
-        return false;
-    }
-
-    return TEXT_OUTPUT_KEYS.every((key) => typeof value[key] === 'string');
+    return hasExactKeys(value, TEXT_OUTPUT_KEYS)
+        && TEXT_OUTPUT_KEYS.every((key) => typeof value[key] === 'string');
 }
 
 function parseTextOutputs(
@@ -76,6 +124,66 @@ function parseTextOutputs(
     }
 
     return value;
+}
+
+function isValidPlanProtocolOutput(value: unknown): value is CoachLlmPlanProtocolOutput {
+    if (!isRecord(value)) {
+        return false;
+    }
+
+    return hasExactKeys(value, PLAN_PROTOCOL_OUTPUT_KEYS)
+        && PLAN_PROTOCOL_OUTPUT_KEYS.every((key) => typeof value[key] === 'string');
+}
+
+function isValidPlanOutput(value: unknown): value is CoachLlmPlanOutput {
+    if (!isRecord(value) || !hasExactKeys(value, PLAN_OUTPUT_KEYS)) {
+        return false;
+    }
+
+    return typeof value.sessionSummary === 'string'
+        && typeof value.primaryFocusWhyNow === 'string'
+        && Array.isArray(value.actionProtocols)
+        && value.actionProtocols.every(isValidPlanProtocolOutput)
+        && typeof value.nextBlockTitle === 'string';
+}
+
+function parseBatchOutput(
+    value: unknown,
+    expectedLength: number
+): CoachLlmBatchOutput | null {
+    if (Array.isArray(value)) {
+        const items = parseTextOutputs(value, expectedLength);
+        return items ? { items } : null;
+    }
+
+    if (!isRecord(value)) {
+        return null;
+    }
+
+    const expectedKeys = Object.prototype.hasOwnProperty.call(value, 'coachPlan')
+        ? ['items', 'coachPlan']
+        : ['items'];
+    if (!hasExactKeys(value, expectedKeys)) {
+        return null;
+    }
+
+    const items = parseTextOutputs(value.items, expectedLength);
+    if (!items) {
+        return null;
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(value, 'coachPlan')) {
+        return { items };
+    }
+
+    if (!isValidPlanOutput(value.coachPlan)) {
+        return null;
+    }
+
+    return {
+        items,
+        coachPlan: value.coachPlan,
+    };
 }
 
 function applyTextOutput(
@@ -96,26 +204,89 @@ function applyTextOutput(
     };
 }
 
+function applyPlanOutput(
+    coachPlan: CoachPlan,
+    output: CoachLlmPlanOutput
+): CoachPlan | null {
+    const protocolIds = new Set(coachPlan.actionProtocols.map((protocol) => protocol.id));
+    const instructionByProtocolId = new Map<string, string>();
+
+    for (const protocol of output.actionProtocols) {
+        if (!protocolIds.has(protocol.id) || instructionByProtocolId.has(protocol.id)) {
+            return null;
+        }
+
+        instructionByProtocolId.set(protocol.id, protocol.instruction);
+    }
+
+    return {
+        ...coachPlan,
+        sessionSummary: output.sessionSummary,
+        primaryFocus: {
+            ...coachPlan.primaryFocus,
+            whyNow: output.primaryFocusWhyNow,
+        },
+        actionProtocols: coachPlan.actionProtocols.map((protocol) => ({
+            ...protocol,
+            instruction: instructionByProtocolId.get(protocol.id) ?? protocol.instruction,
+        })),
+        nextBlock: {
+            ...coachPlan.nextBlock,
+            title: output.nextBlockTitle,
+        },
+    };
+}
+
+function deterministicResult(input: AdaptCoachResultInput): AdaptCoachResultOutput {
+    return input.coachPlan
+        ? { coaching: input.coaching, coachPlan: input.coachPlan }
+        : { coaching: input.coaching };
+}
+
+export async function adaptCoachResultWithOptionalLlm(
+    input: AdaptCoachResultInput,
+    client?: CoachLlmClient
+): Promise<AdaptCoachResultOutput> {
+    if (!client) {
+        return deterministicResult(input);
+    }
+
+    try {
+        const payload = buildCoachLlmPayload(input.coaching);
+        const rawOutput = await client.generate(payload, input.coachPlan);
+        const parsedOutput = parseBatchOutput(rawOutput, input.coaching.length);
+        if (!parsedOutput) {
+            return deterministicResult(input);
+        }
+
+        let coachPlan = input.coachPlan;
+        if (input.coachPlan && parsedOutput.coachPlan) {
+            const adaptedPlan = applyPlanOutput(input.coachPlan, parsedOutput.coachPlan);
+            if (!adaptedPlan) {
+                return deterministicResult(input);
+            }
+
+            coachPlan = adaptedPlan;
+        }
+
+        const coaching = input.coaching.map((feedback, index) =>
+            applyTextOutput(feedback, parsedOutput.items[index]!)
+        );
+
+        return coachPlan ? { coaching, coachPlan } : { coaching };
+    } catch {
+        return deterministicResult(input);
+    }
+}
+
 export async function adaptCoachWithOptionalLlm(
     deterministicFeedback: readonly CoachFeedback[],
     client?: CoachLlmClient
 ): Promise<readonly CoachFeedback[]> {
-    if (!client) {
-        return deterministicFeedback;
-    }
+    const result = await adaptCoachResultWithOptionalLlm(
+        { coaching: deterministicFeedback },
+        client
+    );
 
-    try {
-        const payload = buildCoachLlmPayload(deterministicFeedback);
-        const rawOutput = await client.generate(payload);
-        const parsedOutput = parseTextOutputs(rawOutput, deterministicFeedback.length);
-        if (!parsedOutput) {
-            return deterministicFeedback;
-        }
-
-        return deterministicFeedback.map((feedback, index) =>
-            applyTextOutput(feedback, parsedOutput[index]!)
-        );
-    } catch {
-        return deterministicFeedback;
-    }
+    return result.coaching;
 }

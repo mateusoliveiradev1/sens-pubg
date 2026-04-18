@@ -4,7 +4,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { generateCoaching } from './coach-engine';
+import { attachCoachPlanToAnalysisResult, generateCoaching } from './coach-engine';
+import { analysisResultBase } from './coach-test-fixtures';
 import type { Diagnosis, WeaponLoadout } from '../types/engine';
 
 const defaultLoadout: WeaponLoadout = {
@@ -199,5 +200,24 @@ describe('generateCoaching', () => {
         const severeCoaching = generateCoaching(severe, defaultLoadout);
 
         expect(severeCoaching[0]!.adaptationTimeDays).toBeGreaterThan(mildCoaching[0]!.adaptationTimeDays);
+    });
+});
+
+describe('attachCoachPlanToAnalysisResult', () => {
+    it('attaches a deterministic coachPlan without replacing existing feedback cards', () => {
+        const result = attachCoachPlanToAnalysisResult(analysisResultBase);
+
+        expect(result).not.toBe(analysisResultBase);
+        expect(result.coaching).toBe(analysisResultBase.coaching);
+        expect(result.coachPlan).toEqual(expect.objectContaining({
+            tier: expect.any(String),
+            primaryFocus: expect.objectContaining({
+                area: 'vertical_control',
+            }),
+            nextBlock: expect.objectContaining({
+                steps: expect.any(Array),
+                checks: expect.any(Array),
+            }),
+        }));
     });
 });

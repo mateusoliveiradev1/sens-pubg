@@ -11,4 +11,14 @@ describe('history page field evolution contract', () => {
         expect(source).toMatch(/Aguardando teste real/);
         expect(source).not.toMatch(/🔫|🎯/);
     });
+    it('exposes a minimal coach plan summary on the history detail page when hydrated', () => {
+        const source = readFileSync(new URL('./[id]/page.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/analysisResult\.coachPlan \?/);
+        expect(source).toMatch(/Coach da sessao salva/);
+        expect(source).toMatch(/analysisResult\.coachPlan\.sessionSummary/);
+        expect(source).toMatch(/analysisResult\.coachPlan\.primaryFocus\.title/);
+        expect(source).toMatch(/analysisResult\.coachPlan\.nextBlock\.title/);
+        expect(source).toMatch(/<ResultsDashboard result=\{analysisResult\} \/>/);
+    });
 });

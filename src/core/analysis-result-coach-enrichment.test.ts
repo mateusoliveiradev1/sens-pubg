@@ -123,6 +123,9 @@ function createResult(id: string, coaching: readonly CoachFeedback[], subSession
                 },
             ],
             recommended: 'balanced',
+            tier: 'test_profiles',
+            evidenceTier: 'moderate',
+            confidenceScore: 0.78,
             reasoning: 'Patch-aware recommendation',
         },
         coaching,
@@ -131,10 +134,18 @@ function createResult(id: string, coaching: readonly CoachFeedback[], subSession
 }
 
 describe('enrichAnalysisResultCoaching', () => {
-    it('returns the original result when no client is available', async () => {
+    it('attaches a deterministic coachPlan when no client is available', async () => {
         const result = createResult('root', [createFeedback('Pulldown baixo')]);
 
-        await expect(enrichAnalysisResultCoaching(result)).resolves.toBe(result);
+        const enriched = await enrichAnalysisResultCoaching(result);
+
+        expect(enriched).not.toBe(result);
+        expect(enriched.coaching).toBe(result.coaching);
+        expect(enriched.coachPlan).toEqual(expect.objectContaining({
+            tier: expect.any(String),
+            primaryFocus: expect.any(Object),
+            nextBlock: expect.any(Object),
+        }));
     });
 
     it('rewrites final and segmented coaching while preserving the rest of the analysis', async () => {
@@ -164,6 +175,57 @@ describe('enrichAnalysisResultCoaching', () => {
             howToTest: 'Drill deterministico refinado',
         });
         expect(enriched.metrics).toBe(result.metrics);
+        expect(enriched.coachPlan).toEqual(expect.objectContaining({
+            tier: expect.any(String),
+            primaryFocus: expect.any(Object),
+        }));
+        expect(enriched.subSessions?.[0]?.coachPlan).toEqual(expect.objectContaining({
+            tier: expect.any(String),
+            primaryFocus: expect.any(Object),
+        }));
         expect(enriched.subSessions?.[0]?.metrics).toBe(result.subSessions?.[0]?.metrics);
+    });
+
+    it('rewrites allowed coachPlan copy while preserving deterministic plan facts', async () => {
+        const result = createResult('root', [createFeedback('Pulldown baixo')]);
+        const client: CoachLlmClient = {
+            generate: async (payload, coachPlan) => ({
+                items: payload.map((item) => ({
+                    problem: `${item.problem} [IA]`,
+                    likelyCause: `${item.likelyCause} refinada`,
+                    adjustment: `${item.adjustment} com contexto`,
+                    drill: `${item.drill} refinado`,
+                    verifyNextClip: `${item.verifyNextClip} com validacao`,
+                })),
+                coachPlan: {
+                    sessionSummary: 'Resumo reescrito da sessao.',
+                    primaryFocusWhyNow: 'Motivo reescrito sem mudar score ou tier.',
+                    actionProtocols: coachPlan?.actionProtocols.map((protocol) => ({
+                        id: protocol.id,
+                        instruction: `${protocol.instruction} [IA]`,
+                    })) ?? [],
+                    nextBlockTitle: 'Bloco reescrito pelo LLM',
+                },
+            }),
+        };
+
+        const enriched = await enrichAnalysisResultCoaching(result, client);
+
+        expect(enriched.coaching[0]?.problem).toBe('Pulldown baixo [IA]');
+        expect(enriched.coachPlan).toEqual(expect.objectContaining({
+            tier: expect.any(String),
+            sessionSummary: 'Resumo reescrito da sessao.',
+            primaryFocus: expect.objectContaining({
+                whyNow: 'Motivo reescrito sem mudar score ou tier.',
+                priorityScore: expect.any(Number),
+                dependencies: expect.any(Array),
+                blockedBy: expect.any(Array),
+            }),
+            nextBlock: expect.objectContaining({
+                title: 'Bloco reescrito pelo LLM',
+                checks: expect.any(Array),
+            }),
+        }));
+        expect(enriched.coachPlan?.actionProtocols[0]?.instruction).toContain('[IA]');
     });
 });

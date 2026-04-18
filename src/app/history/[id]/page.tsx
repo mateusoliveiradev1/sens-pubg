@@ -9,10 +9,18 @@ import { formatAnalysisDistancePresentation } from '@/app/analyze/analysis-dista
 import { ResultsDashboard } from '@/app/analyze/results-dashboard';
 import { hydrateAnalysisResultFromHistory } from '../analysis-result-hydration';
 import { SensitivityAcceptancePanel } from './sensitivity-acceptance-panel';
+import type { CoachDecisionTier } from '@/types/engine';
 
 interface Props {
     params: Promise<{ id: string }>;
 }
+
+const HISTORY_COACH_TIER_LABELS: Record<CoachDecisionTier, string> = {
+    capture_again: 'Capturar novamente',
+    test_protocol: 'Testar protocolo',
+    stabilize_block: 'Estabilizar bloco',
+    apply_protocol: 'Aplicar protocolo',
+};
 
 export default async function HistoryDetailRoute({ params }: Props) {
     const session = await auth();
@@ -118,6 +126,71 @@ export default async function HistoryDetailRoute({ params }: Props) {
                             </p>
                         </div>
                     </div>
+
+                    {analysisResult.coachPlan ? (
+                        <section
+                            className="glass-card"
+                            style={{
+                                padding: 'var(--space-lg)',
+                                border: '1px solid rgba(116, 215, 255, 0.18)',
+                                background: 'linear-gradient(145deg, rgba(10, 16, 24, 0.96), rgba(8, 8, 12, 0.92))',
+                            }}
+                        >
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    flexWrap: 'wrap',
+                                    justifyContent: 'space-between',
+                                    gap: 'var(--space-lg)',
+                                    alignItems: 'flex-start',
+                                }}
+                            >
+                                <div style={{ maxWidth: 520 }}>
+                                    <p
+                                        style={{
+                                            margin: '0 0 var(--space-xs) 0',
+                                            fontSize: '11px',
+                                            letterSpacing: '0.18em',
+                                            textTransform: 'uppercase',
+                                            color: '#74d7ff',
+                                            fontWeight: 700,
+                                        }}
+                                    >
+                                        Coach da sessao salva
+                                    </p>
+                                    <h2 style={{ margin: 0, fontSize: 'var(--text-2xl)', lineHeight: 1.15 }}>
+                                        {analysisResult.coachPlan.primaryFocus.title}
+                                    </h2>
+                                    <p style={{ margin: 'var(--space-sm) 0 0 0', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+                                        {analysisResult.coachPlan.sessionSummary}
+                                    </p>
+                                </div>
+
+                                <div style={{ display: 'grid', gap: '8px', minWidth: 220 }}>
+                                    <span className="badge badge-info">
+                                        {HISTORY_COACH_TIER_LABELS[analysisResult.coachPlan.tier]}
+                                    </span>
+                                    <div>
+                                        <span
+                                            style={{
+                                                display: 'block',
+                                                marginBottom: '4px',
+                                                color: 'var(--color-text-muted)',
+                                                fontSize: '11px',
+                                                textTransform: 'uppercase',
+                                                letterSpacing: '0.12em',
+                                            }}
+                                        >
+                                            Proximo bloco
+                                        </span>
+                                        <strong style={{ color: 'var(--color-text)' }}>
+                                            {analysisResult.coachPlan.nextBlock.title}
+                                        </strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                    ) : null}
 
                     <SensitivityAcceptancePanel
                         sessionId={record.id}

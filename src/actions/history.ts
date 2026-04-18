@@ -5,6 +5,8 @@ import { revalidatePath } from 'next/cache';
 
 import { auth } from '@/auth';
 import { enrichAnalysisResultCoaching } from '@/core/analysis-result-coach-enrichment';
+import { buildCoachMemorySnapshot, type CoachMemoryHistorySession } from '@/core/coach-memory';
+import { buildCoachPlan } from '@/core/coach-plan-builder';
 import {
     applySensitivityHistoryConvergence,
     type HistoricalSensitivitySignal,
@@ -20,6 +22,7 @@ import type {
     SensitivityAcceptanceFeedback,
     SensitivityAcceptanceOutcome,
     SensitivityRecommendationTier,
+    WeaponLoadout,
 } from '@/types/engine';
 
 interface StoredHistoryAttachments {
@@ -208,6 +211,35 @@ function enrichResultWithSensitivityHistory(
     };
 }
 
+function normalizeStoredPlayerStance(value: string): WeaponLoadout['stance'] | undefined {
+    return value === 'standing' || value === 'crouching' || value === 'prone'
+        ? value
+        : undefined;
+}
+
+function toCoachMemoryHistorySession(
+    session: StoredSensitivityHistorySession,
+): CoachMemoryHistorySession {
+    const attachments = normalizeStoredAttachments(session.attachments);
+    const stance = normalizeStoredPlayerStance(session.stance);
+
+    return {
+        id: session.id,
+        createdAt: session.createdAt,
+        patchVersion: session.patchVersion,
+        distance: session.distance,
+        ...(stance ? {
+            loadout: {
+                stance,
+                muzzle: attachments.muzzle,
+                grip: attachments.grip,
+                stock: attachments.stock,
+            } as WeaponLoadout,
+        } : {}),
+        fullResult: session.fullResult,
+    };
+}
+
 export async function saveAnalysisResult(
     result: AnalysisResult,
     weaponId: string,
@@ -249,24 +281,37 @@ export async function saveAnalysisResult(
             .where(eq(analysisSessions.userId, session.user.id))
             .limit(12) as StoredSensitivityHistorySession[];
 
+        const compatiblePriorSessions = priorSessions.filter((storedSession) => (
+            storedSession.fullResult !== null
+            && storedSession.patchVersion === patchVersion
+            && storedSession.weaponId === weaponId
+            && storedSession.scopeId === scopeId
+        ));
+
         const resultWithHistory = enrichResultWithSensitivityHistory(
             {
                 ...result,
                 patchVersion,
             },
             distance,
-            priorSessions.filter((storedSession) => (
-                storedSession.fullResult !== null
-                && storedSession.patchVersion === patchVersion
-                && storedSession.weaponId === weaponId
-                && storedSession.scopeId === scopeId
-            )),
+            compatiblePriorSessions,
         );
+        const coachMemorySnapshot = buildCoachMemorySnapshot({
+            currentResult: resultWithHistory,
+            historySessions: compatiblePriorSessions.map(toCoachMemoryHistorySession),
+        });
 
-        enrichedResult = await enrichAnalysisResultCoaching(
+        const resultWithCoaching = await enrichAnalysisResultCoaching(
             resultWithHistory,
             createGroqCoachClient()
         );
+        enrichedResult = {
+            ...resultWithCoaching,
+            coachPlan: buildCoachPlan({
+                analysisResult: resultWithCoaching,
+                memorySnapshot: coachMemorySnapshot,
+            }),
+        };
 
         const metrics = enrichedResult.metrics;
         const diagnoses = enrichedResult.diagnoses.map((diagnosis) => diagnosis.type);

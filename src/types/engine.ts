@@ -436,6 +436,86 @@ export interface SensitivityRecommendation {
 // Coach Feedback
 // ═══════════════════════════════════════════
 
+export type CoachDecisionTier =
+    | 'capture_again'
+    | 'test_protocol'
+    | 'stabilize_block'
+    | 'apply_protocol';
+
+export type CoachFocusArea =
+    | 'capture_quality'
+    | 'vertical_control'
+    | 'horizontal_control'
+    | 'timing'
+    | 'consistency'
+    | 'sensitivity'
+    | 'loadout'
+    | 'validation';
+
+export type CoachSignalSource = 'video_quality' | 'diagnosis' | 'sensitivity' | 'history' | 'context';
+
+export interface CoachSignal {
+    readonly source: CoachSignalSource;
+    readonly area: CoachFocusArea;
+    readonly key: string;
+    readonly summary: string;
+    readonly confidence: number;
+    readonly coverage: number;
+    readonly weight: number;
+}
+
+export interface CoachPriority {
+    readonly id: string;
+    readonly area: CoachFocusArea;
+    readonly title: string;
+    readonly whyNow: string;
+    readonly priorityScore: number;
+    readonly severity: number;
+    readonly confidence: number;
+    readonly coverage: number;
+    readonly dependencies: readonly string[];
+    readonly blockedBy: readonly string[];
+    readonly signals: readonly CoachSignal[];
+}
+
+export interface CoachActionProtocol {
+    readonly id: string;
+    readonly kind: 'capture' | 'technique' | 'sens' | 'loadout' | 'drill';
+    readonly instruction: string;
+    readonly expectedEffect: string;
+    readonly risk: 'low' | 'medium' | 'high';
+    readonly applyWhen: string;
+    readonly avoidWhen?: string;
+}
+
+export interface CoachValidationCheck {
+    readonly label: string;
+    readonly target: string;
+    readonly minimumCoverage: number;
+    readonly minimumConfidence: number;
+    readonly successCondition: string;
+    readonly failCondition: string;
+}
+
+export interface CoachBlockPlan {
+    readonly title: string;
+    readonly durationMinutes: number;
+    readonly steps: readonly string[];
+    readonly checks: readonly CoachValidationCheck[];
+}
+
+export interface CoachPlan {
+    readonly tier: CoachDecisionTier;
+    readonly sessionSummary: string;
+    readonly primaryFocus: CoachPriority;
+    readonly secondaryFocuses: readonly CoachPriority[];
+    readonly actionProtocols: readonly CoachActionProtocol[];
+    readonly nextBlock: CoachBlockPlan;
+    readonly stopConditions: readonly string[];
+    readonly adaptationWindowDays: number;
+    readonly llmRewriteAllowed: boolean;
+}
+
 export interface CoachFeedback {
     readonly diagnosis: Diagnosis;
     readonly mode: CoachMode;
@@ -512,6 +592,7 @@ export interface AnalysisResult {
     readonly diagnoses: readonly Diagnosis[];
     readonly sensitivity: SensitivityRecommendation;
     readonly coaching: readonly CoachFeedback[];
+    readonly coachPlan?: CoachPlan;
     readonly subSessions?: readonly AnalysisResult[];
 }
 

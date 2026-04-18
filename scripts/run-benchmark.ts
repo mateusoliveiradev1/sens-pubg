@@ -3,12 +3,13 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveSprayProjectionConfig } from '../src/app/analyze/analysis-session-config';
 import type { TrackingResult } from '../src/core/crosshair-tracking';
-import { buildTrajectory, calculateSprayMetrics, generateCoaching, runDiagnostics as runCoreDiagnostics } from '../src/core';
+import { buildTrajectory, calculateSprayMetrics, generateCoaching, generateSensitivityRecommendation, runDiagnostics as runCoreDiagnostics } from '../src/core';
+import { buildCoachPlan } from '../src/core/coach-plan-builder';
 import { getWeapon } from '../src/game/pubg';
-import { asMilliseconds, asPixels } from '../src/types/branded';
+import { asMilliseconds, asPixels, asScore } from '../src/types/branded';
 import { parseCapturedFrameLabelTemplate, type CapturedFrameLabelTemplate } from '../src/types/captured-frame-labels';
-import { parseBenchmarkDataset, type BenchmarkClip, type BenchmarkDataset } from '../src/types/benchmark';
-import type { CoachFeedback, CoachMode, Diagnosis, TrackingFrameStatus, WeaponLoadout } from '../src/types/engine';
+import { parseBenchmarkDataset, type BenchmarkClip, type BenchmarkCoachPlanExpectation, type BenchmarkDataset } from '../src/types/benchmark';
+import type { AnalysisResult, CoachFeedback, CoachMode, Diagnosis, TrackingFrameStatus, VideoQualityReport, WeaponLoadout } from '../src/types/engine';
 import {
     evaluateCoachGoldenFixture,
     loadCoachGoldenFixture,
@@ -53,6 +54,8 @@ export interface BenchmarkClipResult {
         readonly fixtureName: string;
         readonly expectedMode?: CoachMode;
         readonly actualMode?: CoachMode;
+        readonly expectedPlan?: BenchmarkCoachPlanExpectation;
+        readonly actualPlan?: BenchmarkCoachPlanExpectation;
         readonly error?: string;
     };
 }
@@ -250,6 +253,7 @@ interface CapturedBenchmarkProxy {
     readonly shotAlignmentErrorMs: number;
     readonly diagnoses: readonly Diagnosis[];
     readonly coaching: readonly CoachFeedback[];
+    readonly coachPlan: BenchmarkCoachPlanExpectation;
 }
 
 type CapturedLabelStatus = Exclude<CapturedFrameLabelTemplate['frames'][number]['label']['status'], null>;
@@ -565,6 +569,43 @@ function buildCapturedBenchmarkProxy(
         opticId: clip.capture.optic.opticId,
         opticStateId: clip.capture.optic.stateId,
     });
+    const sensitivity = generateSensitivityRecommendation(
+        metrics,
+        diagnoses,
+        800,
+        'hybrid',
+        'claw',
+        45,
+        {},
+        1,
+        45,
+    );
+    const analysisResult: AnalysisResult = {
+        id: clip.clipId,
+        timestamp: new Date(clip.quality.reviewProvenance?.reviewedAt ?? '2026-04-18T00:00:00.000Z'),
+        patchVersion: clip.capture.patchVersion,
+        analysisContext: {
+            targetDistanceMeters: clip.capture.distanceMeters,
+            distanceMode: 'exact',
+            optic: {
+                scopeId: clip.capture.optic.opticId,
+                opticId: clip.capture.optic.opticId,
+                opticStateId: clip.capture.optic.stateId,
+                opticName: clip.capture.optic.opticId,
+                opticStateName: clip.capture.optic.stateId,
+                availableStateIds: [clip.capture.optic.stateId],
+                isDynamicOptic: false,
+            },
+        },
+        videoQualityReport: buildBenchmarkVideoQualityReport(clip),
+        trajectory,
+        loadout,
+        metrics,
+        diagnoses,
+        sensitivity,
+        coaching,
+    };
+    const coachPlan = buildCoachPlan({ analysisResult });
 
     return {
         trackingFixture: buildTrackingGoldenFixtureFromCapturedLabels(clip, template),
@@ -572,6 +613,59 @@ function buildCapturedBenchmarkProxy(
         shotAlignmentErrorMs: trajectory.shotAlignmentErrorMs,
         diagnoses,
         coaching,
+        coachPlan: toStableCoachPlanExpectation(coachPlan),
+    };
+}
+
+function buildBenchmarkVideoQualityReport(clip: BenchmarkClip): VideoQualityReport {
+    const score = scoreForVisibilityTier(clip.quality.visibilityTier);
+    const compressionBurden = clip.quality.compressionLevel === 'heavy'
+        ? 86
+        : clip.quality.compressionLevel === 'medium'
+            ? 52
+            : 18;
+    const usableForAnalysis = clip.quality.visibilityTier !== 'rejected';
+
+    return {
+        overallScore: asScore(score),
+        sharpness: asScore(Math.max(20, score - 4)),
+        compressionBurden: asScore(compressionBurden),
+        reticleContrast: asScore(Math.max(20, score - 8)),
+        roiStability: asScore(clip.quality.occlusionLevel === 'moderate' ? 58 : 82),
+        fpsStability: asScore(80),
+        usableForAnalysis,
+        blockingReasons: usableForAnalysis ? [] : ['low_reticle_contrast'],
+        diagnostic: {
+            tier: clip.quality.visibilityTier === 'clean' ? 'analysis_ready' : 'limited',
+            summary: clip.quality.notes ?? `Benchmark capture quality is ${clip.quality.visibilityTier}.`,
+            recommendations: [],
+            preprocessing: {
+                normalizationApplied: false,
+                sampledFrames: 0,
+                selectedFrames: 0,
+            },
+        },
+    };
+}
+
+function scoreForVisibilityTier(tier: BenchmarkClip['quality']['visibilityTier']): number {
+    switch (tier) {
+        case 'clean':
+            return 82;
+        case 'degraded':
+            return 58;
+        case 'rejected':
+            return 28;
+    }
+}
+
+function toStableCoachPlanExpectation(
+    coachPlan: ReturnType<typeof buildCoachPlan>
+): BenchmarkCoachPlanExpectation {
+    return {
+        tier: coachPlan.tier,
+        primaryFocusArea: coachPlan.primaryFocus.area,
+        nextBlockTitle: coachPlan.nextBlock.title,
     };
 }
 
@@ -735,12 +829,17 @@ async function runCoachBenchmark(
         }
 
         const actualMode = deriveCoachMode(capturedProxy.coaching);
+        const actualPlan = capturedProxy.coachPlan;
+        const expectedPlan = clip.labels.expectedCoachPlan;
+        const planPassed = expectedPlan === undefined || stableJson(actualPlan) === stableJson(expectedPlan);
 
         return {
-            passed: actualMode === clip.labels.expectedCoachMode,
+            passed: actualMode === clip.labels.expectedCoachMode && planPassed,
             fixtureName: `captured-pipeline:${clip.clipId}`,
             ...(clip.labels.expectedCoachMode !== undefined ? { expectedMode: clip.labels.expectedCoachMode } : {}),
             ...(actualMode !== undefined ? { actualMode } : {}),
+            ...(expectedPlan !== undefined ? { expectedPlan } : {}),
+            actualPlan,
         };
     } catch (error) {
         return {

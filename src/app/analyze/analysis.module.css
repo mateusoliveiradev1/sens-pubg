@@ -827,6 +827,104 @@
     gap: var(--space-lg);
 }
 
+.coachPlanSummary {
+    margin-bottom: var(--space-xl);
+    padding: var(--space-xl);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018));
+}
+
+.coachPlanHeader {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-lg);
+    align-items: flex-start;
+}
+
+.coachPlanIntro {
+    min-width: 0;
+}
+
+.coachPlanBadges {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    flex-shrink: 0;
+}
+
+.coachPlanLabel {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--color-accent-primary);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.coachPlanVerdict {
+    margin: 0 0 var(--space-sm);
+    font-size: var(--text-xl);
+}
+
+.coachPlanSummaryText,
+.coachPlanText {
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+    line-height: 1.65;
+}
+
+.coachPlanGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-xl);
+    margin-top: var(--space-xl);
+    padding-top: var(--space-xl);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.coachPlanCell {
+    min-width: 0;
+}
+
+.coachPlanValue {
+    display: block;
+    margin-bottom: var(--space-sm);
+    color: var(--color-text-primary);
+    font-size: var(--text-base);
+    line-height: 1.4;
+}
+
+.coachPlanSteps {
+    margin: var(--space-sm) 0 0;
+    padding-left: 1.1rem;
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+    line-height: 1.65;
+}
+
+.coachPlanStep + .coachPlanStep {
+    margin-top: 6px;
+}
+
+.coachPlanValidation {
+    margin-top: var(--space-xl);
+    padding-top: var(--space-lg);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.coachEvidenceTitle {
+    margin: 0 0 var(--space-md);
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
 .coachCard {
     padding: var(--space-2xl);
     background: linear-gradient(135deg, rgba(8, 8, 12, 0.9) 0%, rgba(26, 26, 46, 0.9) 100%);
@@ -1074,6 +1172,19 @@
 
     .coachCard {
         padding: var(--space-xl);
+    }
+
+    .coachPlanHeader {
+        flex-direction: column;
+    }
+
+    .coachPlanBadges {
+        justify-content: flex-start;
+    }
+
+    .coachPlanGrid {
+        grid-template-columns: 1fr;
+        gap: var(--space-lg);
     }
 
     .coachAdapt {

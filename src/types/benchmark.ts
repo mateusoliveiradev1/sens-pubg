@@ -19,6 +19,17 @@ const diagnosisTypeSchema = z.enum([
     'inconclusive',
 ]);
 const coachModeSchema = z.enum(['standard', 'low-confidence', 'inconclusive']);
+const coachDecisionTierSchema = z.enum(['capture_again', 'test_protocol', 'stabilize_block', 'apply_protocol']);
+const coachFocusAreaSchema = z.enum([
+    'capture_quality',
+    'vertical_control',
+    'horizontal_control',
+    'timing',
+    'consistency',
+    'sensitivity',
+    'loadout',
+    'validation',
+]);
 const trackingTierSchema = z.enum(['clean', 'degraded']);
 const sourceTypeSchema = z.enum(['captured', 'synthetic', 'augmented']);
 const reviewStatusSchema = z.enum(['draft', 'reviewed', 'golden']);
@@ -65,9 +76,16 @@ export const benchmarkClipCaptureSchema = z.object({
     }),
 });
 
+export const benchmarkCoachPlanExpectationSchema = z.object({
+    tier: coachDecisionTierSchema,
+    primaryFocusArea: coachFocusAreaSchema,
+    nextBlockTitle: z.string().min(1),
+});
+
 export const benchmarkClipLabelsSchema = z.object({
     expectedDiagnoses: z.array(diagnosisTypeSchema),
     expectedCoachMode: coachModeSchema.optional(),
+    expectedCoachPlan: benchmarkCoachPlanExpectationSchema.optional(),
     expectedTrackingTier: trackingTierSchema,
     notes: z.string().min(1).optional(),
 }).superRefine((labels, ctx) => {
@@ -181,6 +199,7 @@ export type BenchmarkClipMedia = z.infer<typeof benchmarkClipMediaSchema>;
 export type BenchmarkClipSprayWindow = z.infer<typeof benchmarkClipSprayWindowSchema>;
 export type BenchmarkClipOptic = z.infer<typeof benchmarkClipOpticSchema>;
 export type BenchmarkClipCapture = z.infer<typeof benchmarkClipCaptureSchema>;
+export type BenchmarkCoachPlanExpectation = z.infer<typeof benchmarkCoachPlanExpectationSchema>;
 export type BenchmarkClipLabels = z.infer<typeof benchmarkClipLabelsSchema>;
 export type BenchmarkClipReviewProvenance = z.infer<typeof benchmarkClipReviewProvenanceSchema>;
 export type BenchmarkClipQuality = z.infer<typeof benchmarkClipQualitySchema>;

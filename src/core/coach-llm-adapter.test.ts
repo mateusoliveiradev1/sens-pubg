@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { CoachFeedback } from '@/types/engine';
-import { adaptCoachWithOptionalLlm, type CoachLlmClient } from './coach-llm-adapter';
+import type { CoachFeedback, CoachPlan } from '@/types/engine';
+import {
+    adaptCoachResultWithOptionalLlm,
+    adaptCoachWithOptionalLlm,
+    buildCoachLlmPayload,
+    type CoachLlmClient,
+} from './coach-llm-adapter';
+import { buildCoachInput, CoachBatchSchema } from './coach-llm-contract';
 
 const deterministicFeedback: CoachFeedback = {
     diagnosis: {
@@ -35,6 +41,54 @@ const deterministicFeedback: CoachFeedback = {
     whatToAdjust: 'Ajuste o pulldown',
     howToTest: 'Drill deterministico',
     adaptationTimeDays: 3,
+};
+
+const deterministicCoachPlan: CoachPlan = {
+    tier: 'test_protocol',
+    sessionSummary: 'Plano deterministico para validar controle vertical.',
+    primaryFocus: {
+        id: 'vertical-control',
+        area: 'vertical_control',
+        title: 'Controle vertical',
+        whyNow: 'O erro vertical e o sinal mais forte agora.',
+        priorityScore: 0.81,
+        severity: 0.8,
+        confidence: 0.86,
+        coverage: 0.9,
+        dependencies: ['capture_quality'],
+        blockedBy: [],
+        signals: [],
+    },
+    secondaryFocuses: [],
+    actionProtocols: [
+        {
+            id: 'vertical-control-drill-protocol',
+            kind: 'drill',
+            instruction: 'Run three deterministic sprays.',
+            expectedEffect: 'Confirms whether vertical error improves.',
+            risk: 'low',
+            applyWhen: 'Use when vertical control is primary.',
+            avoidWhen: 'Avoid changing sensitivity in the same block.',
+        },
+    ],
+    nextBlock: {
+        title: 'Short vertical control test block',
+        durationMinutes: 12,
+        steps: ['Run 3 comparable sprays focused on vertical control.'],
+        checks: [
+            {
+                label: 'vertical control validation',
+                target: 'lower sustained vertical error',
+                minimumCoverage: 0.9,
+                minimumConfidence: 0.86,
+                successCondition: 'Success when vertical control improves.',
+                failCondition: 'Fail if evidence falls below threshold.',
+            },
+        ],
+    },
+    stopConditions: ['Stop if capture quality drops.'],
+    adaptationWindowDays: 2,
+    llmRewriteAllowed: false,
 };
 
 describe('adaptCoachWithOptionalLlm', () => {
@@ -111,5 +165,181 @@ describe('adaptCoachWithOptionalLlm', () => {
             whatToAdjust: 'Ajuste o pulldown com cautela',
             howToTest: 'Drill deterministico refinado',
         });
+    });
+
+    it('rewrites expanded coach plan copy while preserving tier, scores, dependencies, and thresholds', async () => {
+        const client: CoachLlmClient = {
+            generate: async () => ({
+                items: [
+                    {
+                        problem: 'Pulldown baixo, explicado melhor',
+                        likelyCause: 'Controle vertical insuficiente sustentado',
+                        adjustment: 'Ajuste o pulldown com cautela',
+                        drill: 'Drill deterministico refinado',
+                        verifyNextClip: 'Verifique no proximo clip com o mesmo loadout',
+                    },
+                ],
+                coachPlan: {
+                    sessionSummary: 'Resumo humano do bloco de controle vertical.',
+                    primaryFocusWhyNow: 'O controle vertical venceu porque tem evidencia mais forte no bloco.',
+                    actionProtocols: [
+                        {
+                            id: 'vertical-control-drill-protocol',
+                            instruction: 'Execute 3 sprays iguais e observe apenas o eixo vertical.',
+                        },
+                    ],
+                    nextBlockTitle: 'Bloco curto de controle vertical',
+                },
+            }),
+        };
+
+        const adapted = await adaptCoachResultWithOptionalLlm({
+            coaching: [deterministicFeedback],
+            coachPlan: deterministicCoachPlan,
+        }, client);
+
+        expect(adapted.coaching[0]).toMatchObject({
+            problem: 'Pulldown baixo, explicado melhor',
+            evidence: deterministicFeedback.evidence,
+            confidence: deterministicFeedback.confidence,
+        });
+        expect(adapted.coachPlan).toMatchObject({
+            tier: deterministicCoachPlan.tier,
+            sessionSummary: 'Resumo humano do bloco de controle vertical.',
+            primaryFocus: {
+                whyNow: 'O controle vertical venceu porque tem evidencia mais forte no bloco.',
+                priorityScore: deterministicCoachPlan.primaryFocus.priorityScore,
+                dependencies: deterministicCoachPlan.primaryFocus.dependencies,
+                blockedBy: deterministicCoachPlan.primaryFocus.blockedBy,
+            },
+            actionProtocols: [
+                {
+                    id: 'vertical-control-drill-protocol',
+                    kind: 'drill',
+                    instruction: 'Execute 3 sprays iguais e observe apenas o eixo vertical.',
+                    expectedEffect: deterministicCoachPlan.actionProtocols[0]!.expectedEffect,
+                    risk: deterministicCoachPlan.actionProtocols[0]!.risk,
+                },
+            ],
+            nextBlock: {
+                title: 'Bloco curto de controle vertical',
+                durationMinutes: deterministicCoachPlan.nextBlock.durationMinutes,
+                checks: deterministicCoachPlan.nextBlock.checks,
+            },
+        });
+    });
+
+    it('falls back to deterministic coach plan when expanded LLM output contains forbidden fields', async () => {
+        const client: CoachLlmClient = {
+            generate: async () => ({
+                items: [
+                    {
+                        problem: 'Pulldown baixo, explicado melhor',
+                        likelyCause: 'Controle vertical insuficiente sustentado',
+                        adjustment: 'Ajuste o pulldown com cautela',
+                        drill: 'Drill deterministico refinado',
+                        verifyNextClip: 'Verifique no proximo clip com o mesmo loadout',
+                    },
+                ],
+                coachPlan: {
+                    sessionSummary: 'Resumo humano do bloco.',
+                    primaryFocusWhyNow: 'Motivo reescrito.',
+                    actionProtocols: [
+                        {
+                            id: 'vertical-control-drill-protocol',
+                            instruction: 'Instrucao reescrita.',
+                            risk: 'high',
+                        },
+                    ],
+                    nextBlockTitle: 'Titulo reescrito',
+                    tier: 'apply_protocol',
+                },
+            }),
+        };
+
+        await expect(adaptCoachResultWithOptionalLlm({
+            coaching: [deterministicFeedback],
+            coachPlan: deterministicCoachPlan,
+        }, client)).resolves.toEqual({
+            coaching: [deterministicFeedback],
+            coachPlan: deterministicCoachPlan,
+        });
+    });
+});
+
+describe('coach LLM contract V2', () => {
+    const textOutput = {
+        problem: 'Pulldown baixo, explicado melhor',
+        likelyCause: 'Controle vertical insuficiente sustentado',
+        adjustment: 'Ajuste o pulldown com cautela',
+        drill: 'Drill deterministico refinado',
+        verifyNextClip: 'Verifique no proximo clip com o mesmo loadout',
+    };
+
+    it('serializes deterministic coach plan context for safe rewrite', () => {
+        const input = JSON.parse(
+            buildCoachInput(buildCoachLlmPayload([deterministicFeedback]), deterministicCoachPlan)
+        ) as Record<string, unknown>;
+
+        expect(input).toMatchObject({
+            locale: 'pt-BR',
+            coachPlan: {
+                tier: deterministicCoachPlan.tier,
+                sessionSummary: deterministicCoachPlan.sessionSummary,
+                primaryFocus: {
+                    id: deterministicCoachPlan.primaryFocus.id,
+                    priorityScore: deterministicCoachPlan.primaryFocus.priorityScore,
+                    blockedBy: deterministicCoachPlan.primaryFocus.blockedBy,
+                },
+                nextBlock: {
+                    title: deterministicCoachPlan.nextBlock.title,
+                    checks: deterministicCoachPlan.nextBlock.checks,
+                },
+            },
+        });
+    });
+
+    it('accepts coach plan rewrites only through the allowed V2 fields', () => {
+        const parsed = CoachBatchSchema.safeParse({
+            items: [textOutput],
+            coachPlan: {
+                sessionSummary: 'Resumo humano do bloco.',
+                primaryFocusWhyNow: 'Motivo reescrito sem alterar score.',
+                actionProtocols: [
+                    {
+                        id: 'vertical-control-drill-protocol',
+                        instruction: 'Instrucao reescrita.',
+                    },
+                ],
+                nextBlockTitle: 'Titulo reescrito',
+            },
+        });
+
+        expect(parsed.success).toBe(true);
+        expect(parsed.data).toMatchObject({
+            coachPlan: {
+                nextBlockTitle: 'Titulo reescrito',
+            },
+        });
+    });
+
+    it('rejects coach plan rewrites that try to mutate forbidden facts', () => {
+        const parsed = CoachBatchSchema.safeParse({
+            items: [textOutput],
+            coachPlan: {
+                sessionSummary: 'Resumo humano do bloco.',
+                primaryFocusWhyNow: 'Motivo reescrito sem alterar score.',
+                actionProtocols: [
+                    {
+                        id: 'vertical-control-drill-protocol',
+                        instruction: 'Instrucao reescrita.',
+                    },
+                ],
+                nextBlockTitle: 'Titulo reescrito',
+                tier: 'apply_protocol',
+            },
+        });
+
+        expect(parsed.success).toBe(false);
     });
 });

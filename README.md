@@ -16,14 +16,23 @@ Hoje o sistema entrega:
 - diagnostico estruturado em multiplos eixos
 - comparacao entre perfis de sensibilidade guiados pelo hardware
 - historico e coaching orientado pelos sinais medidos
+- Coach Extremo com `coachPlan` deterministico, foco principal, tier de decisao, protocolo do proximo bloco e checks de validacao
 
 O app pode bloquear clips com qualidade insuficiente para evitar recomendacoes enganadoras. Quando a leitura e possivel, a sensibilidade sugerida deve ser tratada como faixa de teste, nao como valor perfeito ou definitivo.
 
-O projeto ainda esta evoluindo para um motor mais patch-aware, com matematica de sensibilidade mais forte, benchmarks capturados e tracking com confianca cada vez mais honesta.
+O projeto ainda esta evoluindo para um motor mais patch-aware, com matematica de sensibilidade mais forte, benchmark do Coach Extremo e tracking com confianca cada vez mais honesta.
 
 ## Estado atual
 
-Validacao mais recente em 2026-04-17:
+Validacao mais recente em 2026-04-18 para fechamento do Coach Extremo:
+
+- check documental da Task 14: RED antes das edicoes, GREEN depois
+- `npx vitest run`: verde (`80` arquivos, `340` testes)
+- `npm run typecheck`: verde
+- `npm run build`: verde
+- `npx playwright test`: verde (`21` testes)
+
+Baseline de release anterior em 2026-04-17:
 
 - `npm run verify:release`: verde
 - `npx vitest run`: verde (`72` arquivos, `280` testes)
@@ -34,6 +43,38 @@ Validacao mais recente em 2026-04-17:
 - `npm run readiness:local`: automatiza o gate local/browser e explicita se o backend ffmpeg ainda esta bloqueado
 
 Mais detalhes em [docs/baseline-2026-04-13.md](docs/baseline-2026-04-13.md), [docs/SPRAY-ANALYSIS-EXECUTION-PLAN.md](docs/SPRAY-ANALYSIS-EXECUTION-PLAN.md), [docs/video-benchmark-spec.md](docs/video-benchmark-spec.md), [docs/VIDEO-ANALYSIS-EXECUTION-PLAN.md](docs/VIDEO-ANALYSIS-EXECUTION-PLAN.md) e [docs/launch-readiness-2026-04-17.md](docs/launch-readiness-2026-04-17.md).
+
+## Coach Extremo
+
+O Coach Extremo transforma o coach de cards isolados em um plano de sessao auditavel.
+
+O `coachPlan` nasce de codigo deterministico e combina sinais de captura, diagnostico, sensibilidade, contexto e memoria minima. Ele escolhe um foco principal, ate dois focos secundarios, um `CoachDecisionTier` e um protocolo do proximo bloco com passos, checks e condicoes de parada.
+
+Os cards antigos de `CoachFeedback[]` continuam existindo como evidencia detalhada. O plano novo fica acima deles na experiencia de analise e tambem e preservado na hidratacao de historico quando a sessao salva ja possui esse contrato.
+
+O LLM, quando habilitado por `GROQ_API_KEY`, segue sendo apenas uma camada opcional de rewrite. Ele pode melhorar copy curta, mas nao pode alterar tier, scores, prioridades, dependencias, thresholds, attachments ou fatos tecnicos.
+
+O benchmark do Coach Extremo valida o plano de sessao alem do texto detalhado, cobrindo pelo menos `coachPlan.tier`, `coachPlan.primaryFocus.area` e `coachPlan.nextBlock.title`.
+
+## Fluxo de desenvolvimento do coach
+
+O plano do Coach Extremo foi executado como "1 task = 1 chat". Novas mudancas funcionais nesse subsistema devem preservar esse ritmo quando vierem de um SDD ou plano atomico.
+
+TDD e obrigatorio para mudancas funcionais: primeiro RED, depois GREEN, refactor e validacao. Para a Task 14, que e documental, o RED/GREEN foi aplicado como check de alinhamento dos documentos antes da suite final.
+
+Gate local recomendado para esse escopo:
+
+```bash
+npx vitest run
+npm run typecheck
+npm run build
+```
+
+Se a suite de browser estiver estavel no ambiente local, rode tambem:
+
+```bash
+npx playwright test
+```
 
 ## Stack
 

@@ -1,25 +1,33 @@
 import type { AnalysisResult } from '@/types/engine';
 
-import { adaptCoachWithOptionalLlm, type CoachLlmClient } from './coach-llm-adapter';
+import { adaptCoachResultWithOptionalLlm, type CoachLlmClient } from './coach-llm-adapter';
+import { attachCoachPlanToAnalysisResult } from './coach-engine';
 
 export async function enrichAnalysisResultCoaching(
     result: AnalysisResult,
     client?: CoachLlmClient
 ): Promise<AnalysisResult> {
+    const subSessions = result.subSessions
+        ? await Promise.all(result.subSessions.map((session) => enrichAnalysisResultCoaching(session, client)))
+        : undefined;
+    const resultWithSubSessions = {
+        ...result,
+        ...(subSessions ? { subSessions } : {}),
+    };
+    const resultWithCoachPlan = attachCoachPlanToAnalysisResult(resultWithSubSessions);
+
     if (!client) {
-        return result;
+        return resultWithCoachPlan;
     }
 
-    const [coaching, subSessions] = await Promise.all([
-        adaptCoachWithOptionalLlm(result.coaching, client),
-        result.subSessions
-            ? Promise.all(result.subSessions.map((session) => enrichAnalysisResultCoaching(session, client)))
-            : Promise.resolve(undefined),
-    ]);
+    const adaptedCoach = await adaptCoachResultWithOptionalLlm({
+        coaching: resultWithCoachPlan.coaching,
+        ...(resultWithCoachPlan.coachPlan ? { coachPlan: resultWithCoachPlan.coachPlan } : {}),
+    }, client);
 
     return {
-        ...result,
-        coaching,
-        ...(subSessions ? { subSessions } : {}),
+        ...resultWithCoachPlan,
+        coaching: adaptedCoach.coaching,
+        ...(adaptedCoach.coachPlan ? { coachPlan: adaptedCoach.coachPlan } : {}),
     };
 }

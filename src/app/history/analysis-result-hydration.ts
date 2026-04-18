@@ -7,6 +7,12 @@ import type {
     SensitivityAcceptanceOutcome,
 } from '@/types/engine';
 
+type HistoryCoachPlan = NonNullable<AnalysisResult['coachPlan']>;
+type HistoryCoachPriority = HistoryCoachPlan['primaryFocus'];
+type HistoryCoachActionProtocol = HistoryCoachPlan['actionProtocols'][number];
+type HistoryCoachBlockPlan = HistoryCoachPlan['nextBlock'];
+type HistoryCoachValidationCheck = HistoryCoachBlockPlan['checks'][number];
+
 export interface HydrateAnalysisResultFromHistoryInput {
     readonly fullResult: Record<string, unknown>;
     readonly recordPatchVersion: string;
@@ -115,21 +121,152 @@ function normalizeSensitivityRecommendation(
     };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isFiniteNumber(value: unknown): value is number {
+    return typeof value === 'number' && Number.isFinite(value);
+}
+
+function isStringArray(value: unknown): value is readonly string[] {
+    return Array.isArray(value) && value.every((item) => typeof item === 'string');
+}
+
+function isCoachDecisionTier(value: unknown): value is HistoryCoachPlan['tier'] {
+    return value === 'capture_again'
+        || value === 'test_protocol'
+        || value === 'stabilize_block'
+        || value === 'apply_protocol';
+}
+
+function isCoachFocusArea(value: unknown): value is HistoryCoachPriority['area'] {
+    return value === 'capture_quality'
+        || value === 'vertical_control'
+        || value === 'horizontal_control'
+        || value === 'timing'
+        || value === 'consistency'
+        || value === 'sensitivity'
+        || value === 'loadout'
+        || value === 'validation';
+}
+
+function isCoachSignalSource(value: unknown): value is HistoryCoachPriority['signals'][number]['source'] {
+    return value === 'video_quality'
+        || value === 'diagnosis'
+        || value === 'sensitivity'
+        || value === 'history'
+        || value === 'context';
+}
+
+function isCoachProtocolKind(value: unknown): value is HistoryCoachActionProtocol['kind'] {
+    return value === 'capture'
+        || value === 'technique'
+        || value === 'sens'
+        || value === 'loadout'
+        || value === 'drill';
+}
+
+function isCoachProtocolRisk(value: unknown): value is HistoryCoachActionProtocol['risk'] {
+    return value === 'low' || value === 'medium' || value === 'high';
+}
+
+function isCoachSignal(value: unknown): value is HistoryCoachPriority['signals'][number] {
+    return isRecord(value)
+        && isCoachSignalSource(value.source)
+        && isCoachFocusArea(value.area)
+        && typeof value.key === 'string'
+        && typeof value.summary === 'string'
+        && isFiniteNumber(value.confidence)
+        && isFiniteNumber(value.coverage)
+        && isFiniteNumber(value.weight);
+}
+
+function isCoachPriority(value: unknown): value is HistoryCoachPriority {
+    return isRecord(value)
+        && typeof value.id === 'string'
+        && isCoachFocusArea(value.area)
+        && typeof value.title === 'string'
+        && typeof value.whyNow === 'string'
+        && isFiniteNumber(value.priorityScore)
+        && isFiniteNumber(value.severity)
+        && isFiniteNumber(value.confidence)
+        && isFiniteNumber(value.coverage)
+        && isStringArray(value.dependencies)
+        && isStringArray(value.blockedBy)
+        && Array.isArray(value.signals)
+        && value.signals.every(isCoachSignal);
+}
+
+function isCoachActionProtocol(value: unknown): value is HistoryCoachActionProtocol {
+    return isRecord(value)
+        && typeof value.id === 'string'
+        && isCoachProtocolKind(value.kind)
+        && typeof value.instruction === 'string'
+        && typeof value.expectedEffect === 'string'
+        && isCoachProtocolRisk(value.risk)
+        && typeof value.applyWhen === 'string'
+        && (value.avoidWhen === undefined || typeof value.avoidWhen === 'string');
+}
+
+function isCoachValidationCheck(value: unknown): value is HistoryCoachValidationCheck {
+    return isRecord(value)
+        && typeof value.label === 'string'
+        && typeof value.target === 'string'
+        && isFiniteNumber(value.minimumCoverage)
+        && isFiniteNumber(value.minimumConfidence)
+        && typeof value.successCondition === 'string'
+        && typeof value.failCondition === 'string';
+}
+
+function isCoachBlockPlan(value: unknown): value is HistoryCoachBlockPlan {
+    return isRecord(value)
+        && typeof value.title === 'string'
+        && isFiniteNumber(value.durationMinutes)
+        && isStringArray(value.steps)
+        && Array.isArray(value.checks)
+        && value.checks.every(isCoachValidationCheck);
+}
+
+function isCoachPlan(value: unknown): value is HistoryCoachPlan {
+    return isRecord(value)
+        && isCoachDecisionTier(value.tier)
+        && typeof value.sessionSummary === 'string'
+        && isCoachPriority(value.primaryFocus)
+        && Array.isArray(value.secondaryFocuses)
+        && value.secondaryFocuses.every(isCoachPriority)
+        && Array.isArray(value.actionProtocols)
+        && value.actionProtocols.every(isCoachActionProtocol)
+        && isCoachBlockPlan(value.nextBlock)
+        && isStringArray(value.stopConditions)
+        && isFiniteNumber(value.adaptationWindowDays)
+        && typeof value.llmRewriteAllowed === 'boolean';
+}
+
+function normalizeCoachPlan(value: unknown): HistoryCoachPlan | undefined {
+    return isCoachPlan(value) ? value : undefined;
+}
+
 function normalizeHistoryAnalysisResult(result: AnalysisResult): AnalysisResult {
     const trajectory = result.trajectory as AnalysisResult['trajectory'] | undefined;
     const normalizedSubSessions = result.subSessions?.map(normalizeHistoryAnalysisResult);
+    const normalizedCoachPlan = normalizeCoachPlan(result.coachPlan);
+    const resultWithoutCoachPlan = { ...result };
+    delete resultWithoutCoachPlan.coachPlan;
 
     if (!trajectory || typeof trajectory !== 'object') {
         return {
-            ...result,
+            ...resultWithoutCoachPlan,
             ...(result.sensitivity ? { sensitivity: normalizeSensitivityRecommendation(result)! } : {}),
+            ...(normalizedCoachPlan ? { coachPlan: normalizedCoachPlan } : {}),
             ...(normalizedSubSessions ? { subSessions: normalizedSubSessions } : {}),
         };
     }
 
     return {
-        ...result,
+        ...resultWithoutCoachPlan,
         ...(result.sensitivity ? { sensitivity: normalizeSensitivityRecommendation(result)! } : {}),
+        ...(normalizedCoachPlan ? { coachPlan: normalizedCoachPlan } : {}),
         trajectory: {
             ...trajectory,
             statusCounts: normalizeTrackingStatusCounts(trajectory),

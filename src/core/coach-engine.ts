@@ -7,6 +7,7 @@ import {
 import { getOptic, getOpticState } from '@/game/pubg/optic-catalog';
 import { CURRENT_PUBG_PATCH_VERSION } from '@/game/pubg/patch';
 import type {
+    AnalysisResult,
     CoachAttachmentEvidence,
     CoachContext,
     CoachEvidence,
@@ -16,6 +17,7 @@ import type {
     Diagnosis,
     WeaponLoadout,
 } from '@/types/engine';
+import { buildCoachPlan } from './coach-plan-builder';
 
 const DRILLS: Record<string, string> = {
     overpull: 'Drill da Janela (30m): va ao Training Mode e escolha uma janela pequena. Faca sprays de 10 balas focando em manter todo o spray dentro do buraco, sem deixar a mira descer.',
@@ -459,4 +461,11 @@ export function generateCoaching(
             adaptationTimeDays: estimateAdaptationDays(diagnosis.severity),
         };
     });
+}
+
+export function attachCoachPlanToAnalysisResult(result: AnalysisResult): AnalysisResult {
+    return {
+        ...result,
+        coachPlan: buildCoachPlan({ analysisResult: result }),
+    };
 }

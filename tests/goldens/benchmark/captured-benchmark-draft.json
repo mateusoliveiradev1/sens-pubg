@@ -32,6 +32,11 @@
       },
       "labels": {
         "expectedDiagnoses": [],
+        "expectedCoachPlan": {
+          "tier": "test_protocol",
+          "primaryFocusArea": "sensitivity",
+          "nextBlockTitle": "Short sensitivity test block"
+        },
         "expectedTrackingTier": "clean"
       },
       "quality": {
@@ -77,6 +82,11 @@
       },
       "labels": {
         "expectedDiagnoses": [],
+        "expectedCoachPlan": {
+          "tier": "apply_protocol",
+          "primaryFocusArea": "sensitivity",
+          "nextBlockTitle": "Apply and validate sensitivity"
+        },
         "expectedTrackingTier": "degraded"
       },
       "quality": {
@@ -120,6 +130,11 @@
       },
       "labels": {
         "expectedDiagnoses": [],
+        "expectedCoachPlan": {
+          "tier": "apply_protocol",
+          "primaryFocusArea": "sensitivity",
+          "nextBlockTitle": "Apply and validate sensitivity"
+        },
         "expectedTrackingTier": "clean"
       },
       "quality": {
@@ -166,6 +181,11 @@
           "overpull"
         ],
         "expectedCoachMode": "standard",
+        "expectedCoachPlan": {
+          "tier": "apply_protocol",
+          "primaryFocusArea": "vertical_control",
+          "nextBlockTitle": "Apply and validate vertical control"
+        },
         "expectedTrackingTier": "degraded"
       },
       "quality": {
@@ -209,6 +229,11 @@
       },
       "labels": {
         "expectedDiagnoses": [],
+        "expectedCoachPlan": {
+          "tier": "apply_protocol",
+          "primaryFocusArea": "sensitivity",
+          "nextBlockTitle": "Apply and validate sensitivity"
+        },
         "expectedTrackingTier": "clean"
       },
       "quality": {

@@ -30,6 +30,29 @@ describe('results dashboard visualization contract', () => {
         expect(source).toMatch(/Plano do Coach/);
     });
 
+    it('renders the coachPlan session verdict, primary focus, and next block before detailed cards', () => {
+        const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/const coachPlan = activeSession\.coachPlan/);
+        expect(source).toMatch(/formatCoachDecisionTierLabel\(coachPlan\.tier\)/);
+        expect(source).toMatch(/coachPlan\.sessionSummary/);
+        expect(source).toMatch(/coachPlan\.primaryFocus\.title/);
+        expect(source).toMatch(/coachPlan\.nextBlock\.title/);
+        expect(source).toMatch(/coachPlan\.nextBlock\.steps\.slice\(0, 3\)/);
+        expect(source).toMatch(/Veredito da sessao/);
+        expect(source).toMatch(/Foco principal/);
+        expect(source).toMatch(/Proximo bloco/);
+    });
+
+    it('keeps the legacy coach cards as detailed evidence below the session summary', () => {
+        const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/Evidencia detalhada do Coach/);
+        expect(source).toMatch(/groupedCoaching\.map/);
+        expect(source).toMatch(/c\.whatIsWrong/);
+        expect(source).toMatch(/c\.howToTest/);
+    });
+
     it('renders contextual profile callouts instead of only static profile descriptions', () => {
         const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
 

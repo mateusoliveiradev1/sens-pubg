@@ -59,12 +59,59 @@ async function main() {
             verifyNextClip: 'Veja se o primeiro terco do spray fica mais centralizado.',
         },
     ] as const;
+    const coachPlan = {
+        tier: 'test_protocol',
+        sessionSummary: 'Validar pulldown inicial antes de aplicar qualquer mudanca permanente.',
+        primaryFocus: {
+            id: 'vertical-control',
+            area: 'vertical_control',
+            title: 'Controle vertical',
+            whyNow: 'O primeiro terco do spray esta subindo e precisa de confirmacao.',
+            priorityScore: 0.81,
+            severity: 0.8,
+            confidence: 0.91,
+            coverage: 0.94,
+            dependencies: [],
+            blockedBy: [],
+            signals: [],
+        },
+        secondaryFocuses: [],
+        actionProtocols: [
+            {
+                id: 'vertical-control-drill-protocol',
+                kind: 'drill',
+                instruction: 'Repita sprays curtos de 10 tiros focando no inicio da puxada.',
+                expectedEffect: 'Confirma se antecipar o pulldown reduz o erro vertical.',
+                risk: 'low',
+                applyWhen: 'Use quando o eixo vertical for o foco principal.',
+                avoidWhen: 'Evite mudar sensibilidade no mesmo bloco.',
+            },
+        ],
+        nextBlock: {
+            title: 'Bloco curto de controle vertical',
+            durationMinutes: 12,
+            steps: ['Run 3 comparable sprays focused on vertical control.'],
+            checks: [
+                {
+                    label: 'vertical control validation',
+                    target: 'lower sustained vertical error',
+                    minimumCoverage: 0.9,
+                    minimumConfidence: 0.86,
+                    successCondition: 'Success when vertical control improves.',
+                    failCondition: 'Fail if evidence falls below threshold.',
+                },
+            ],
+        },
+        stopConditions: ['Stop if capture quality drops.'],
+        adaptationWindowDays: 2,
+        llmRewriteAllowed: false,
+    } as const;
 
     const response = await client.responses.create({
         model,
         instructions: buildCoachInstructions(),
-        input: buildCoachInput(payload),
-        max_output_tokens: 900,
+        input: buildCoachInput(payload, coachPlan),
+        max_output_tokens: 1200,
         text: {
             format: zodTextFormat(CoachBatchSchema, 'coach_feedback_batch'),
         },

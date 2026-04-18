@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import type {
     AnalysisResult,
+    CoachDecisionTier,
     DiagnosisType,
     ProfileType,
     RecommendationEvidenceTier,
@@ -317,6 +318,32 @@ function formatCoachMode(mode: 'standard' | 'low-confidence' | 'inconclusive'): 
     return 'Alta confianca';
 }
 
+function formatCoachDecisionTierLabel(tier: CoachDecisionTier): string {
+    switch (tier) {
+        case 'capture_again':
+            return 'Capturar novamente';
+        case 'test_protocol':
+            return 'Testar protocolo';
+        case 'stabilize_block':
+            return 'Estabilizar bloco';
+        case 'apply_protocol':
+            return 'Aplicar protocolo';
+    }
+}
+
+function formatCoachDecisionTierReason(tier: CoachDecisionTier): string {
+    switch (tier) {
+        case 'capture_again':
+            return 'A leitura ainda pede captura mais limpa antes de ajuste forte.';
+        case 'test_protocol':
+            return 'Existe direcao util, mas o proximo bloco ainda precisa confirmar.';
+        case 'stabilize_block':
+            return 'O foco dominante precisa de repeticao antes de mexer em mais variaveis.';
+        case 'apply_protocol':
+            return 'A evidencia sustenta aplicar o protocolo com validacao curta.';
+    }
+}
+
 function formatSensitivityTierLabel(tier: SensitivityRecommendationTier): string {
     if (tier === 'capture_again') {
         return 'Gravar novo clip';
@@ -599,6 +626,7 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
     const trackingTimeline = createTrackingTimeline(trackingTimelineFrames);
 
     const { metrics, diagnoses, sensitivity, coaching } = activeSession;
+    const coachPlan = activeSession.coachPlan;
     const sampleCount = isAggregated ? (result.subSessions?.length ?? 1) : 1;
 
     const stabilityVal = Number(metrics.stabilityScore);
@@ -1282,12 +1310,64 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
             </section>
 
             {/* ═══ Coach Feedback — Accordion + Grouped ═══ */}
-            {groupedCoaching.length > 0 && (
+            {(coachPlan || groupedCoaching.length > 0) && (
                 <section className={styles.section}>
                     <h3 className={styles.sectionTitle}>🏆 Plano do Coach</h3>
                     <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-md)', lineHeight: 1.6 }}>
                         O coach abaixo prioriza o que mexe mais no resultado agora. Quando a amostra ainda está curta, a orientação vira plano de teste, não veredito final.
                     </p>
+                    {coachPlan ? (
+                        <div className={styles.coachPlanSummary}>
+                            <div className={styles.coachPlanHeader}>
+                                <div className={styles.coachPlanIntro}>
+                                    <span className={styles.coachPlanLabel}>Veredito da sessao</span>
+                                    <h4 className={styles.coachPlanVerdict}>
+                                        {formatCoachDecisionTierLabel(coachPlan.tier)}
+                                    </h4>
+                                    <p className={styles.coachPlanSummaryText}>{coachPlan.sessionSummary}</p>
+                                </div>
+                                <div className={styles.coachPlanBadges}>
+                                    <span className="badge badge-info">
+                                        {formatCoachDecisionTierLabel(coachPlan.tier)}
+                                    </span>
+                                    <span className="badge badge-info">
+                                        Conf. {formatEvidencePercent(coachPlan.primaryFocus.confidence)}
+                                    </span>
+                                    <span className="badge badge-info">
+                                        Cob. {formatEvidencePercent(coachPlan.primaryFocus.coverage)}
+                                    </span>
+                                </div>
+                            </div>
+                            <div className={styles.coachPlanGrid}>
+                                <div className={styles.coachPlanCell}>
+                                    <span className={styles.coachPlanLabel}>Foco principal</span>
+                                    <strong className={styles.coachPlanValue}>{coachPlan.primaryFocus.title}</strong>
+                                    <p className={styles.coachPlanText}>{coachPlan.primaryFocus.whyNow}</p>
+                                </div>
+                                <div className={styles.coachPlanCell}>
+                                    <span className={styles.coachPlanLabel}>Proximo bloco</span>
+                                    <strong className={styles.coachPlanValue}>{coachPlan.nextBlock.title}</strong>
+                                    <ol className={styles.coachPlanSteps}>
+                                        {coachPlan.nextBlock.steps.slice(0, 3).map((step) => (
+                                            <li key={step} className={styles.coachPlanStep}>{step}</li>
+                                        ))}
+                                    </ol>
+                                </div>
+                            </div>
+                            <div className={styles.coachPlanValidation}>
+                                <span className={styles.coachPlanLabel}>Motivo do tier</span>
+                                <p className={styles.coachPlanText}>{formatCoachDecisionTierReason(coachPlan.tier)}</p>
+                                {coachPlan.nextBlock.checks[0] ? (
+                                    <p className={styles.coachPlanText}>
+                                        Criterio de validacao: {coachPlan.nextBlock.checks[0].successCondition}
+                                    </p>
+                                ) : null}
+                            </div>
+                        </div>
+                    ) : null}
+                    {groupedCoaching.length > 0 ? (
+                        <h4 className={styles.coachEvidenceTitle}>Evidencia detalhada do Coach</h4>
+                    ) : null}
                     <div className={styles.coachList}>
                         {groupedCoaching.map((group, gi) => {
                             const c = group.items[0];

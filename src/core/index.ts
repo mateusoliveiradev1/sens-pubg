@@ -126,9 +126,15 @@ export { runDiagnostics } from './diagnostic-engine';
 export { generateSensitivityRecommendation } from './sensitivity-engine';
 export { generateCoaching } from './coach-engine';
 export {
+    adaptCoachResultWithOptionalLlm,
     adaptCoachWithOptionalLlm,
     buildCoachLlmPayload,
+    type AdaptCoachResultInput,
+    type AdaptCoachResultOutput,
     type CoachLlmClient,
+    type CoachLlmBatchOutput,
+    type CoachLlmPlanOutput,
+    type CoachLlmPlanProtocolOutput,
     type CoachLlmPayloadItem,
     type CoachLlmTextOutput,
 } from './coach-llm-adapter';

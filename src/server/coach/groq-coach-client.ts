@@ -37,16 +37,16 @@ export function createGroqCoachClient(): CoachLlmClient | undefined {
     }
 
     return {
-        async generate(payload) {
-            if (payload.length === 0) {
-                return [];
+        async generate(payload, coachPlan) {
+            if (payload.length === 0 && !coachPlan) {
+                return { items: [] };
             }
 
             const response = await getGroqClient().responses.create({
                 model: resolveCoachModel(),
                 instructions: buildCoachInstructions(),
-                input: buildCoachInput(payload),
-                max_output_tokens: Math.max(900, payload.length * 260),
+                input: buildCoachInput(payload, coachPlan),
+                max_output_tokens: Math.max(1200, payload.length * 260 + (coachPlan ? 900 : 0)),
                 text: {
                     format: zodTextFormat(CoachBatchSchema, 'coach_feedback_batch'),
                 },
@@ -61,7 +61,7 @@ export function createGroqCoachClient(): CoachLlmClient | undefined {
                 return null;
             }
 
-            return parsed.data.items;
+            return parsed.data;
         },
     };
 }
