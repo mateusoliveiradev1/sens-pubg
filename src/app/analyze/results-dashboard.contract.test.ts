@@ -104,4 +104,13 @@ describe('results dashboard visualization contract', () => {
         expect(source).toMatch(/degradedSegments\.map/);
         expect(source).toMatch(/Evidencia frame-a-frame/);
     });
+
+    it('keeps expandable result cards keyboard-accessible', () => {
+        const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/handleCardKeyboardActivation/);
+        expect(source).toMatch(/role="button"/);
+        expect(source).toMatch(/tabIndex=\{0\}/);
+        expect(source).toMatch(/aria-expanded/);
+    });
 });

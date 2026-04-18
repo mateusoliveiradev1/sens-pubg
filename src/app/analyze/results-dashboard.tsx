@@ -24,6 +24,12 @@ import { formatAnalysisDistancePresentation } from './analysis-distance-presenta
 import { SprayVisualization } from './spray-visualization';
 import { summarizeAnalysisTracking } from './tracking-summary';
 import { createTrackingTimeline } from './tracking-timeline';
+import {
+    buildResultMetricCards,
+    groupCoachFeedbackByDiagnosis,
+    splitDiagnosesBySeverity,
+    type ResultMetricTone,
+} from './results-dashboard-view-model';
 import styles from './analysis.module.css';
 
 // ═══ Radial Gauge Component ═══
@@ -35,8 +41,19 @@ function RadialGauge({ value, max = 100, label, color }: { value: number; max?: 
     const bgColor = 'rgba(255,255,255,0.06)';
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-            <svg width="100" height="100" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
+        <div
+            className={styles.radialGauge}
+            style={{ '--gauge-color': color } as React.CSSProperties}
+        >
+            <svg
+                width="100"
+                height="100"
+                viewBox="0 0 100 100"
+                className={styles.radialGaugeSvg}
+                role="img"
+                aria-label={`${label}: ${Math.round(value)}`}
+            >
+                <title>{`${label}: ${Math.round(value)}`}</title>
                 <circle cx="50" cy="50" r={r} fill="none" stroke={bgColor} strokeWidth="8" />
                 <circle
                     cx="50" cy="50" r={r} fill="none"
@@ -55,7 +72,7 @@ function RadialGauge({ value, max = 100, label, color }: { value: number; max?: 
                     {Math.round(value)}
                 </text>
             </svg>
-            <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', fontWeight: 600, textAlign: 'center' }}>
+            <span className={styles.radialGaugeLabel}>
                 {label}
             </span>
         </div>
@@ -163,6 +180,7 @@ const METRIC_TOOLTIPS: Record<string, string> = {
     'Estabilidade': 'Score geral do spray (0-100). Mede quanto seu spray ficou concentrado.',
     'Controle Vertical': 'Razão entre pulldown real vs ideal. 1.0 = perfeito. >1 = overpull. <1 = underpull.',
     'Ruído Horizontal': 'Variação lateral angular do spray em graus. Menor = mais estável.',
+    'Ruido Horizontal': 'Variacao lateral angular do spray em graus. Menor = mais estavel.',
     'Erro Linear': 'Erro projetado no alvo considerando a distância da análise.',
     'Tempo de Resposta': 'Tempo (ms) até iniciar compensação de recuo após o primeiro tiro.',
     'Consistência': 'Quão similar são seus sprays entre si (0-100).',
@@ -304,6 +322,31 @@ function VideoQualityTimelineEvidence({ timeline }: { readonly timeline: VideoQu
 
 function formatEvidencePercent(value: number): string {
     return `${Math.round(value * 100)}%`;
+}
+
+function resultToneClass(tone: ResultMetricTone): string {
+    switch (tone) {
+        case 'success':
+            return styles.toneSuccess ?? '';
+        case 'warning':
+            return styles.toneWarning ?? '';
+        case 'error':
+            return styles.toneError ?? '';
+        case 'info':
+            return styles.toneInfo ?? '';
+    }
+}
+
+function handleCardKeyboardActivation(
+    event: React.KeyboardEvent<HTMLElement>,
+    action: () => void
+): void {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+        return;
+    }
+
+    event.preventDefault();
+    action();
 }
 
 function formatCoachMode(mode: 'standard' | 'low-confidence' | 'inconclusive'): string {
@@ -634,18 +677,19 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
     const stabilityColor = stabilityVal >= 70 ? '#22c55e' : stabilityVal >= 40 ? '#f59e0b' : '#ef4444';
     const consistencyColor = consistencyVal >= 65 ? '#22c55e' : consistencyVal >= 40 ? '#f59e0b' : '#ef4444';
 
-    const metricCards = [
-        { label: 'Controle Vertical', value: metrics.verticalControlIndex.toFixed(2), unit: '× ideal', color: Math.abs(metrics.verticalControlIndex - 1) < 0.15 ? 'var(--color-success)' : 'var(--color-warning)' },
-        { label: 'Ruído Horizontal', value: metrics.horizontalNoiseIndex.toFixed(1), unit: 'deg', color: metrics.horizontalNoiseIndex <= 3 ? 'var(--color-success)' : 'var(--color-error)' },
-        { label: linearErrorLabel, value: (metrics.linearErrorCm ?? 0).toFixed(1), unit: linearErrorUnit, color: (metrics.linearErrorSeverity ?? 0) <= 100 ? 'var(--color-success)' : 'var(--color-error)' },
-        { label: 'Tempo de Resposta', value: Number(metrics.initialRecoilResponseMs).toFixed(0), unit: 'ms', color: Number(metrics.initialRecoilResponseMs) <= 180 ? 'var(--color-success)' : 'var(--color-warning)' },
-        { label: 'VSM Sugerido', value: sensitivity.suggestedVSM?.toFixed(2) ?? '1.00', unit: '', color: sensitivity.suggestedVSM && sensitivity.suggestedVSM !== 1 ? 'var(--color-warning)' : 'var(--color-primary)' },
-    ];
+    const metricCards = buildResultMetricCards({
+        metrics,
+        diagnoses,
+        sensitivity,
+        linearErrorLabel,
+        linearErrorUnit,
+    });
 
-    // Sort diagnoses by severity (most critical first)
-    const sortedDiagnoses = [...diagnoses].sort((a, b) => b.severity - a.severity);
-    const majorDiags = sortedDiagnoses.filter(d => d.severity >= 3);
-    const minorDiags = sortedDiagnoses.filter(d => d.severity < 3);
+    const {
+        sortedDiagnoses,
+        majorDiagnoses: majorDiags,
+        minorDiagnoses: minorDiags,
+    } = splitDiagnosesBySeverity(diagnoses);
     const topDiagnosisType = sortedDiagnoses[0]?.type ?? null;
     const topDiagnosisMeta = sortedDiagnoses[0] ? DIAG_META[sortedDiagnoses[0].type] : null;
     const recommendedProfile = sensitivity.profiles.find((profile) => profile.type === sensitivity.recommended);
@@ -687,22 +731,7 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
         sampleCount
     );
 
-    // Group coach feedback by similar diagnosis types for deduplication
-    const groupedCoaching = [...coaching].reduce<{ key: string; items: (typeof coaching)[number][] }[]>((acc, c) => {
-        const existing = acc.find(g => g.key === c.diagnosis.type);
-        if (existing) {
-            existing.items.push(c);
-        } else {
-            acc.push({ key: c.diagnosis.type, items: [c] });
-        }
-        return acc;
-    }, []);
-    // Sort groups by max severity
-    groupedCoaching.sort((a, b) => {
-        const maxA = Math.max(...a.items.map(i => i.diagnosis.severity));
-        const maxB = Math.max(...b.items.map(i => i.diagnosis.severity));
-        return maxB - maxA;
-    });
+    const groupedCoaching = groupCoachFeedbackByDiagnosis(coaching);
 
     return (
         <div className={styles.dashboard}>
@@ -763,6 +792,10 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                         <div
                             className={`${styles.subSessionCard} glass-card ${isAggregated ? styles.subSessionCardActive : ''}`}
                             onClick={() => setActiveSession(result)}
+                            onKeyDown={(event) => handleCardKeyboardActivation(event, () => setActiveSession(result))}
+                            role="button"
+                            tabIndex={0}
+                            aria-pressed={isAggregated}
                         >
                             <strong>📊 Média Geral</strong>
                             <p style={{ fontSize: 'var(--text-xs)', marginTop: '4px' }}>{result.subSessions.length} sprays</p>
@@ -772,6 +805,10 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                                 key={sub.id}
                                 className={`${styles.subSessionCard} glass-card ${activeSession.id === sub.id ? styles.subSessionCardActive : ''}`}
                                 onClick={() => setActiveSession(sub)}
+                                onKeyDown={(event) => handleCardKeyboardActivation(event, () => setActiveSession(sub))}
+                                role="button"
+                                tabIndex={0}
+                                aria-pressed={activeSession.id === sub.id}
                             >
                                 <strong>Spray #{idx + 1}</strong>
                                 <p style={{ fontSize: 'var(--text-xs)', marginTop: '4px' }}>
@@ -963,14 +1000,27 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
 
                     <div className={styles.metricsGrid}>
                         {metricCards.map((m, i) => (
-                            <div key={m.label} className={`glass-card ${styles.metricCard} animate-fade-in-up stagger-${i + 1}`}>
-                                <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    {m.label} <MetricTooltip text={m.label === linearErrorLabel ? (distanceNote ?? METRIC_TOOLTIPS['Erro Linear'] ?? '') : (METRIC_TOOLTIPS[m.label] || '')} />
-                                </span>
-                                <span className="metric-value" style={{ color: m.color, WebkitTextFillColor: m.color, background: 'none' }}>
+                            <div
+                                key={m.label}
+                                className={`glass-card ${styles.metricCard} ${resultToneClass(m.tone)} animate-fade-in-up stagger-${i + 1}`}
+                            >
+                                <div className={styles.metricCardHeader}>
+                                    <span className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        {m.label} <MetricTooltip text={m.label === linearErrorLabel ? (distanceNote ?? METRIC_TOOLTIPS['Erro Linear'] ?? '') : (METRIC_TOOLTIPS[m.label] || '')} />
+                                    </span>
+                                    <span className={styles.metricStatus}>{m.summary}</span>
+                                </div>
+                                <span className={`metric-value ${styles.metricValueTone}`}>
                                     {m.value}
                                 </span>
                                 <span className={styles.metricUnit}>{m.unit}</span>
+                                <div className={styles.metricReferenceRow}>
+                                    <span>{m.reference}</span>
+                                    <span>{m.meterPercent}%</span>
+                                </div>
+                                <div className={styles.metricMeter} aria-hidden="true">
+                                    <span style={{ width: `${m.meterPercent}%` }} />
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -1002,11 +1052,13 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                                 shotResiduals={activeSession.metrics.shotResiduals}
                             />
                         </div>
-                        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', marginTop: '12px', textAlign: 'center' }}>
-                            {hasIdealPattern
-                                ? 'Linha Azul = Padrao ideal patch-aware | Linha Laranja = Seu movimento real | Alvo = centro inicial'
-                                : 'Linha Laranja = Seu movimento real | Alvo = centro inicial'}
-                        </p>
+                        <div className={styles.vizLegend} aria-label="Legenda da trajetoria">
+                            {hasIdealPattern ? (
+                                <span><span className={`${styles.legendSwatch} ${styles.legendIdeal}`} />Padrao ideal patch-aware</span>
+                            ) : null}
+                            <span><span className={`${styles.legendSwatch} ${styles.legendReal}`} />Movimento real</span>
+                            <span><span className={`${styles.legendSwatch} ${styles.legendTarget}`} />Centro inicial</span>
+                        </div>
                     </div>
                 </section>
             </div>
@@ -1024,13 +1076,19 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                             const meta = DIAG_META[d.type] || { icon: '⚠️', label: d.type.toUpperCase(), color: '#f59e0b' };
                             const matchingCoach = coaching.find(c => c.diagnosis.type === d.type);
                             const isExpanded = expandedDiag === i;
+                            const diagnosisTone = resultToneClass(d.severity >= 4 ? 'error' : d.severity >= 3 ? 'warning' : 'success');
+                            const diagnosisConfidence = d.confidence ?? d.evidence?.confidence;
 
                             return (
                                 <div
                                     key={d.type + i}
-                                    className={`glass-card ${styles.diagnosisCard}`}
+                                    className={`glass-card ${styles.diagnosisCard} ${diagnosisTone}`}
                                     style={{ borderLeftColor: meta.color, cursor: 'pointer' }}
                                     onClick={() => setExpandedDiag(isExpanded ? null : i)}
+                                    onKeyDown={(event) => handleCardKeyboardActivation(event, () => setExpandedDiag(isExpanded ? null : i))}
+                                    role="button"
+                                    tabIndex={0}
+                                    aria-expanded={isExpanded}
                                 >
                                     <div className={styles.diagnosisHeader}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -1042,14 +1100,22 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                                         </span>
                                     </div>
                                     <p className={styles.diagnosisDesc}>{d.description}</p>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '8px', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                                    {(d.dominantPhase || diagnosisConfidence !== undefined || d.evidence) ? (
+                                        <div className={styles.diagnosisEvidenceStrip}>
+                                            {d.dominantPhase ? <span>Fase {d.dominantPhase}</span> : null}
+                                            {diagnosisConfidence !== undefined ? <span>Conf. {formatEvidencePercent(diagnosisConfidence)}</span> : null}
+                                            {d.evidence ? <span>Cob. {formatEvidencePercent(d.evidence.coverage)}</span> : null}
+                                            {d.evidence ? <span>Erro {d.evidence.linearErrorCm.toFixed(1)}cm</span> : null}
+                                        </div>
+                                    ) : null}
+                                    <div className={styles.diagnosisActionGrid}>
                                         <div>
-                                            <span style={{ fontSize: '10px', fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Por que acontece</span>
-                                            <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: 1.5, marginTop: '4px' }}>{d.cause}</p>
+                                            <span className={styles.diagnosisActionLabel}>Por que acontece</span>
+                                            <p>{d.cause}</p>
                                         </div>
                                         <div>
-                                            <span style={{ fontSize: '10px', fontWeight: 700, color: '#22c55e', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Como corrigir</span>
-                                            <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: 1.5, marginTop: '4px' }}>{d.remediation}</p>
+                                            <span className={styles.diagnosisActionLabel}>Como corrigir</span>
+                                            <p>{d.remediation}</p>
                                         </div>
                                     </div>
                                     {matchingCoach && (
@@ -1373,17 +1439,20 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                             const c = group.items[0];
                             if (!c) return null;
                             const meta = DIAG_META[c.diagnosis.type] || { icon: '⚠️', label: '', color: '#f59e0b' };
-                            const maxSeverity = Math.max(...group.items.map(i => i.diagnosis.severity));
-                            const priorityColor = maxSeverity >= 4 ? '#ef4444' : maxSeverity >= 3 ? '#f59e0b' : '#22c55e';
-                            const priorityLabel = maxSeverity >= 4 ? '🔴 CRÍTICO' : maxSeverity >= 3 ? '🟡 IMPORTANTE' : '🟢 MENOR';
+                            const maxSeverity = group.maxSeverity;
+                            const priorityToneClass = resultToneClass(group.priorityTone);
                             const isOpen = expandedCoach === gi;
 
                             return (
                                 <div
                                     key={gi}
-                                    className={`glass-card ${styles.coachCard}`}
+                                    className={`glass-card ${styles.coachCard} ${priorityToneClass}`}
                                     style={{ cursor: 'pointer' }}
                                     onClick={() => setExpandedCoach(isOpen ? null : gi)}
+                                    onKeyDown={(event) => handleCardKeyboardActivation(event, () => setExpandedCoach(isOpen ? null : gi))}
+                                    role="button"
+                                    tabIndex={0}
+                                    aria-expanded={isOpen}
                                 >
                                     {/* Accordion Header — always visible */}
                                     <div style={{
@@ -1391,8 +1460,8 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                                     }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                                             <span style={{ fontSize: '1.5rem' }}>{meta.icon}</span>
-                                            <span style={{ fontSize: '11px', fontWeight: 700, color: priorityColor, fontFamily: 'var(--font-mono)', letterSpacing: '0.05em' }}>
-                                                {priorityLabel}
+                                            <span className={styles.coachPriority}>
+                                                {group.priorityLabel}
                                             </span>
                                             <span className="badge badge-info">{formatCoachMode(c.mode)}</span>
                                             <span className="badge badge-info">Conf. {formatEvidencePercent(c.evidence.confidence)}</span>

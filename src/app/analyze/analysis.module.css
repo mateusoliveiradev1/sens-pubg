@@ -298,6 +298,53 @@
     margin-bottom: var(--space-xl);
 }
 
+.toneSuccess {
+    --result-tone: var(--color-success);
+    --result-tone-soft: rgba(0, 230, 118, 0.12);
+    --result-tone-border: rgba(0, 230, 118, 0.28);
+}
+
+.toneWarning {
+    --result-tone: var(--color-warning);
+    --result-tone-soft: rgba(255, 193, 7, 0.12);
+    --result-tone-border: rgba(255, 193, 7, 0.28);
+}
+
+.toneError {
+    --result-tone: var(--color-error);
+    --result-tone-soft: rgba(255, 61, 61, 0.12);
+    --result-tone-border: rgba(255, 61, 61, 0.28);
+}
+
+.toneInfo {
+    --result-tone: var(--color-accent-cyan);
+    --result-tone-soft: rgba(0, 240, 255, 0.10);
+    --result-tone-border: rgba(0, 240, 255, 0.24);
+}
+
+.radialGauge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.radialGaugeSvg {
+    transform: rotate(-90deg);
+    border-radius: 50%;
+    background:
+        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.035), transparent 58%),
+        radial-gradient(circle at 50% 50%, var(--gauge-color, var(--color-accent-primary)), transparent 72%);
+    background-blend-mode: screen;
+}
+
+.radialGaugeLabel {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    font-weight: 600;
+    text-align: center;
+}
+
 /* ═══ Metrics Grid ═══ */
 
 .metricsGrid {
@@ -307,26 +354,27 @@
 }
 
 .metricCard {
-    text-align: center;
-    padding: var(--space-lg) var(--space-md);
+    text-align: left;
+    padding: var(--space-lg);
     position: relative;
     overflow: hidden;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    align-items: center;
-    min-height: 140px;
+    align-items: stretch;
+    gap: var(--space-sm);
+    min-height: 166px;
     background: var(--glass-bg);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: var(--radius-lg);
+    border: 1px solid var(--result-tone-border, rgba(255, 255, 255, 0.05));
+    border-radius: var(--radius-md);
     transition: all var(--transition-base);
 }
 
 .metricCard:hover {
     transform: translateY(-4px);
-    border-color: rgba(255, 107, 0, 0.2);
+    border-color: var(--result-tone-border, rgba(255, 107, 0, 0.2));
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
 }
 
@@ -337,15 +385,69 @@
     left: 0;
     width: 100%;
     height: 4px;
-    background: linear-gradient(90deg, transparent, var(--color-accent-primary), transparent);
+    background: linear-gradient(90deg, transparent, var(--result-tone, var(--color-accent-primary)), transparent);
     opacity: 0.8;
+}
+
+.metricCardHeader {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-xs);
+}
+
+.metricStatus {
+    max-width: 100%;
+    padding: 2px 6px;
+    border: 1px solid var(--result-tone-border, var(--color-border));
+    border-radius: var(--radius-sm);
+    background: var(--result-tone-soft, rgba(255, 255, 255, 0.04));
+    color: var(--result-tone, var(--color-text-secondary));
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.metricValueTone {
+    color: var(--result-tone, var(--color-accent-primary));
+    -webkit-text-fill-color: var(--result-tone, var(--color-accent-primary));
+    background: none;
+    line-height: 1;
 }
 
 .metricUnit {
     font-size: var(--text-xs);
     color: var(--color-text-muted);
     display: block;
-    margin-top: var(--space-xs);
+}
+
+.metricReferenceRow {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    color: var(--color-text-muted);
+    font-size: 11px;
+    font-family: var(--font-mono);
+}
+
+.metricMeter {
+    width: 100%;
+    height: 5px;
+    border-radius: var(--radius-full);
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.metricMeter span {
+    display: block;
+    height: 100%;
+    min-width: 4px;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--result-tone-soft, rgba(255, 255, 255, 0.1)), var(--result-tone, var(--color-accent-primary)));
 }
 
 /* ═══ Diagnosis ═══ */
@@ -407,6 +509,51 @@
     font-size: var(--text-base);
     font-weight: 500;
     line-height: 1.5;
+}
+
+.diagnosisEvidenceStrip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-md);
+}
+
+.diagnosisEvidenceStrip span {
+    padding: 3px 7px;
+    border: 1px solid var(--result-tone-border, var(--color-border));
+    border-radius: var(--radius-sm);
+    background: var(--result-tone-soft, rgba(255, 255, 255, 0.04));
+    color: var(--color-text-secondary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+}
+
+.diagnosisActionGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-md);
+    margin-top: var(--space-sm);
+    padding: var(--space-md);
+    background:
+        linear-gradient(135deg, var(--result-tone-soft, rgba(255, 255, 255, 0.04)), rgba(0, 0, 0, 0.18)),
+        rgba(0, 0, 0, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.045);
+    border-radius: var(--radius-sm);
+}
+
+.diagnosisActionLabel {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--result-tone, var(--color-accent-primary));
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.diagnosisActionGrid p {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+    margin-top: 4px;
 }
 
 .diagnosisCause,
@@ -928,10 +1075,23 @@
 .coachCard {
     padding: var(--space-2xl);
     background: linear-gradient(135deg, rgba(8, 8, 12, 0.9) 0%, rgba(26, 26, 46, 0.9) 100%);
+    border-color: var(--result-tone-border, var(--glass-border));
 }
 
 .coachRow {
     margin-bottom: var(--space-lg);
+}
+
+.coachPriority {
+    padding: 3px 7px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--result-tone-border, var(--color-border));
+    background: var(--result-tone-soft, rgba(255, 255, 255, 0.04));
+    color: var(--result-tone, var(--color-accent-primary));
+    font-size: 11px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    letter-spacing: 0.05em;
 }
 
 .coachLabel {
@@ -989,6 +1149,48 @@
     border-radius: var(--radius-sm);
     position: relative;
     overflow: hidden;
+}
+
+.vizLegend {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    margin-top: var(--space-md);
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+}
+
+.vizLegend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.legendSwatch {
+    width: 18px;
+    height: 3px;
+    border-radius: var(--radius-full);
+    box-shadow: 0 0 8px currentColor;
+}
+
+.legendIdeal {
+    color: var(--color-accent-cyan);
+    background: var(--color-accent-cyan);
+}
+
+.legendReal {
+    color: var(--color-accent-primary);
+    background: var(--color-accent-primary);
+}
+
+.legendTarget {
+    width: 8px;
+    height: 8px;
+    color: var(--color-accent-cyan);
+    background: transparent;
+    border: 1px solid var(--color-accent-cyan);
+    border-radius: 50%;
 }
 
 /* ═══ Sub-sessions ═══ */
@@ -1119,6 +1321,10 @@
 
     .diagnosisCard {
         padding: var(--space-md);
+    }
+
+    .diagnosisActionGrid {
+        grid-template-columns: 1fr;
     }
 
     .profileCard {
