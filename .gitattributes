@@ -1,2 +1,9 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Keep text files stable across Windows/macOS/Linux checkouts.
+* text=auto eol=lf
+
+# Binary assets should never be line-ending normalized.
+*.ico binary
+*.jpg binary
+*.jpeg binary
+*.png binary
+*.webp binary
