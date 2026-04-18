@@ -4,11 +4,153 @@ import { eq, sql } from 'drizzle-orm';
 
 import { auth } from '@/auth';
 import { enrichAnalysisResultCoaching } from '@/core/analysis-result-coach-enrichment';
+import {
+    applySensitivityHistoryConvergence,
+    type HistoricalSensitivitySignal,
+} from '@/core/sensitivity-history-convergence';
 import { db } from '@/db';
 import { analysisSessions, playerProfiles, sensitivityHistory, weaponProfiles } from '@/db/schema';
 import { normalizePatchVersion } from '@/game/pubg';
 import { createGroqCoachClient } from '@/server/coach/groq-coach-client';
-import type { AnalysisResult } from '@/types/engine';
+import type {
+    AnalysisResult,
+    RecommendationEvidenceTier,
+    SensitivityRecommendationTier,
+} from '@/types/engine';
+
+interface StoredHistoryAttachments {
+    readonly muzzle: string;
+    readonly grip: string;
+    readonly stock: string;
+}
+
+interface StoredSensitivityHistorySession {
+    readonly id: string;
+    readonly createdAt: Date;
+    readonly weaponId: string;
+    readonly scopeId: string;
+    readonly patchVersion: string;
+    readonly distance: number;
+    readonly stance: string;
+    readonly attachments: StoredHistoryAttachments;
+    readonly fullResult: Record<string, unknown> | null;
+}
+
+function normalizeStoredAttachments(
+    value: unknown,
+): StoredHistoryAttachments {
+    const attachments = value && typeof value === 'object'
+        ? value as Partial<StoredHistoryAttachments>
+        : {};
+
+    return {
+        muzzle: typeof attachments.muzzle === 'string' ? attachments.muzzle : 'none',
+        grip: typeof attachments.grip === 'string' ? attachments.grip : 'none',
+        stock: typeof attachments.stock === 'string' ? attachments.stock : 'none',
+    };
+}
+
+function resolveHistoryDistanceTolerance(distanceMeters: number): number {
+    if (distanceMeters <= 35) {
+        return 10;
+    }
+
+    if (distanceMeters <= 80) {
+        return 15;
+    }
+
+    return 25;
+}
+
+function normalizeHistoryEvidenceTier(value: unknown): RecommendationEvidenceTier {
+    return value === 'strong' || value === 'moderate' || value === 'weak'
+        ? value
+        : 'moderate';
+}
+
+function normalizeHistoryTier(
+    value: unknown,
+    evidenceTier: RecommendationEvidenceTier,
+    confidenceScore: number,
+    clipCount: number,
+): SensitivityRecommendationTier {
+    if (value === 'capture_again' || value === 'test_profiles' || value === 'apply_ready') {
+        return value;
+    }
+
+    if (evidenceTier === 'weak' || confidenceScore < 0.58) {
+        return 'capture_again';
+    }
+
+    if (evidenceTier === 'strong' && confidenceScore >= 0.8 && clipCount >= 3) {
+        return 'apply_ready';
+    }
+
+    return 'test_profiles';
+}
+
+function extractHistoricalSensitivitySignal(
+    session: StoredSensitivityHistorySession,
+): HistoricalSensitivitySignal | null {
+    const fullResult = session.fullResult;
+    const sensitivity = fullResult?.sensitivity;
+
+    if (!sensitivity || typeof sensitivity !== 'object') {
+        return null;
+    }
+
+    const storedSensitivity = sensitivity as Record<string, unknown>;
+    const recommendedProfile = storedSensitivity.recommended;
+    if (recommendedProfile !== 'low' && recommendedProfile !== 'balanced' && recommendedProfile !== 'high') {
+        return null;
+    }
+
+    const confidenceScore = typeof storedSensitivity.confidenceScore === 'number'
+        ? storedSensitivity.confidenceScore
+        : 0.5;
+    const evidenceTier = normalizeHistoryEvidenceTier(storedSensitivity.evidenceTier);
+    const clipCount = Array.isArray(fullResult?.subSessions)
+        ? fullResult.subSessions.length
+        : 1;
+
+    return {
+        sessionId: session.id,
+        createdAt: session.createdAt,
+        recommendedProfile,
+        tier: normalizeHistoryTier(storedSensitivity.tier, evidenceTier, confidenceScore, clipCount),
+        evidenceTier,
+        confidenceScore,
+    };
+}
+
+function enrichResultWithSensitivityHistory(
+    result: AnalysisResult,
+    distance: number,
+    historySessions: readonly StoredSensitivityHistorySession[],
+): AnalysisResult {
+    const distanceTolerance = resolveHistoryDistanceTolerance(distance);
+    const compatibleSignals = historySessions
+        .filter((session) => {
+            const attachments = normalizeStoredAttachments(session.attachments);
+
+            return session.stance === result.loadout.stance
+                && attachments.muzzle === result.loadout.muzzle
+                && attachments.grip === result.loadout.grip
+                && attachments.stock === result.loadout.stock
+                && Math.abs(session.distance - distance) <= distanceTolerance;
+        })
+        .map(extractHistoricalSensitivitySignal)
+        .filter((signal): signal is HistoricalSensitivitySignal => signal !== null);
+
+    if (compatibleSignals.length === 0) {
+        return result;
+    }
+
+    return {
+        ...result,
+        sensitivity: applySensitivityHistoryConvergence(result.sensitivity, compatibleSignals),
+    };
+}
 
 export async function saveAnalysisResult(
     result: AnalysisResult,
@@ -24,6 +166,7 @@ export async function saveAnalysisResult(
     let enrichedResult = result;
 
     try {
+        const patchVersion = normalizePatchVersion(result.patchVersion);
         const profile = await db
             .select({ id: playerProfiles.id })
             .from(playerProfiles)
@@ -34,14 +177,43 @@ export async function saveAnalysisResult(
             throw new Error('Perfil incompleto.');
         }
 
+        const priorSessions = await db
+            .select({
+                id: analysisSessions.id,
+                createdAt: analysisSessions.createdAt,
+                weaponId: analysisSessions.weaponId,
+                scopeId: analysisSessions.scopeId,
+                patchVersion: analysisSessions.patchVersion,
+                distance: analysisSessions.distance,
+                stance: analysisSessions.stance,
+                attachments: analysisSessions.attachments,
+                fullResult: analysisSessions.fullResult,
+            })
+            .from(analysisSessions)
+            .where(eq(analysisSessions.userId, session.user.id))
+            .limit(12) as StoredSensitivityHistorySession[];
+
+        const resultWithHistory = enrichResultWithSensitivityHistory(
+            {
+                ...result,
+                patchVersion,
+            },
+            distance,
+            priorSessions.filter((storedSession) => (
+                storedSession.fullResult !== null
+                && storedSession.patchVersion === patchVersion
+                && storedSession.weaponId === weaponId
+                && storedSession.scopeId === scopeId
+            )),
+        );
+
         enrichedResult = await enrichAnalysisResultCoaching(
-            result,
+            resultWithHistory,
             createGroqCoachClient()
         );
 
         const metrics = enrichedResult.metrics;
         const diagnoses = enrichedResult.diagnoses.map((diagnosis) => diagnosis.type);
-        const patchVersion = normalizePatchVersion(enrichedResult.patchVersion);
 
         const insertedSession = await db.insert(analysisSessions).values({
             userId: session.user.id,

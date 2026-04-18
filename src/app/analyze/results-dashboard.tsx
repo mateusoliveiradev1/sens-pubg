@@ -1005,10 +1005,20 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                     <span className="badge badge-info">
                         Confianca da sens {Math.round(sensitivity.confidenceScore * 100)}%
                     </span>
+                    {sensitivity.historyConvergence ? (
+                        <span className="badge badge-info">
+                            Historico {sensitivity.historyConvergence.consideredSessions} sessoes
+                        </span>
+                    ) : null}
                 </div>
                 <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-lg)', lineHeight: 1.6 }}>
                     {sensitivityTierExplanation}
                 </p>
+                {sensitivity.historyConvergence ? (
+                    <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-lg)', lineHeight: 1.6 }}>
+                        {sensitivity.historyConvergence.summary}
+                    </p>
+                ) : null}
                 <div className={styles.profilesGrid}>
                     {sensitivity.profiles.map(profile => {
                         const pmeta = PROFILE_META[profile.type] || { icon: '⚙️', subtitle: '' };

@@ -134,6 +134,9 @@ function createAnalysisResult(): AnalysisResult {
                 },
             ],
             recommended: 'balanced',
+            tier: 'test_profiles',
+            evidenceTier: 'moderate',
+            confidenceScore: 0.72,
             reasoning: 'Patch-aware recommendation',
             suggestedVSM: 1.05,
         },
@@ -180,6 +183,7 @@ describe('saveAnalysisResult', () => {
             returning: mocks.returning,
         });
         mocks.returning.mockResolvedValue([{ id: 'session-1' }]);
+        mocks.limit.mockResolvedValueOnce([{ id: 'profile-1' }]).mockResolvedValue([]);
         mocks.historyValues.mockResolvedValue(undefined);
         mocks.createGroqCoachClient.mockReturnValue(undefined);
         mocks.enrichAnalysisResultCoaching.mockImplementation(async (result) => result);
@@ -221,6 +225,99 @@ describe('saveAnalysisResult', () => {
             coachingData: enrichedResult.coaching,
             fullResult: expect.objectContaining({
                 coaching: enrichedResult.coaching,
+            }),
+        }));
+    });
+
+    it('strengthens sensitivity confidence when compatible history converges on the same recommendation', async () => {
+        const result = createAnalysisResult();
+
+        mocks.limit.mockReset();
+        mocks.limit
+            .mockResolvedValueOnce([{ id: 'profile-1' }])
+            .mockResolvedValueOnce([
+                {
+                    id: 'history-1',
+                    createdAt: new Date('2026-04-16T12:00:00.000Z'),
+                    weaponId: 'beryl-m762',
+                    scopeId: 'red-dot',
+                    patchVersion: CURRENT_PUBG_PATCH_VERSION,
+                    distance: 30,
+                    stance: 'standing',
+                    attachments: {
+                        muzzle: 'compensator',
+                        grip: 'vertical',
+                        stock: 'none',
+                    },
+                    fullResult: {
+                        sensitivity: {
+                            recommended: 'balanced',
+                            tier: 'apply_ready',
+                            evidenceTier: 'strong',
+                            confidenceScore: 0.9,
+                        },
+                    },
+                },
+                {
+                    id: 'history-2',
+                    createdAt: new Date('2026-04-15T12:00:00.000Z'),
+                    weaponId: 'beryl-m762',
+                    scopeId: 'red-dot',
+                    patchVersion: CURRENT_PUBG_PATCH_VERSION,
+                    distance: 35,
+                    stance: 'standing',
+                    attachments: {
+                        muzzle: 'compensator',
+                        grip: 'vertical',
+                        stock: 'none',
+                    },
+                    fullResult: {
+                        sensitivity: {
+                            recommended: 'balanced',
+                            tier: 'test_profiles',
+                            evidenceTier: 'strong',
+                            confidenceScore: 0.84,
+                        },
+                    },
+                },
+                {
+                    id: 'history-3',
+                    createdAt: new Date('2026-04-14T12:00:00.000Z'),
+                    weaponId: 'beryl-m762',
+                    scopeId: 'red-dot',
+                    patchVersion: CURRENT_PUBG_PATCH_VERSION,
+                    distance: 28,
+                    stance: 'standing',
+                    attachments: {
+                        muzzle: 'compensator',
+                        grip: 'vertical',
+                        stock: 'none',
+                    },
+                    fullResult: {
+                        sensitivity: {
+                            recommended: 'balanced',
+                            tier: 'test_profiles',
+                            evidenceTier: 'moderate',
+                            confidenceScore: 0.78,
+                        },
+                    },
+                },
+            ]);
+
+        await saveAnalysisResult(result, 'beryl-m762', 'red-dot', 30);
+
+        expect(mocks.sessionValues).toHaveBeenCalledWith(expect.objectContaining({
+            fullResult: expect.objectContaining({
+                sensitivity: expect.objectContaining({
+                    tier: 'apply_ready',
+                    evidenceTier: 'strong',
+                    historyConvergence: expect.objectContaining({
+                        matchingSessions: 3,
+                        consideredSessions: 3,
+                        consensusProfile: 'balanced',
+                        agreement: 'aligned',
+                    }),
+                }),
             }),
         }));
     });

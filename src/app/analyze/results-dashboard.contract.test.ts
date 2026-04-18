@@ -16,6 +16,7 @@ describe('results dashboard visualization contract', () => {
         expect(source).toMatch(/sensitivity\.tier/);
         expect(source).toMatch(/sensitivity\.evidenceTier/);
         expect(source).toMatch(/sensitivity\.confidenceScore/);
+        expect(source).toMatch(/sensitivity\.historyConvergence/);
     });
 
     it('shows coach verification context and attachment suggestions in the action plan', () => {
