@@ -183,6 +183,17 @@ TDD:
 - primeiro testar o shape minimo exigido;
 - depois implementar o mapper.
 
+Status:
+
+- concluida em 2026-04-18
+
+Evidence:
+
+- `src/core/community-post-snapshot.ts` criado com `createCommunityPostAnalysisSnapshot`, `CommunityPostAnalysisSnapshot` e `CommunityPostAnalysisSnapshotSourceSession`
+- snapshot canonico trava `patchVersion`, `weaponId`, `scopeId`, `distance`, `stance`, `attachmentsSnapshot`, `metricsSnapshot`, `diagnosesSnapshot`, `coachingSnapshot`, `sensSnapshot` e `trackingSnapshot`
+- `src/core/community-post-snapshot.test.ts` criado cobrindo shape minimo, determinismo e detach do snapshot em relacao ao resultado original
+- validacao executada: `npx vitest run src/core/community-post-snapshot.test.ts` -> 2 testes verdes
+
 ### W10-T02 - Estender schema com tabelas comunitarias core
 
 Goal:
