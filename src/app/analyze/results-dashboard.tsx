@@ -9,7 +9,9 @@ import { useState } from 'react';
 import type {
     AnalysisResult,
     DiagnosisType,
+    RecommendationEvidenceTier,
     SensitivityProfile,
+    SensitivityRecommendationTier,
     VideoQualityBlockingReason,
     VideoQualityFrameIssue,
     VideoQualityFrameTimeline,
@@ -285,15 +287,60 @@ function formatCoachMode(mode: 'standard' | 'low-confidence' | 'inconclusive'): 
     return 'Alta confianca';
 }
 
+function formatSensitivityTierLabel(tier: SensitivityRecommendationTier): string {
+    if (tier === 'capture_again') {
+        return 'Gravar novo clip';
+    }
+
+    if (tier === 'apply_ready') {
+        return 'Pronto para aplicar';
+    }
+
+    return 'Testar perfis';
+}
+
+function formatSensitivityEvidenceTier(evidenceTier: RecommendationEvidenceTier): string {
+    if (evidenceTier === 'strong') {
+        return 'forte';
+    }
+
+    if (evidenceTier === 'weak') {
+        return 'fraca';
+    }
+
+    return 'moderada';
+}
+
+function buildSensitivityTierExplanation(
+    tier: SensitivityRecommendationTier,
+    sampleCount: number
+): string {
+    if (tier === 'capture_again') {
+        return 'Este clip ainda nao sustenta mudanca segura de sens. O melhor proximo passo e repetir a captura com tracking mais limpo antes de mexer no setup.';
+    }
+
+    if (tier === 'apply_ready') {
+        return `A recomendacao ja ganhou consistencia suficiente para aplicacao controlada. Ainda assim, valide em mais um bloco curto de ${sampleCount} sprays antes de fechar como sens definitiva.`;
+    }
+
+    return `A direcao da leitura faz sentido, mas ainda esta em modo de teste. Use os perfis como experimento guiado e confirme a convergencia antes de consolidar a troca.`;
+}
+
 function buildSensitivitySummary(
     recommendedProfileLabel: string,
     topDiagnosisLabel: string | null,
     suggestedVsm: number | undefined,
     sampleCount: number,
+    tier: SensitivityRecommendationTier,
+    evidenceTier: RecommendationEvidenceTier,
+    confidenceScore: number,
     confidence: number,
     coverage: number
 ): string {
-    const parts = [`Perfil recomendado: ${recommendedProfileLabel}.`];
+    const parts = [
+        `Perfil recomendado: ${recommendedProfileLabel}.`,
+        `Tier atual: ${formatSensitivityTierLabel(tier)}.`,
+    ];
 
     if (topDiagnosisLabel) {
         parts.push(`A prioridade desta leitura e ${topDiagnosisLabel.toLowerCase()}.`);
@@ -305,12 +352,14 @@ function buildSensitivitySummary(
         parts.push(`Teste tambem VSM ${suggestedVsm.toFixed(2)} como ponto de partida.`);
     }
 
-    if (sampleCount < 3) {
-        parts.push(`Como esta analise usa ${sampleCount} spray${sampleCount === 1 ? '' : 's'}, trate o ajuste como inicial e confirme com 3 sprays antes de fechar a sens.`);
-    } else if (confidence < 0.8 || coverage < 0.8) {
-        parts.push('Antes de consolidar a sens, vale repetir o clip com tracking mais limpo para aumentar a confianca da leitura.');
-    } else {
-        parts.push('Use isso como base de teste e valide no proximo bloco de sprays, nao como valor final absoluto.');
+    parts.push(`A evidencia especifica da sens esta ${formatSensitivityEvidenceTier(evidenceTier)} (${Math.round(confidenceScore * 100)}% de confianca interna).`);
+
+    if (sampleCount < 3 && tier !== 'capture_again') {
+        parts.push(`Como esta analise usa ${sampleCount} spray${sampleCount === 1 ? '' : 's'}, ainda nao vale tratar o ajuste como definitivo.`);
+    }
+
+    if (confidence < 0.8 || coverage < 0.8) {
+        parts.push('O tracking geral ainda pode ficar melhor, entao trate a recomendacao como orientacao calibrada, nao como verdade final.');
     }
 
     return parts.join(' ');
@@ -494,8 +543,17 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
         topDiagnosisMeta?.label ?? null,
         sensitivity.suggestedVSM,
         sampleCount,
+        sensitivity.tier,
+        sensitivity.evidenceTier,
+        sensitivity.confidenceScore,
         trackingOverview.confidence,
         trackingOverview.coverage
+    );
+    const sensitivityTierLabel = formatSensitivityTierLabel(sensitivity.tier);
+    const sensitivityEvidenceLabel = formatSensitivityEvidenceTier(sensitivity.evidenceTier);
+    const sensitivityTierExplanation = buildSensitivityTierExplanation(
+        sensitivity.tier,
+        sampleCount
     );
 
     // Group coach feedback by similar diagnosis types for deduplication
@@ -936,6 +994,20 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                 </p>
                 <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-lg)', opacity: 0.75 }}>
                     Base atual: cobertura {formatEvidencePercent(trackingOverview.coverage)}, confianca {formatEvidencePercent(trackingOverview.confidence)} e {sampleCount} spray{sampleCount === 1 ? '' : 's'} validado{sampleCount === 1 ? '' : 's'}.
+                </p>
+                <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap', marginBottom: 'var(--space-md)' }}>
+                    <span className={sensitivity.tier === 'apply_ready' ? 'badge badge-success' : sensitivity.tier === 'capture_again' ? 'badge badge-warning' : 'badge badge-info'}>
+                        Tier {sensitivityTierLabel}
+                    </span>
+                    <span className="badge badge-info">
+                        Evidencia {sensitivityEvidenceLabel}
+                    </span>
+                    <span className="badge badge-info">
+                        Confianca da sens {Math.round(sensitivity.confidenceScore * 100)}%
+                    </span>
+                </div>
+                <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-lg)', lineHeight: 1.6 }}>
+                    {sensitivityTierExplanation}
                 </p>
                 <div className={styles.profilesGrid}>
                     {sensitivity.profiles.map(profile => {

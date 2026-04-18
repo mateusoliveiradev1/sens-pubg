@@ -145,6 +145,186 @@ describe('generateSensitivityRecommendation', () => {
         expect(wristFingertip.reasoning).toContain('prior=wrist/fingertip');
     });
 
+    it('keeps the recommendation balanced when directional residuals have weak evidence', () => {
+        const rec = generateSensitivityRecommendation(
+            makeMetrics({
+                shotResiduals: [
+                    makeResidual(0, -0.4),
+                    makeResidual(1, -0.35),
+                ],
+                metricQuality: {
+                    shotResiduals: {
+                        coverage: 0.42,
+                        confidence: 0.38,
+                        sampleSize: 2,
+                        framesTracked: 8,
+                        framesLost: 5,
+                        framesProcessed: 13,
+                    },
+                } as never,
+            }),
+            [],
+            800,
+            'hybrid',
+            'claw',
+            45,
+            {}
+        );
+
+        expect(rec.recommended).toBe('balanced');
+        expect(rec.reasoning).toContain('evidenceTier=weak');
+        expect(rec.suggestedVSM).toBeUndefined();
+    });
+
+    it('ignores low-confidence diagnostic fallbacks instead of forcing the same directional profile', () => {
+        const rec = generateSensitivityRecommendation(
+            makeMetrics(),
+            [{
+                type: 'overpull',
+                severity: 4,
+                verticalControlIndex: 1.32,
+                excessPercent: 32,
+                confidence: 0.43,
+                evidence: {
+                    confidence: 0.43,
+                    coverage: 0.48,
+                    angularErrorDegrees: 1.2,
+                    linearErrorCm: 48,
+                    linearErrorSeverity: 4,
+                },
+                description: 'Leitura parcial de overpull',
+                cause: 'Tracking instavel',
+                remediation: 'Suba a sens so depois de confirmar',
+            }],
+            800,
+            'hybrid',
+            'claw',
+            45,
+            {}
+        );
+
+        expect(rec.recommended).toBe('balanced');
+        expect(rec.reasoning).toContain('diagnosticFallback=guarded');
+    });
+
+    it('derives scope sliders from optic multipliers instead of mirroring the general slider', () => {
+        const rec = generateSensitivityRecommendation(
+            makeMetrics(),
+            [],
+            800,
+            'hybrid',
+            'claw',
+            45,
+            { 'red-dot': 50, '2x': 50, '3x': 50, '4x': 50, '6x': 50, '8x': 50 }
+        );
+        const balanced = rec.profiles.find((profile) => profile.type === 'balanced')!;
+        const scope4x = balanced.scopes.find((scope) => scope.scopeName === '4x ACOG');
+        const scope8x = balanced.scopes.find((scope) => scope.scopeName === '8x CQBSS');
+
+        expect(scope4x).toBeDefined();
+        expect(scope8x).toBeDefined();
+        expect(scope4x!.recommended).not.toBe(balanced.general);
+        expect(Number(scope8x!.recommended)).toBeGreaterThan(Number(scope4x!.recommended));
+    });
+
+    it('emits capture_again when the clip does not sustain a safe recommendation', () => {
+        const rec = generateSensitivityRecommendation(
+            makeMetrics({
+                shotResiduals: [
+                    makeResidual(0, -0.2),
+                    makeResidual(1, -0.18),
+                ],
+                metricQuality: {
+                    shotResiduals: {
+                        coverage: 0.35,
+                        confidence: 0.4,
+                        sampleSize: 2,
+                        framesTracked: 7,
+                        framesLost: 4,
+                        framesProcessed: 11,
+                    },
+                } as never,
+            }),
+            [],
+            800,
+            'hybrid',
+            'claw',
+            45,
+            {},
+            1.0,
+            1
+        );
+
+        expect(rec.tier).toBe('capture_again');
+    });
+
+    it('emits test_profiles for a strong single-clip recommendation', () => {
+        const rec = generateSensitivityRecommendation(
+            makeMetrics({
+                shotResiduals: [
+                    makeResidual(0, -0.4),
+                    makeResidual(1, -0.4),
+                    makeResidual(2, -0.42),
+                    makeResidual(3, -0.38),
+                ],
+                metricQuality: {
+                    shotResiduals: {
+                        coverage: 0.88,
+                        confidence: 0.9,
+                        sampleSize: 4,
+                        framesTracked: 18,
+                        framesLost: 1,
+                        framesProcessed: 19,
+                    },
+                } as never,
+            }),
+            [],
+            800,
+            'hybrid',
+            'claw',
+            45,
+            {},
+            1.0,
+            1
+        );
+
+        expect(rec.tier).toBe('test_profiles');
+    });
+
+    it('only emits apply_ready after strong evidence repeats across multiple clips', () => {
+        const rec = generateSensitivityRecommendation(
+            makeMetrics({
+                shotResiduals: [
+                    makeResidual(0, -0.45),
+                    makeResidual(1, -0.43),
+                    makeResidual(2, -0.44),
+                    makeResidual(3, -0.46),
+                    makeResidual(4, -0.42),
+                ],
+                metricQuality: {
+                    shotResiduals: {
+                        coverage: 0.94,
+                        confidence: 0.93,
+                        sampleSize: 5,
+                        framesTracked: 26,
+                        framesLost: 0,
+                        framesProcessed: 26,
+                    },
+                } as never,
+            }),
+            [],
+            800,
+            'hybrid',
+            'claw',
+            45,
+            {},
+            1.0,
+            3
+        );
+
+        expect(rec.tier).toBe('apply_ready');
+    });
+
     it('exposes objective variables in the reasoning string', () => {
         const rec = generateSensitivityRecommendation(
             makeMetrics({

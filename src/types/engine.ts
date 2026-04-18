@@ -379,6 +379,8 @@ export type Diagnosis =
 // ═══════════════════════════════════════════
 
 export type ProfileType = 'low' | 'balanced' | 'high';
+export type RecommendationEvidenceTier = 'weak' | 'moderate' | 'strong';
+export type SensitivityRecommendationTier = 'capture_again' | 'test_profiles' | 'apply_ready';
 
 export interface ScopeSensitivity {
     readonly scopeName: string;
@@ -404,6 +406,9 @@ export interface SensitivityRecommendation {
         SensitivityProfile, // HIGH
     ];
     readonly recommended: ProfileType;
+    readonly tier: SensitivityRecommendationTier;
+    readonly evidenceTier: RecommendationEvidenceTier;
+    readonly confidenceScore: number;
     readonly reasoning: string;
     readonly suggestedVSM?: number; // Recomendaçao do Vertical Sensitivity Multiplier (1.0-2.0)
 }

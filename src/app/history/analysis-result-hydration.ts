@@ -37,6 +37,38 @@ function normalizeTrackingStatusCounts(
     };
 }
 
+function normalizeSensitivityRecommendation(
+    result: AnalysisResult
+): AnalysisResult['sensitivity'] | undefined {
+    const sensitivity = result.sensitivity;
+
+    if (!sensitivity || typeof sensitivity !== 'object') {
+        return sensitivity;
+    }
+
+    const evidenceTier = sensitivity.evidenceTier ?? 'moderate';
+    const confidenceScore = typeof sensitivity.confidenceScore === 'number'
+        ? sensitivity.confidenceScore
+        : 0.5;
+    const clipCount = result.subSessions?.length ?? 1;
+    const hasLegacyRecommendationMetadata = sensitivity.evidenceTier !== undefined || typeof sensitivity.confidenceScore === 'number';
+    const tier = sensitivity.tier
+        ?? (!hasLegacyRecommendationMetadata
+            ? 'test_profiles'
+            : evidenceTier === 'weak' || confidenceScore < 0.58
+            ? 'capture_again'
+            : evidenceTier === 'strong' && confidenceScore >= 0.8 && clipCount >= 3
+                ? 'apply_ready'
+                : 'test_profiles');
+
+    return {
+        ...sensitivity,
+        evidenceTier,
+        confidenceScore,
+        tier,
+    };
+}
+
 function normalizeHistoryAnalysisResult(result: AnalysisResult): AnalysisResult {
     const trajectory = result.trajectory as AnalysisResult['trajectory'] | undefined;
     const normalizedSubSessions = result.subSessions?.map(normalizeHistoryAnalysisResult);
@@ -44,12 +76,14 @@ function normalizeHistoryAnalysisResult(result: AnalysisResult): AnalysisResult 
     if (!trajectory || typeof trajectory !== 'object') {
         return {
             ...result,
+            ...(result.sensitivity ? { sensitivity: normalizeSensitivityRecommendation(result)! } : {}),
             ...(normalizedSubSessions ? { subSessions: normalizedSubSessions } : {}),
         };
     }
 
     return {
         ...result,
+        ...(result.sensitivity ? { sensitivity: normalizeSensitivityRecommendation(result)! } : {}),
         trajectory: {
             ...trajectory,
             statusCounts: normalizeTrackingStatusCounts(trajectory),

@@ -129,4 +129,28 @@ describe('hydrateAnalysisResultFromHistory', () => {
             uncertain: 0,
         });
     });
+
+    it('backfills missing sensitivity recommendation tier metadata for legacy history payloads', () => {
+        const result = hydrateAnalysisResultFromHistory({
+            fullResult: createStoredResult({
+                sensitivity: {
+                    profiles: [],
+                    recommended: 'balanced',
+                    reasoning: 'legacy recommendation',
+                },
+                subSessions: [
+                    createStoredResult({ id: 'sub-1' }),
+                    createStoredResult({ id: 'sub-2' }),
+                    createStoredResult({ id: 'sub-3' }),
+                ],
+            }),
+            recordPatchVersion: '41.1',
+            scopeId: 'red-dot',
+            distanceMeters: 30,
+        });
+
+        expect(result.sensitivity.evidenceTier).toBe('moderate');
+        expect(result.sensitivity.confidenceScore).toBe(0.5);
+        expect(result.sensitivity.tier).toBe('test_profiles');
+    });
 });

@@ -475,7 +475,7 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                 loadout: { stance, muzzle, grip, stock },
                 metrics: finalMetrics,
                 diagnoses: finalDiagnoses,
-                sensitivity: generateSensitivityRecommendation(finalMetrics, finalDiagnoses, fMouseDpi, fPlayStyle, fGripStyle, fMousepadWidth, fScopeSens as Record<string, number>, fVerticalMultiplier),
+                    sensitivity: generateSensitivityRecommendation(finalMetrics, finalDiagnoses, fMouseDpi, fPlayStyle, fGripStyle, fMousepadWidth, fScopeSens as Record<string, number>, fVerticalMultiplier, subSessions.length),
                 coaching: generateCoaching(finalDiagnoses, { stance, muzzle, grip, stock }, coachingContext),
                 subSessions,
             };
