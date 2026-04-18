@@ -404,6 +404,19 @@ TDD:
 - primeiro testar matriz de acesso;
 - depois implementar helper.
 
+Status:
+
+- concluida em 2026-04-18
+
+Evidence:
+
+- `src/lib/community-access.test.ts` foi criado primeiro cobrindo a matriz minima de acesso para `draft`, `published`, `hidden`, `archived` e `deleted`, separando autor e leitor publico
+- o RED foi confirmado com `npx vitest run src/lib/community-access.test.ts` falhando com 6 falhas porque `src/lib/community-access.ts` ainda nao existia
+- `src/lib/community-access.ts` foi criado com `getCommunityPostReadAccess` e `canReadCommunityPost`, centralizando a policy por status sem tocar em UI, feed, queries publicas ou entitlement runtime
+- a policy resultante permite `draft`, `hidden` e `archived` apenas ao autor, deixa `published` legivel publicamente e bloqueia `deleted` para autor e publico
+- hooks futuros para entitlement ficaram preservados no retorno da policy via `requiredEntitlementKey` + `enforcement: inactive`, mantendo a W20-T02 pronta para a W60 sem ativar premium agora
+- validacoes executadas: `npx vitest run src/lib/community-access.test.ts` -> 6 testes verdes; `npm run typecheck` -> ok
+
 ### W20-T03 - Criar ponto de entrada na pagina de historico/detalhe
 
 Goal:

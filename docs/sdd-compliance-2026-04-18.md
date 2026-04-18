@@ -47,3 +47,12 @@
 - RED: `npx vitest run src/actions/community-posts.test.ts` falhou porque `src/actions/community-posts.ts` ainda nao existia
 - GREEN: `npx vitest run src/actions/community-posts.test.ts` passou com 4/4 testes; `npm run typecheck` passou sem erros
 - Acceptance: a action agora exige auth, valida ownership da `analysis_session`, cria `community_posts` com `draft` ou `published` e persiste `community_post_analysis_snapshots` com snapshot imutavel derivado da sessao
+
+## W20-T02 - Criar policy de visibilidade e status de post
+
+- Status: concluida
+- Escopo: apenas `src/lib/community-access.ts`, `src/lib/community-access.test.ts` e evidencias documentais
+- RED: `npx vitest run src/lib/community-access.test.ts` falhou com 6 falhas porque `src/lib/community-access.ts` ainda nao existia
+- GREEN: `npx vitest run src/lib/community-access.test.ts` passou com 6/6 testes; `npm run typecheck` passou sem erros
+- REFACTOR: helper interno de autor foi simplificado para remover non-null assertion, sem alterar a matriz de acesso
+- Acceptance: autor pode ver `draft`, `hidden` e `archived`; publico nao ve `draft`, `hidden`, `archived` nem `deleted`; `published` segue publico; o retorno da policy preserva `requiredEntitlementKey` com enforcement inativo para a futura W60
