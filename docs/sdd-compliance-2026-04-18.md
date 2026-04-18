@@ -39,3 +39,11 @@
 - RED: `npx vitest run src/db/schema.test.ts` falhou com 3 falhas porque `community_post_copy_events`, `feature_entitlements` e `user_entitlements` ainda nao existiam no schema
 - GREEN: `npx vitest run src/db/schema.test.ts` passou com 17/17 testes; `npm run typecheck` passou sem erros
 - Acceptance: `community_post_copy_events` ficou com `postId`, `copiedByUserId` nullable, `copyTarget` e `createdAt`; `feature_entitlements` e `user_entitlements` foram adicionadas com FKs/PKs corretas e default `inactive`, sem ativar nenhuma feature premium
+
+## W20-T01 - Criar action server-side para publicar analise como draft/post
+
+- Status: concluida
+- Escopo: apenas `src/actions/community-posts.ts`, `src/actions/community-posts.test.ts` e evidencias documentais
+- RED: `npx vitest run src/actions/community-posts.test.ts` falhou porque `src/actions/community-posts.ts` ainda nao existia
+- GREEN: `npx vitest run src/actions/community-posts.test.ts` passou com 4/4 testes; `npm run typecheck` passou sem erros
+- Acceptance: a action agora exige auth, valida ownership da `analysis_session`, cria `community_posts` com `draft` ou `published` e persiste `community_post_analysis_snapshots` com snapshot imutavel derivado da sessao

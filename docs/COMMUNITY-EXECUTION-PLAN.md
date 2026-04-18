@@ -360,6 +360,18 @@ TDD:
 - primeiro testar auth, ownership e persistencia;
 - depois implementar action minima.
 
+Status:
+
+- concluida em 2026-04-18
+
+Evidence:
+
+- `src/actions/community-posts.ts` criado com `publishAnalysisSessionToCommunity`, exigindo auth, buscando `analysis_sessions` com ownership por `userId` e resolvendo `community_profile` do autor antes de persistir
+- a action cria `community_posts` com `type = analysis_snapshot`, suporta `status = draft | published`, preenche `publishedAt` apenas quando publicado e deriva `slug`, `primaryWeaponId`, `primaryPatchVersion`, `primaryDiagnosisKey` e `copySensPreset` da sessao/snapshot
+- a action cria `community_post_analysis_snapshots` a partir de `createCommunityPostAnalysisSnapshot`, preservando `analysisResultId`, `analysisTimestamp`, `attachmentsSnapshot`, `metricsSnapshot`, `diagnosesSnapshot`, `coachingSnapshot`, `sensSnapshot` e `trackingSnapshot`
+- `src/actions/community-posts.test.ts` criado cobrindo auth obrigatoria, ownership da `analysis_session`, persistencia minima do post + snapshot e os dois modos `draft` e `published`
+- validacoes executadas: `npx vitest run src/actions/community-posts.test.ts` -> RED inicial por modulo ausente; `npx vitest run src/actions/community-posts.test.ts` -> 4 testes verdes; `npm run typecheck` -> ok
+
 ### W20-T02 - Criar policy de visibilidade e status de post
 
 Goal:
