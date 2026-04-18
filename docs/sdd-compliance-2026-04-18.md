@@ -83,3 +83,12 @@
 - GREEN: `npx vitest run src/core/community-feed.test.ts` passou com 2/2 testes; `npm run typecheck` passou sem erros
 - REFACTOR: o retorno do feed passou a usar o tipo interno `PublicCommunityFeedRow` para explicitar o narrowing de `publishedAt` sem alterar o contrato publico
 - Acceptance: a query agora retorna apenas posts `published` com `visibility = public`, aplica filtros opcionais por `primaryWeaponId`, `primaryPatchVersion` e `primaryDiagnosisKey`, preserva a ordenacao por `publishedAt desc` e seleciona somente campos leves do card de feed com `limit` padrao de 20
+
+## W30-T02 - Criar pagina `/community`
+
+- Status: concluida
+- Escopo: apenas `e2e/community.feed.spec.ts`, `src/app/community/page.tsx`, `src/app/community/community-filters.tsx` e evidencias documentais
+- RED: `npx playwright test e2e/community.feed.spec.ts` falhou depois do alinhamento do banco local com os SQLs ja versionados da comunidade, expondo que `/community` ainda nao entregava title, heading e formulario de filtros esperados
+- GREEN: `npx playwright test e2e/community.feed.spec.ts` passou com 2/2 testes; `npx vitest run src/core/community-feed.test.ts` passou com 2/2 testes; `npm run typecheck` passou sem erros
+- REFACTOR: o componente `src/app/community/community-filters.tsx` extraiu um helper local para os campos `select`, removendo duplicacao sem alterar o comportamento validado
+- Acceptance: `/community` agora carrega o feed publico via `listPublicCommunityFeed`, aplica filtros basicos por arma/patch/diagnostico com submit `GET` e reutiliza `Header` + tokens visuais globais do app sem tocar em detalhe publico, likes, comments, saves, follows ou entitlement runtime

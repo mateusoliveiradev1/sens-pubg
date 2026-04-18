@@ -576,6 +576,20 @@ TDD:
 - primeiro escrever E2E de carregamento e filtro;
 - depois implementar pagina.
 
+Status:
+
+- concluida em 2026-04-18
+
+Evidence:
+
+- `e2e/community.feed.spec.ts` foi criado primeiro cobrindo carregamento de `/community` com feed publico, header padrao do app e aplicacao dos filtros basicos por `weaponId`, `patchVersion` e `diagnosisKey`
+- o ambiente local de E2E precisou receber os SQLs ja versionados `drizzle/0004_community_core.sql`, `drizzle/0005_community_engagement.sql` e `drizzle/0006_community_copy_and_entitlements.sql` para expor as tabelas da comunidade no banco de teste sem reabrir o escopo de schema
+- o RED comportamental foi confirmado com `npx playwright test e2e/community.feed.spec.ts` falhando porque `/community` ainda nao tinha title, heading e formulario de filtros esperados
+- `src/app/community/page.tsx` foi criado como pagina server-side integrada ao `Header`, consumindo `listPublicCommunityFeed` para renderizar o feed publico e derivar filtros basicos sem tocar em detalhe publico, likes, comments, saves, follows ou entitlement runtime
+- `src/app/community/community-filters.tsx` foi criado com formulario `GET` acessivel, selects de arma/patch/diagnostico e acao de limpar filtros, seguindo os tokens globais (`page`, `container`, `glass-card`, `input`, `btn`) ja usados no app
+- o REFACTOR removeu duplicacao do markup dos selects em `community-filters.tsx` via helper local de campo, mantendo o comportamento validado pelo E2E
+- validacoes executadas: `npx playwright test e2e/community.feed.spec.ts` -> 2 testes verdes; `npx vitest run src/core/community-feed.test.ts` -> 2 testes verdes; `npm run typecheck` -> ok
+
 ### W30-T03 - Criar pagina de detalhe do post
 
 Goal:
