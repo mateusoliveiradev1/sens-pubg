@@ -138,6 +138,16 @@ TDD:
 - primeiro escrever testes de contrato dos enums;
 - depois implementar os tipos e helpers minimos.
 
+Status:
+
+- concluida em 2026-04-18
+
+Evidence:
+
+- `src/types/community.ts` criado com nomes canonicos de tabelas, `CommunityPostStatus`, `CommunityPostVisibility`, `CommunityPostType` e `CommunityEntitlementKey`
+- `src/types/community.test.ts` criado cobrindo valores validos e invalidos
+- validacao executada: `npx vitest run src/types/community.test.ts` -> 9 testes verdes
+
 ---
 
 ## W10 - Domain & Schema
