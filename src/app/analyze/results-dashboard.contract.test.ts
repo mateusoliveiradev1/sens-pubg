@@ -12,12 +12,14 @@ describe('results dashboard visualization contract', () => {
         const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
 
         expect(source).toMatch(/buildSensitivitySummary/);
+        expect(source).toMatch(/buildSensitivityDecisionInsight/);
         expect(source).not.toMatch(/\{sensitivity\.reasoning\}/);
         expect(source).toMatch(/sensitivity\.tier/);
         expect(source).toMatch(/sensitivity\.evidenceTier/);
         expect(source).toMatch(/sensitivity\.confidenceScore/);
         expect(source).toMatch(/sensitivity\.historyConvergence/);
         expect(source).toMatch(/sensitivity\.acceptanceFeedback/);
+        expect(source).toMatch(/selectedProfile = \(\s*sensitivity\.profiles\.find/);
     });
 
     it('shows coach verification context and attachment suggestions in the action plan', () => {

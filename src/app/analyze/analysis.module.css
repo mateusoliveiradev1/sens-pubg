@@ -421,7 +421,7 @@
 
 .profilesGrid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: var(--space-lg);
     align-items: start;
 }
@@ -460,6 +460,11 @@
     opacity: 1;
 }
 
+.profileCardActive {
+    border-color: color-mix(in srgb, var(--profile-accent, var(--color-accent-primary)) 55%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--profile-accent, var(--color-accent-primary)) 35%, transparent);
+}
+
 .profileRecommended {
     border-color: rgba(0, 230, 118, 0.5);
     box-shadow: 0 0 30px rgba(0, 230, 118, 0.15), 0 0 60px rgba(0, 230, 118, 0.05);
@@ -487,6 +492,27 @@
     z-index: 2;
 }
 
+.sensitivityInsight {
+    margin-bottom: var(--space-lg);
+    padding: 16px 18px;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+}
+
+.sensitivityInsightHeader {
+    display: flex;
+    gap: var(--space-sm);
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.sensitivityInsightText {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    line-height: 1.65;
+}
+
 .profileHeader {
     display: flex;
     align-items: flex-start;
@@ -506,6 +532,11 @@
     border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
     flex-shrink: 0;
+}
+
+.profileGlyph {
+    display: inline-flex;
+    color: var(--profile-accent, var(--color-accent-primary));
 }
 
 .profileHeading {
@@ -626,7 +657,7 @@
 
 .profileMiniScopes {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
     gap: 10px;
 }
 
@@ -674,6 +705,12 @@
     background: rgba(255, 255, 255, 0.03);
 }
 
+.profileToggle[aria-pressed='true'] {
+    border-color: var(--profile-accent, var(--color-accent-primary));
+    background: color-mix(in srgb, var(--profile-accent, var(--color-accent-primary)) 12%, transparent);
+    color: white;
+}
+
 /* ═══ Scope Table ═══ */
 
 .scopeTableContainer {
@@ -682,6 +719,51 @@
     overflow: hidden;
     border: 1px solid var(--color-border);
     background: rgba(255, 255, 255, 0.02);
+}
+
+.selectedProfilePanel {
+    margin-top: var(--space-lg);
+    padding: var(--space-xl);
+    border: 1px solid color-mix(in srgb, var(--profile-accent, var(--color-accent-primary)) 28%, rgba(255, 255, 255, 0.08));
+    background: linear-gradient(180deg, color-mix(in srgb, var(--profile-accent, var(--color-accent-primary)) 7%, rgba(255, 255, 255, 0.02)), rgba(255, 255, 255, 0.01));
+}
+
+.selectedProfileHeader {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-lg);
+    align-items: flex-start;
+    margin-bottom: var(--space-lg);
+}
+
+.selectedProfileIntro {
+    display: flex;
+    gap: var(--space-md);
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.selectedProfileTitle {
+    margin: 4px 0 8px;
+    font-size: clamp(1.1rem, 2vw, 1.35rem);
+}
+
+.selectedProfileText {
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--color-text-secondary);
+    max-width: 70ch;
+}
+
+.selectedProfileMeta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    justify-content: flex-end;
+}
+
+.selectedProfilePanel .scopeTableContainer {
+    margin-top: 0;
 }
 
 .scopeTable {
@@ -885,6 +967,15 @@
 @media (max-width: 767px) {
     .profilesGrid {
         grid-template-columns: 1fr;
+    }
+
+    .selectedProfileHeader,
+    .selectedProfileIntro {
+        flex-direction: column;
+    }
+
+    .selectedProfileMeta {
+        justify-content: flex-start;
     }
 
     .profileStats,

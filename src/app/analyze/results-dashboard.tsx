@@ -9,6 +9,7 @@ import { useState } from 'react';
 import type {
     AnalysisResult,
     DiagnosisType,
+    ProfileType,
     RecommendationEvidenceTier,
     SensitivityAcceptanceOutcome,
     SensitivityProfile,
@@ -75,10 +76,10 @@ const DIAG_META: Record<string, { icon: string; label: string; color: string }> 
 };
 
 // ═══ Profile Icons ═══
-const PROFILE_META: Record<string, { icon: string; subtitle: string }> = {
-    low: { icon: '🎯', subtitle: 'Máx. Precisão' },
-    balanced: { icon: '⚖️', subtitle: 'Equilíbrio' },
-    high: { icon: '⚡', subtitle: 'Máx. Velocidade' },
+const PROFILE_META: Record<string, { subtitle: string }> = {
+    low: { subtitle: 'Máx. Precisão' },
+    balanced: { subtitle: 'Equilíbrio' },
+    high: { subtitle: 'Máx. Velocidade' },
 };
 
 const PROFILE_THEME: Record<'low' | 'balanced' | 'high', { eyebrow: string; accent: string }> = {
@@ -86,6 +87,34 @@ const PROFILE_THEME: Record<'low' | 'balanced' | 'high', { eyebrow: string; acce
     balanced: { eyebrow: 'Faixa segura', accent: '#f59e0b' },
     high: { eyebrow: 'Entrada curta', accent: '#22c55e' },
 };
+
+function SensitivityProfileGlyph({ type }: { type: ProfileType }): React.JSX.Element {
+    if (type === 'low') {
+        return (
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+                <circle cx="14" cy="14" r="9" stroke="currentColor" strokeWidth="1.8" opacity="0.8" />
+                <path d="M14 5.5V9.5M14 18.5V22.5M5.5 14H9.5M18.5 14H22.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                <circle cx="14" cy="14" r="2.6" fill="currentColor" />
+            </svg>
+        );
+    }
+
+    if (type === 'high') {
+        return (
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+                <path d="M15.8 4.5L8.8 15.1H13.6L12.3 23.5L19.2 12.9H14.5L15.8 4.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+            </svg>
+        );
+    }
+
+    return (
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+            <rect x="5" y="7" width="18" height="14" rx="7" stroke="currentColor" strokeWidth="1.8" opacity="0.85" />
+            <path d="M14 7V21" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            <circle cx="14" cy="14" r="2.2" fill="currentColor" />
+        </svg>
+    );
+}
 
 function SeverityDots({ severity }: { severity: number }) {
     return (
@@ -378,6 +407,47 @@ function buildSensitivitySummary(
     return parts.join(' ');
 }
 
+function buildSensitivityDecisionInsight(
+    recommended: ProfileType,
+    tier: SensitivityRecommendationTier,
+    evidenceTier: RecommendationEvidenceTier,
+    confidenceScore: number,
+    sampleCount: number
+): { title: string; body: string } {
+    if (recommended === 'balanced') {
+        if (tier === 'capture_again' || evidenceTier === 'weak' || confidenceScore < 0.58) {
+            return {
+                title: 'Por que repetiu a Balanceada?',
+                body: 'Porque este clip ainda não trouxe sinal forte o bastante para empurrar a sens de forma segura para Baixa ou Alta. Hoje o motor preferiu preservar uma faixa neutra em vez de inventar mudança agressiva.',
+            };
+        }
+
+        if (tier === 'apply_ready') {
+            return {
+                title: 'Por que continuou Balanceada?',
+                body: 'Porque a leitura entende que você já está perto do centro útil do seu setup. Nesse caso repetir a Balanceada é esperado: o sistema está lendo que vale lapidar, não virar o volante para um extremo.',
+            };
+        }
+
+        return {
+            title: 'Por que ficou Balanceada de novo?',
+            body: `Porque a amostra ainda pede ajuste conservador. Com ${sampleCount} spray${sampleCount === 1 ? '' : 's'} validados, a direção existe, mas a evidência ainda não sustenta um salto definitivo para um extremo.`,
+        };
+    }
+
+    if (recommended === 'low') {
+        return {
+            title: 'Leitura atual: puxar para controle',
+            body: 'Aqui o clip trouxe sinal suficiente de excesso de subida, jitter ou drift para abrir mais margem de controle. A ideia é ganhar estabilidade primeiro e depois reavaliar a velocidade.',
+        };
+    }
+
+    return {
+        title: 'Leitura atual: puxar para velocidade',
+        body: 'Aqui o clip mostrou que você pode encurtar a resposta sem desmontar o spray. A recomendação sobe o ritmo, mas ainda pede validação curta antes de virar nova sens fixa.',
+    };
+}
+
 function formatSignedPercent(value: number): string {
     const rounded = Math.round(value);
     return rounded > 0 ? `+${rounded}%` : `${rounded}%`;
@@ -492,7 +562,7 @@ function buildProfileHighlights(
 export function ResultsDashboard({ result }: Props): React.JSX.Element {
     const [activeSession, setActiveSession] = useState<AnalysisResult>(result);
     const [expandedDiag, setExpandedDiag] = useState<number | null>(null);
-    const [showAllScopes, setShowAllScopes] = useState<Record<string, boolean>>({});
+    const [selectedProfileType, setSelectedProfileType] = useState<ProfileType | null>(null);
     const [expandedCoach, setExpandedCoach] = useState<number | null>(null);
     const [showMinorDiags, setShowMinorDiags] = useState(false);
     const isAggregated = activeSession.id === result.id;
@@ -572,6 +642,22 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
     const sensitivityAcceptanceLabel = sensitivityAcceptanceFeedback
         ? formatSensitivityAcceptanceOutcome(sensitivityAcceptanceFeedback.outcome)
         : null;
+    const selectedProfile = (sensitivity.profiles.find((profile) => profile.type === selectedProfileType)
+        ?? recommendedProfile
+        ?? sensitivity.profiles[0])!;
+    const selectedProfileTheme = PROFILE_THEME[selectedProfile.type];
+    const selectedProfileNarrative = buildProfileNarrative(
+        selectedProfile,
+        topDiagnosisType,
+        selectedProfile.type === sensitivity.recommended
+    );
+    const sensitivityDecisionInsight = buildSensitivityDecisionInsight(
+        sensitivity.recommended,
+        sensitivity.tier,
+        sensitivity.evidenceTier,
+        sensitivity.confidenceScore,
+        sampleCount
+    );
 
     // Group coach feedback by similar diagnosis types for deduplication
     const groupedCoaching = [...coaching].reduce<{ key: string; items: (typeof coaching)[number][] }[]>((acc, c) => {
@@ -1036,6 +1122,15 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                 <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-lg)', lineHeight: 1.6 }}>
                     {sensitivityTierExplanation}
                 </p>
+                <div className={styles.sensitivityInsight}>
+                    <div className={styles.sensitivityInsightHeader}>
+                        <span className="badge badge-info">{sensitivityDecisionInsight.title}</span>
+                        <span className="badge badge-info">
+                            Perfil atual {recommendedProfile?.label ?? 'Balanceada'}
+                        </span>
+                    </div>
+                    <p className={styles.sensitivityInsightText}>{sensitivityDecisionInsight.body}</p>
+                </div>
                 {sensitivity.historyConvergence ? (
                     <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-lg)', lineHeight: 1.6 }}>
                         {sensitivity.historyConvergence.summary}
@@ -1048,9 +1143,9 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                 ) : null}
                 <div className={styles.profilesGrid}>
                     {sensitivity.profiles.map(profile => {
-                        const pmeta = PROFILE_META[profile.type] || { icon: '⚙️', subtitle: '' };
+                        const pmeta = PROFILE_META[profile.type] || { subtitle: '' };
                         const isRecommended = profile.type === sensitivity.recommended;
-                        const showScopes = isRecommended || showAllScopes[profile.type];
+                        const isSelected = profile.type === selectedProfile.type;
                         const theme = PROFILE_THEME[profile.type];
                         const profileNarrative = buildProfileNarrative(profile, topDiagnosisType, isRecommended);
                         const profileHighlights = buildProfileHighlights(profile, topDiagnosisType);
@@ -1059,7 +1154,7 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                         return (
                             <div
                                 key={profile.type}
-                                className={`glass-card ${styles.profileCard} ${isRecommended ? styles.profileRecommended : ''}`}
+                                className={`glass-card ${styles.profileCard} ${isRecommended ? styles.profileRecommended : ''} ${isSelected ? styles.profileCardActive : ''}`}
                                 style={{
                                     ...(isRecommended ? {} : { opacity: 0.82 }),
                                     ['--profile-accent' as string]: theme.accent,
@@ -1072,7 +1167,9 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                                 {/* Icon + Title */}
                                 <div className={styles.profileHeader}>
                                     <div className={styles.profileIconWrap}>
-                                        <span style={{ fontSize: '2rem' }}>{pmeta.icon}</span>
+                                        <span className={styles.profileGlyph} aria-hidden="true">
+                                            <SensitivityProfileGlyph type={profile.type} />
+                                        </span>
                                     </div>
                                     <div className={styles.profileHeading}>
                                         <span className={styles.profileEyebrow}>{theme.eyebrow}</span>
@@ -1119,48 +1216,68 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                                     </div>
                                 </div>
 
-                                {showScopes && (
-                                    <div className={styles.scopeTableContainer}>
-                                        <table className={styles.scopeTable}>
-                                            <thead>
-                                                <tr>
-                                                    <th>Mira</th>
-                                                    <th>Atual</th>
-                                                    <th>Novo</th>
-                                                    <th>Δ</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {profile.scopes.map((s, idx) => (
-                                                    <tr key={idx}>
-                                                        <td className={styles.scopeName}>{s.scopeName}</td>
-                                                        <td style={{ opacity: 0.6, fontSize: '0.8rem' }}>{s.current}</td>
-                                                        <td className={styles.scopeValue}>{s.recommended}</td>
-                                                        <td className={`${styles.scopeChange} ${s.changePercent > 0 ? styles.scopeChangePos : s.changePercent < 0 ? styles.scopeChangeNeg : styles.scopeChangeNeut}`}>
-                                                            {s.changePercent > 0 ? '+' : ''}{s.changePercent}%
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                )}
-
-                                {/* Toggle scopes for non-recommended */}
-                                {!isRecommended && (
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setShowAllScopes(prev => ({ ...prev, [profile.type]: !prev[profile.type] }));
-                                        }}
-                                        className={styles.profileToggle}
-                                    >
-                                        {showScopes ? '▲ Esconder miras' : '▼ Ver miras detalhadas'}
-                                    </button>
-                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedProfileType(profile.type)}
+                                    className={styles.profileToggle}
+                                    aria-pressed={isSelected}
+                                >
+                                    {isSelected ? 'Ajuste em foco abaixo' : 'Ver ajuste completo'}
+                                </button>
                             </div>
                         );
                     })}
+                </div>
+                <div
+                    className={`glass-card ${styles.selectedProfilePanel}`}
+                    style={{ ['--profile-accent' as string]: selectedProfileTheme.accent }}
+                >
+                    <div className={styles.selectedProfileHeader}>
+                        <div className={styles.selectedProfileIntro}>
+                            <div className={styles.profileIconWrap}>
+                                <span className={styles.profileGlyph} aria-hidden="true">
+                                    <SensitivityProfileGlyph type={selectedProfile.type} />
+                                </span>
+                            </div>
+                            <div>
+                                <span className={styles.profileEyebrow}>Tabela completa de miras</span>
+                                <h4 className={styles.selectedProfileTitle}>{selectedProfile.label}</h4>
+                                <p className={styles.selectedProfileText}>{selectedProfileNarrative}</p>
+                            </div>
+                        </div>
+                        <div className={styles.selectedProfileMeta}>
+                            <span className={selectedProfile.type === sensitivity.recommended ? 'badge badge-success' : 'badge badge-info'}>
+                                {selectedProfile.type === sensitivity.recommended ? 'Match ideal' : 'Perfil alternativo'}
+                            </span>
+                            <span className="badge badge-info">Geral {selectedProfile.general}</span>
+                            <span className="badge badge-info">ADS {selectedProfile.ads}</span>
+                            <span className="badge badge-info">{selectedProfile.cmPer360} cm/360°</span>
+                        </div>
+                    </div>
+                    <div className={styles.scopeTableContainer}>
+                        <table className={styles.scopeTable}>
+                            <thead>
+                                <tr>
+                                    <th>Mira</th>
+                                    <th>Atual</th>
+                                    <th>Novo</th>
+                                    <th>Δ</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {selectedProfile.scopes.map((scope) => (
+                                    <tr key={`${selectedProfile.type}-${scope.scopeName}`}>
+                                        <td className={styles.scopeName}>{scope.scopeName}</td>
+                                        <td style={{ opacity: 0.6, fontSize: '0.8rem' }}>{scope.current}</td>
+                                        <td className={styles.scopeValue}>{scope.recommended}</td>
+                                        <td className={`${styles.scopeChange} ${scope.changePercent > 0 ? styles.scopeChangePos : scope.changePercent < 0 ? styles.scopeChangeNeg : styles.scopeChangeNeut}`}>
+                                            {scope.changePercent > 0 ? '+' : ''}{scope.changePercent}%
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
 
