@@ -11,6 +11,7 @@ import { auth } from '@/auth';
 import { playerProfileSchema } from '@/types/schemas';
 import { eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
+import { normalizeScopeSensitivityMap } from '@/game/pubg';
 
 export interface ProfileActionResult {
     readonly success: boolean;
@@ -54,7 +55,7 @@ export const saveProfile = authActionClient
                 monitorPanel: data.monitor.panelType,
                 generalSens: data.pubgSettings.generalSens,
                 adsSens: data.pubgSettings.adsSens,
-                scopeSens: data.pubgSettings.scopeSens,
+                scopeSens: normalizeScopeSensitivityMap(data.pubgSettings.scopeSens),
                 fov: data.pubgSettings.fov,
                 verticalMultiplier: data.pubgSettings.verticalMultiplier,
                 mouseAcceleration: data.pubgSettings.mouseAcceleration,

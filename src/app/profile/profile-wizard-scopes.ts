@@ -1,6 +1,4 @@
-import { CURRENT_PUBG_PATCH_VERSION, getOptic, listLegacyScopes } from '@/game/pubg';
-
-const DEFAULT_SCOPE_SENS_VALUE = 50;
+import { CURRENT_PUBG_PATCH_VERSION, getOptic, listLegacyScopes, normalizeScopeSensitivityMap } from '@/game/pubg';
 const HYBRID_SCOPE_ID = 'hybrid-scope';
 
 const currentPatchLegacyScopes = listLegacyScopes(CURRENT_PUBG_PATCH_VERSION);
@@ -16,51 +14,11 @@ export interface ProfileWizardHybridScopeEquivalent {
     readonly label: string;
 }
 
-function normalizeScopeValue(value: unknown): number {
-    if (typeof value === 'number' && Number.isFinite(value)) {
-        return value;
-    }
-
-    return DEFAULT_SCOPE_SENS_VALUE;
-}
-
-function findInitialScopeValue(scopeId: string, initialScopeSens: Readonly<Record<string, number>>): number {
-    const legacyScope = currentPatchLegacyScopes.find((scope) => scope.id === scopeId);
-    const directValue = initialScopeSens[scopeId];
-    if (directValue !== undefined) {
-        return normalizeScopeValue(directValue);
-    }
-
-    if (legacyScope?.stateId) {
-        return normalizeScopeValue(initialScopeSens[legacyScope.stateId]);
-    }
-
-    return DEFAULT_SCOPE_SENS_VALUE;
-}
-
-function isCanonicalOrEquivalentScope(scopeId: string): boolean {
-    if (PROFILE_WIZARD_SCOPE_ORDER.includes(scopeId)) {
-        return true;
-    }
-
-    return currentPatchLegacyScopes.some((scope) => scope.stateId === scopeId);
-}
-
 export function buildProfileWizardScopeSens(
     initialScopeSens: Readonly<Record<string, number>> = {}
 ): Record<string, number> {
-    const normalized: Record<string, number> = {};
-
-    for (const scopeId of PROFILE_WIZARD_SCOPE_ORDER) {
-        normalized[scopeId] = findInitialScopeValue(scopeId, initialScopeSens);
-    }
-
-    for (const [scopeId, value] of Object.entries(initialScopeSens)) {
-        if (!isCanonicalOrEquivalentScope(scopeId)) {
-            normalized[scopeId] = normalizeScopeValue(value);
-        }
-    }
-
+    const normalized = normalizeScopeSensitivityMap(initialScopeSens);
+    delete normalized.hip;
     return normalized;
 }
 

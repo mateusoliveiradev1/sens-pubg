@@ -46,6 +46,12 @@ export {
 } from './sens-math';
 
 export {
+    DEFAULT_SCOPE_SENS_VALUE,
+    normalizeScopeSensitivityMap,
+    resolveScopeSensitivityValue,
+} from './scope-sensitivity';
+
+export {
     fov_v,
     ang_x,
     ang_y,

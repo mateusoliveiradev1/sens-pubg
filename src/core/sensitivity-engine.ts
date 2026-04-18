@@ -13,6 +13,7 @@ import {
     CURRENT_PUBG_PATCH_VERSION,
     internalFromCmPer360,
     isSensViableForMousepad,
+    resolveScopeSensitivityValue,
     resolveEffectiveSensitivity,
     SCOPES,
     scopeSliderFromEffectiveYaw,
@@ -550,7 +551,7 @@ function buildProfile(
                 return [];
             }
 
-            const current = (currentScopeSens && currentScopeSens[scopeId]) ?? 50;
+            const current = resolveScopeSensitivityValue(currentScopeSens, scopeId);
             const recommended = resolveRecommendedScopeSlider(
                 scopeId,
                 generalSlider,

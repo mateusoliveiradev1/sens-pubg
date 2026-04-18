@@ -227,6 +227,23 @@ describe('generateSensitivityRecommendation', () => {
         expect(Number(scope8x!.recommended)).toBeGreaterThan(Number(scope4x!.recommended));
     });
 
+    it('reuses equivalent 1x scope values when legacy red-dot keys are absent', () => {
+        const rec = generateSensitivityRecommendation(
+            makeMetrics(),
+            [],
+            800,
+            'hybrid',
+            'claw',
+            45,
+            { '1x': 40, '2x': 40, '3x': 40, '4x': 40, '6x': 40, '8x': 40, '15x': 40 }
+        );
+        const balanced = rec.profiles.find((profile) => profile.type === 'balanced')!;
+        const redDot = balanced.scopes.find((scope) => scope.scopeName === 'Red Dot Sight');
+
+        expect(redDot).toBeDefined();
+        expect(Number(redDot!.current)).toBe(40);
+    });
+
     it('emits capture_again when the clip does not sustain a safe recommendation', () => {
         const rec = generateSensitivityRecommendation(
             makeMetrics({

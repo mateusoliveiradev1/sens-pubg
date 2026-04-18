@@ -31,44 +31,50 @@ interface TrendChartProps {
 }
 
 export function TrendChart({ data }: TrendChartProps) {
+    const latestIndex = Math.max(data.length - 1, 0);
+
     const chartData = {
-        labels: data.map(d => new Date(d.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })),
+        labels: data.map((entry) => new Date(entry.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })),
         datasets: [
             {
-                label: 'Score Médio',
-                data: data.map(d => d.avgScore),
+                label: 'Score Medio',
+                data: data.map((entry) => entry.avgScore),
                 borderColor: '#06b6d4',
                 backgroundColor: (context: ScriptableContext<'line'>) => {
                     const chart = context.chart;
                     const { ctx, chartArea } = chart;
                     if (!chartArea) return undefined;
+
                     const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-                    gradient.addColorStop(0, 'rgba(6, 182, 212, 0.2)');
+                    gradient.addColorStop(0, 'rgba(6, 182, 212, 0.26)');
+                    gradient.addColorStop(0.55, 'rgba(6, 182, 212, 0.08)');
                     gradient.addColorStop(1, 'rgba(6, 182, 212, 0)');
                     return gradient;
                 },
                 borderWidth: 3,
-                tension: 0.4,
-                pointRadius: 5,
-                pointBackgroundColor: '#06b6d4',
+                tension: 0.38,
+                pointRadius: (context: ScriptableContext<'line'>) => context.dataIndex === latestIndex ? 6 : 4,
+                pointBackgroundColor: (context: ScriptableContext<'line'>) => context.dataIndex === latestIndex ? '#e0fbff' : '#06b6d4',
                 pointBorderColor: '#0a0a0c',
-                pointBorderWidth: 2,
-                pointHoverRadius: 7,
+                pointBorderWidth: (context: ScriptableContext<'line'>) => context.dataIndex === latestIndex ? 3 : 2,
+                pointHoverRadius: 8,
+                pointHitRadius: 18,
                 fill: true,
             },
             {
-                label: 'Pico da Sessão',
-                data: data.map(d => d.peakScore),
+                label: 'Pico da Sessao',
+                data: data.map((entry) => entry.peakScore),
                 borderColor: '#f97316',
                 backgroundColor: 'transparent',
                 borderWidth: 2,
                 borderDash: [6, 4],
-                tension: 0.4,
-                pointRadius: 3,
-                pointBackgroundColor: '#f97316',
+                tension: 0.38,
+                pointRadius: (context: ScriptableContext<'line'>) => context.dataIndex === latestIndex ? 5 : 3,
+                pointBackgroundColor: (context: ScriptableContext<'line'>) => context.dataIndex === latestIndex ? '#ffd7bf' : '#f97316',
                 pointBorderColor: '#0a0a0c',
                 pointBorderWidth: 1,
-                pointHoverRadius: 6,
+                pointHoverRadius: 7,
+                pointHitRadius: 16,
                 fill: false,
             },
         ],
@@ -81,6 +87,14 @@ export function TrendChart({ data }: TrendChartProps) {
             mode: 'index' as const,
             intersect: false,
         },
+        layout: {
+            padding: {
+                top: 8,
+                right: 6,
+                bottom: 0,
+                left: 0,
+            },
+        },
         plugins: {
             legend: {
                 display: true,
@@ -90,6 +104,8 @@ export function TrendChart({ data }: TrendChartProps) {
                     color: '#a1a1aa',
                     usePointStyle: true,
                     pointStyle: 'circle',
+                    boxWidth: 10,
+                    boxHeight: 10,
                     padding: 16,
                     font: {
                         family: 'var(--font-mono)',
@@ -98,17 +114,37 @@ export function TrendChart({ data }: TrendChartProps) {
                 },
             },
             tooltip: {
-                backgroundColor: 'rgba(9, 9, 11, 0.95)',
-                titleColor: '#06b6d4',
+                backgroundColor: 'rgba(9, 9, 11, 0.96)',
+                titleColor: '#ffffff',
                 bodyColor: '#ffffff',
                 borderColor: '#27272a',
                 borderWidth: 1,
+                displayColors: true,
                 padding: 12,
-                cornerRadius: 8,
+                cornerRadius: 10,
                 callbacks: {
-                    label: (ctx: TooltipItem<'line'>) => {
-                        const label = ctx.dataset.label || '';
-                        return `${label}: ${ctx.parsed.y}%`;
+                    title: (items: TooltipItem<'line'>[]) => {
+                        const item = items[0];
+                        return item?.label ? `Checkpoint ${item.label}` : '';
+                    },
+                    label: (context: TooltipItem<'line'>) => {
+                        const label = context.dataset.label || '';
+                        return `${label}: ${context.parsed.y}%`;
+                    },
+                    footer: (items: TooltipItem<'line'>[]) => {
+                        const averageItem = items.find((item) => item.datasetIndex === 0);
+                        const peakItem = items.find((item) => item.datasetIndex === 1);
+
+                        if (!averageItem || !peakItem) {
+                            return '';
+                        }
+
+                        if (averageItem.parsed.y === null || peakItem.parsed.y === null) {
+                            return '';
+                        }
+
+                        const gap = peakItem.parsed.y - averageItem.parsed.y;
+                        return `Gap da sessao: ${gap.toFixed(0)} pts`;
                     },
                 },
             },
@@ -118,7 +154,13 @@ export function TrendChart({ data }: TrendChartProps) {
                 min: 0,
                 max: 100,
                 grid: {
-                    color: 'rgba(255, 255, 255, 0.05)',
+                    color: (context: { tick: { value: number } }) => {
+                        if (context.tick.value === 50) {
+                            return 'rgba(6, 182, 212, 0.12)';
+                        }
+
+                        return 'rgba(255, 255, 255, 0.05)';
+                    },
                     drawTicks: false,
                 },
                 border: {

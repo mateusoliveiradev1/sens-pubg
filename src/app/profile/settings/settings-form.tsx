@@ -7,9 +7,32 @@ import { playerProfileSchema } from '@/types/schemas';
 import type { z } from 'zod';
 import type { playerProfiles } from '@/db/schema';
 import { saveProfile, deleteUserAccount } from '@/actions/profile';
+import { buildProfileWizardScopeSens } from '../profile-wizard-scopes';
 import styles from './settings-form.module.css';
 
 const MOUSE_SENSORS = ['Logitech HERO', 'PixArt PAW3395', 'PixArt PAW3370', 'Focus Pro 30K', 'TrueMove', 'Outro Sensor'];
+const DEFAULT_SCOPE_SYNC_VALUE = 30;
+const SCOPE_INPUTS = [
+    { id: 'red-dot', label: 'Red Dot' },
+    { id: '2x', label: '2x' },
+    { id: '3x', label: '3x' },
+    { id: '4x', label: '4x' },
+    { id: '6x', label: '6x' },
+    { id: '8x', label: '8x' },
+    { id: '15x', label: '15x' },
+] as const;
+
+function buildDefaultScopeSens(value: number): Record<string, number> {
+    return buildProfileWizardScopeSens({
+        'red-dot': value,
+        '2x': value,
+        '3x': value,
+        '4x': value,
+        '6x': value,
+        '8x': value,
+        '15x': value,
+    });
+}
 
 type ProfileFormValues = z.infer<typeof playerProfileSchema>;
 
@@ -63,7 +86,10 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
         pubgSettings: {
             generalSens: initialData.generalSens || 35,
             adsSens: initialData.adsSens || 30,
-            scopeSens: (initialData.scopeSens as Record<string, number>) || { '1x': 30, '2x': 30, '3x': 30, '4x': 30, '6x': 30, '8x': 30, '15x': 30 },
+            scopeSens: buildProfileWizardScopeSens({
+                ...buildDefaultScopeSens(initialData.adsSens || DEFAULT_SCOPE_SYNC_VALUE),
+                ...(initialData.scopeSens as Record<string, number> | undefined),
+            }),
             fov: initialData.fov || 90,
             verticalMultiplier: initialData.verticalMultiplier || 1.0,
             mouseAcceleration: initialData.mouseAcceleration || false,
@@ -80,7 +106,7 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
         pubgSettings: {
             generalSens: 35,
             adsSens: 30,
-            scopeSens: { '1x': 30, '2x': 30, '3x': 30, '4x': 30, '6x': 30, '8x': 30, '15x': 30 },
+            scopeSens: buildDefaultScopeSens(DEFAULT_SCOPE_SYNC_VALUE),
             fov: 90,
             verticalMultiplier: 1.0,
             mouseAcceleration: false,
@@ -106,17 +132,8 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
 
 
     const syncAllScopes = () => {
-        const currentAds = getValues('pubgSettings.adsSens') || 30;
-
-        const newScopes = {
-            '1x': currentAds,
-            '2x': currentAds,
-            '3x': currentAds,
-            '4x': currentAds,
-            '6x': currentAds,
-            '8x': currentAds,
-            '15x': currentAds,
-        };
+        const currentAds = getValues('pubgSettings.adsSens') || DEFAULT_SCOPE_SYNC_VALUE;
+        const newScopes = buildDefaultScopeSens(currentAds);
 
         setValue('pubgSettings.scopeSens', newScopes, {
             shouldDirty: true,
@@ -132,7 +149,13 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
 
             if (result?.data?.success) {
                 setNotification({ type: 'success', message: 'Configurações salvas com sucesso!' });
-                reset(data); // Resets isDirty
+                reset({
+                    ...data,
+                    pubgSettings: {
+                        ...data.pubgSettings,
+                        scopeSens: buildProfileWizardScopeSens(data.pubgSettings.scopeSens),
+                    },
+                }); // Resets isDirty
                 setTimeout(() => setNotification(null), 3000);
             } else if (result?.serverError) {
                 setNotification({ type: 'error', message: result.serverError });
@@ -420,15 +443,15 @@ export function SettingsForm({ initialData }: { initialData: typeof playerProfil
                                 </button>
                             </div>
                             <div className={styles.grid4}>
-                                {(['1x', '2x', '3x', '4x', '6x', '8x', '15x'] as const).map((scope) => (
-                                    <div className="field" key={scope}>
-                                        <label className="input-label" htmlFor={`sens-${scope}`}>Mira {scope}</label>
+                                {SCOPE_INPUTS.map((scope) => (
+                                    <div className="field" key={scope.id}>
+                                        <label className="input-label" htmlFor={`sens-${scope.id}`}>Mira {scope.label}</label>
                                         <input
-                                            id={`sens-${scope}`}
+                                            id={`sens-${scope.id}`}
                                             type="number"
                                             step="0.1"
                                             className="input"
-                                            {...register(`pubgSettings.scopeSens.${scope}` as const)}
+                                            {...register(`pubgSettings.scopeSens.${scope.id}` as const)}
                                         />
                                     </div>
                                 ))}
