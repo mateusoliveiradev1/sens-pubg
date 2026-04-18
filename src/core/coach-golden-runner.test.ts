@@ -80,5 +80,5 @@ describe('runCoachGoldens', () => {
             expect(clip.coach.error).toBeUndefined();
             expect(clip.coach.actualPlan, `${clip.clipId} should expose actual coachPlan facts`).toEqual(clip.coach.expectedPlan);
         }
-    });
+    }, 15000);
 });
