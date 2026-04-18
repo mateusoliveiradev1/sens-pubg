@@ -13,6 +13,7 @@ import {
     CURRENT_PUBG_PATCH_VERSION,
     internalFromCmPer360,
     isSensViableForMousepad,
+    normalizeScopeSensitivityMap,
     resolveScopeSensitivityValue,
     resolveEffectiveSensitivity,
     SCOPES,
@@ -70,6 +71,15 @@ interface ScoredCandidate {
 interface SensitivityBias {
     readonly controlBias: number;
     readonly speedBias: number;
+}
+
+interface ScopeRecommendationContext {
+    readonly type: ProfileType;
+    readonly playStyle: string;
+    readonly gripStyle: string;
+    readonly mousepadWidthCm: number;
+    readonly deskSpaceCm: number;
+    readonly evidenceTier: RecommendationEvidenceTier;
 }
 
 const RESIDUAL_DEADZONE_DEGREES = 0.05;
@@ -504,11 +514,130 @@ function resolveReferenceEffectiveYaw(
     }).effectiveYaw;
 }
 
+const SCOPE_BASE_OFFSETS: Readonly<Record<string, number>> = {
+    'red-dot': 0,
+    '2x': 0.4,
+    '3x': 0.8,
+    '4x': 1.2,
+    '6x': 1.8,
+    '8x': 2.3,
+    '15x': 3.0,
+};
+
+const SCOPE_MAX_DELTA_FROM_CURRENT: Readonly<Record<string, number>> = {
+    'red-dot': 2,
+    '2x': 3,
+    '3x': 4,
+    '4x': 5,
+    '6x': 6,
+    '8x': 6,
+    '15x': 7,
+};
+
+function clampSliderToRange(value: number, min: number, max: number): number {
+    return roundSlider(Math.max(min, Math.min(max, value)));
+}
+
+function resolveScopePhysicalBias(
+    playStyle: string,
+    gripStyle: string,
+    mousepadWidthCm: number,
+    deskSpaceCm: number
+): number {
+    const usableSpace = Math.max(mousepadWidthCm, Math.min(deskSpaceCm || mousepadWidthCm, mousepadWidthCm + 18));
+    let bias = 0;
+
+    if (usableSpace <= 35) {
+        bias += 0.9;
+    } else if (usableSpace >= 55) {
+        bias -= 0.9;
+    }
+
+    if (playStyle === 'wrist') {
+        bias += 0.7;
+    } else if (playStyle === 'arm') {
+        bias -= 0.7;
+    }
+
+    if (gripStyle === 'fingertip') {
+        bias += 0.3;
+    } else if (gripStyle === 'palm') {
+        bias -= 0.3;
+    }
+
+    return Math.max(-1.4, Math.min(1.4, bias));
+}
+
+function resolveScopeBaselineSlider(
+    scopeId: ScopeId,
+    generalSlider: number,
+    context: ScopeRecommendationContext
+): number {
+    const baseOffset = SCOPE_BASE_OFFSETS[scopeId] ?? 0;
+    if (baseOffset === 0) {
+        return generalSlider;
+    }
+
+    const physicalBias = resolveScopePhysicalBias(
+        context.playStyle,
+        context.gripStyle,
+        context.mousepadWidthCm,
+        context.deskSpaceCm
+    );
+    const evidenceFactor = context.evidenceTier === 'strong'
+        ? 1
+        : context.evidenceTier === 'moderate'
+            ? 0.82
+            : 0.65;
+    const profileFactor = context.type === 'high'
+        ? 1.18
+        : context.type === 'low'
+            ? 0.82
+            : 1;
+    const physicalFactor = 1 + (physicalBias * 0.16);
+    const physicalFineTune = physicalBias * 0.22;
+    const offset = (baseOffset * evidenceFactor * profileFactor * physicalFactor) + physicalFineTune;
+
+    return generalSlider + offset;
+}
+
+function resolveScopeDeltaCap(
+    scopeId: ScopeId,
+    context: ScopeRecommendationContext
+): number {
+    const physicalBias = resolveScopePhysicalBias(
+        context.playStyle,
+        context.gripStyle,
+        context.mousepadWidthCm,
+        context.deskSpaceCm
+    );
+    const baseCap = SCOPE_MAX_DELTA_FROM_CURRENT[scopeId] ?? 4;
+    const profileBonus = context.type === 'high'
+        ? 1
+        : context.type === 'low'
+            ? -1
+            : 0;
+    const evidenceBonus = context.evidenceTier === 'strong'
+        ? 1
+        : context.evidenceTier === 'weak'
+            ? -1
+            : 0;
+    const physicalBonus = physicalBias > 0.5
+        ? 1
+        : physicalBias < -0.5
+            ? -1
+            : 0;
+
+    return Math.max(2, baseCap + profileBonus + evidenceBonus + physicalBonus);
+}
+
 function resolveRecommendedScopeSlider(
     scopeId: ScopeId,
     generalSlider: number,
     adsSlider: number,
-    targetEffectiveYaw: number
+    targetEffectiveYaw: number,
+    currentSlider: number,
+    context: ScopeRecommendationContext
 ): number {
     const scope = SCOPES[scopeId];
 
@@ -517,7 +646,7 @@ function resolveRecommendedScopeSlider(
     }
 
     try {
-        return roundSlider(scopeSliderFromEffectiveYaw({
+        const theoreticalSlider = roundSlider(scopeSliderFromEffectiveYaw({
             patchVersion: CURRENT_PUBG_PATCH_VERSION,
             generalSlider,
             adsSlider,
@@ -526,6 +655,35 @@ function resolveRecommendedScopeSlider(
             verticalMultiplier: 1,
             targetEffectiveYaw,
         }));
+        const ergonomicBaseline = resolveScopeBaselineSlider(scopeId, generalSlider, context);
+        const currentWeight = context.evidenceTier === 'strong'
+            ? 0.24
+            : context.evidenceTier === 'moderate'
+                ? 0.38
+                : 0.52;
+        const blendedSlider = (
+            ergonomicBaseline * (1 - currentWeight)
+            + (currentSlider * currentWeight)
+        );
+        const cap = resolveScopeDeltaCap(scopeId, context);
+        const physicalBias = resolveScopePhysicalBias(
+            context.playStyle,
+            context.gripStyle,
+            context.mousepadWidthCm,
+            context.deskSpaceCm
+        );
+        const lowerBound = Math.max(0.01, currentSlider - 4);
+        const upperBound = currentSlider + cap;
+        const boundedTarget = Math.min(theoreticalSlider, upperBound);
+        const finalTarget = Math.min(
+            boundedTarget,
+            Math.max(
+                lowerBound,
+                blendedSlider + Math.max(-1, Math.min(1.5, physicalBias * 0.35))
+            )
+        );
+
+        return clampSliderToRange(finalTarget, lowerBound, upperBound);
     } catch {
         return generalSlider;
     }
@@ -535,7 +693,8 @@ function buildProfile(
     type: ProfileType,
     targetCm360: number,
     dpi: number,
-    currentScopeSens: Record<string, number>
+    currentScopeSens: Record<string, number>,
+    context: Omit<ScopeRecommendationContext, 'type'>
 ): SensitivityProfile {
     const internalMultiplier = internalFromCmPer360(dpi, targetCm360);
     const generalSlider = internalToSlider(internalMultiplier);
@@ -556,7 +715,12 @@ function buildProfile(
                 scopeId,
                 generalSlider,
                 adsSlider,
-                targetEffectiveYaw
+                targetEffectiveYaw,
+                current,
+                {
+                    ...context,
+                    type,
+                }
             );
 
             return [{
@@ -677,9 +841,11 @@ export function generateSensitivityRecommendation(
     mousepadWidthCm: number,
     currentScopeSens: Record<string, number>,
     currentVSM: number = 1.0,
-    clipCount: number = 1
+    clipCount: number = 1,
+    deskSpaceCm: number = mousepadWidthCm
 ): SensitivityRecommendation {
     const range = getBaseSensRange(playStyle, gripStyle);
+    const normalizedCurrentScopeSens = normalizeScopeSensitivityMap(currentScopeSens);
     const residualObjective = calculateResidualObjective(metrics);
     const diagnosticFallback = resolveDiagnosticFallback(diagnoses);
     const adjustedIdeal = residualObjective.actionable
@@ -701,9 +867,27 @@ export function generateSensitivityRecommendation(
         diagnoses,
     });
     const profiles: [SensitivityProfile, SensitivityProfile, SensitivityProfile] = [
-        buildProfile('low', candidateProfiles.lowCm360, dpi, currentScopeSens),
-        buildProfile('balanced', candidateProfiles.balancedCm360, dpi, currentScopeSens),
-        buildProfile('high', candidateProfiles.highCm360, dpi, currentScopeSens),
+        buildProfile('low', candidateProfiles.lowCm360, dpi, normalizedCurrentScopeSens, {
+            playStyle,
+            gripStyle,
+            mousepadWidthCm,
+            deskSpaceCm,
+            evidenceTier: evidence.evidenceTier,
+        }),
+        buildProfile('balanced', candidateProfiles.balancedCm360, dpi, normalizedCurrentScopeSens, {
+            playStyle,
+            gripStyle,
+            mousepadWidthCm,
+            deskSpaceCm,
+            evidenceTier: evidence.evidenceTier,
+        }),
+        buildProfile('high', candidateProfiles.highCm360, dpi, normalizedCurrentScopeSens, {
+            playStyle,
+            gripStyle,
+            mousepadWidthCm,
+            deskSpaceCm,
+            evidenceTier: evidence.evidenceTier,
+        }),
     ];
     const recommended = resolveRecommendedProfile(
         residualObjective,
@@ -746,6 +930,7 @@ export function generateSensitivityRecommendation(
         `diagnosticFallback=${diagnosticFallback.reason}`,
         `targetCm360=${adjustedIdeal.toFixed(2)}`,
         `prior=${playStyle}/${gripStyle}`,
+        `space=${deskSpaceCm}/${mousepadWidthCm}`,
         `burstVCI=${burstVCI.toFixed(2)}`,
         `dpi=${dpi}`,
     ];

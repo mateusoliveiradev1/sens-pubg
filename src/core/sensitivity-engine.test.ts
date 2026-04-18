@@ -207,7 +207,7 @@ describe('generateSensitivityRecommendation', () => {
         expect(rec.reasoning).toContain('diagnosticFallback=guarded');
     });
 
-    it('derives scope sliders from optic multipliers instead of mirroring the general slider', () => {
+    it('keeps scope sliders in a realistic band instead of exploding with magnification', () => {
         const rec = generateSensitivityRecommendation(
             makeMetrics(),
             [],
@@ -224,7 +224,8 @@ describe('generateSensitivityRecommendation', () => {
         expect(scope4x).toBeDefined();
         expect(scope8x).toBeDefined();
         expect(scope4x!.recommended).not.toBe(balanced.general);
-        expect(Number(scope8x!.recommended)).toBeGreaterThan(Number(scope4x!.recommended));
+        expect(Number(scope4x!.recommended)).toBeLessThanOrEqual(50);
+        expect(Number(scope8x!.recommended)).toBeLessThanOrEqual(50);
     });
 
     it('reuses equivalent 1x scope values when legacy red-dot keys are absent', () => {
@@ -242,6 +243,82 @@ describe('generateSensitivityRecommendation', () => {
 
         expect(redDot).toBeDefined();
         expect(Number(redDot!.current)).toBe(40);
+    });
+
+    it('keeps high-magnification scope suggestions within ergonomic bounds for roomy arm setups', () => {
+        const rec = generateSensitivityRecommendation(
+            makeMetrics({
+                shotResiduals: [
+                    makeResidual(0, -0.32),
+                    makeResidual(1, -0.31),
+                    makeResidual(2, -0.33),
+                    makeResidual(3, -0.34),
+                ],
+                metricQuality: {
+                    shotResiduals: {
+                        coverage: 0.9,
+                        confidence: 0.88,
+                        sampleSize: 4,
+                        framesTracked: 22,
+                        framesLost: 1,
+                        framesProcessed: 23,
+                    },
+                } as never,
+            }),
+            [],
+            800,
+            'arm',
+            'palm',
+            50,
+            { 'red-dot': 40, '2x': 40, '3x': 40, '4x': 40, '6x': 40, '8x': 40, '15x': 40 },
+            1.0,
+            1,
+            70
+        );
+        const high = rec.profiles.find((profile) => profile.type === 'high')!;
+        const scope8x = high.scopes.find((scope) => scope.scopeName === '8x CQBSS');
+        const scope15x = high.scopes.find((scope) => scope.scopeName === '15x PM II');
+
+        expect(scope8x).toBeDefined();
+        expect(scope15x).toBeDefined();
+        expect(Number(scope8x!.recommended)).toBeLessThanOrEqual(47);
+        expect(Number(scope15x!.recommended)).toBeLessThanOrEqual(48);
+    });
+
+    it('allows slightly faster scoped sliders when the setup is space-constrained and wrist-driven', () => {
+        const roomy = generateSensitivityRecommendation(
+            makeMetrics(),
+            [],
+            800,
+            'arm',
+            'palm',
+            50,
+            { 'red-dot': 40, '2x': 40, '3x': 40, '4x': 40, '6x': 40, '8x': 40, '15x': 40 },
+            1.0,
+            1,
+            70
+        );
+        const constrained = generateSensitivityRecommendation(
+            makeMetrics(),
+            [],
+            800,
+            'wrist',
+            'fingertip',
+            32,
+            { 'red-dot': 40, '2x': 40, '3x': 40, '4x': 40, '6x': 40, '8x': 40, '15x': 40 },
+            1.0,
+            1,
+            32
+        );
+
+        const roomyHigh = roomy.profiles.find((profile) => profile.type === 'high')!;
+        const constrainedHigh = constrained.profiles.find((profile) => profile.type === 'high')!;
+        const roomy15x = roomyHigh.scopes.find((scope) => scope.scopeName === '15x PM II');
+        const constrained15x = constrainedHigh.scopes.find((scope) => scope.scopeName === '15x PM II');
+
+        expect(roomy15x).toBeDefined();
+        expect(constrained15x).toBeDefined();
+        expect(Number(constrained15x!.recommended)).toBeGreaterThanOrEqual(Number(roomy15x!.recommended));
     });
 
     it('emits capture_again when the clip does not sustain a safe recommendation', () => {

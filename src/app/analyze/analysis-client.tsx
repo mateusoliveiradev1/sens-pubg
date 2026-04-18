@@ -419,6 +419,7 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                 const pPlayStyle = (profile.playStyle as PlayStyle) || 'hybrid';
                 const pGripStyle = (profile.gripStyle as GripStyle) || 'claw';
                 const pMousepadWidth = profile.mousepadWidth ?? 40;
+                const pDeskSpace = profile.deskSpace ?? pMousepadWidth;
                 const pScopeSens = profile.scopeSens ?? {};
                 const pVerticalMultiplier = profile.verticalMultiplier ?? 1.0;
 
@@ -432,7 +433,7 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                     loadout,
                     metrics: sprayMetrics,
                     diagnoses,
-                    sensitivity: generateSensitivityRecommendation(sprayMetrics, diagnoses, pMouseDpi, pPlayStyle, pGripStyle, pMousepadWidth, pScopeSens as Record<string, number>, pVerticalMultiplier),
+                    sensitivity: generateSensitivityRecommendation(sprayMetrics, diagnoses, pMouseDpi, pPlayStyle, pGripStyle, pMousepadWidth, pScopeSens as Record<string, number>, pVerticalMultiplier, 1, pDeskSpace),
                     coaching: generateCoaching(diagnoses, loadout, coachingContext),
                 });
 
@@ -462,6 +463,7 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
             const fPlayStyle = (profile.playStyle as PlayStyle) || 'hybrid';
             const fGripStyle = (profile.gripStyle as GripStyle) || 'claw';
             const fMousepadWidth = profile.mousepadWidth ?? 40;
+            const fDeskSpace = profile.deskSpace ?? fMousepadWidth;
             const fScopeSens = profile.scopeSens ?? {};
             const fVerticalMultiplier = profile.verticalMultiplier ?? 1.0;
 
@@ -475,7 +477,7 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                 loadout: { stance, muzzle, grip, stock },
                 metrics: finalMetrics,
                 diagnoses: finalDiagnoses,
-                    sensitivity: generateSensitivityRecommendation(finalMetrics, finalDiagnoses, fMouseDpi, fPlayStyle, fGripStyle, fMousepadWidth, fScopeSens as Record<string, number>, fVerticalMultiplier, subSessions.length),
+                    sensitivity: generateSensitivityRecommendation(finalMetrics, finalDiagnoses, fMouseDpi, fPlayStyle, fGripStyle, fMousepadWidth, fScopeSens as Record<string, number>, fVerticalMultiplier, subSessions.length, fDeskSpace),
                 coaching: generateCoaching(finalDiagnoses, { stance, muzzle, grip, stock }, coachingContext),
                 subSessions,
             };

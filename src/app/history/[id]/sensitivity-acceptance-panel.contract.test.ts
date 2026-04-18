@@ -6,6 +6,7 @@ describe('history sensitivity acceptance panel contract', () => {
         const source = readFileSync(new URL('./sensitivity-acceptance-panel.tsx', import.meta.url), 'utf8');
 
         expect(source).toMatch(/recordSensitivityAcceptance/);
+        expect(source).toMatch(/router\.refresh\(\)/);
         expect(source).toMatch(/Melhorou/);
         expect(source).toMatch(/Ficou igual/);
         expect(source).toMatch(/Piorou/);
