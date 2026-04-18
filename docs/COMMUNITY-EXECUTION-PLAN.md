@@ -532,6 +532,18 @@ TDD:
 - primeiro testar filtros e ordenacao;
 - depois implementar query/helper.
 
+Status:
+
+- concluida em 2026-04-18
+
+Evidence:
+
+- `src/core/community-feed.test.ts` foi criado primeiro cobrindo query leve, clausulas obrigatorias de `published + public`, filtros opcionais por arma/patch/diagnostico e ordenacao padrao por `publishedAt desc`
+- o RED foi confirmado com `npx vitest run src/core/community-feed.test.ts` falhando porque `src/core/community-feed.ts` ainda nao existia
+- `src/core/community-feed.ts` foi criado com `listPublicCommunityFeed`, selecionando apenas campos do card de feed, aplicando `status = published`, `visibility = public`, `published_at is not null`, filtros opcionais e `limit` padrao de 20 para manter a consulta barata e previsivel
+- o helper manteve a ordenacao server-side por recencia via `publishedAt desc`, sem tocar em `/community`, detalhe publico, perfil publico, E2E ou entitlement runtime
+- validacoes executadas: `npx vitest run src/core/community-feed.test.ts` -> 2 testes verdes; `npm run typecheck` -> ok
+
 ### W30-T02 - Criar pagina `/community`
 
 Goal:

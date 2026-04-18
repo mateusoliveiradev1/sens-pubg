@@ -74,3 +74,12 @@
 - GREEN: `npx vitest run src/actions/community-copy.test.ts` passou com 2/2 testes; `npm run typecheck` passou sem erros
 - REFACTOR: a action passou a normalizar `slug` e extrair `copySensPreset`/`clipboardText` para variaveis locais, sem alterar contrato nem persistencia
 - Acceptance: o copy agora usa `community_posts.copySensPreset` persistido, registra `community_post_copy_events` com `copiedByUserId` nullable e entrega payload de `clipboard` pronto para integracao futura via botao isolado
+
+## W30-T01 - Implementar query do feed publico
+
+- Status: concluida
+- Escopo: apenas `src/core/community-feed.ts`, `src/core/community-feed.test.ts` e evidencias documentais
+- RED: `npx vitest run src/core/community-feed.test.ts` falhou porque `src/core/community-feed.ts` ainda nao existia
+- GREEN: `npx vitest run src/core/community-feed.test.ts` passou com 2/2 testes; `npm run typecheck` passou sem erros
+- REFACTOR: o retorno do feed passou a usar o tipo interno `PublicCommunityFeedRow` para explicitar o narrowing de `publishedAt` sem alterar o contrato publico
+- Acceptance: a query agora retorna apenas posts `published` com `visibility = public`, aplica filtros opcionais por `primaryWeaponId`, `primaryPatchVersion` e `primaryDiagnosisKey`, preserva a ordenacao por `publishedAt desc` e seleciona somente campos leves do card de feed com `limit` padrao de 20
