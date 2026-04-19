@@ -1255,6 +1255,19 @@ TDD:
 
 - escrever os cenarios antes de polir implementacao final.
 
+Status:
+
+- concluida em 2026-04-19
+
+Evidence:
+
+- `e2e/community.publish.spec.ts` criado para cobrir o fluxo `history/[id]` -> criar rascunho comunitario -> abrir o post criado como autor, validando o detalhe baseado em snapshot sem abrir escopo fora da comunidade
+- `e2e/community.feed.spec.ts` foi ampliado para cobrir `/community` -> detalhe do post -> `copiar sens` com clipboard real -> `curtir`, alem de manter carregamento e filtros do feed publico
+- `e2e/community.comments.spec.ts` foi alinhado ao estado atual da comunidade com snapshot/preset coerentes e agora confirma a persistencia do comentario autenticado tambem apos reload
+- `src/actions/community-posts.ts` passou a normalizar o `AnalysisResult` salvo em JSON antes de gerar o snapshot comunitario, corrigindo a falha real do publish quando `timestamp` vinha serializado como string
+- `src/app/history/[id]/publish-analysis-button.tsx` agora expoe `Abrir rascunho` depois do publish, e `src/app/community/page.tsx` passou a linkar o titulo do card para o detalhe do post
+- validacao executada: `npx playwright test e2e/community.publish.spec.ts e2e/community.feed.spec.ts e2e/community.comments.spec.ts` -> RED inicial com 2 falhas objetivas (`publish` quebrando com erro generico e feed sem abertura do detalhe) e GREEN final com 6 testes verdes; `npm run typecheck` -> ok
+
 ### W70-T04 - Criar gate agregado `verify:community`
 
 Goal:

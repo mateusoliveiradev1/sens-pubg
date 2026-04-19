@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, useTransition } from 'react';
 
 import { publishAnalysisSessionToCommunity } from '@/actions/community-posts';
@@ -36,6 +37,7 @@ export function PublishAnalysisButton(props: Props) {
     const [statusMessage, setStatusMessage] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [hasPublishedDraft, setHasPublishedDraft] = useState(false);
+    const [createdSlug, setCreatedSlug] = useState<string | null>(null);
 
     const handlePublish = () => {
         setStatusMessage(null);
@@ -51,6 +53,7 @@ export function PublishAnalysisButton(props: Props) {
                 }
 
                 setHasPublishedDraft(true);
+                setCreatedSlug(result.slug);
                 setStatusMessage('Rascunho criado na comunidade.');
             } catch {
                 setErrorMessage('Nao foi possivel criar o rascunho da comunidade agora.');
@@ -85,6 +88,16 @@ export function PublishAnalysisButton(props: Props) {
                 >
                     {statusMessage}
                 </p>
+            ) : null}
+
+            {createdSlug ? (
+                <Link
+                    className="btn btn-ghost"
+                    href={`/community/${createdSlug}`}
+                    style={{ paddingInline: '0.75rem' }}
+                >
+                    Abrir rascunho
+                </Link>
             ) : null}
 
             {errorMessage ? (

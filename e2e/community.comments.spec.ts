@@ -36,6 +36,35 @@ function createSeededUser(prefix: string, suffix: string): SeededUser {
     };
 }
 
+function createPersistedCopySensPreset() {
+    return {
+        profiles: [
+            {
+                type: 'balanced',
+                label: 'Balanced',
+                description: 'Balanced control preset',
+                general: 50,
+                ads: 47,
+                scopes: [
+                    {
+                        scopeName: '1x',
+                        current: 48,
+                        recommended: 46,
+                        changePercent: -4.16,
+                    },
+                ],
+                cmPer360: 41,
+            },
+        ] as const,
+        recommended: 'balanced',
+        tier: 'apply_ready',
+        evidenceTier: 'strong',
+        confidenceScore: 0.84,
+        reasoning: 'Snapshot recommendation',
+        suggestedVSM: 1.02,
+    };
+}
+
 async function createSessionToken(user: SeededUser) {
     const { encode } = await import('next-auth/jwt');
 
@@ -89,6 +118,7 @@ async function seedCommunityCommentsFixture() {
     const postId = randomUUID();
     const profileSlug = `community-author-${suffix}`;
     const slug = `${profileSlug}-${analysisSessionId}`;
+    const copySensPreset = createPersistedCopySensPreset();
 
     await db.insert(users).values([
         author,
@@ -149,10 +179,7 @@ async function seedCommunityCommentsFixture() {
         primaryWeaponId: 'beryl-m762',
         primaryPatchVersion: '36.1',
         primaryDiagnosisKey: 'horizontal_drift',
-        copySensPreset: {
-            profiles: [],
-            recommended: 'balanced',
-        } as never,
+        copySensPreset: copySensPreset as never,
         publishedAt: new Date('2026-04-19T12:00:00.000Z'),
     });
 
@@ -196,10 +223,7 @@ async function seedCommunityCommentsFixture() {
             feedback: [],
             plan: null,
         } as never,
-        sensSnapshot: {
-            profiles: [],
-            recommended: 'balanced',
-        } as never,
+        sensSnapshot: copySensPreset as never,
         trackingSnapshot: {
             points: [],
             trackingFrames: [],
@@ -315,6 +339,30 @@ test.describe('Community flat comments', () => {
             await expect(page.getByRole('button', { name: /copiar sens/i })).toBeVisible();
             await expect(page.getByRole('button', { name: /curtir/i })).toBeVisible();
             await expect(page.getByRole('button', { name: /salvar/i })).toBeVisible();
+
+            const [{ db }, { communityPostComments }] = await Promise.all([
+                import('../src/db'),
+                import('../src/db/schema'),
+            ]);
+            const storedComments = await db
+                .select({
+                    bodyMarkdown: communityPostComments.bodyMarkdown,
+                    diagnosisContextKey: communityPostComments.diagnosisContextKey,
+                })
+                .from(communityPostComments)
+                .where(eq(communityPostComments.authorId, fixture.viewer.id));
+
+            expect(storedComments).toEqual([
+                {
+                    bodyMarkdown: 'Novo comentario autenticado com contexto tecnico opcional.',
+                    diagnosisContextKey: 'horizontal_drift',
+                },
+            ]);
+
+            await page.reload();
+            await expect(page.locator('[data-community-comment-body]').nth(2)).toContainText(
+                'Novo comentario autenticado com contexto tecnico opcional.',
+            );
         } finally {
             await fixture.cleanup();
         }

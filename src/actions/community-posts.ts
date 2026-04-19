@@ -2,6 +2,7 @@
 
 import { and, eq } from 'drizzle-orm';
 
+import { hydrateAnalysisResultFromHistory } from '@/app/history/analysis-result-hydration';
 import { auth } from '@/auth';
 import {
     createCommunityPostAnalysisSnapshot,
@@ -72,6 +73,33 @@ function toSnapshotSourceSession(
 
 function resolvePrimaryDiagnosisKey(analysisResult: AnalysisResult): string {
     return analysisResult.diagnoses[0]?.type ?? 'clean_analysis';
+}
+
+function normalizeStoredAnalysisResult(
+    storedSession: StoredPublishableAnalysisSession,
+): AnalysisResult | null {
+    const hydratedResult = hydrateAnalysisResultFromHistory({
+        fullResult: storedSession.fullResult ?? {},
+        recordPatchVersion: storedSession.patchVersion,
+        scopeId: storedSession.scopeId,
+        distanceMeters: storedSession.distance,
+    });
+
+    const rawTimestamp = hydratedResult.timestamp;
+    const normalizedTimestamp = rawTimestamp instanceof Date
+        ? rawTimestamp
+        : typeof rawTimestamp === 'string'
+            ? new Date(rawTimestamp)
+            : null;
+
+    if (!normalizedTimestamp || Number.isNaN(normalizedTimestamp.getTime())) {
+        return null;
+    }
+
+    return {
+        ...hydratedResult,
+        timestamp: normalizedTimestamp,
+    };
 }
 
 export async function publishAnalysisSessionToCommunity(
@@ -147,7 +175,15 @@ export async function publishAnalysisSessionToCommunity(
         };
     }
 
-    const analysisResult = storedAnalysisSession.fullResult as unknown as AnalysisResult;
+    const analysisResult = normalizeStoredAnalysisResult(storedAnalysisSession);
+
+    if (!analysisResult) {
+        return {
+            success: false,
+            error: 'Sessao sem resultado publicavel.',
+        };
+    }
+
     const analysisSnapshot = createCommunityPostAnalysisSnapshot({
         analysisResult,
         session: toSnapshotSourceSession(storedAnalysisSession),

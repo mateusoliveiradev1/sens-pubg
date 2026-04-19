@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 
 import {
     listPublicCommunityFeed,
@@ -309,7 +310,17 @@ export default async function CommunityPage({
                                             </div>
 
                                             <div style={{ display: 'grid', gap: 'var(--space-sm)' }}>
-                                                <h2 style={{ fontSize: 'var(--text-2xl)' }}>{entry.title}</h2>
+                                                <h2 style={{ fontSize: 'var(--text-2xl)' }}>
+                                                    <Link
+                                                        href={`/community/${entry.slug}`}
+                                                        style={{
+                                                            color: 'inherit',
+                                                            textDecoration: 'none',
+                                                        }}
+                                                    >
+                                                        {entry.title}
+                                                    </Link>
+                                                </h2>
                                                 <p>{entry.excerpt}</p>
                                             </div>
 
