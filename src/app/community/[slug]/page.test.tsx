@@ -62,6 +62,16 @@ vi.mock('./like-button', () => ({
     ),
 }));
 
+vi.mock('./save-button', () => ({
+    SaveButton: ({
+        slug,
+        initialSaved,
+    }: {
+        readonly slug: string;
+        readonly initialSaved: boolean;
+    }) => <div data-save-button={slug}>save:{slug}:{String(initialSaved)}</div>,
+}));
+
 vi.mock('next/navigation', () => ({
     notFound: mocks.notFound,
 }));
@@ -177,6 +187,7 @@ describe('community post detail page', () => {
         expect(markup).toContain('Drift lateral acumulando para a direita.');
         expect(markup).toContain('copy-sens:beryl-control-lab');
         expect(markup).toContain('like:beryl-control-lab:false:4');
+        expect(markup).toContain('save:beryl-control-lab:false');
     });
 
     it('allows the author to open their own draft post detail', async () => {
@@ -190,6 +201,7 @@ describe('community post detail page', () => {
                 }),
             ])
             .mockResolvedValueOnce([{ count: 7 }])
+            .mockResolvedValueOnce([{ postId: 'post-1' }])
             .mockResolvedValueOnce([{ postId: 'post-1' }]);
 
         const markup = await renderPage('beryl-control-lab');
@@ -198,6 +210,7 @@ describe('community post detail page', () => {
         expect(markup).toContain('Patch 36.1');
         expect(markup).toContain('copy-sens:beryl-control-lab');
         expect(markup).toContain('like:beryl-control-lab:true:7');
+        expect(markup).toContain('save:beryl-control-lab:true');
     });
 
     it('returns notFound when the current visibility policy denies public access', async () => {

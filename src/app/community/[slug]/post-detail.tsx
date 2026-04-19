@@ -4,6 +4,7 @@ import type { Diagnosis } from '@/types/engine';
 
 import { CopySensButton } from './copy-sens-button';
 import { LikeButton } from './like-button';
+import { SaveButton } from './save-button';
 
 export interface CommunityPostDetailData {
     readonly slug: string;
@@ -22,6 +23,7 @@ export interface CommunityPostDetailData {
     readonly engagement: {
         readonly likeCount: number;
         readonly viewerHasLiked: boolean;
+        readonly viewerHasSaved: boolean;
     };
 }
 
@@ -149,6 +151,10 @@ export function PostDetail({
                         slug={post.slug}
                         initialLiked={post.engagement.viewerHasLiked}
                         initialLikeCount={post.engagement.likeCount}
+                    />
+                    <SaveButton
+                        slug={post.slug}
+                        initialSaved={post.engagement.viewerHasSaved}
                     />
                 </div>
             </section>

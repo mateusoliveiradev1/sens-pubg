@@ -4,7 +4,12 @@ import { notFound } from 'next/navigation';
 
 import { auth } from '@/auth';
 import { db } from '@/db';
-import { communityPostAnalysisSnapshots, communityPostLikes, communityPosts } from '@/db/schema';
+import {
+    communityPostAnalysisSnapshots,
+    communityPostLikes,
+    communityPosts,
+    communityPostSaves,
+} from '@/db/schema';
 import { getCommunityPostReadAccess } from '@/lib/community-access';
 import { Header } from '@/ui/components/header';
 
@@ -81,6 +86,7 @@ async function loadCommunityPostDetail(
         .limit(1);
 
     let viewerHasLiked = false;
+    let viewerHasSaved = false;
 
     if (viewerUserId) {
         const [storedViewerLike] = await db
@@ -97,6 +103,21 @@ async function loadCommunityPostDetail(
             .limit(1);
 
         viewerHasLiked = Boolean(storedViewerLike);
+
+        const [storedViewerSave] = await db
+            .select({
+                postId: communityPostSaves.postId,
+            })
+            .from(communityPostSaves)
+            .where(
+                and(
+                    eq(communityPostSaves.postId, storedPost.id),
+                    eq(communityPostSaves.userId, viewerUserId),
+                ),
+            )
+            .limit(1);
+
+        viewerHasSaved = Boolean(storedViewerSave);
     }
 
     return {
@@ -116,6 +137,7 @@ async function loadCommunityPostDetail(
         engagement: {
             likeCount: Number(likeCountRow?.count ?? 0),
             viewerHasLiked,
+            viewerHasSaved,
         },
     };
 }

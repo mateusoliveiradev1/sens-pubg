@@ -6,3 +6,5 @@
 - Evidencias locais: `npx vitest run src/actions/community-profiles.test.ts`, `npm run typecheck`.
 - W40-T01 concluida: likes agora usam `setCommunityPostLike` com estado alvo idempotente, auth obrigatoria e respeito explicito a unique constraint de `community_post_likes`; o detalhe do post passou a carregar `likeCount`/`viewerHasLiked` e exibir `LikeButton` no padrao visual atual.
 - Evidencias locais: `npx vitest run src/actions/community-likes.test.ts`, `npx vitest run src/app/community/[slug]/page.test.tsx`, `npx vitest run src/actions/community-copy.test.ts`, `npm run typecheck`.
+- W40-T02 concluida: saves privados agora usam `setCommunityPostSave` com auth obrigatoria, toggle idempotente e persistencia por `postId + userId`; o detalhe do post passou a refletir apenas `viewerHasSaved`, sem expor contador publico de save.
+- Evidencias locais: `npx vitest run src/actions/community-saves.test.ts`, `npx vitest run src/app/community/[slug]/page.test.tsx`, `npx vitest run src/actions/community-saves.test.ts src/app/community/[slug]/page.test.tsx src/actions/community-likes.test.ts src/actions/community-copy.test.ts`, `npm run typecheck`.

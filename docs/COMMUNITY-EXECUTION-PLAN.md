@@ -758,6 +758,19 @@ TDD:
 - primeiro testar privacidade e toggle;
 - depois implementar.
 
+Status:
+
+- concluida em 2026-04-19
+
+Evidence:
+
+- `src/actions/community-saves.test.ts` foi criado primeiro cobrindo auth obrigatoria, `save` idempotente com `onConflictDoNothing`, `unsave` idempotente e ausencia de contador publico no contrato de retorno
+- o RED foi confirmado com `npx vitest run src/actions/community-saves.test.ts` falhando porque `src/actions/community-saves.ts` ainda nao existia
+- `src/actions/community-saves.ts` foi criado com `setCommunityPostSave`, exigindo auth, resolvendo o post por `slug`, persistindo/removendo `community_post_saves` por `postId + userId` e mantendo o dado de save privado por usuario
+- `src/app/community/[slug]/save-button.tsx` foi criado no mesmo padrao visual do detalhe atual, chamando a action com estado alvo idempotente e exibindo erro amigavel para usuario anonimo
+- `src/app/community/[slug]/page.tsx`, `src/app/community/[slug]/post-detail.tsx` e `src/app/community/[slug]/page.test.tsx` foram ajustados apenas para refletir `viewerHasSaved` do usuario logado, sem expor contador publico de save no detalhe do post
+- validacoes executadas: `npx vitest run src/actions/community-saves.test.ts` -> RED por modulo ausente; `npx vitest run src/actions/community-saves.test.ts` -> GREEN com 4 testes; `npx vitest run src/app/community/[slug]/page.test.tsx` -> 3 testes verdes; `npx vitest run src/actions/community-saves.test.ts src/app/community/[slug]/page.test.tsx src/actions/community-likes.test.ts src/actions/community-copy.test.ts` -> 13 testes verdes; `npm run typecheck` -> ok
+
 ### W40-T03 - Implementar comentarios planos
 
 Goal:
