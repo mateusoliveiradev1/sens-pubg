@@ -33,6 +33,9 @@
     "generate:captured-labeling-kit": "tsx scripts/generate-captured-labeling-kit.ts tests/fixtures/captured-clips/intake.v1.json tests/fixtures/captured-clips/labels.todo.v1.json docs/captured-labeling-kit-2026-04-14.md",
     "smoke:local": "npx playwright test",
     "smoke:deployed": "tsx scripts/run-launch-smoke.ts",
+    "test:community:unit": "npx vitest run src/ci/community-workflow.test.ts src/types/community.test.ts src/core/community-post-snapshot.test.ts src/core/community-feed.test.ts src/core/community-moderation.test.ts src/core/community-creator-metrics.test.ts src/lib/community-access.test.ts src/lib/community-entitlements.test.ts src/actions/community-posts.test.ts src/actions/community-copy.test.ts src/actions/community-profiles.test.ts src/actions/community-likes.test.ts src/actions/community-saves.test.ts src/actions/community-comments.test.ts src/actions/community-follows.test.ts src/actions/community-reports.test.ts src/actions/community-admin.test.ts src/actions/community-rate-limit.test.ts src/app/community/metadata.test.ts src/app/community/[slug]/page.test.tsx",
+    "test:community:e2e": "npx playwright test e2e/community.publish-entry.spec.ts e2e/community.publish.spec.ts e2e/community.feed.spec.ts e2e/community.comments.spec.ts e2e/community.admin.spec.ts",
+    "verify:community": "npm run typecheck && npm run test:community:unit && npm run build && npm run test:community:e2e",
     "verify:release": "npm run typecheck && npx vitest run && npm run benchmark:gate && npm run build && npm run smoke:local",
     "prepare": "husky",
     "lint-staged": "lint-staged"
@@ -53,6 +56,7 @@
     "next-safe-action": "^8.0.12",
     "nuqs": "^2.8.8",
     "openai": "^6.34.0",
+    "pg": "^8.20.0",
     "react": "19.2.3",
     "react-chartjs-2": "^5.3.1",
     "react-dom": "19.2.3",

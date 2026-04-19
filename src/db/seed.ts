@@ -1,15 +1,18 @@
 import { config } from 'dotenv';
 config({ path: '.env.local' });
 
-import { neon } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
-import * as schema from './schema';
 import { weaponPatchProfiles, weaponProfiles, weaponRegistry } from './schema';
 import { buildCanonicalWeaponProfile, weaponSeeds } from './weapon-profile-seed';
 import { WEAPON_CATALOG_SNAPSHOTS, getWeaponRegistry } from '@/game/pubg/weapon-patch-catalog';
+import { createDatabaseClient } from './client';
 
-const sql = neon(process.env.DATABASE_URL!);
-const db = drizzle(sql, { schema });
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+    throw new Error('DATABASE_URL is required to run src/db/seed.ts');
+}
+
+const db = createDatabaseClient(connectionString);
 
 async function main() {
     console.log('Seeding weapons...');
