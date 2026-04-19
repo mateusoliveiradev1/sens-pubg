@@ -13,8 +13,25 @@ import {
 } from './community-filters';
 
 export const metadata: Metadata = {
-    title: 'Comunidade',
-    description: 'Feed publico da comunidade com filtros basicos por arma, patch e diagnostico.',
+    title: 'Comunidade de Analises PUBG',
+    description:
+        'Explore analises publicas, setups copiaveis e diagnosticos por arma, patch e tipo de problema na comunidade.',
+    alternates: {
+        canonical: '/community',
+    },
+    openGraph: {
+        title: 'Comunidade de Analises PUBG',
+        description:
+            'Explore analises publicas, setups copiaveis e diagnosticos por arma, patch e tipo de problema na comunidade.',
+        url: '/community',
+        type: 'website',
+    },
+    twitter: {
+        card: 'summary_large_image',
+        title: 'Comunidade de Analises PUBG',
+        description:
+            'Explore analises publicas, setups copiaveis e diagnosticos por arma, patch e tipo de problema na comunidade.',
+    },
 };
 
 export const dynamic = 'force-dynamic';

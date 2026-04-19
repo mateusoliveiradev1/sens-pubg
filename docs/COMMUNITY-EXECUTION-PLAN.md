@@ -1213,6 +1213,19 @@ TDD:
 - primeiro testar metadata derivada;
 - depois implementar.
 
+Status:
+
+- concluida em 2026-04-19
+
+Evidence:
+
+- `src/app/community/metadata.test.ts` foi criado primeiro para travar o contrato de metadata do feed e do post detail, incluindo `title`, `description` e `alternates.canonical`
+- o RED foi confirmado com `npx vitest run src/app/community/metadata.test.ts` falhando porque `/community` ainda expunha metadata generica e `/community/[slug]` ainda nao exportava `generateMetadata`
+- `src/app/community/page.tsx` passou a expor metadata mais alinhada ao app, com copy SEO para comunidade e `canonical` em `/community`
+- `src/app/community/[slug]/page.tsx` passou a exportar `generateMetadata`, derivando `title`/`description` do snapshot persistido com arma, patch, scope, distancia e diagnosticos, sem alterar o comportamento funcional da pagina
+- validacoes executadas: `npx vitest run src/app/community/metadata.test.ts` -> GREEN com 2 testes; `npm run typecheck` -> ok
+- checagem adicional: `npx vitest run src/app/community/metadata.test.ts src/app/community/[slug]/page.test.tsx` manteve `metadata.test.ts` verde, mas expôs um problema lateral ja existente em `src/app/community/report-button.tsx` (`React is not defined`) fora do escopo da W70-T02
+
 ### W70-T03 - Fechar E2E principal da comunidade
 
 Goal:
