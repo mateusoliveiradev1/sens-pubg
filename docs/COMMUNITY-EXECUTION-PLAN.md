@@ -897,6 +897,18 @@ TDD:
 - primeiro testar persistencia e validacao;
 - depois implementar.
 
+Status:
+
+- concluida em 2026-04-19
+
+Evidence:
+
+- `src/actions/community-reports.test.ts` foi criado primeiro cobrindo auth obrigatoria, persistencia de `entityType`, `entityId`, `reasonKey`, `details`, `status = open` e suporte a `post | comment | profile`
+- o RED foi confirmado com `npx vitest run src/actions/community-reports.test.ts` falhando por ausencia inicial de `src/actions/community-reports.ts`
+- `src/actions/community-reports.ts` foi criado com `createCommunityReport`, validacao minima do payload, resolucao da entidade alvo e persistencia em `community_reports` com `reportedByUserId` e `status = open`
+- `src/app/community/report-button.tsx` foi criado como surface generica de report e integrado em `src/app/community/[slug]/post-detail.tsx` para post/comentarios e em `src/app/community/users/[slug]/page.tsx` para perfil, mantendo o padrao visual atual
+- validacoes executadas: `npx vitest run src/actions/community-reports.test.ts` -> GREEN com 5 testes verdes; `npm run typecheck` -> ok
+
 ### W50-T02 - Implementar estados de moderacao para post e comentario
 
 Goal:

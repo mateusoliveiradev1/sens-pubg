@@ -8,8 +8,10 @@ import { CommentForm } from './comment-form';
 import { CopySensButton } from './copy-sens-button';
 import { LikeButton } from './like-button';
 import { SaveButton } from './save-button';
+import { ReportButton } from '../report-button';
 
 export interface CommunityPostDetailData {
+    readonly id: string;
     readonly slug: string;
     readonly status: 'draft' | 'published' | 'hidden' | 'archived' | 'deleted';
     readonly title: string;
@@ -182,6 +184,11 @@ export function PostDetail({
                         slug={post.slug}
                         initialSaved={post.engagement.viewerHasSaved}
                     />
+                    <ReportButton
+                        entityType="post"
+                        entityId={post.id}
+                        subjectLabel="este post"
+                    />
                 </div>
             </section>
 
@@ -320,6 +327,12 @@ export function PostDetail({
                                 <p data-community-comment-body={comment.id} style={commentBodyStyle}>
                                     {comment.bodyMarkdown}
                                 </p>
+
+                                <ReportButton
+                                    entityType="comment"
+                                    entityId={comment.id}
+                                    subjectLabel="este comentario"
+                                />
                             </article>
                         ))}
                     </div>

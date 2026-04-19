@@ -137,6 +137,7 @@ async function loadCommunityPostDetail(
             : 'Entre na sua conta para comentar neste post.';
 
     return {
+        id: storedPost.id,
         slug: storedPost.slug,
         status: storedPost.status,
         title: storedPost.title,

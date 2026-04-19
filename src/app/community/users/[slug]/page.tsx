@@ -8,6 +8,7 @@ import { auth } from '@/auth';
 import { Header } from '@/ui/components/header';
 
 import { FollowButton } from './follow-button';
+import { ReportButton } from '../../report-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -163,6 +164,14 @@ export default async function CommunityUserProfilePage({
                                 ))}
                             </div>
                         ) : null}
+
+                        <div style={linksStyle}>
+                            <ReportButton
+                                entityType="profile"
+                                entityId={profile.id}
+                                subjectLabel="este perfil"
+                            />
+                        </div>
 
                         {session?.user?.id && followState && !followState.canFollow ? (
                             <p

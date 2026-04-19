@@ -12,3 +12,5 @@
 - Evidencias locais: `npx vitest run src/actions/community-comments.test.ts`, `npx playwright test e2e/community.comments.spec.ts`, `npx vitest run src/actions/community-comments.test.ts src/app/community/[slug]/page.test.tsx src/actions/community-likes.test.ts src/actions/community-saves.test.ts src/actions/community-copy.test.ts`, `npm run typecheck`.
 - W40-T04 concluida: follows agora usam `setCommunityProfileFollow` com auth obrigatoria, toggle idempotente e bloqueio server-side de self-follow; o perfil publico passou a carregar `followerCount`/`viewerIsFollowing` no servidor e exibir `FollowButton` no mesmo padrao visual atual.
 - Evidencias locais: `npx vitest run src/actions/community-follows.test.ts`, `npx vitest run src/actions/community-profiles.test.ts`, `npm run typecheck`.
+- W50-T01 concluida: reports basicos agora exigem auth, persistem `entityType`, `entityId`, `reasonKey`, `details` e `status = open` em `community_reports`, com surface unificada para post, comentario e perfil no padrao visual atual.
+- Evidencias locais: `npx vitest run src/actions/community-reports.test.ts`, `npm run typecheck`.
