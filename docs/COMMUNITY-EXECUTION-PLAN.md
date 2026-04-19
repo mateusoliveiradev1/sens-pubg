@@ -621,6 +621,19 @@ TDD:
 - primeiro testar render e policy;
 - depois implementar pagina.
 
+Status:
+
+- concluida em 2026-04-19
+
+Evidence:
+
+- `src/app/community/[slug]/page.test.tsx` foi criado primeiro cobrindo o detalhe publicado com snapshot persistido, a presenca do `CopySensButton`, o acesso do autor ao rascunho e o bloqueio publico via `notFound()` quando a policy negar leitura
+- o primeiro RED com `npx vitest run src/app/community/[slug]/page.test.tsx` expôs que o runner ainda ignorava `*.test.tsx`; `vitest.config.ts` foi ajustado para incluir esse padrao e o mesmo comando passou a falhar pelo motivo esperado da task, com `src/app/community/[slug]/page.tsx` ausente
+- `src/app/community/[slug]/page.tsx` foi criado com query server-side para `community_posts` + `community_post_analysis_snapshots`, aplicando `getCommunityPostReadAccess` antes de renderizar e retornando `notFound()` quando o slug nao existe ou quando a policy atual nega leitura
+- `src/app/community/[slug]/post-detail.tsx` foi criado seguindo o visual atual do projeto, lendo patch, arma, scope, distance e diagnosticos diretamente do snapshot persistido e encaixando o `CopySensButton` existente sem tocar em likes, comments, saves, follows ou entitlement runtime
+- o REFACTOR manteve o comportamento verde enquanto removeu a dependencia implícita de `auth()` dentro do loader, passando `viewerUserId` explicitamente da pagina para a etapa de policy
+- validacoes executadas: `npx vitest run src/app/community/[slug]/page.test.tsx` -> RED por descoberta de `.test.tsx`; `npx vitest run src/app/community/[slug]/page.test.tsx` -> RED por modulo `page.tsx` ausente; `npx vitest run src/app/community/[slug]/page.test.tsx` -> GREEN com 3 testes; `npx vitest run src/lib/community-access.test.ts` -> 6 testes verdes; `npx vitest run src/actions/community-copy.test.ts` -> 2 testes verdes; `npm run typecheck` -> ok
+
 ### W30-T04 - Criar perfil publico do autor
 
 Goal:
