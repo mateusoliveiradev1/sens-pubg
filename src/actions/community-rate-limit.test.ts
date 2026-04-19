@@ -138,6 +138,8 @@ function createStoredAnalysisSessionRow() {
         },
         distance: 35,
         fullResult: {
+            id: 'analysis-1',
+            timestamp: '2026-04-19T15:00:00.000Z',
             diagnoses: [
                 {
                     type: 'horizontal_instability',

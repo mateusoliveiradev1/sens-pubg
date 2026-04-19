@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { useId, useState, useTransition } from 'react';
 
 import { createCommunityReport } from '@/actions/community-reports';

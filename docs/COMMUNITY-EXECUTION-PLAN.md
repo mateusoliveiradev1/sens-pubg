@@ -1297,6 +1297,18 @@ TDD:
 - primeiro definir o contrato do gate;
 - depois adicionar script.
 
+Status:
+
+- concluida em 2026-04-19
+
+Evidence:
+
+- `src/ci/community-workflow.test.ts` foi criado primeiro para travar o contrato do gate, exigindo `verify:community` com `typecheck`, um bloco Vitest restrito aos arquivos comunitarios, `build` e um bloco Playwright restrito aos journeys comunitarios
+- o RED foi confirmado com `npx vitest run src/ci/community-workflow.test.ts` falhando com 3 falhas objetivas porque `verify:community`, `test:community:unit` e `test:community:e2e` ainda nao existiam no `package.json`
+- `package.json` passou a expor `test:community:unit`, `test:community:e2e` e `verify:community`, preservando `verify:release` sem alterar o comportamento legado fora do escopo comunitario
+- para estabilizar o gate sem reabrir escopo, `src/actions/community-rate-limit.test.ts` recebeu um fixture persistido com `id`/`timestamp` compativeis com a normalizacao atual de publish, e `src/app/community/report-button.tsx` recebeu o import de React exigido pelo caminho SSR exercitado por `src/app/community/[slug]/page.test.tsx`
+- validacoes executadas: `npm run verify:community` -> GREEN com 89 testes Vitest verdes, `npm run build` ok dentro do gate e 9 specs Playwright comunitarias verdes; `npm run typecheck` -> ok
+
 ## 5. Ordem recomendada de implementacao
 
 1. W00
