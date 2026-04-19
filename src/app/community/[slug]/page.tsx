@@ -2,6 +2,7 @@ import React from 'react';
 import { and, count, eq } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
 
+import { listVisibleCommunityPostComments } from '@/actions/community-comments';
 import { auth } from '@/auth';
 import { db } from '@/db';
 import {
@@ -21,6 +22,12 @@ interface CommunityPostPageProps {
     readonly params: Promise<{
         readonly slug: string;
     }>;
+}
+
+function extractDiagnosisOptions(
+    diagnoses: CommunityPostDetailData['snapshot']['diagnoses'],
+): readonly string[] {
+    return Array.from(new Set(diagnoses.map((diagnosis) => diagnosis.type)));
 }
 
 async function loadCommunityPostDetail(
@@ -120,6 +127,15 @@ async function loadCommunityPostDetail(
         viewerHasSaved = Boolean(storedViewerSave);
     }
 
+    const comments = await listVisibleCommunityPostComments(storedPost.id);
+    const diagnosisOptions = extractDiagnosisOptions(storedPost.snapshotDiagnoses);
+    const canComment = Boolean(viewerUserId) && storedPost.status === 'published';
+    const commentDisabledReason = storedPost.status !== 'published'
+        ? 'Comentarios liberados apenas quando o post estiver publicado.'
+        : viewerUserId
+            ? null
+            : 'Entre na sua conta para comentar neste post.';
+
     return {
         slug: storedPost.slug,
         status: storedPost.status,
@@ -138,6 +154,12 @@ async function loadCommunityPostDetail(
             likeCount: Number(likeCountRow?.count ?? 0),
             viewerHasLiked,
             viewerHasSaved,
+        },
+        comments,
+        commentForm: {
+            canSubmit: canComment,
+            disabledReason: commentDisabledReason,
+            diagnosisOptions,
         },
     };
 }

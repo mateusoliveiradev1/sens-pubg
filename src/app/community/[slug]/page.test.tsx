@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => {
     const where = vi.fn();
     const limit = vi.fn();
     const notFound = vi.fn();
+    const listVisibleCommunityPostComments = vi.fn();
 
     return {
         auth,
@@ -23,6 +24,7 @@ const mocks = vi.hoisted(() => {
         where,
         limit,
         notFound,
+        listVisibleCommunityPostComments,
     };
 });
 
@@ -34,6 +36,10 @@ vi.mock('@/db', () => ({
     db: {
         select: mocks.select,
     },
+}));
+
+vi.mock('@/actions/community-comments', () => ({
+    listVisibleCommunityPostComments: mocks.listVisibleCommunityPostComments,
 }));
 
 vi.mock('@/ui/components/header', () => ({
@@ -70,6 +76,22 @@ vi.mock('./save-button', () => ({
         readonly slug: string;
         readonly initialSaved: boolean;
     }) => <div data-save-button={slug}>save:{slug}:{String(initialSaved)}</div>,
+}));
+
+vi.mock('./comment-form', () => ({
+    CommentForm: ({
+        slug,
+        canSubmit,
+        disabledReason,
+    }: {
+        readonly slug: string;
+        readonly canSubmit: boolean;
+        readonly disabledReason: string | null;
+    }) => (
+        <div data-comment-form={slug}>
+            comment-form:{slug}:{String(canSubmit)}:{disabledReason ?? 'none'}
+        </div>
+    ),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -168,6 +190,30 @@ describe('community post detail page', () => {
         });
 
         mocks.auth.mockResolvedValue(null);
+        mocks.listVisibleCommunityPostComments.mockResolvedValue([
+            {
+                id: 'comment-1',
+                author: {
+                    id: 'user-2',
+                    name: 'Coach Ace',
+                    image: null,
+                },
+                bodyMarkdown: 'Primeiro comentario visivel.',
+                diagnosisContextKey: null,
+                createdAt: new Date('2026-04-19T04:05:00.000Z'),
+            },
+            {
+                id: 'comment-2',
+                author: {
+                    id: 'user-3',
+                    name: 'Coach B',
+                    image: null,
+                },
+                bodyMarkdown: 'Segundo comentario com contexto tecnico.',
+                diagnosisContextKey: 'horizontal_drift',
+                createdAt: new Date('2026-04-19T04:08:00.000Z'),
+            },
+        ]);
     });
 
     it('renders the persisted snapshot details and shows the copy sens button', async () => {
@@ -188,6 +234,12 @@ describe('community post detail page', () => {
         expect(markup).toContain('copy-sens:beryl-control-lab');
         expect(markup).toContain('like:beryl-control-lab:false:4');
         expect(markup).toContain('save:beryl-control-lab:false');
+        expect(markup).toContain(
+            'comment-form:beryl-control-lab:false:Entre na sua conta para comentar neste post.',
+        );
+        expect(markup).toContain('Primeiro comentario visivel.');
+        expect(markup).toContain('Segundo comentario com contexto tecnico.');
+        expect(markup).toContain('horizontal_drift');
     });
 
     it('allows the author to open their own draft post detail', async () => {
@@ -211,6 +263,9 @@ describe('community post detail page', () => {
         expect(markup).toContain('copy-sens:beryl-control-lab');
         expect(markup).toContain('like:beryl-control-lab:true:7');
         expect(markup).toContain('save:beryl-control-lab:true');
+        expect(markup).toContain(
+            'comment-form:beryl-control-lab:false:Comentarios liberados apenas quando o post estiver publicado.',
+        );
     });
 
     it('returns notFound when the current visibility policy denies public access', async () => {

@@ -804,6 +804,20 @@ TDD:
 - primeiro testar auth e contrato do comentario;
 - depois implementar action e UI.
 
+Status:
+
+- concluida em 2026-04-19
+
+Evidence:
+
+- `src/actions/community-comments.test.ts` foi criado primeiro cobrindo auth obrigatoria, bloqueio para post nao publicado/publico, persistencia de comentario `visible` com `diagnosisContextKey` opcional e leitura dos comentarios visiveis em ordem cronologica
+- o RED foi confirmado com `npx vitest run src/actions/community-comments.test.ts` falhando porque `src/actions/community-comments.ts` ainda nao existia
+- `e2e/community.comments.spec.ts` foi criado antes da UI cobrindo leitura publica dos comentarios visiveis, ordem cronologica, `diagnosisContextKey` opcional, gate de auth para mutacao e preservacao visual de copy/like/save no detalhe do post
+- `src/actions/community-comments.ts` foi criado com `createCommunityPostComment` e `listVisibleCommunityPostComments`, exigindo auth para mutacao, aceitando comentario apenas em post `published + public`, persistindo `community_post_comments` com `status = visible` e listando comentarios por `createdAt asc`
+- `src/app/community/[slug]/comment-form.tsx` foi criado e `src/app/community/[slug]/page.tsx` + `src/app/community/[slug]/post-detail.tsx` passaram a renderizar o formulario/gate correto e os comentarios visiveis sem tocar em replies, follows, moderacao avancada ou entitlement runtime
+- `src/app/community/[slug]/page.test.tsx` foi atualizado para cobrir o contrato novo do detalhe com comentario visivel, `diagnosisContextKey` renderizado e mensagens de gate para anonimo/post nao publicado
+- validacoes executadas: `npx vitest run src/actions/community-comments.test.ts`; `npx playwright test e2e/community.comments.spec.ts`; `npx vitest run src/actions/community-comments.test.ts src/app/community/[slug]/page.test.tsx src/actions/community-likes.test.ts src/actions/community-saves.test.ts src/actions/community-copy.test.ts`; `npm run typecheck`
+
 ### W40-T04 - Implementar follows
 
 Goal:

@@ -2,6 +2,9 @@ import React from 'react';
 import { getScope, getWeapon } from '@/game/pubg';
 import type { Diagnosis } from '@/types/engine';
 
+import type { VisibleCommunityPostComment } from '@/actions/community-comments';
+
+import { CommentForm } from './comment-form';
 import { CopySensButton } from './copy-sens-button';
 import { LikeButton } from './like-button';
 import { SaveButton } from './save-button';
@@ -24,6 +27,12 @@ export interface CommunityPostDetailData {
         readonly likeCount: number;
         readonly viewerHasLiked: boolean;
         readonly viewerHasSaved: boolean;
+    };
+    readonly comments: readonly VisibleCommunityPostComment[];
+    readonly commentForm: {
+        readonly canSubmit: boolean;
+        readonly disabledReason: string | null;
+        readonly diagnosisOptions: readonly string[];
     };
 }
 
@@ -115,6 +124,23 @@ function formatPublishedLabel(publishedAt: Date | null): string {
         timeStyle: 'short',
     }).format(publishedAt);
 }
+
+const commentMetaStyle = {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 'var(--space-sm)',
+} as const;
+
+const commentBodyStyle = {
+    margin: 0,
+    whiteSpace: 'pre-line',
+} as const;
+
+const commentDateFormatter = new Intl.DateTimeFormat('pt-BR', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+});
 
 export function PostDetail({
     post,
@@ -240,6 +266,68 @@ export function PostDetail({
             <section className="glass-card" style={{ display: 'grid', gap: 'var(--space-sm)' }}>
                 <h2 style={{ fontSize: 'var(--text-2xl)' }}>Contexto tecnico</h2>
                 <p style={{ margin: 0, whiteSpace: 'pre-line' }}>{post.bodyMarkdown}</p>
+            </section>
+
+            <section
+                aria-label="Comentarios do post"
+                className="glass-card"
+                style={{ display: 'grid', gap: 'var(--space-lg)' }}
+            >
+                <div style={{ display: 'grid', gap: 'var(--space-xs)' }}>
+                    <h2 style={{ fontSize: 'var(--text-2xl)' }}>Comentarios</h2>
+                    <p>
+                        Feedback simples e em ordem cronologica para manter a leitura publica clara.
+                    </p>
+                </div>
+
+                <CommentForm
+                    slug={post.slug}
+                    diagnosisOptions={post.commentForm.diagnosisOptions}
+                    canSubmit={post.commentForm.canSubmit}
+                    disabledReason={post.commentForm.disabledReason}
+                />
+
+                {post.comments.length > 0 ? (
+                    <div style={{ display: 'grid', gap: 'var(--space-md)' }}>
+                        {post.comments.map((comment) => (
+                            <article
+                                key={comment.id}
+                                data-community-comment-item={comment.id}
+                                style={{
+                                    display: 'grid',
+                                    gap: 'var(--space-sm)',
+                                    padding: 'var(--space-md)',
+                                    borderRadius: 'var(--radius-lg)',
+                                    border: '1px solid var(--color-border)',
+                                    background: 'rgba(255, 255, 255, 0.02)',
+                                }}
+                            >
+                                <div style={commentMetaStyle}>
+                                    <strong>{comment.author.name ?? 'Jogador da comunidade'}</strong>
+                                    <span style={{ color: 'var(--color-text-muted)' }}>
+                                        {commentDateFormatter.format(comment.createdAt)}
+                                    </span>
+                                    {comment.diagnosisContextKey ? (
+                                        <span
+                                            data-community-comment-context={comment.diagnosisContextKey}
+                                            style={chipStyle}
+                                        >
+                                            {comment.diagnosisContextKey}
+                                        </span>
+                                    ) : null}
+                                </div>
+
+                                <p data-community-comment-body={comment.id} style={commentBodyStyle}>
+                                    {comment.bodyMarkdown}
+                                </p>
+                            </article>
+                        ))}
+                    </div>
+                ) : (
+                    <p style={{ margin: 0, color: 'var(--color-text-secondary)' }}>
+                        Nenhum comentario visivel ainda.
+                    </p>
+                )}
             </section>
         </div>
     );
