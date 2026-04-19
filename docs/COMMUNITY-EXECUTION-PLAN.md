@@ -1033,6 +1033,19 @@ TDD:
 - primeiro testar defaults;
 - depois implementar resolver.
 
+Status:
+
+- concluida em 2026-04-19
+
+Evidence:
+
+- `src/lib/community-entitlements.test.ts` foi criado primeiro cobrindo defaults free, ausencia de premium por default e o contrato de injecao de grants futuros sem mudar a interface da policy
+- o RED foi confirmado com `npx vitest run src/lib/community-entitlements.test.ts` falhando porque `src/lib/community-entitlements.ts` ainda nao existia
+- `src/lib/community-entitlements.ts` foi criado com `resolveCommunityEntitlements` e `hasCommunityEntitlement`, devolvendo apenas os grants free padrao (`community.post.create`, `community.comment.create`, `community.feed.following`) e mantendo todos os entitlements premium como `premium_future` nao concedidos por default
+- o resolver aceita `grants` opcionais de `manual | subscription_future | creator_program_future` para plugar assinaturas futuras depois, sem acoplar a policy atual a checkout, billing, analytics premium ou runtime pago
+- a boundary continuou inativa para premium no fluxo atual, validada junto da policy existente em `src/lib/community-access.test.ts`, que manteve `requiredEntitlementKey` com `enforcement: inactive`
+- validacoes executadas: `npx vitest run src/lib/community-entitlements.test.ts` -> RED por modulo ausente; `npx vitest run src/lib/community-entitlements.test.ts` -> GREEN com 3 testes; `npx vitest run src/lib/community-entitlements.test.ts src/lib/community-access.test.ts` -> 9 testes verdes; `npm run typecheck` -> ok
+
 ### W60-T02 - Conectar access policy a requiredEntitlementKey sem ativar restricoes
 
 Goal:

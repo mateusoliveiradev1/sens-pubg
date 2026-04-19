@@ -18,3 +18,5 @@
 - Evidencias locais: `npx vitest run src/core/community-moderation.test.ts src/lib/community-access.test.ts`, `npm run typecheck`.
 - W50-T03 concluida: a fila admin `/admin/community` agora lista reports abertos para admin autenticado e permite `Ocultar` ou `Descartar` com trilha persistida em `community_moderation_actions` e `audit_logs`.
 - Evidencias locais: `npx vitest run src/actions/community-admin.test.ts`, `npx playwright test e2e/community.admin.spec.ts`, `npm run typecheck`.
+- W60-T01 concluida: o boundary `src/lib/community-entitlements.ts` agora resolve apenas entitlements free por default, nao concede premium automaticamente e aceita grants futuros opcionais sem acoplar checkout, billing ou runtime pago.
+- Evidencias locais: `npx vitest run src/lib/community-entitlements.test.ts`, `npx vitest run src/lib/community-entitlements.test.ts src/lib/community-access.test.ts`, `npm run typecheck`.
