@@ -46,6 +46,22 @@ vi.mock('./copy-sens-button', () => ({
     ),
 }));
 
+vi.mock('./like-button', () => ({
+    LikeButton: ({
+        slug,
+        initialLiked,
+        initialLikeCount,
+    }: {
+        readonly slug: string;
+        readonly initialLiked: boolean;
+        readonly initialLikeCount: number;
+    }) => (
+        <div data-like-button={slug}>
+            like:{slug}:{String(initialLiked)}:{initialLikeCount}
+        </div>
+    ),
+}));
+
 vi.mock('next/navigation', () => ({
     notFound: mocks.notFound,
 }));
@@ -145,7 +161,9 @@ describe('community post detail page', () => {
     });
 
     it('renders the persisted snapshot details and shows the copy sens button', async () => {
-        mocks.limit.mockResolvedValueOnce([createPersistedPostDetail()]);
+        mocks.limit
+            .mockResolvedValueOnce([createPersistedPostDetail()])
+            .mockResolvedValueOnce([{ count: 4 }]);
 
         const markup = await renderPage('beryl-control-lab');
 
@@ -158,23 +176,28 @@ describe('community post detail page', () => {
         expect(markup).toContain('overpull');
         expect(markup).toContain('Drift lateral acumulando para a direita.');
         expect(markup).toContain('copy-sens:beryl-control-lab');
+        expect(markup).toContain('like:beryl-control-lab:false:4');
     });
 
     it('allows the author to open their own draft post detail', async () => {
         mocks.auth.mockResolvedValue({
             user: { id: 'author-1' },
         });
-        mocks.limit.mockResolvedValueOnce([
-            createPersistedPostDetail({
-                status: 'draft',
-            }),
-        ]);
+        mocks.limit
+            .mockResolvedValueOnce([
+                createPersistedPostDetail({
+                    status: 'draft',
+                }),
+            ])
+            .mockResolvedValueOnce([{ count: 7 }])
+            .mockResolvedValueOnce([{ postId: 'post-1' }]);
 
         const markup = await renderPage('beryl-control-lab');
 
         expect(markup).toContain('Beryl control lab');
         expect(markup).toContain('Patch 36.1');
         expect(markup).toContain('copy-sens:beryl-control-lab');
+        expect(markup).toContain('like:beryl-control-lab:true:7');
     });
 
     it('returns notFound when the current visibility policy denies public access', async () => {

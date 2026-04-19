@@ -3,6 +3,7 @@ import { getScope, getWeapon } from '@/game/pubg';
 import type { Diagnosis } from '@/types/engine';
 
 import { CopySensButton } from './copy-sens-button';
+import { LikeButton } from './like-button';
 
 export interface CommunityPostDetailData {
     readonly slug: string;
@@ -17,6 +18,10 @@ export interface CommunityPostDetailData {
         readonly scopeId: string;
         readonly distance: number;
         readonly diagnoses: readonly Diagnosis[];
+    };
+    readonly engagement: {
+        readonly likeCount: number;
+        readonly viewerHasLiked: boolean;
     };
 }
 
@@ -76,6 +81,13 @@ const chipStyle = {
     textTransform: 'uppercase',
 } as const;
 
+const heroActionsStyle = {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
+    gap: 'var(--space-sm)',
+} as const;
+
 const statusLabelByValue: Record<CommunityPostDetailData['status'], string> = {
     draft: 'Rascunho',
     published: 'Publicado',
@@ -131,7 +143,14 @@ export function PostDetail({
                     </p>
                 </div>
 
-                <CopySensButton slug={post.slug} />
+                <div style={heroActionsStyle}>
+                    <CopySensButton slug={post.slug} />
+                    <LikeButton
+                        slug={post.slug}
+                        initialLiked={post.engagement.viewerHasLiked}
+                        initialLikeCount={post.engagement.likeCount}
+                    />
+                </div>
             </section>
 
             <section className="glass-card" style={{ display: 'grid', gap: 'var(--space-lg)' }}>

@@ -713,6 +713,20 @@ TDD:
 - primeiro testar create/delete/auth;
 - depois implementar action.
 
+Status:
+
+- concluida em 2026-04-19
+
+Evidence:
+
+- `src/actions/community-likes.test.ts` foi criado primeiro cobrindo auth obrigatoria, `like` idempotente com `onConflictDoNothing`, repeticao do mesmo `like` sem duplicacao e `unlike` idempotente sem erro quando repetido
+- o RED foi confirmado com `npx vitest run src/actions/community-likes.test.ts` falhando porque `src/actions/community-likes.ts` ainda nao existia
+- `src/actions/community-likes.ts` foi criado com `setCommunityPostLike`, exigindo auth, resolvendo o post por `slug`, persistindo `like` via `community_post_likes` com respeito explicito a unique constraint composta e removendo `like` por `postId + userId` sem tocar em saves, comments, follows, moderacao ou entitlement runtime
+- `src/app/community/[slug]/like-button.tsx` foi criado como botao cliente no mesmo padrao do `copy-sens-button`, chamando a action com estado alvo (`liked: true | false`) para manter o toggle idempotente e exibindo erro amigavel quando o usuario anonimo tenta mutar
+- `src/app/community/[slug]/page.tsx` e `src/app/community/[slug]/post-detail.tsx` foram ajustados apenas para carregar `likeCount`/`viewerHasLiked` e encaixar o novo `LikeButton` no detalhe do post seguindo o visual atual
+- o REFACTOR manteve o comportamento verde enquanto atualizou `src/app/community/[slug]/page.test.tsx` para refletir as leituras adicionais de likes no loader, sem alterar a policy de acesso nem reabrir W30-T04
+- validacoes executadas: `npx vitest run src/actions/community-likes.test.ts` -> RED por modulo ausente; `npx vitest run src/actions/community-likes.test.ts` -> GREEN com 4 testes; `npx vitest run src/app/community/[slug]/page.test.tsx` -> 3 testes verdes; `npx vitest run src/actions/community-copy.test.ts` -> 2 testes verdes; `npm run typecheck` -> ok
+
 ### W40-T02 - Implementar saves privados
 
 Goal:

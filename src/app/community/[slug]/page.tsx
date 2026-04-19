@@ -1,10 +1,10 @@
 import React from 'react';
-import { eq } from 'drizzle-orm';
+import { and, count, eq } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
 
 import { auth } from '@/auth';
 import { db } from '@/db';
-import { communityPostAnalysisSnapshots, communityPosts } from '@/db/schema';
+import { communityPostAnalysisSnapshots, communityPostLikes, communityPosts } from '@/db/schema';
 import { getCommunityPostReadAccess } from '@/lib/community-access';
 import { Header } from '@/ui/components/header';
 
@@ -30,6 +30,7 @@ async function loadCommunityPostDetail(
 
     const [storedPost] = await db
         .select({
+            id: communityPosts.id,
             slug: communityPosts.slug,
             authorId: communityPosts.authorId,
             status: communityPosts.status,
@@ -71,6 +72,33 @@ async function loadCommunityPostDetail(
         return null;
     }
 
+    const [likeCountRow] = await db
+        .select({
+            count: count(),
+        })
+        .from(communityPostLikes)
+        .where(eq(communityPostLikes.postId, storedPost.id))
+        .limit(1);
+
+    let viewerHasLiked = false;
+
+    if (viewerUserId) {
+        const [storedViewerLike] = await db
+            .select({
+                postId: communityPostLikes.postId,
+            })
+            .from(communityPostLikes)
+            .where(
+                and(
+                    eq(communityPostLikes.postId, storedPost.id),
+                    eq(communityPostLikes.userId, viewerUserId),
+                ),
+            )
+            .limit(1);
+
+        viewerHasLiked = Boolean(storedViewerLike);
+    }
+
     return {
         slug: storedPost.slug,
         status: storedPost.status,
@@ -84,6 +112,10 @@ async function loadCommunityPostDetail(
             scopeId: storedPost.snapshotScopeId,
             distance: storedPost.snapshotDistance,
             diagnoses: storedPost.snapshotDiagnoses,
+        },
+        engagement: {
+            likeCount: Number(likeCountRow?.count ?? 0),
+            viewerHasLiked,
         },
     };
 }
