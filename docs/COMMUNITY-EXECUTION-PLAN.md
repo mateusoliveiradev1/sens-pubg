@@ -985,6 +985,19 @@ TDD:
 - primeiro testar autorizacao admin e trilha de auditoria;
 - depois implementar.
 
+Status:
+
+- concluida em 2026-04-19
+
+Evidence:
+
+- `src/actions/community-admin.test.ts` foi criado primeiro cobrindo gate de admin autenticado, listagem da fila de reports `open`, acao `hide | dismiss` e escrita obrigatoria em `community_moderation_actions` + `audit_logs`
+- o RED foi confirmado com `npx vitest run src/actions/community-admin.test.ts` falhando por ausencia inicial de `src/actions/community-admin.ts`
+- `src/actions/community-admin.ts` foi criado com `listOpenCommunityReports` e `applyCommunityModerationAction`, exigindo `role = admin`, atualizando `community_reports.reviewedAt/reviewedByUserId`, ocultando `post/comment/profile` com o estado minimo da W50 e registrando trilha administrativa dupla
+- `src/app/admin/community/page.tsx` foi criado como primeira surface administrativa da comunidade, com tabela de reports abertos, gate especifico para admin e formularios server-side para `Ocultar` e `Descartar` sem tocar em analytics, entitlement runtime, premium ou backlog admin avancado
+- `e2e/community.admin.spec.ts` seeda um admin autenticado, um report aberto e um post reportado, valida a listagem da fila em `/admin/community` e confirma a acao `Ocultar` com persistencia em `community_posts.status = hidden`, `community_reports.status = actioned`, `community_moderation_actions` e `audit_logs`
+- validacoes executadas: `npx vitest run src/actions/community-admin.test.ts` -> RED por modulo ausente; `npx vitest run src/actions/community-admin.test.ts` -> GREEN com 5 testes; `npx playwright test e2e/community.admin.spec.ts` -> 1 teste verde; `npm run typecheck` -> ok
+
 ---
 
 ## W60 - Monetization Ready

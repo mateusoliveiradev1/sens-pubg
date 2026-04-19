@@ -16,3 +16,5 @@
 - Evidencias locais: `npx vitest run src/actions/community-reports.test.ts`, `npm run typecheck`.
 - W50-T02 concluida: a matriz de moderacao de post/comentario agora vive em `src/core/community-moderation.ts`, preserva trilha sem apagar entidade e alimenta `getCommunityPostReadAccess` para manter `hidden`, `archived` e `deleted` coerentes; comentario `moderator_hidden` ficou explicitamente fora da leitura publica.
 - Evidencias locais: `npx vitest run src/core/community-moderation.test.ts src/lib/community-access.test.ts`, `npm run typecheck`.
+- W50-T03 concluida: a fila admin `/admin/community` agora lista reports abertos para admin autenticado e permite `Ocultar` ou `Descartar` com trilha persistida em `community_moderation_actions` e `audit_logs`.
+- Evidencias locais: `npx vitest run src/actions/community-admin.test.ts`, `npx playwright test e2e/community.admin.spec.ts`, `npm run typecheck`.
