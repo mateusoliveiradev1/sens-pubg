@@ -6,6 +6,10 @@ async function loadCommunityAccessModule() {
     return import('./community-access');
 }
 
+async function loadCommunityEntitlementsModule() {
+    return import('./community-entitlements');
+}
+
 function createPost(overrides: Partial<{
     authorId: string;
     status: CommunityPostStatus;
@@ -158,6 +162,63 @@ describe('community post access policy', () => {
             entitlement: {
                 requiredEntitlementKey: 'community.post.premium_access',
                 enforcement: 'inactive',
+                futureAccess: 'denied',
+            },
+        });
+    });
+
+    it('keeps V1 posts accessible and marks entitlement preview as not required when the key is null', async () => {
+        const { getCommunityPostReadAccess } = await loadCommunityAccessModule();
+
+        const result = getCommunityPostReadAccess({
+            post: createPost({
+                status: 'published',
+                requiredEntitlementKey: null,
+            }),
+            viewer: { userId: null },
+        });
+
+        expect(result).toMatchObject({
+            canRead: true,
+            reason: 'published',
+            entitlement: {
+                requiredEntitlementKey: null,
+                enforcement: 'inactive',
+                futureAccess: 'not_required',
+            },
+        });
+    });
+
+    it('keeps published posts readable while previewing future access as allowed for entitled viewers', async () => {
+        const { getCommunityPostReadAccess } = await loadCommunityAccessModule();
+        const { resolveCommunityEntitlements } = await loadCommunityEntitlementsModule();
+
+        const entitlements = resolveCommunityEntitlements({
+            userId: 'viewer-1',
+            grants: [
+                {
+                    entitlementKey: 'community.post.premium_access',
+                    source: 'subscription_future',
+                },
+            ],
+        });
+
+        const result = getCommunityPostReadAccess({
+            post: createPost({
+                status: 'published',
+                requiredEntitlementKey: 'community.post.premium_access',
+            }),
+            viewer: { userId: 'viewer-1' },
+            entitlements,
+        });
+
+        expect(result).toMatchObject({
+            canRead: true,
+            reason: 'published',
+            entitlement: {
+                requiredEntitlementKey: 'community.post.premium_access',
+                enforcement: 'inactive',
+                futureAccess: 'allowed',
             },
         });
     });

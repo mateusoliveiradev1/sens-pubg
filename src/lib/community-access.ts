@@ -1,4 +1,9 @@
 import { getCommunityPostModerationState } from '@/core/community-moderation';
+import {
+    hasCommunityEntitlement,
+    resolveCommunityEntitlements,
+    type CommunityEntitlementResolution,
+} from '@/lib/community-entitlements';
 import type { CommunityEntitlementKey, CommunityPostStatus } from '@/types/community';
 
 export interface CommunityAccessPost {
@@ -21,9 +26,15 @@ export type CommunityPostReadAccessReason =
     | 'archived_restricted'
     | 'deleted_restricted';
 
+export type CommunityPostEntitlementFutureAccess =
+    | 'not_required'
+    | 'allowed'
+    | 'denied';
+
 export interface CommunityPostEntitlementHook {
     readonly requiredEntitlementKey: CommunityEntitlementKey | null;
     readonly enforcement: 'inactive';
+    readonly futureAccess: CommunityPostEntitlementFutureAccess;
 }
 
 export interface CommunityPostReadAccess {
@@ -36,6 +47,7 @@ export interface CommunityPostReadAccess {
 export interface GetCommunityPostReadAccessInput {
     readonly post: CommunityAccessPost;
     readonly viewer?: CommunityAccessViewer | null;
+    readonly entitlements?: CommunityEntitlementResolution | null;
 }
 
 function isPostAuthor(post: CommunityAccessPost, viewer?: CommunityAccessViewer | null): boolean {
@@ -44,11 +56,39 @@ function isPostAuthor(post: CommunityAccessPost, viewer?: CommunityAccessViewer 
     return viewerUserId !== null && viewerUserId === post.authorId;
 }
 
-function createEntitlementHook(post: CommunityAccessPost): CommunityPostEntitlementHook {
-    // W20-T02 only preserves the server-side hook. Enforcement stays inactive until W60.
+function resolveAccessEntitlements(
+    input: GetCommunityPostReadAccessInput,
+): CommunityEntitlementResolution {
+    return input.entitlements ?? resolveCommunityEntitlements({
+        userId: input.viewer?.userId ?? null,
+    });
+}
+
+function getCommunityPostEntitlementFutureAccess(
+    requiredEntitlementKey: CommunityEntitlementKey | null,
+    entitlements: CommunityEntitlementResolution,
+): CommunityPostEntitlementFutureAccess {
+    if (requiredEntitlementKey === null) {
+        return 'not_required';
+    }
+
+    return hasCommunityEntitlement(entitlements, requiredEntitlementKey) ? 'allowed' : 'denied';
+}
+
+function createEntitlementHook(
+    post: CommunityAccessPost,
+    entitlements: CommunityEntitlementResolution,
+): CommunityPostEntitlementHook {
+    const requiredEntitlementKey = post.requiredEntitlementKey ?? null;
+
+    // W60-T02 wires the policy to the resolver but keeps enforcement inactive.
     return {
-        requiredEntitlementKey: post.requiredEntitlementKey ?? null,
+        requiredEntitlementKey,
         enforcement: 'inactive',
+        futureAccess: getCommunityPostEntitlementFutureAccess(
+            requiredEntitlementKey,
+            entitlements,
+        ),
     };
 }
 
@@ -57,7 +97,7 @@ export function getCommunityPostReadAccess(
 ): CommunityPostReadAccess {
     const { post, viewer } = input;
     const author = isPostAuthor(post, viewer);
-    const entitlement = createEntitlementHook(post);
+    const entitlement = createEntitlementHook(post, resolveAccessEntitlements(input));
     const moderation = getCommunityPostModerationState(post.status);
     const authorCanRead = author && moderation.authorCanRead;
 

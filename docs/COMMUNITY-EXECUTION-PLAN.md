@@ -1076,6 +1076,18 @@ TDD:
 - primeiro testar `null` e denied/allowed futuros;
 - depois ajustar policy.
 
+Status:
+
+- concluida em 2026-04-19
+
+Evidence:
+
+- `src/lib/community-access.test.ts` foi atualizado primeiro para cobrir preview de entitlement com `futureAccess = not_required | denied | allowed`, incluindo o caso V1 com `requiredEntitlementKey = null`
+- o RED foi confirmado com `npx vitest run src/lib/community-access.test.ts` falhando com 3 falhas, porque a policy ainda nao resolvia o estado futuro do entitlement
+- `src/lib/community-access.ts` passou a consumir `resolveCommunityEntitlements`/`hasCommunityEntitlement`, aceitando `entitlements` opcionais no input e calculando preview futuro por post sem alterar `canRead` enquanto `enforcement = inactive`
+- posts publicados da V1 continuam legiveis quando `requiredEntitlementKey` e `null`, e posts com chave futura agora expõem preview `allowed` ou `denied` sem ativar premium, checkout, billing ou runtime pago
+- validacoes executadas: `npx vitest run src/lib/community-access.test.ts` -> GREEN com 8 testes; `npx vitest run src/lib/community-access.test.ts src/lib/community-entitlements.test.ts` -> GREEN com 11 testes; `npm run typecheck` -> ok
+
 ### W60-T03 - Expor analytics basico de creator sem premium
 
 Goal:
