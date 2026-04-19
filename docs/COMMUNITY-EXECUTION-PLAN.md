@@ -1354,6 +1354,23 @@ Evidence:
 - `verify:community` verde
 - regressao do produto atual checada
 
+Status:
+
+- validado em 2026-04-19 apos W70-T04
+
+Evidence:
+
+- `npm run typecheck` -> ok
+- `npm run verify:community` -> GREEN com 89 testes Vitest verdes, `next build` ok e 9 specs Playwright comunitarias verdes
+- `npx playwright test e2e/pages.spec.ts e2e/auth.spec.ts` -> GREEN com 9 testes verdes como regressao visivel minima do produto atual
+- `docs/community-release-candidate-2026-04-19.md` consolida o pacote final de readiness sem abrir escopo novo
+
+Verdict:
+
+- comunidade pronta para release candidate
+- nenhum blocker objetivo encontrado nesta auditoria
+- nenhuma feature nova foi aberta no Gate F
+
 ## 7. Veredito final
 
 O caminho seguro e implementar a comunidade em camadas:
@@ -1366,3 +1383,5 @@ O caminho seguro e implementar a comunidade em camadas:
 - so entao preparar monetizacao futura de forma limpa.
 
 Esse plano foi desenhado para manter o produto atual estavel, sem custo novo de infraestrutura, e sem fechar portas para o futuro SDD de monetizacao.
+
+Gate F foi validado em 2026-04-19 com `verify:community` verde e regressao visivel minima do produto atual checada, deixando a comunidade pronta para release candidate sem ampliar escopo.
