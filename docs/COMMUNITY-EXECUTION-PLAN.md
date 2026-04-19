@@ -849,6 +849,19 @@ TDD:
 - primeiro testar regras de auth e self-follow;
 - depois implementar.
 
+Status:
+
+- concluida em 2026-04-19
+
+Evidence:
+
+- `src/actions/community-follows.test.ts` foi criado primeiro cobrindo auth obrigatoria, bloqueio de self-follow, follow/unfollow idempotentes e a leitura minima de `followerCount` + `viewerIsFollowing` para sustentar a UI do perfil publico sem contador improvisado depois
+- o RED foi confirmado com `npx vitest run src/actions/community-follows.test.ts` falhando porque `src/actions/community-follows.ts` ainda nao existia
+- `src/actions/community-follows.ts` foi criado com `setCommunityProfileFollow` e `getCommunityProfileFollowState`, resolvendo o autor por `community_profiles`, exigindo auth na mutacao, bloqueando self-follow, respeitando a unique constraint composta de `community_follows` e devolvendo `followerCount` como base limpa para contador futuro
+- `src/app/community/users/[slug]/follow-button.tsx` foi criado no mesmo padrao visual de likes/saves, com toggle idempotente, estado local otimista controlado pelo retorno server-side e mensagens especificas para anonimo/self-follow
+- `src/app/community/users/[slug]/page.tsx` foi ajustado para carregar o estado inicial de follow no servidor e encaixar o `FollowButton` no hero do perfil publico sem reabrir replies, moderacao avancada, entitlement runtime, analytics premium ou qualquer funcionalidade premium
+- validacoes executadas: `npx vitest run src/actions/community-follows.test.ts` -> RED por modulo ausente; `npx vitest run src/actions/community-follows.test.ts` -> GREEN com 8 testes; `npx vitest run src/actions/community-profiles.test.ts` -> 2 testes verdes; `npm run typecheck` -> ok
+
 ---
 
 ## W50 - Moderation

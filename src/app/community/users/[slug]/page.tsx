@@ -2,8 +2,12 @@ import React from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
+import { getCommunityProfileFollowState } from '@/actions/community-follows';
 import { getPublicCommunityProfileBySlug } from '@/actions/community-profiles';
+import { auth } from '@/auth';
 import { Header } from '@/ui/components/header';
+
+import { FollowButton } from './follow-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -91,12 +95,18 @@ function formatDiagnosisLabel(diagnosisKey: string): string {
 export default async function CommunityUserProfilePage({
     params,
 }: CommunityUserProfilePageProps): Promise<React.JSX.Element> {
+    const session = await auth();
     const { slug } = await params;
     const profile = await getPublicCommunityProfileBySlug({ slug });
 
     if (!profile) {
         notFound();
     }
+
+    const followState = await getCommunityProfileFollowState({
+        slug: profile.slug,
+        viewerUserId: session?.user?.id ?? null,
+    });
 
     return (
         <>
@@ -130,8 +140,16 @@ export default async function CommunityUserProfilePage({
                             O status do creator program aparece aqui apenas como dado informativo.
                         </p>
 
-                        {profile.links.length > 0 ? (
+                        {followState?.canFollow || profile.links.length > 0 ? (
                             <div style={linksStyle}>
+                                {followState?.canFollow ? (
+                                    <FollowButton
+                                        slug={profile.slug}
+                                        initialFollowing={followState.viewerIsFollowing}
+                                        initialFollowerCount={followState.followerCount}
+                                    />
+                                ) : null}
+
                                 {profile.links.map((link) => (
                                     <a
                                         key={`${profile.id}-${link.url}`}
@@ -144,6 +162,18 @@ export default async function CommunityUserProfilePage({
                                     </a>
                                 ))}
                             </div>
+                        ) : null}
+
+                        {session?.user?.id && followState && !followState.canFollow ? (
+                            <p
+                                style={{
+                                    margin: 0,
+                                    color: 'var(--color-text-secondary)',
+                                    fontSize: 'var(--text-sm)',
+                                }}
+                            >
+                                Este e o seu perfil publico na comunidade.
+                            </p>
                         ) : null}
                     </section>
 
