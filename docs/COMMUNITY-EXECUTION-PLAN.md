@@ -665,6 +665,19 @@ TDD:
 - primeiro testar query e resolucao de slug;
 - depois implementar action/pagina.
 
+Status:
+
+- concluida em 2026-04-19
+
+Evidence:
+
+- `src/actions/community-profiles.test.ts` foi criado primeiro cobrindo resolucao do slug via `community_profiles`, retorno do `creatorProgramStatus` apenas como dado e listagem restrita aos posts `published + public`
+- o RED foi confirmado com `npx vitest run src/actions/community-profiles.test.ts` falhando porque `src/actions/community-profiles.ts` ainda nao existia
+- `src/actions/community-profiles.ts` foi criado com `getPublicCommunityProfileBySlug`, resolvendo o perfil publico por `community_profiles.slug`, rejeitando perfis ocultos e retornando apenas os posts publicados/publicos do autor em ordem de `publishedAt desc`
+- `src/app/community/users/[slug]/page.tsx` foi criado seguindo o visual atual do projeto, com hero do autor, `creatorProgramStatus` exibido apenas como informacao e lista dos posts publicados apontando para `/community/[slug]`
+- o REFACTOR manteve a suite verde enquanto endureceu o harness do teste para evitar vazamento de `mockReturnValueOnce` entre casos, sem alterar o contrato validado da W30-T04
+- validacoes executadas: `npx vitest run src/actions/community-profiles.test.ts` -> RED por modulo ausente; `npx vitest run src/actions/community-profiles.test.ts` -> GREEN com 2 testes verdes; `npm run typecheck` -> ok
+
 ---
 
 ## W40 - Engagement
