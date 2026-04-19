@@ -1,15 +1,11 @@
 /**
- * Database Client — Conexão Drizzle ORM com Neon serverless.
- * Connection pooling automático via @neondatabase/serverless.
+ * Database client.
+ * Usa Neon HTTP para conexoes remotas e driver TCP para Postgres local/CI.
  */
 
-import { neon } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
-import * as schema from './schema';
 import { env } from '@/env';
+import { createDatabaseClient } from './client';
 
-const sql = neon(env.DATABASE_URL);
-
-export const db = drizzle(sql, { schema });
+export const db = createDatabaseClient(env.DATABASE_URL);
 
 export type Database = typeof db;

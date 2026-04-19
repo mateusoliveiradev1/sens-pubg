@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { getToken } from 'next-auth/jwt';
+import { NextResponse, type NextRequest } from 'next/server';
 import { checkRateLimit, AUTH_RATE_LIMIT } from '@/lib/rate-limit';
 
 // Routes that REQUIRE authentication (redirect to /login if no session)
@@ -16,9 +16,24 @@ function generateNonce(): string {
     return Buffer.from(array).toString('base64');
 }
 
-export default auth((req) => {
+async function isAuthenticated(req: NextRequest): Promise<boolean> {
+    const authSecret = process.env.AUTH_SECRET;
+    if (!authSecret) {
+        return false;
+    }
+
+    const token = await getToken({
+        req,
+        secret: authSecret,
+        secureCookie: req.nextUrl.protocol === 'https:',
+    });
+
+    return token !== null;
+}
+
+export default async function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
-    const isLoggedIn = !!req.auth;
+    const isLoggedIn = await isAuthenticated(req);
     const isDevelopment = process.env.NODE_ENV !== 'production';
 
     // ═══ Auth Protection (protected routes only) ═══
@@ -95,7 +110,7 @@ export default auth((req) => {
     }
 
     return response;
-});
+}
 
 export const config = {
     matcher: [
