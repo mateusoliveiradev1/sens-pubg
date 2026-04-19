@@ -1119,6 +1119,18 @@ TDD:
 - primeiro testar agregacoes;
 - depois implementar query/helper.
 
+Status:
+
+- concluida em 2026-04-19
+
+Evidence:
+
+- `src/core/community-creator-metrics.test.ts` foi criado primeiro cobrindo a agregacao basica por autor para `posts`, `likes`, `comments` e `copies`, com assertivas explicitas de que a query nao toca em `required_entitlement_key`, `feature_entitlements` ou `user_entitlements`
+- o RED foi confirmado com `npx vitest run src/core/community-creator-metrics.test.ts` falhando porque `src/core/community-creator-metrics.ts` ainda nao existia
+- `src/core/community-creator-metrics.ts` foi criado com `getCommunityCreatorMetrics`, agregando apenas dados ja persistidos em `community_posts`, `community_post_likes`, `community_post_comments` e `community_post_copy_events`, sem acoplar entitlement runtime, premium, checkout, billing ou analytics pagos
+- a agregacao ficou restrita aos posts `published + public` do autor e aos comentarios `visible`, deixando o payload pronto para uso futuro em creator dashboards sem inventar contadores derivados fora do banco
+- validacoes executadas: `npx vitest run src/core/community-creator-metrics.test.ts` -> RED por modulo ausente; `npx vitest run src/core/community-creator-metrics.test.ts` -> GREEN com 2 testes; `npm run typecheck` -> ok
+
 ---
 
 ## W70 - Hardening

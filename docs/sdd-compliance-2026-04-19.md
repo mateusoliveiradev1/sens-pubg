@@ -20,5 +20,7 @@
 - Evidencias locais: `npx vitest run src/actions/community-admin.test.ts`, `npx playwright test e2e/community.admin.spec.ts`, `npm run typecheck`.
 - W60-T01 concluida: o boundary `src/lib/community-entitlements.ts` agora resolve apenas entitlements free por default, nao concede premium automaticamente e aceita grants futuros opcionais sem acoplar checkout, billing ou runtime pago.
 - Evidencias locais: `npx vitest run src/lib/community-entitlements.test.ts`, `npx vitest run src/lib/community-entitlements.test.ts src/lib/community-access.test.ts`, `npm run typecheck`.
-- W60-T02 concluida: a access policy agora le `requiredEntitlementKey` junto do resolver de entitlements e expõe preview `not_required | denied | allowed`, mas preserva `enforcement = inactive`, mantendo os posts V1 acessiveis quando a chave e `null`.
+- W60-T02 concluida: a access policy agora le `requiredEntitlementKey` junto do resolver de entitlements e expoe preview `not_required | denied | allowed`, mas preserva `enforcement = inactive`, mantendo os posts V1 acessiveis quando a chave e `null`.
 - Evidencias locais: `npx vitest run src/lib/community-access.test.ts` com RED inicial de 3 falhas e GREEN final com 8 testes, `npx vitest run src/lib/community-access.test.ts src/lib/community-entitlements.test.ts`, `npm run typecheck`.
+- W60-T03 concluida: `getCommunityCreatorMetrics` agora agrega `posts`, `likes`, `comments` visiveis e `copies` persistidos por autor, limitado a posts `published + public`, sem tocar em premium, entitlement runtime, checkout ou billing.
+- Evidencias locais: `npx vitest run src/core/community-creator-metrics.test.ts` com RED inicial por modulo ausente e GREEN final com 2 testes, `npm run typecheck`.
