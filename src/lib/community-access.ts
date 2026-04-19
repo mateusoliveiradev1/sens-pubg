@@ -1,3 +1,4 @@
+import { getCommunityPostModerationState } from '@/core/community-moderation';
 import type { CommunityEntitlementKey, CommunityPostStatus } from '@/types/community';
 
 export interface CommunityAccessPost {
@@ -57,19 +58,21 @@ export function getCommunityPostReadAccess(
     const { post, viewer } = input;
     const author = isPostAuthor(post, viewer);
     const entitlement = createEntitlementHook(post);
+    const moderation = getCommunityPostModerationState(post.status);
+    const authorCanRead = author && moderation.authorCanRead;
 
     switch (post.status) {
         case 'draft':
             return {
-                canRead: author,
+                canRead: authorCanRead,
                 isAuthor: author,
-                reason: author ? 'author_draft' : 'draft_restricted',
+                reason: authorCanRead ? 'author_draft' : 'draft_restricted',
                 entitlement,
             };
 
         case 'published':
             return {
-                canRead: true,
+                canRead: moderation.publicCanRead,
                 isAuthor: author,
                 reason: 'published',
                 entitlement,
@@ -77,23 +80,23 @@ export function getCommunityPostReadAccess(
 
         case 'hidden':
             return {
-                canRead: author,
+                canRead: authorCanRead,
                 isAuthor: author,
-                reason: author ? 'author_hidden' : 'hidden_restricted',
+                reason: authorCanRead ? 'author_hidden' : 'hidden_restricted',
                 entitlement,
             };
 
         case 'archived':
             return {
-                canRead: author,
+                canRead: authorCanRead,
                 isAuthor: author,
-                reason: author ? 'author_archived' : 'archived_restricted',
+                reason: authorCanRead ? 'author_archived' : 'archived_restricted',
                 entitlement,
             };
 
         case 'deleted':
             return {
-                canRead: false,
+                canRead: authorCanRead,
                 isAuthor: author,
                 reason: 'deleted_restricted',
                 entitlement,

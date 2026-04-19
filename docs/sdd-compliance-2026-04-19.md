@@ -14,3 +14,5 @@
 - Evidencias locais: `npx vitest run src/actions/community-follows.test.ts`, `npx vitest run src/actions/community-profiles.test.ts`, `npm run typecheck`.
 - W50-T01 concluida: reports basicos agora exigem auth, persistem `entityType`, `entityId`, `reasonKey`, `details` e `status = open` em `community_reports`, com surface unificada para post, comentario e perfil no padrao visual atual.
 - Evidencias locais: `npx vitest run src/actions/community-reports.test.ts`, `npm run typecheck`.
+- W50-T02 concluida: a matriz de moderacao de post/comentario agora vive em `src/core/community-moderation.ts`, preserva trilha sem apagar entidade e alimenta `getCommunityPostReadAccess` para manter `hidden`, `archived` e `deleted` coerentes; comentario `moderator_hidden` ficou explicitamente fora da leitura publica.
+- Evidencias locais: `npx vitest run src/core/community-moderation.test.ts src/lib/community-access.test.ts`, `npm run typecheck`.

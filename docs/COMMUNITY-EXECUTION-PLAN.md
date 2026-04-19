@@ -940,6 +940,18 @@ TDD:
 - primeiro testar matriz de estados;
 - depois implementar helpers/policies.
 
+Status:
+
+- concluida em 2026-04-19
+
+Evidence:
+
+- `src/core/community-moderation.test.ts` foi criado primeiro cobrindo a matriz de estados de post (`draft | published | hidden | archived | deleted`), visibilidade publica de comentario e preservacao da trilha sem apagar entidade
+- o RED foi confirmado com `npx vitest run src/core/community-moderation.test.ts` falhando por ausencia inicial de `src/core/community-moderation.ts`
+- `src/core/community-moderation.ts` foi criado com helpers puros para leitura de estados moderados de post/comentario, incluindo `preservesEntityRecord` para manter a trilha consistente
+- `src/lib/community-access.ts` passou a consumir a matriz central de moderacao para manter a policy de post coerente em `hidden`, `archived` e `deleted` sem alterar o hook inativo de entitlement
+- validacoes executadas: `npx vitest run src/core/community-moderation.test.ts src/lib/community-access.test.ts` -> GREEN com 9 testes verdes; `npm run typecheck` -> ok
+
 ### W50-T03 - Criar fila admin de moderacao
 
 Goal:
