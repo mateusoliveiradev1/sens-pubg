@@ -5,6 +5,7 @@ import { and, count, eq } from 'drizzle-orm';
 import { auth } from '@/auth';
 import { db } from '@/db';
 import { communityPostLikes, communityPosts } from '@/db/schema';
+import { checkCommunityActionRateLimit } from '@/lib/rate-limit';
 
 export interface SetCommunityPostLikeInput {
     readonly slug: string;
@@ -44,6 +45,18 @@ export async function setCommunityPostLike(
         return {
             success: false,
             error: 'Nao autenticado.',
+        };
+    }
+
+    const rateLimitResult = await checkCommunityActionRateLimit({
+        action: 'community.post.like',
+        userId: session.user.id,
+    });
+
+    if (!rateLimitResult.success) {
+        return {
+            success: false,
+            error: 'Muitas curtidas em pouco tempo. Tente novamente.',
         };
     }
 

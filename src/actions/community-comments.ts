@@ -6,6 +6,7 @@ import { and, asc, eq } from 'drizzle-orm';
 import { auth } from '@/auth';
 import { db } from '@/db';
 import { communityPostComments, communityPosts, users } from '@/db/schema';
+import { checkCommunityActionRateLimit } from '@/lib/rate-limit';
 
 export interface CreateCommunityPostCommentInput {
     readonly slug: string;
@@ -55,6 +56,18 @@ export async function createCommunityPostComment(
         return {
             success: false,
             error: 'Comentario invalido.',
+        };
+    }
+
+    const rateLimitResult = await checkCommunityActionRateLimit({
+        action: 'community.comment.create',
+        userId: session.user.id,
+    });
+
+    if (!rateLimitResult.success) {
+        return {
+            success: false,
+            error: 'Muitos comentarios em pouco tempo. Tente novamente.',
         };
     }
 

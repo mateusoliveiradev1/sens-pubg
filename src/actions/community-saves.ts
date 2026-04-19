@@ -5,6 +5,7 @@ import { and, eq } from 'drizzle-orm';
 import { auth } from '@/auth';
 import { db } from '@/db';
 import { communityPostSaves, communityPosts } from '@/db/schema';
+import { checkCommunityActionRateLimit } from '@/lib/rate-limit';
 
 export interface SetCommunityPostSaveInput {
     readonly slug: string;
@@ -31,6 +32,18 @@ export async function setCommunityPostSave(
         return {
             success: false,
             error: 'Nao autenticado.',
+        };
+    }
+
+    const rateLimitResult = await checkCommunityActionRateLimit({
+        action: 'community.post.save',
+        userId: session.user.id,
+    });
+
+    if (!rateLimitResult.success) {
+        return {
+            success: false,
+            error: 'Muitos salvamentos em pouco tempo. Tente novamente.',
         };
     }
 

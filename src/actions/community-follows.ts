@@ -5,6 +5,7 @@ import { and, count, eq } from 'drizzle-orm';
 import { auth } from '@/auth';
 import { db } from '@/db';
 import { communityFollows, communityProfiles } from '@/db/schema';
+import { checkCommunityActionRateLimit } from '@/lib/rate-limit';
 
 export interface SetCommunityProfileFollowInput {
     readonly slug: string;
@@ -84,6 +85,18 @@ export async function setCommunityProfileFollow(
         return {
             success: false,
             error: 'Nao autenticado.',
+        };
+    }
+
+    const rateLimitResult = await checkCommunityActionRateLimit({
+        action: 'community.profile.follow',
+        userId: session.user.id,
+    });
+
+    if (!rateLimitResult.success) {
+        return {
+            success: false,
+            error: 'Muitas acoes de seguir em pouco tempo. Tente novamente.',
         };
     }
 

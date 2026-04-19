@@ -14,6 +14,7 @@ import {
     communityPosts,
     communityProfiles,
 } from '@/db/schema';
+import { checkCommunityActionRateLimit } from '@/lib/rate-limit';
 import type { CommunityPostStatus, CommunityPostVisibility } from '@/types/community';
 import type { AnalysisResult } from '@/types/engine';
 
@@ -81,6 +82,18 @@ export async function publishAnalysisSessionToCommunity(
         return {
             success: false,
             error: 'Nao autenticado.',
+        };
+    }
+
+    const rateLimitResult = await checkCommunityActionRateLimit({
+        action: 'community.post.publish',
+        userId: session.user.id,
+    });
+
+    if (!rateLimitResult.success) {
+        return {
+            success: false,
+            error: 'Muitos posts em pouco tempo. Tente novamente.',
         };
     }
 

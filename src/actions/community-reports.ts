@@ -11,6 +11,7 @@ import {
     communityReports,
     type CommunityReportEntityType,
 } from '@/db/schema';
+import { checkCommunityActionRateLimit } from '@/lib/rate-limit';
 
 export interface CreateCommunityReportInput {
     readonly entityType: CommunityReportEntityType;
@@ -92,6 +93,18 @@ export async function createCommunityReport(
         return {
             success: false,
             error: 'Report invalido.',
+        };
+    }
+
+    const rateLimitResult = await checkCommunityActionRateLimit({
+        action: 'community.report.create',
+        userId: session.user.id,
+    });
+
+    if (!rateLimitResult.success) {
+        return {
+            success: false,
+            error: 'Muitos reports em pouco tempo. Tente novamente.',
         };
     }
 

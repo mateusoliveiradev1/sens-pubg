@@ -8,7 +8,7 @@ interface RateLimitEntry {
     lastRefill: number;
 }
 
-interface RateLimitConfig {
+export interface RateLimitConfig {
     readonly maxTokens: number;
     readonly refillRate: number;    // tokens por segundo
     readonly windowMs: number;      // janela em ms
@@ -90,3 +90,79 @@ export const AUTH_RATE_LIMIT: RateLimitConfig = {
     refillRate: 0.083,   // 5 por minuto
     windowMs: 60_000,
 } as const;
+
+export type CommunityRateLimitAction =
+    | 'community.post.publish'
+    | 'community.post.copy'
+    | 'community.post.like'
+    | 'community.post.save'
+    | 'community.comment.create'
+    | 'community.profile.follow'
+    | 'community.report.create';
+
+const COMMUNITY_RATE_LIMITS: Record<CommunityRateLimitAction, RateLimitConfig> = {
+    'community.post.publish': {
+        maxTokens: 3,
+        refillRate: 1 / 300,
+        windowMs: 900_000,
+    },
+    'community.post.copy': {
+        maxTokens: 20,
+        refillRate: 1 / 3,
+        windowMs: 60_000,
+    },
+    'community.post.like': {
+        maxTokens: 30,
+        refillRate: 0.5,
+        windowMs: 60_000,
+    },
+    'community.post.save': {
+        maxTokens: 20,
+        refillRate: 1 / 3,
+        windowMs: 60_000,
+    },
+    'community.comment.create': {
+        maxTokens: 6,
+        refillRate: 0.1,
+        windowMs: 60_000,
+    },
+    'community.profile.follow': {
+        maxTokens: 15,
+        refillRate: 0.25,
+        windowMs: 60_000,
+    },
+    'community.report.create': {
+        maxTokens: 5,
+        refillRate: 1 / 120,
+        windowMs: 600_000,
+    },
+};
+
+export interface CheckCommunityActionRateLimitInput {
+    readonly action: CommunityRateLimitAction;
+    readonly userId?: string | null;
+    readonly clientId?: string | null;
+}
+
+function normalizeCommunityRateLimitIdentifier(
+    input: Pick<CheckCommunityActionRateLimitInput, 'userId' | 'clientId'>,
+): string {
+    const normalizedUserId = input.userId?.trim();
+    if (normalizedUserId) {
+        return `user:${normalizedUserId}`;
+    }
+
+    const normalizedClientId = input.clientId?.trim();
+    if (normalizedClientId) {
+        return `client:${normalizedClientId}`;
+    }
+
+    return 'anonymous';
+}
+
+export function checkCommunityActionRateLimit(
+    input: CheckCommunityActionRateLimitInput,
+): RateLimitResult {
+    const identifier = normalizeCommunityRateLimitIdentifier(input);
+    return checkRateLimit(`community:${input.action}:${identifier}`, COMMUNITY_RATE_LIMITS[input.action]);
+}

@@ -1171,6 +1171,18 @@ TDD:
 - primeiro testar cenarios permitidos e bloqueados;
 - depois integrar rate limit.
 
+Status:
+
+- concluida em 2026-04-19
+
+Evidence:
+
+- `src/actions/community-rate-limit.test.ts` foi criado primeiro cobrindo cenarios permitidos e bloqueados para `publish`, `copy`, `like`, `save`, `comment`, `follow` e `report`, com assertivas explicitas de que o bloqueio por rate limit falha de forma previsivel e nao alcanca selects/inserts/deletes quando a janela estoura
+- o RED foi confirmado com `npx vitest run src/actions/community-rate-limit.test.ts` falhando em 14 testes enquanto nenhuma action ainda chamava um guarda de rate limit
+- `src/lib/rate-limit.ts` passou a expor `checkCommunityActionRateLimit`, com buckets in-memory por acao comunitaria e identificadores normalizados por `userId` ou `clientId`, sem introduzir servicos externos, runtime pago ou dependencia premium
+- `src/actions/community-posts.ts`, `src/actions/community-copy.ts`, `src/actions/community-likes.ts`, `src/actions/community-saves.ts`, `src/actions/community-comments.ts`, `src/actions/community-follows.ts` e `src/actions/community-reports.ts` agora aplicam o guarda antes da mutacao, preservando auth, ownership e o happy path ja existente
+- validacoes executadas: `npx vitest run src/actions/community-rate-limit.test.ts` -> RED inicial com 14 falhas; `npx vitest run src/actions/community-rate-limit.test.ts` -> GREEN com 14 testes; `npx vitest run src/actions/community-posts.test.ts src/actions/community-copy.test.ts src/actions/community-likes.test.ts src/actions/community-saves.test.ts src/actions/community-comments.test.ts src/actions/community-follows.test.ts src/actions/community-reports.test.ts src/actions/community-rate-limit.test.ts` -> GREEN com 45 testes; `npm run typecheck` -> ok
+
 ### W70-T02 - Adicionar SEO e metadata das paginas comunitarias
 
 Goal:
