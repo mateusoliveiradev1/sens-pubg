@@ -1,27 +1,33 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { communityPostAnalysisSnapshots, communityPosts } from '@/db/schema';
+import { communityPostAnalysisSnapshots, communityPosts, communityProfiles } from '@/db/schema';
 import type { AnalysisResult } from '@/types/engine';
 
 const mocks = vi.hoisted(() => {
     const auth = vi.fn();
+    const checkCommunityActionRateLimit = vi.fn();
     const select = vi.fn();
     const from = vi.fn();
     const where = vi.fn();
     const limit = vi.fn();
     const insert = vi.fn();
     const postValues = vi.fn();
+    const profileValues = vi.fn();
+    const onConflictDoNothing = vi.fn();
     const returning = vi.fn();
     const snapshotValues = vi.fn();
 
     return {
         auth,
+        checkCommunityActionRateLimit,
         select,
         from,
         where,
         limit,
         insert,
         postValues,
+        profileValues,
+        onConflictDoNothing,
         returning,
         snapshotValues,
     };
@@ -29,6 +35,10 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('@/auth', () => ({
     auth: mocks.auth,
+}));
+
+vi.mock('@/lib/rate-limit', () => ({
+    checkCommunityActionRateLimit: mocks.checkCommunityActionRateLimit,
 }));
 
 vi.mock('@/db', () => ({
@@ -158,6 +168,11 @@ describe('publishAnalysisSessionToCommunity', () => {
         mocks.auth.mockResolvedValue({
             user: { id: 'user-1' },
         });
+        mocks.checkCommunityActionRateLimit.mockReturnValue({
+            success: true,
+            remaining: 2,
+            resetMs: 1000,
+        });
 
         mocks.select.mockReturnValue({
             from: mocks.from,
@@ -170,6 +185,12 @@ describe('publishAnalysisSessionToCommunity', () => {
         });
 
         mocks.insert.mockImplementation((table) => {
+            if (table === communityProfiles) {
+                return {
+                    values: mocks.profileValues,
+                };
+            }
+
             if (table === communityPosts) {
                 return {
                     values: mocks.postValues,
@@ -185,6 +206,10 @@ describe('publishAnalysisSessionToCommunity', () => {
             throw new Error('Unexpected table');
         });
 
+        mocks.profileValues.mockReturnValue({
+            onConflictDoNothing: mocks.onConflictDoNothing,
+        });
+        mocks.onConflictDoNothing.mockResolvedValue(undefined);
         mocks.postValues.mockReturnValue({
             returning: mocks.returning,
         });
@@ -330,5 +355,58 @@ describe('publishAnalysisSessionToCommunity', () => {
             publishedAt: expect.any(Date),
         }));
         expect(mocks.snapshotValues).toHaveBeenCalledTimes(1);
+    });
+
+    it('creates a community profile automatically before publishing when the user has none yet', async () => {
+        mocks.auth.mockResolvedValue({
+            user: {
+                id: 'user-1',
+                name: 'Player 1',
+                email: 'player1@example.com',
+                image: 'https://cdn.example.com/avatar.png',
+            },
+        });
+        mocks.limit
+            .mockResolvedValueOnce([createOwnedAnalysisSessionRow()])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([
+                {
+                    id: 'profile-1',
+                    slug: 'player-1-user1',
+                },
+            ]);
+        mocks.returning.mockResolvedValueOnce([
+            {
+                id: 'post-1',
+                slug: 'player-1-user1-session-1',
+                status: 'draft',
+            },
+        ]);
+
+        const result = await publishAnalysisSessionToCommunity({
+            analysisSessionId: 'session-1',
+            title: 'Draft spray analysis',
+            excerpt: 'Draft excerpt',
+            bodyMarkdown: 'Draft body',
+            status: 'draft',
+        });
+
+        expect(result).toEqual({
+            success: true,
+            postId: 'post-1',
+            slug: 'player-1-user1-session-1',
+            status: 'draft',
+        });
+        expect(mocks.profileValues).toHaveBeenCalledWith(expect.objectContaining({
+            userId: 'user-1',
+            slug: 'player-1-user1',
+            displayName: 'Player 1',
+            avatarUrl: 'https://cdn.example.com/avatar.png',
+        }));
+        expect(mocks.onConflictDoNothing).toHaveBeenCalledTimes(1);
+        expect(mocks.postValues).toHaveBeenCalledWith(expect.objectContaining({
+            communityProfileId: 'profile-1',
+            slug: 'player-1-user1-session-1',
+        }));
     });
 });

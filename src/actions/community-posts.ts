@@ -53,8 +53,93 @@ interface StoredPublishableAnalysisSession {
     readonly fullResult: Record<string, unknown> | null;
 }
 
+interface CommunityProfileOwnerIdentity {
+    readonly id: string;
+    readonly name?: string | null | undefined;
+    readonly email?: string | null | undefined;
+    readonly image?: string | null | undefined;
+}
+
 function buildAnalysisSnapshotPostSlug(profileSlug: string, analysisSessionId: string): string {
     return `${profileSlug}-${analysisSessionId}`;
+}
+
+function resolveCommunityProfileDisplayName(owner: CommunityProfileOwnerIdentity): string {
+    const trimmedName = owner.name?.trim();
+    if (trimmedName) {
+        return trimmedName;
+    }
+
+    const emailPrefix = owner.email?.split('@')[0]?.trim();
+    if (emailPrefix) {
+        return emailPrefix;
+    }
+
+    return 'Player';
+}
+
+function normalizeCommunityProfileSlugSegment(value: string): string {
+    const normalizedValue = value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .replace(/-{2,}/g, '-')
+        .slice(0, 40)
+        .replace(/-+$/g, '');
+
+    return normalizedValue.length > 0 ? normalizedValue : 'player';
+}
+
+function buildCommunityProfileSlug(owner: CommunityProfileOwnerIdentity, displayName: string): string {
+    const idSuffix = owner.id.replace(/-/g, '').slice(0, 8);
+    return `${normalizeCommunityProfileSlugSegment(displayName)}-${idSuffix}`;
+}
+
+async function findOrCreateCommunityProfile(
+    owner: CommunityProfileOwnerIdentity,
+): Promise<{
+    readonly id: string;
+    readonly slug: string;
+} | null> {
+    const [existingCommunityProfile] = await db
+        .select({
+            id: communityProfiles.id,
+            slug: communityProfiles.slug,
+        })
+        .from(communityProfiles)
+        .where(eq(communityProfiles.userId, owner.id))
+        .limit(1);
+
+    if (existingCommunityProfile) {
+        return existingCommunityProfile;
+    }
+
+    const displayName = resolveCommunityProfileDisplayName(owner);
+
+    await db
+        .insert(communityProfiles)
+        .values({
+            userId: owner.id,
+            slug: buildCommunityProfileSlug(owner, displayName),
+            displayName,
+            avatarUrl: owner.image?.trim() || null,
+        })
+        .onConflictDoNothing({
+            target: communityProfiles.userId,
+        });
+
+    const [createdCommunityProfile] = await db
+        .select({
+            id: communityProfiles.id,
+            slug: communityProfiles.slug,
+        })
+        .from(communityProfiles)
+        .where(eq(communityProfiles.userId, owner.id))
+        .limit(1);
+
+    return createdCommunityProfile ?? null;
 }
 
 function toSnapshotSourceSession(
@@ -152,14 +237,12 @@ export async function publishAnalysisSessionToCommunity(
         };
     }
 
-    const [communityProfile] = await db
-        .select({
-            id: communityProfiles.id,
-            slug: communityProfiles.slug,
-        })
-        .from(communityProfiles)
-        .where(eq(communityProfiles.userId, session.user.id))
-        .limit(1);
+    const communityProfile = await findOrCreateCommunityProfile({
+        id: session.user.id,
+        name: session.user.name,
+        email: session.user.email,
+        image: session.user.image,
+    });
 
     if (!communityProfile) {
         return {

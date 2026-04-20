@@ -80,6 +80,14 @@ export function PublishAnalysisButton(props: Props) {
                 {isPending ? 'Criando rascunho...' : hasPublishedDraft ? 'Rascunho criado' : 'Publicar na comunidade'}
             </button>
 
+            <Link
+                className="btn btn-ghost"
+                href="/community"
+                style={{ paddingInline: '0.75rem' }}
+            >
+                Ir para comunidade
+            </Link>
+
             {statusMessage ? (
                 <p
                     id="publish-analysis-entry-status"
