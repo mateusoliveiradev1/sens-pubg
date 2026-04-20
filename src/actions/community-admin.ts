@@ -14,6 +14,7 @@ import {
     communityReports,
     type CommunityReportEntityType,
 } from '@/db/schema';
+import { excludeCommunityEntityFromGamification } from '@/lib/community-progression-recorder';
 
 type CommunityAdminSession =
     | {
@@ -203,6 +204,10 @@ export async function applyCommunityModerationAction(
 
     if (input.actionKey === 'hide') {
         await hideReportedEntity(storedReport.entityType, storedReport.entityId);
+        await excludeCommunityEntityFromGamification({
+            entityType: storedReport.entityType,
+            entityId: storedReport.entityId,
+        });
     }
 
     await db

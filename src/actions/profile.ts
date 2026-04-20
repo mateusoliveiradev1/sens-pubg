@@ -18,6 +18,7 @@ import { playerProfileSchema } from '@/types/schemas';
 import { and, eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { normalizeScopeSensitivityMap } from '@/game/pubg';
+import { trackCommunityProgressionForAction } from '@/lib/community-progression-recorder';
 
 export interface ProfileActionResult {
     readonly success: boolean;
@@ -85,6 +86,7 @@ export const saveProfile = authActionClient
             revalidatePath('/profile');
             const [publicCommunityProfile] = await db
                 .select({
+                    id: communityProfiles.id,
                     slug: communityProfiles.slug,
                 })
                 .from(communityProfiles)
@@ -98,6 +100,17 @@ export const saveProfile = authActionClient
 
             if (publicCommunityProfile?.slug) {
                 revalidatePath(`/community/users/${publicCommunityProfile.slug}`);
+                await trackCommunityProgressionForAction({
+                    actorUserId: session.user.id,
+                    eventType: 'complete_public_profile',
+                    entityType: 'profile',
+                    entityId: publicCommunityProfile.id,
+                    isPubliclyVisible: true,
+                    metadata: {
+                        profileSlug: publicCommunityProfile.slug,
+                        source: 'player_profile_save',
+                    },
+                });
             }
 
             return { success: true };

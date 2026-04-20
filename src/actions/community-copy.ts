@@ -11,6 +11,7 @@ import {
     type CommunityPostCopySensPreset,
     type CommunityPostCopyTarget,
 } from '@/db/schema';
+import { trackCommunityProgressionForAction } from '@/lib/community-progression-recorder';
 import { checkCommunityActionRateLimit } from '@/lib/rate-limit';
 
 export interface CopyCommunityPostSensInput {
@@ -89,8 +90,11 @@ export async function copyCommunityPostSens(
 
     const [storedPost] = await db
         .select({
+            authorId: communityPosts.authorId,
             id: communityPosts.id,
             copySensPreset: communityPosts.copySensPreset,
+            status: communityPosts.status,
+            visibility: communityPosts.visibility,
         })
         .from(communityPosts)
         .where(eq(communityPosts.slug, normalizedSlug))
@@ -108,6 +112,26 @@ export async function copyCommunityPostSens(
         copiedByUserId: session?.user?.id ?? null,
         copyTarget,
     });
+
+    if (
+        session?.user?.id
+        && storedPost.status === 'published'
+        && storedPost.visibility === 'public'
+    ) {
+        await trackCommunityProgressionForAction({
+            actorUserId: session.user.id,
+            beneficiaryUserId: storedPost.authorId,
+            eventType: 'receive_unique_copy',
+            entityType: 'post',
+            entityId: storedPost.id,
+            isPubliclyVisible: true,
+            metadata: {
+                copyTarget,
+                sourceAuthorId: storedPost.authorId,
+                sourcePostId: storedPost.id,
+            },
+        });
+    }
 
     const copySensPreset = storedPost.copySensPreset;
     const clipboardText = formatCopySensPresetForClipboard(copySensPreset);

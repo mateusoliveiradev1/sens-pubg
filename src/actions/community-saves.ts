@@ -5,6 +5,7 @@ import { and, eq } from 'drizzle-orm';
 import { auth } from '@/auth';
 import { db } from '@/db';
 import { communityPostSaves, communityPosts } from '@/db/schema';
+import { trackCommunityProgressionForAction } from '@/lib/community-progression-recorder';
 import { checkCommunityActionRateLimit } from '@/lib/rate-limit';
 
 export interface SetCommunityPostSaveInput {
@@ -50,7 +51,10 @@ export async function setCommunityPostSave(
     const normalizedSlug = input.slug.trim();
     const [storedPost] = await db
         .select({
+            authorId: communityPosts.authorId,
             id: communityPosts.id,
+            status: communityPosts.status,
+            visibility: communityPosts.visibility,
         })
         .from(communityPosts)
         .where(eq(communityPosts.slug, normalizedSlug))
@@ -73,6 +77,21 @@ export async function setCommunityPostSave(
             .onConflictDoNothing({
                 target: [communityPostSaves.postId, communityPostSaves.userId],
             });
+
+        if (storedPost.status === 'published' && storedPost.visibility === 'public') {
+            await trackCommunityProgressionForAction({
+                actorUserId: session.user.id,
+                beneficiaryUserId: storedPost.authorId,
+                eventType: 'receive_unique_save',
+                entityType: 'post',
+                entityId: storedPost.id,
+                isPubliclyVisible: true,
+                metadata: {
+                    sourceAuthorId: storedPost.authorId,
+                    sourcePostId: storedPost.id,
+                },
+            });
+        }
     } else {
         await db
             .delete(communityPostSaves)

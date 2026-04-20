@@ -609,4 +609,83 @@ describe('buildCommunityDiscoveryViewModel', () => {
             },
         });
     });
+
+    it('builds evergreen season context and anonymous weekly challenge fallback without private progression modules', () => {
+        const viewModel = buildCommunityDiscoveryViewModel({
+            posts: [],
+        });
+
+        expect(viewModel.seasonContext).toEqual({
+            title: 'Progressao da comunidade',
+            theme: 'Evergreen',
+            summary: 'Sem temporada ativa no momento. Continue contribuindo com progresso neutro e sem ranking sazonal.',
+            stateLabel: 'Modo evergreen',
+            windowLabel: 'Sempre disponivel',
+        });
+        expect(viewModel.weeklyChallenge).toMatchObject({
+            source: 'fallback',
+            title: 'Desafio semanal: publique um snapshot util',
+            trendHref: null,
+            actions: [
+                {
+                    title: 'Complete sua operator plate',
+                    href: '/login',
+                },
+                {
+                    title: 'Publique um snapshot util',
+                    href: '/login',
+                },
+            ],
+        });
+        expect(viewModel.viewerProgressionSummary).toBeNull();
+        expect(viewModel.missionBoard).toBeNull();
+        expect(viewModel.personalRecap).toBeNull();
+        expect(viewModel.squadSpotlight).toBeNull();
+    });
+
+    it('creates viewer zero states for progression summary, mission board and recap when ritual context is absent', () => {
+        const viewModel = buildCommunityDiscoveryViewModel({
+            posts: [],
+            viewer: {
+                viewerUserId: 'viewer-1',
+                hasPublicProfile: true,
+                publicProfileHref: '/community/users/viewer',
+                publishableAnalysisCount: 0,
+            },
+        });
+
+        expect(viewModel.viewerProgressionSummary).toMatchObject({
+            state: 'zero_state',
+            title: 'Sua progressao ainda esta zerada',
+            level: 1,
+            totalXp: 0,
+            nextAction: {
+                title: 'Publique uma analise publica',
+                href: '/history',
+            },
+            publicProfileHref: '/community/users/viewer',
+        });
+        expect(viewModel.missionBoard).toMatchObject({
+            title: 'Mission board semanal',
+            items: [],
+            emptyState: {
+                title: 'Mission board em zero state',
+                primaryAction: {
+                    label: 'Publicar analise',
+                    href: '/history',
+                },
+            },
+        });
+        expect(viewModel.personalRecap).toMatchObject({
+            state: 'zero_state',
+            title: 'Recap ainda em branco',
+            rewardCount: 0,
+            earnedXp: 0,
+            nextAction: {
+                title: 'Publicar analise',
+                href: '/history',
+            },
+        });
+        expect(viewModel.squadSpotlight).toBeNull();
+    });
 });

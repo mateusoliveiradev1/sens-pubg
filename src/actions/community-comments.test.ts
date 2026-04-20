@@ -4,6 +4,8 @@ import { communityPostComments } from '@/db/schema';
 
 const mocks = vi.hoisted(() => {
     const auth = vi.fn();
+    const checkCommunityActionRateLimit = vi.fn();
+    const trackCommunityProgressionForAction = vi.fn();
     const select = vi.fn();
     const from = vi.fn();
     const innerJoin = vi.fn();
@@ -12,10 +14,13 @@ const mocks = vi.hoisted(() => {
     const orderBy = vi.fn();
     const insert = vi.fn();
     const commentValues = vi.fn();
+    const commentReturning = vi.fn();
     const revalidatePath = vi.fn();
 
     return {
         auth,
+        checkCommunityActionRateLimit,
+        trackCommunityProgressionForAction,
         select,
         from,
         innerJoin,
@@ -24,12 +29,21 @@ const mocks = vi.hoisted(() => {
         orderBy,
         insert,
         commentValues,
+        commentReturning,
         revalidatePath,
     };
 });
 
 vi.mock('@/auth', () => ({
     auth: mocks.auth,
+}));
+
+vi.mock('@/lib/rate-limit', () => ({
+    checkCommunityActionRateLimit: mocks.checkCommunityActionRateLimit,
+}));
+
+vi.mock('@/lib/community-progression-recorder', () => ({
+    trackCommunityProgressionForAction: mocks.trackCommunityProgressionForAction,
 }));
 
 vi.mock('@/db', () => ({
@@ -55,6 +69,12 @@ describe('community comments', () => {
         mocks.auth.mockResolvedValue({
             user: { id: 'user-1' },
         });
+        mocks.checkCommunityActionRateLimit.mockReturnValue({
+            success: true,
+            remaining: 2,
+            resetMs: 1000,
+        });
+        mocks.trackCommunityProgressionForAction.mockResolvedValue(undefined);
 
         mocks.select.mockReturnValue({
             from: mocks.from,
@@ -84,7 +104,14 @@ describe('community comments', () => {
             throw new Error('Unexpected table');
         });
 
-        mocks.commentValues.mockResolvedValue(undefined);
+        mocks.commentValues.mockReturnValue({
+            returning: mocks.commentReturning,
+        });
+        mocks.commentReturning.mockResolvedValue([
+            {
+                id: 'comment-1',
+            },
+        ]);
     });
 
     it('requires auth before creating a flat community comment', async () => {
@@ -107,6 +134,7 @@ describe('community comments', () => {
         mocks.limit.mockResolvedValueOnce([
             {
                 id: 'post-1',
+                authorId: 'user-2',
                 status: 'published',
                 visibility: 'public',
             },
@@ -129,6 +157,21 @@ describe('community comments', () => {
             bodyMarkdown: 'Fechei melhor o tracking no bloco final.',
             diagnosisContextKey: 'horizontal_drift',
         });
+        expect(mocks.trackCommunityProgressionForAction).toHaveBeenCalledWith({
+            actorUserId: 'user-1',
+            eventType: 'comment_with_context',
+            entityType: 'comment',
+            entityId: 'comment-1',
+            dedupeKey: 'comment-1',
+            hasRequiredContext: true,
+            isPubliclyVisible: true,
+            metadata: {
+                diagnosisContextKey: 'horizontal_drift',
+                sourcePostAuthorId: 'user-2',
+                sourceCommentId: 'comment-1',
+                sourcePostId: 'post-1',
+            },
+        });
         expect(mocks.revalidatePath).toHaveBeenCalledWith('/community/beryl-control-lab');
     });
 
@@ -136,6 +179,7 @@ describe('community comments', () => {
         mocks.limit.mockResolvedValueOnce([
             {
                 id: 'post-1',
+                authorId: 'user-2',
                 status: 'draft',
                 visibility: 'public',
             },
@@ -151,6 +195,7 @@ describe('community comments', () => {
             error: 'Post indisponivel para comentario.',
         });
         expect(mocks.insert).not.toHaveBeenCalled();
+        expect(mocks.trackCommunityProgressionForAction).not.toHaveBeenCalled();
     });
 
     it('lists visible comments in chronological order and keeps diagnosisContextKey optional', async () => {

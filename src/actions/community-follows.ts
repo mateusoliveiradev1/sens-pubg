@@ -5,6 +5,7 @@ import { and, count, eq } from 'drizzle-orm';
 import { auth } from '@/auth';
 import { db } from '@/db';
 import { communityFollows, communityProfiles } from '@/db/schema';
+import { trackCommunityProgressionForAction } from '@/lib/community-progression-recorder';
 import { checkCommunityActionRateLimit } from '@/lib/rate-limit';
 
 export interface SetCommunityProfileFollowInput {
@@ -36,6 +37,7 @@ export interface CommunityProfileFollowState {
 }
 
 interface ResolvedCommunityFollowTarget {
+    readonly profileId: string;
     readonly userId: string;
 }
 
@@ -50,6 +52,7 @@ async function resolveCommunityFollowTarget(
 
     const [storedProfile] = await db
         .select({
+            profileId: communityProfiles.id,
             userId: communityProfiles.userId,
         })
         .from(communityProfiles)
@@ -126,6 +129,17 @@ export async function setCommunityProfileFollow(
             .onConflictDoNothing({
                 target: [communityFollows.followerUserId, communityFollows.followedUserId],
             });
+
+        await trackCommunityProgressionForAction({
+            actorUserId: session.user.id,
+            eventType: 'follow_profile',
+            entityType: 'profile',
+            entityId: storedProfile.profileId,
+            isPubliclyVisible: true,
+            metadata: {
+                followedUserId: storedProfile.userId,
+            },
+        });
     } else {
         await db
             .delete(communityFollows)

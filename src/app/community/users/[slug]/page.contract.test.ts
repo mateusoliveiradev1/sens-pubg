@@ -114,6 +114,31 @@ function createPublicProfileViewModel(overrides: {
         readonly reason: string;
         readonly count: number | null;
     }[];
+    readonly publicRewards?: readonly {
+        readonly id: string;
+        readonly rewardKind: string;
+        readonly label: string;
+        readonly shortLabel: string | null;
+        readonly description: string | null;
+        readonly factualContext: string;
+        readonly iconKey: string | null;
+        readonly displayState: string;
+        readonly isEquipped: boolean;
+        readonly earnedAt: Date;
+    }[];
+    readonly streak?: {
+        readonly currentStreak: number;
+        readonly longestStreak: number;
+        readonly streakState: string;
+        readonly title: string;
+        readonly summary: string;
+    };
+    readonly squadIdentity?: {
+        readonly id: string;
+        readonly name: string;
+        readonly slug: string;
+        readonly description: string | null;
+    } | null;
     readonly posts?: readonly unknown[];
     readonly emptyState?: unknown;
     readonly follow?: Record<string, unknown>;
@@ -172,6 +197,35 @@ function createPublicProfileViewModel(overrides: {
                 count: 12,
             },
         ],
+        publicRewards: overrides.publicRewards ?? [
+            {
+                id: 'reward-season-36-pioneer',
+                rewardKind: 'season_mark',
+                label: 'Season 36 Pioneer',
+                shortLabel: 'S36 Pioneer',
+                description: 'Reconhecimento factual por contribuicoes publicas na temporada.',
+                factualContext: 'Liberado por contribuicoes publicas elegiveis na janela da Season 36.',
+                iconKey: 'season-mark',
+                displayState: 'visible',
+                isEquipped: true,
+                earnedAt: new Date('2026-04-18T10:00:00.000Z'),
+            },
+        ],
+        streak: overrides.streak ?? {
+            currentStreak: 3,
+            longestStreak: 5,
+            streakState: 'active',
+            title: '3 semana(s) em sequencia',
+            summary: 'Maior streak publica: 5. O operador segue em ritmo ativo nesta janela.',
+        },
+        squadIdentity: Object.prototype.hasOwnProperty.call(overrides, 'squadIdentity')
+            ? overrides.squadIdentity
+            : {
+                id: 'squad-spray-lab',
+                name: 'Spray Lab',
+                slug: 'spray-lab',
+                description: 'Squad publico focado em reviews de recoil e rotinas semanais.',
+            },
         follow: {
             followerCount: 9,
             viewerIsFollowing: false,
@@ -255,6 +309,24 @@ describe('/community/users/[slug] page contract', () => {
         expect(source).toMatch(/data-community-layout=["']stable-metric-plate["']/);
     });
 
+    it('renders public-safe recognition surfaces for rewards, streaks and squad identity', async () => {
+        const markup = await renderPage('spray-doctor');
+        const source = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
+
+        expect(markup).toContain('Reconhecimentos publicos');
+        expect(markup).toContain('1 reward visivel');
+        expect(markup).toContain('S36 Pioneer');
+        expect(markup).toContain('Liberado por contribuicoes publicas elegiveis na janela da Season 36.');
+        expect(markup).toContain('3 semana(s) em sequencia');
+        expect(markup).toContain('Spray Lab');
+        expect(source).toMatch(/data-community-section=["']profile-reward-strip["']/);
+        expect(source).toMatch(/data-community-section=["']profile-streak-summary["']/);
+        expect(source).toMatch(/data-community-section=["']profile-squad-identity["']/);
+        expect(source).toMatch(/data-community-layout=["']stable-reward-rail["']/);
+        expect(markup).not.toContain('rewardKind');
+        expect(markup).not.toContain('isEquipped');
+    });
+
     it('keeps profile reporting visible while preserving login and self-profile states', () => {
         const source = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
 
@@ -299,6 +371,27 @@ describe('/community/users/[slug] page contract', () => {
         expect(markup).toContain('36');
         expect(markup).toContain('1.05');
         expect(markup).toContain('95');
+    });
+
+    it('renders neutral zero states when no public-safe reward or squad data exists', async () => {
+        mocks.getPublicCommunityProfileViewModel.mockResolvedValueOnce(createPublicProfileViewModel({
+            publicRewards: [],
+            streak: {
+                currentStreak: 0,
+                longestStreak: 0,
+                streakState: 'inactive',
+                title: 'Streak publica ainda nao iniciada',
+                summary: 'Sem participacoes publicas significativas registradas o bastante para abrir uma streak visivel.',
+            },
+            squadIdentity: null,
+        }));
+
+        const markup = await renderPage('spray-doctor');
+
+        expect(markup).toContain('Nenhum reward public-safe esta visivel neste perfil agora.');
+        expect(markup).toContain('Streak publica ainda nao iniciada');
+        expect(markup).toContain('Sem squad publico vinculado');
+        expect(markup).not.toContain('privateReward');
     });
 
     it('uses composed headline or bio for public profile metadata', async () => {
@@ -403,5 +496,6 @@ describe('/community/users/[slug] page contract', () => {
         expect(viewModelSource).toMatch(/isNotNull\(\s*communityPosts\.publishedAt\s*\)/);
         expect(viewModelSource).not.toMatch(/\banalysisSessions\b/);
         expect(viewModelSource).not.toMatch(/sourceAnalysisSessionId|trajectoryData|fullResult/);
+        expect(pageSource).not.toMatch(/communityProgressionEvents|communityRewardRecords|communitySquadMemberships/);
     });
 });

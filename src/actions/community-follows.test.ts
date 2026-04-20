@@ -4,6 +4,8 @@ import { communityFollows } from '@/db/schema';
 
 const mocks = vi.hoisted(() => {
     const auth = vi.fn();
+    const checkCommunityActionRateLimit = vi.fn();
+    const trackCommunityProgressionForAction = vi.fn();
     const select = vi.fn();
     const from = vi.fn();
     const where = vi.fn();
@@ -16,6 +18,8 @@ const mocks = vi.hoisted(() => {
 
     return {
         auth,
+        checkCommunityActionRateLimit,
+        trackCommunityProgressionForAction,
         select,
         from,
         where,
@@ -30,6 +34,14 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('@/auth', () => ({
     auth: mocks.auth,
+}));
+
+vi.mock('@/lib/rate-limit', () => ({
+    checkCommunityActionRateLimit: mocks.checkCommunityActionRateLimit,
+}));
+
+vi.mock('@/lib/community-progression-recorder', () => ({
+    trackCommunityProgressionForAction: mocks.trackCommunityProgressionForAction,
 }));
 
 vi.mock('@/db', () => ({
@@ -52,6 +64,12 @@ describe('setCommunityProfileFollow', () => {
         mocks.auth.mockResolvedValue({
             user: { id: 'user-1' },
         });
+        mocks.checkCommunityActionRateLimit.mockReturnValue({
+            success: true,
+            remaining: 2,
+            resetMs: 1000,
+        });
+        mocks.trackCommunityProgressionForAction.mockResolvedValue(undefined);
 
         mocks.select.mockReturnValue({
             from: mocks.from,
@@ -104,6 +122,7 @@ describe('setCommunityProfileFollow', () => {
     it('rejects self-follow even when the profile slug exists', async () => {
         mocks.limit.mockResolvedValueOnce([
             {
+                profileId: 'profile-1',
                 userId: 'user-1',
             },
         ]);
@@ -125,6 +144,7 @@ describe('setCommunityProfileFollow', () => {
         mocks.limit
             .mockResolvedValueOnce([
                 {
+                    profileId: 'profile-2',
                     userId: 'user-2',
                 },
             ])
@@ -149,18 +169,30 @@ describe('setCommunityProfileFollow', () => {
             target: [communityFollows.followerUserId, communityFollows.followedUserId],
         });
         expect(mocks.deleteFn).not.toHaveBeenCalled();
+        expect(mocks.trackCommunityProgressionForAction).toHaveBeenCalledWith({
+            actorUserId: 'user-1',
+            eventType: 'follow_profile',
+            entityType: 'profile',
+            entityId: 'profile-2',
+            isPubliclyVisible: true,
+            metadata: {
+                followedUserId: 'user-2',
+            },
+        });
     });
 
     it('keeps the follow state stable when the same follow request is sent twice', async () => {
         mocks.limit
             .mockResolvedValueOnce([
                 {
+                    profileId: 'profile-2',
                     userId: 'user-2',
                 },
             ])
             .mockResolvedValueOnce([{ count: 5 }])
             .mockResolvedValueOnce([
                 {
+                    profileId: 'profile-2',
                     userId: 'user-2',
                 },
             ])
@@ -190,12 +222,14 @@ describe('setCommunityProfileFollow', () => {
         mocks.limit
             .mockResolvedValueOnce([
                 {
+                    profileId: 'profile-2',
                     userId: 'user-2',
                 },
             ])
             .mockResolvedValueOnce([{ count: 4 }])
             .mockResolvedValueOnce([
                 {
+                    profileId: 'profile-2',
                     userId: 'user-2',
                 },
             ])
@@ -218,6 +252,7 @@ describe('setCommunityProfileFollow', () => {
         });
         expect(mocks.deleteWhere).toHaveBeenCalledTimes(2);
         expect(mocks.insert).not.toHaveBeenCalled();
+        expect(mocks.trackCommunityProgressionForAction).not.toHaveBeenCalled();
     });
 });
 
@@ -240,6 +275,7 @@ describe('getCommunityProfileFollowState', () => {
         mocks.limit
             .mockResolvedValueOnce([
                 {
+                    profileId: 'profile-2',
                     userId: 'user-2',
                 },
             ])
@@ -261,6 +297,7 @@ describe('getCommunityProfileFollowState', () => {
         mocks.limit
             .mockResolvedValueOnce([
                 {
+                    profileId: 'profile-1',
                     userId: 'user-1',
                 },
             ])
@@ -282,6 +319,7 @@ describe('getCommunityProfileFollowState', () => {
         mocks.limit
             .mockResolvedValueOnce([
                 {
+                    profileId: 'profile-2',
                     userId: 'user-2',
                 },
             ])

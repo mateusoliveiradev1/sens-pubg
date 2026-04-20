@@ -362,6 +362,65 @@ describe('communityFollows schema', () => {
     });
 });
 
+describe('community squad invites schema', () => {
+    it('defines invite lifecycle fields for pending, accepted, revoked, and expired squad joins', () => {
+        const communitySquadInvites = getExportedTable('communitySquadInvites');
+
+        const id = getColumn(communitySquadInvites, 'id');
+        const squadId = getColumn(communitySquadInvites, 'squad_id');
+        const createdByUserId = getColumn(communitySquadInvites, 'created_by_user_id');
+        const invitedUserId = getColumn(communitySquadInvites, 'invited_user_id');
+        const acceptedByUserId = getColumn(communitySquadInvites, 'accepted_by_user_id');
+        const inviteCode = getColumn(communitySquadInvites, 'invite_code');
+        const status = getColumn(communitySquadInvites, 'status');
+        const expiresAt = getColumn(communitySquadInvites, 'expires_at');
+        const acceptedAt = getColumn(communitySquadInvites, 'accepted_at');
+        const revokedAt = getColumn(communitySquadInvites, 'revoked_at');
+
+        expect(id.primary).toBe(true);
+        expect(squadId.notNull).toBe(true);
+        expect(createdByUserId.notNull).toBe(true);
+        expect(invitedUserId.notNull).toBe(false);
+        expect(acceptedByUserId.notNull).toBe(false);
+        expect(inviteCode.notNull).toBe(true);
+        expect(status.notNull).toBe(true);
+        expect(status.default).toBe('pending');
+        expect(expiresAt.notNull).toBe(true);
+        expect(acceptedAt.notNull).toBe(false);
+        expect(revokedAt.notNull).toBe(false);
+
+        const squadForeignKey = getForeignKey(
+            communitySquadInvites,
+            'community_squad_invites_squad_id_community_squads_id_fk',
+        );
+        const createdByForeignKey = getForeignKey(
+            communitySquadInvites,
+            'community_squad_invites_created_by_user_id_users_id_fk',
+        );
+        const invitedUserForeignKey = getForeignKey(
+            communitySquadInvites,
+            'community_squad_invites_invited_user_id_users_id_fk',
+        );
+        const acceptedByForeignKey = getForeignKey(
+            communitySquadInvites,
+            'community_squad_invites_accepted_by_user_id_users_id_fk',
+        );
+        const inviteCodeIndex = getIndex(
+            communitySquadInvites,
+            'community_squad_invites_code_uidx',
+        );
+
+        expect(squadForeignKey.onDelete).toBe('cascade');
+        expect(createdByForeignKey.onDelete).toBe('cascade');
+        expect(invitedUserForeignKey.onDelete).toBe('set null');
+        expect(acceptedByForeignKey.onDelete).toBe('set null');
+        expect(inviteCodeIndex.config.unique).toBe(true);
+        expect(inviteCodeIndex.config.columns.map((column) => column.name)).toEqual([
+            'invite_code',
+        ]);
+    });
+});
+
 describe('communityReports schema', () => {
     it('defines report lifecycle fields with reviewer traceability', () => {
         const communityReports = getExportedTable('communityReports');

@@ -1,14 +1,20 @@
-import { and, count, desc, eq, inArray, isNotNull } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNotNull, or } from 'drizzle-orm';
 
 import {
     analysisSessions,
     communityFollows,
+    communityMissions,
     communityPostComments,
     communityPostCopyEvents,
     communityPostLikes,
     communityPostSaves,
     communityPosts,
+    communityProgressionEvents,
     communityProfiles,
+    communityRewardRecords,
+    communitySeasons,
+    communitySquadMemberships,
+    communitySquads,
 } from '@/db/schema';
 import type {
     CommunityCreatorProgramStatus,
@@ -17,7 +23,22 @@ import type {
 import type {
     CommunityPostStatus,
     CommunityPostVisibility,
+    CommunityProgressionStreakState,
 } from '@/types/community';
+import {
+    buildCommunityPersonalRecap,
+    buildCommunityPrivateProgressionSummary,
+    buildCommunitySquadRecap,
+    resolveActiveCommunitySeason,
+    resolveCommunityWeeklyChallenge,
+    toCommunityProgressionHistoryEvent,
+    type CommunityMissionProgressSnapshot,
+    type CommunityProgressionHistoryEvent,
+    type CommunityRewardRecordSource,
+    type CommunitySeasonContext,
+    type CommunitySeasonSource,
+    type CommunityWeeklyChallengeResolution,
+} from './community-progression';
 import {
     buildCommunityAnalysisTags,
     buildCommunityFallbackInitials,
@@ -34,10 +55,21 @@ import {
     type CommunityHighlightSourceCreator,
     type CommunityPostHighlightsViewModel,
 } from './community-highlights';
+import {
+    buildCommunitySquadGoalProgressSnapshot,
+} from './community-squads';
 
 const COMMUNITY_DISCOVERY_QUERY_LIMIT = 50;
 const COMMUNITY_FOLLOWING_FEED_LIMIT = 4;
 const COMMUNITY_TREND_BOARD_LIMIT = 6;
+const COMMUNITY_DISCOVERY_SEASON_LIMIT = 8;
+const COMMUNITY_DISCOVERY_MISSION_LIMIT = 12;
+const COMMUNITY_DISCOVERY_EVENT_LIMIT = 250;
+const COMMUNITY_DISCOVERY_REWARD_LIMIT = 60;
+const communityDiscoveryWindowDateFormatter = new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+});
 
 export interface CommunityDiscoveryFilters {
     readonly weaponId?: string;
@@ -180,6 +212,106 @@ export interface CommunityDiscoveryWeeklyDrillPrompt {
     };
 }
 
+export interface CommunityDiscoverySeasonContextCard {
+    readonly title: string;
+    readonly theme: string;
+    readonly summary: string;
+    readonly stateLabel: string;
+    readonly windowLabel: string;
+}
+
+export interface CommunityDiscoveryWeeklyChallengeAction {
+    readonly title: string;
+    readonly description: string;
+    readonly xpLabel: string;
+    readonly href: string;
+}
+
+export interface CommunityDiscoveryWeeklyChallengeBoard {
+    readonly source: 'mission' | 'trend' | 'fallback';
+    readonly title: string;
+    readonly description: string;
+    readonly rationale: string;
+    readonly theme: string;
+    readonly windowLabel: string;
+    readonly trendHref: string | null;
+    readonly actions: readonly CommunityDiscoveryWeeklyChallengeAction[];
+}
+
+export interface CommunityDiscoveryViewerProgressSummary {
+    readonly state: 'zero_state' | 'active';
+    readonly title: string;
+    readonly summary: string;
+    readonly level: number;
+    readonly totalXp: number;
+    readonly currentLevelXp: number;
+    readonly nextLevelXp: number;
+    readonly xpToNextLevel: number;
+    readonly progressRatio: number;
+    readonly currentStreak: number;
+    readonly streakState: CommunityProgressionStreakState;
+    readonly nextAction: {
+        readonly title: string;
+        readonly description: string;
+        readonly href: string;
+    };
+    readonly nextMilestone: {
+        readonly title: string;
+        readonly description: string;
+    };
+    readonly publicProfileHref: string | null;
+}
+
+export interface CommunityDiscoveryMissionBoardItem {
+    readonly missionId: string;
+    readonly title: string;
+    readonly description: string;
+    readonly progressLabel: string;
+    readonly rewardLabel: string;
+    readonly completionRatio: number;
+    readonly state: 'zero_state' | 'in_progress' | 'complete';
+    readonly primaryAction: {
+        readonly label: string;
+        readonly href: string;
+    };
+}
+
+export interface CommunityDiscoveryMissionBoard {
+    readonly title: string;
+    readonly summary: string;
+    readonly items: readonly CommunityDiscoveryMissionBoardItem[];
+    readonly emptyState: CommunityDiscoveryEmptyState | null;
+}
+
+export interface CommunityDiscoveryRecapPanel {
+    readonly state: 'zero_state' | 'recap' | 'reentry';
+    readonly title: string;
+    readonly summary: string;
+    readonly ritualCount: number;
+    readonly rewardCount: number;
+    readonly earnedXp: number;
+    readonly nextAction: {
+        readonly title: string;
+        readonly href: string;
+    } | null;
+}
+
+export interface CommunityDiscoverySquadSpotlight {
+    readonly title: string;
+    readonly description: string;
+    readonly visibilityLabel: string;
+    readonly goalHeadline: string;
+    readonly goalSummary: string;
+    readonly progressLabel: string;
+    readonly memberCount: number;
+    readonly recapTitle: string;
+    readonly recapSummary: string;
+    readonly nextAction: {
+        readonly title: string;
+        readonly href: string;
+    } | null;
+}
+
 export interface CommunityDiscoveryViewModel {
     readonly hubSummary: {
         readonly publicPostCount: number;
@@ -206,6 +338,12 @@ export interface CommunityDiscoveryViewModel {
     };
     readonly trendBoard: CommunityDiscoveryTrendBoard;
     readonly weeklyDrillPrompt: CommunityDiscoveryWeeklyDrillPrompt;
+    readonly seasonContext: CommunityDiscoverySeasonContextCard;
+    readonly weeklyChallenge: CommunityDiscoveryWeeklyChallengeBoard;
+    readonly viewerProgressionSummary: CommunityDiscoveryViewerProgressSummary | null;
+    readonly missionBoard: CommunityDiscoveryMissionBoard | null;
+    readonly personalRecap: CommunityDiscoveryRecapPanel | null;
+    readonly squadSpotlight: CommunityDiscoverySquadSpotlight | null;
     readonly featuredPosts: CommunityPostHighlightsViewModel;
     readonly creatorHighlights: CommunityCreatorHighlightsViewModel;
     readonly participationPrompts: readonly CommunityDiscoveryParticipationPrompt[];
@@ -217,6 +355,13 @@ export interface BuildCommunityDiscoveryViewModelInput {
     readonly now?: Date;
     readonly creators?: readonly CommunityHighlightSourceCreator[];
     readonly viewer?: CommunityDiscoveryViewerContext;
+    readonly trendBoard?: CommunityDiscoveryTrendBoard;
+    readonly seasonContext?: CommunityDiscoverySeasonContextCard;
+    readonly weeklyChallenge?: CommunityDiscoveryWeeklyChallengeBoard;
+    readonly viewerProgressionSummary?: CommunityDiscoveryViewerProgressSummary | null;
+    readonly missionBoard?: CommunityDiscoveryMissionBoard | null;
+    readonly personalRecap?: CommunityDiscoveryRecapPanel | null;
+    readonly squadSpotlight?: CommunityDiscoverySquadSpotlight | null;
 }
 
 export function buildCommunityDiscoveryViewModel(
@@ -232,7 +377,35 @@ export function buildCommunityDiscoveryViewModel(
     const now = input.now ?? new Date();
     const viewer = input.viewer ?? createAnonymousViewerContext();
     const followingPosts = buildFollowingFeedPosts(publicPosts, viewer);
-    const trendBoard = buildCommunityTrendBoard({ posts: publicPosts });
+    const trendBoard = input.trendBoard ?? buildCommunityTrendBoard({ posts: publicPosts });
+    const seasonContext = input.seasonContext
+        ?? toCommunityDiscoverySeasonContextCard(
+            resolveActiveCommunitySeason({
+                seasons: [],
+                now,
+            }),
+        );
+    const weeklyChallenge = input.weeklyChallenge
+        ?? toCommunityDiscoveryWeeklyChallengeBoard(
+            resolveCommunityWeeklyChallenge({
+                seasonContext: resolveActiveCommunitySeason({
+                    seasons: [],
+                    now,
+                }),
+                trends: trendBoard.items,
+                now,
+            }),
+            viewer.viewerUserId,
+        );
+    const viewerProgressionSummary = viewer.viewerUserId
+        ? (input.viewerProgressionSummary ?? createZeroCommunityDiscoveryViewerProgressSummary(viewer))
+        : null;
+    const missionBoard = viewer.viewerUserId
+        ? (input.missionBoard ?? createEmptyCommunityDiscoveryMissionBoard(viewer))
+        : null;
+    const personalRecap = viewer.viewerUserId
+        ? (input.personalRecap ?? createZeroCommunityDiscoveryRecapPanel(viewer))
+        : null;
 
     return {
         hubSummary: {
@@ -278,6 +451,12 @@ export function buildCommunityDiscoveryViewModel(
         },
         trendBoard,
         weeklyDrillPrompt: buildWeeklyDrillPrompt(trendBoard),
+        seasonContext,
+        weeklyChallenge,
+        viewerProgressionSummary,
+        missionBoard,
+        personalRecap,
+        squadSpotlight: input.squadSpotlight ?? null,
         featuredPosts: buildFeaturedCommunityPostHighlights({
             now,
             posts: publicPosts.map((post) => ({
@@ -354,33 +533,42 @@ export async function getCommunityDiscoveryViewModel(
         getEngagementCountsByPostId(rows.map((row) => row.id)),
         getCommunityDiscoveryViewerContext(input.viewerUserId ?? null),
     ]);
+    const posts = rows.map((row): CommunityDiscoverySourcePost => ({
+        id: row.id,
+        slug: row.slug,
+        title: row.title,
+        excerpt: row.excerpt,
+        status: row.status,
+        visibility: row.visibility,
+        publishedAt: row.publishedAt,
+        featuredUntil: row.featuredUntil,
+        primaryWeaponId: row.primaryWeaponId,
+        primaryPatchVersion: row.primaryPatchVersion,
+        primaryDiagnosisKey: row.primaryDiagnosisKey,
+        author: {
+            userId: row.authorUserId,
+            profileId: row.authorProfileId,
+            profileSlug: row.authorProfileSlug,
+            displayName: row.authorDisplayName,
+            avatarUrl: row.authorAvatarUrl,
+            visibility: row.authorVisibility,
+            creatorProgramStatus: row.authorCreatorProgramStatus,
+        },
+        engagement: engagementByPostId.get(row.id) ?? createEmptyEngagement(),
+    }));
+    const trendBoard = buildCommunityTrendBoard({ posts });
+    const ritualContext = await getCommunityDiscoveryRitualContext({
+        now: new Date(),
+        trendBoard,
+        viewer,
+    });
 
     return buildCommunityDiscoveryViewModel({
         ...(input.filters ? { filters: input.filters } : {}),
         viewer,
-        posts: rows.map((row): CommunityDiscoverySourcePost => ({
-            id: row.id,
-            slug: row.slug,
-            title: row.title,
-            excerpt: row.excerpt,
-            status: row.status,
-            visibility: row.visibility,
-            publishedAt: row.publishedAt,
-            featuredUntil: row.featuredUntil,
-            primaryWeaponId: row.primaryWeaponId,
-            primaryPatchVersion: row.primaryPatchVersion,
-            primaryDiagnosisKey: row.primaryDiagnosisKey,
-            author: {
-                userId: row.authorUserId,
-                profileId: row.authorProfileId,
-                profileSlug: row.authorProfileSlug,
-                displayName: row.authorDisplayName,
-                avatarUrl: row.authorAvatarUrl,
-                visibility: row.authorVisibility,
-                creatorProgramStatus: row.authorCreatorProgramStatus,
-            },
-            engagement: engagementByPostId.get(row.id) ?? createEmptyEngagement(),
-        })),
+        trendBoard,
+        ...ritualContext,
+        posts,
     });
 }
 
@@ -1168,4 +1356,622 @@ async function getEngagementCountsByPostId(
     }
 
     return engagementByPostId;
+}
+
+interface CommunityDiscoveryRitualContext {
+    readonly seasonContext: CommunityDiscoverySeasonContextCard;
+    readonly weeklyChallenge: CommunityDiscoveryWeeklyChallengeBoard;
+    readonly viewerProgressionSummary: CommunityDiscoveryViewerProgressSummary | null;
+    readonly missionBoard: CommunityDiscoveryMissionBoard | null;
+    readonly personalRecap: CommunityDiscoveryRecapPanel | null;
+    readonly squadSpotlight: CommunityDiscoverySquadSpotlight | null;
+}
+
+function isMissingCommunityGamificationRelation(error: unknown): boolean {
+    const candidates = [error];
+
+    if (typeof error === 'object' && error !== null && 'cause' in error) {
+        candidates.push((error as { readonly cause?: unknown }).cause);
+    }
+
+    return candidates.some((candidate) => {
+        if (!candidate || typeof candidate !== 'object') {
+            return false;
+        }
+
+        const code = 'code' in candidate && typeof candidate.code === 'string'
+            ? candidate.code
+            : null;
+        const message = 'message' in candidate && typeof candidate.message === 'string'
+            ? candidate.message
+            : '';
+
+        return code === '42P01'
+            || /relation "community_[^"]+" does not exist/i.test(message);
+    });
+}
+
+async function withCommunityGamificationFallback<T>(
+    query: () => Promise<T>,
+    fallback: T,
+): Promise<T> {
+    try {
+        return await query();
+    } catch (error) {
+        if (isMissingCommunityGamificationRelation(error)) {
+            return fallback;
+        }
+
+        throw error;
+    }
+}
+
+async function getCommunityDiscoveryRitualContext(input: {
+    readonly viewer: CommunityDiscoveryViewerContext;
+    readonly trendBoard: CommunityDiscoveryTrendBoard;
+    readonly now: Date;
+}): Promise<CommunityDiscoveryRitualContext> {
+    const { db } = await import('@/db');
+    const [seasonRows, missionRows] = await withCommunityGamificationFallback(
+        () => Promise.all([
+            db
+                .select({
+                    id: communitySeasons.id,
+                    slug: communitySeasons.slug,
+                    title: communitySeasons.title,
+                    theme: communitySeasons.theme,
+                    summary: communitySeasons.summary,
+                    status: communitySeasons.status,
+                    startsAt: communitySeasons.startsAt,
+                    endsAt: communitySeasons.endsAt,
+                })
+                .from(communitySeasons)
+                .orderBy(desc(communitySeasons.startsAt))
+                .limit(COMMUNITY_DISCOVERY_SEASON_LIMIT),
+            db
+                .select({
+                    cadence: communityMissions.cadence,
+                    config: communityMissions.config,
+                    description: communityMissions.description,
+                    eligibleActions: communityMissions.eligibleActions,
+                    endsAt: communityMissions.endsAt,
+                    id: communityMissions.id,
+                    missionType: communityMissions.missionType,
+                    rewardXp: communityMissions.rewardXp,
+                    seasonId: communityMissions.seasonId,
+                    startsAt: communityMissions.startsAt,
+                    status: communityMissions.status,
+                    targetCount: communityMissions.targetCount,
+                    theme: communityMissions.theme,
+                    title: communityMissions.title,
+                })
+                .from(communityMissions)
+                .orderBy(desc(communityMissions.startsAt))
+                .limit(COMMUNITY_DISCOVERY_MISSION_LIMIT),
+        ]),
+        [[], []] as const,
+    );
+    const seasonContext = resolveActiveCommunitySeason({
+        seasons: seasonRows satisfies readonly CommunitySeasonSource[],
+        now: input.now,
+    });
+    const weeklyChallengeResolution = resolveCommunityWeeklyChallenge({
+        seasonContext,
+        seasons: seasonRows,
+        missions: missionRows,
+        trends: input.trendBoard.items,
+        now: input.now,
+    });
+
+    if (!input.viewer.viewerUserId) {
+        return {
+            seasonContext: toCommunityDiscoverySeasonContextCard(seasonContext),
+            weeklyChallenge: toCommunityDiscoveryWeeklyChallengeBoard(
+                weeklyChallengeResolution,
+                null,
+            ),
+            viewerProgressionSummary: null,
+            missionBoard: null,
+            personalRecap: null,
+            squadSpotlight: null,
+        };
+    }
+
+    const viewerUserId = input.viewer.viewerUserId;
+    const [storedViewerEvents, storedViewerRewards, storedViewerSquad] = await withCommunityGamificationFallback(
+        () => Promise.all([
+            db
+                .select({
+                    idempotencyKey: communityProgressionEvents.idempotencyKey,
+                    eventType: communityProgressionEvents.eventType,
+                    actorUserId: communityProgressionEvents.actorUserId,
+                    beneficiaryUserId: communityProgressionEvents.beneficiaryUserId,
+                    entityType: communityProgressionEvents.entityType,
+                    entityId: communityProgressionEvents.entityId,
+                    rawXp: communityProgressionEvents.rawXp,
+                    effectiveXp: communityProgressionEvents.effectiveXp,
+                    occurredAt: communityProgressionEvents.occurredAt,
+                    seasonId: communityProgressionEvents.seasonId,
+                    missionId: communityProgressionEvents.missionId,
+                    squadId: communityProgressionEvents.squadId,
+                })
+                .from(communityProgressionEvents)
+                .where(
+                    or(
+                        eq(communityProgressionEvents.actorUserId, viewerUserId),
+                        eq(communityProgressionEvents.beneficiaryUserId, viewerUserId),
+                    ),
+                )
+                .orderBy(desc(communityProgressionEvents.occurredAt))
+                .limit(COMMUNITY_DISCOVERY_EVENT_LIMIT),
+            db
+                .select({
+                    displayState: communityRewardRecords.displayState,
+                    earnedAt: communityRewardRecords.earnedAt,
+                    id: communityRewardRecords.id,
+                    isPublicSafe: communityRewardRecords.isPublicSafe,
+                    label: communityRewardRecords.label,
+                    ownerType: communityRewardRecords.ownerType,
+                    rewardKind: communityRewardRecords.rewardKind,
+                    squadId: communityRewardRecords.squadId,
+                    status: communityRewardRecords.status,
+                    userId: communityRewardRecords.userId,
+                })
+                .from(communityRewardRecords)
+                .where(eq(communityRewardRecords.userId, viewerUserId))
+                .orderBy(desc(communityRewardRecords.earnedAt))
+                .limit(COMMUNITY_DISCOVERY_REWARD_LIMIT),
+            db
+                .select({
+                    squadId: communitySquadMemberships.squadId,
+                    squadName: communitySquads.name,
+                    squadDescription: communitySquads.description,
+                    squadVisibility: communitySquads.visibility,
+                    squadActiveGoal: communitySquads.activeGoal,
+                })
+                .from(communitySquadMemberships)
+                .innerJoin(communitySquads, eq(communitySquadMemberships.squadId, communitySquads.id))
+                .where(
+                    and(
+                        eq(communitySquadMemberships.userId, viewerUserId),
+                        eq(communitySquadMemberships.status, 'active'),
+                        eq(communitySquads.status, 'active'),
+                    ),
+                )
+                .orderBy(desc(communitySquadMemberships.joinedAt))
+                .limit(1),
+        ]),
+        [[], [], []] as const,
+    );
+    const viewerEvents = storedViewerEvents.map((event) =>
+        toCommunityProgressionHistoryEvent(event),
+    );
+    const viewerSummary = buildCommunityPrivateProgressionSummary({
+        userId: viewerUserId,
+        events: viewerEvents,
+        missions: missionRows,
+        now: input.now,
+    });
+    const personalRecap = buildCommunityPersonalRecap({
+        userId: viewerUserId,
+        events: viewerEvents,
+        missions: missionRows,
+        rewards: storedViewerRewards satisfies readonly CommunityRewardRecordSource[],
+        seasons: seasonRows,
+        now: input.now,
+    });
+
+    let squadSpotlight: CommunityDiscoverySquadSpotlight | null = null;
+    const storedSquad = storedViewerSquad[0];
+
+    if (storedSquad) {
+        const [storedSquadMemberships, storedSquadEvents, storedSquadRewards] = await withCommunityGamificationFallback(
+            () => Promise.all([
+                db
+                    .select({
+                        userId: communitySquadMemberships.userId,
+                    })
+                    .from(communitySquadMemberships)
+                    .where(
+                        and(
+                            eq(communitySquadMemberships.squadId, storedSquad.squadId),
+                            eq(communitySquadMemberships.status, 'active'),
+                        ),
+                    ),
+                db
+                    .select({
+                        idempotencyKey: communityProgressionEvents.idempotencyKey,
+                        eventType: communityProgressionEvents.eventType,
+                        actorUserId: communityProgressionEvents.actorUserId,
+                        beneficiaryUserId: communityProgressionEvents.beneficiaryUserId,
+                        entityType: communityProgressionEvents.entityType,
+                        entityId: communityProgressionEvents.entityId,
+                        rawXp: communityProgressionEvents.rawXp,
+                        effectiveXp: communityProgressionEvents.effectiveXp,
+                        occurredAt: communityProgressionEvents.occurredAt,
+                        seasonId: communityProgressionEvents.seasonId,
+                        missionId: communityProgressionEvents.missionId,
+                        squadId: communityProgressionEvents.squadId,
+                    })
+                    .from(communityProgressionEvents)
+                    .where(eq(communityProgressionEvents.squadId, storedSquad.squadId))
+                    .orderBy(desc(communityProgressionEvents.occurredAt))
+                    .limit(COMMUNITY_DISCOVERY_EVENT_LIMIT),
+                db
+                    .select({
+                        displayState: communityRewardRecords.displayState,
+                        earnedAt: communityRewardRecords.earnedAt,
+                        id: communityRewardRecords.id,
+                        isPublicSafe: communityRewardRecords.isPublicSafe,
+                        label: communityRewardRecords.label,
+                        ownerType: communityRewardRecords.ownerType,
+                        rewardKind: communityRewardRecords.rewardKind,
+                        squadId: communityRewardRecords.squadId,
+                        status: communityRewardRecords.status,
+                        userId: communityRewardRecords.userId,
+                    })
+                    .from(communityRewardRecords)
+                    .where(eq(communityRewardRecords.squadId, storedSquad.squadId))
+                    .orderBy(desc(communityRewardRecords.earnedAt))
+                    .limit(COMMUNITY_DISCOVERY_REWARD_LIMIT),
+            ]),
+            [[], [], []] as const,
+        );
+        const squadMemberUserIds = storedSquadMemberships.map((membership) => membership.userId);
+        const squadEvents = storedSquadEvents.map((event) =>
+            toCommunityProgressionHistoryEvent(event),
+        );
+        const squadGoal = buildCommunitySquadGoalProgressSnapshot({
+            squadId: storedSquad.squadId,
+            memberUserIds: squadMemberUserIds,
+            activeGoal: storedSquad.squadActiveGoal,
+            events: squadEvents,
+            now: input.now,
+        });
+        const squadRecap = buildCommunitySquadRecap({
+            squadId: storedSquad.squadId,
+            squadName: storedSquad.squadName,
+            memberUserIds: squadMemberUserIds,
+            events: squadEvents,
+            missions: missionRows,
+            rewards: storedSquadRewards satisfies readonly CommunityRewardRecordSource[],
+            seasons: seasonRows,
+            now: input.now,
+        });
+
+        squadSpotlight = toCommunityDiscoverySquadSpotlight({
+            squad: storedSquad,
+            goal: squadGoal,
+            recap: squadRecap,
+        });
+    }
+
+    return {
+        seasonContext: toCommunityDiscoverySeasonContextCard(seasonContext),
+        weeklyChallenge: toCommunityDiscoveryWeeklyChallengeBoard(
+            weeklyChallengeResolution,
+            viewerUserId,
+        ),
+        viewerProgressionSummary: toCommunityDiscoveryViewerProgressSummary(
+            viewerSummary,
+            input.viewer,
+        ),
+        missionBoard: toCommunityDiscoveryMissionBoard(
+            viewerSummary,
+            input.viewer,
+        ),
+        personalRecap: toCommunityDiscoveryRecapPanel(personalRecap),
+        squadSpotlight,
+    };
+}
+
+function toCommunityDiscoverySeasonContextCard(
+    seasonContext: CommunitySeasonContext,
+): CommunityDiscoverySeasonContextCard {
+    return {
+        title: seasonContext.title,
+        theme: seasonContext.theme,
+        summary: seasonContext.summary,
+        stateLabel: seasonContext.kind === 'active' ? 'Temporada ativa' : 'Modo evergreen',
+        windowLabel: formatCommunityDiscoveryWindowLabel(
+            seasonContext.startsAt,
+            seasonContext.endsAt,
+        ),
+    };
+}
+
+function toCommunityDiscoveryWeeklyChallengeBoard(
+    challenge: CommunityWeeklyChallengeResolution,
+    viewerUserId: string | null,
+): CommunityDiscoveryWeeklyChallengeBoard {
+    return {
+        source: challenge.source,
+        title: challenge.title,
+        description: challenge.description,
+        rationale: challenge.rationale,
+        theme: challenge.theme,
+        windowLabel: formatCommunityDiscoveryWindowLabel(
+            challenge.startsAt,
+            challenge.endsAt,
+        ),
+        trendHref: challenge.trend?.href ?? null,
+        actions: challenge.eligibleActions.map((action) => ({
+            title: action.title,
+            description: action.description,
+            xpLabel: `${action.defaultXp} XP`,
+            href: resolveCommunityDiscoveryActionHref(action.eventType, viewerUserId),
+        })),
+    };
+}
+
+function toCommunityDiscoveryViewerProgressSummary(
+    summary: ReturnType<typeof buildCommunityPrivateProgressionSummary>,
+    viewer: CommunityDiscoveryViewerContext,
+): CommunityDiscoveryViewerProgressSummary {
+    return {
+        state: summary.isZeroState ? 'zero_state' : 'active',
+        title: summary.isZeroState
+            ? 'Sua progressao ainda esta zerada'
+            : `Nivel ${summary.currentLevel} em progresso`,
+        summary: summary.isZeroState
+            ? 'Complete o perfil publico ou publique uma analise util para abrir seu primeiro loop comunitario.'
+            : `${summary.totalXp} XP acumulados, ${summary.activeMissionCount} missao(oes) ativa(s) e streak ${summary.streak.currentStreak}.`,
+        level: summary.currentLevel,
+        totalXp: summary.totalXp,
+        currentLevelXp: summary.currentLevelXp,
+        nextLevelXp: summary.nextLevelXp,
+        xpToNextLevel: summary.aggregate.levelState.xpToNextLevel,
+        progressRatio: summary.aggregate.levelState.progressRatio,
+        currentStreak: summary.streak.currentStreak,
+        streakState: summary.streak.streakState,
+        nextAction: {
+            title: summary.nextMeaningfulAction.title,
+            description: summary.nextMeaningfulAction.description,
+            href: resolveCommunityDiscoveryActionHref(
+                summary.nextMeaningfulAction.eventType,
+                viewer.viewerUserId,
+            ),
+        },
+        nextMilestone: {
+            title: summary.nextMilestone.title,
+            description: summary.nextMilestone.description,
+        },
+        publicProfileHref: viewer.publicProfileHref,
+    };
+}
+
+function toCommunityDiscoveryMissionBoard(
+    summary: ReturnType<typeof buildCommunityPrivateProgressionSummary>,
+    viewer: CommunityDiscoveryViewerContext,
+): CommunityDiscoveryMissionBoard {
+    const activeMissions = summary.missionProgress
+        .filter((mission) => mission.status === 'active' && !mission.isComplete)
+        .slice(0, 3);
+
+    return {
+        title: 'Mission board semanal',
+        summary: activeMissions.length > 0
+            ? `${activeMissions.length} missao(oes) abertas para manter seu ritmo sem trocar qualidade por volume.`
+            : 'Sem missao ativa agora. O proximo ritual aparece assim que uma janela nova abrir.',
+        items: activeMissions.map((mission) =>
+            toCommunityDiscoveryMissionBoardItem(mission, viewer),
+        ),
+        emptyState: activeMissions.length > 0
+            ? null
+            : {
+                title: 'Mission board em zero state',
+                body: 'Enquanto isso, siga a proxima acao sugerida para manter sua progressao ativa sem containers vazios.',
+                primaryAction: {
+                    label: summary.nextMeaningfulAction.title,
+                    href: resolveCommunityDiscoveryActionHref(
+                        summary.nextMeaningfulAction.eventType,
+                        viewer.viewerUserId,
+                    ),
+                },
+            },
+    };
+}
+
+function toCommunityDiscoveryMissionBoardItem(
+    mission: CommunityMissionProgressSnapshot,
+    viewer: CommunityDiscoveryViewerContext,
+): CommunityDiscoveryMissionBoardItem {
+    const primaryEventType = mission.eligibleEventTypes[0] ?? 'publish_post';
+
+    return {
+        missionId: mission.missionId,
+        title: mission.title,
+        description: mission.description,
+        progressLabel: `${mission.currentCount}/${mission.targetCount} passos`,
+        rewardLabel: `${mission.rewardXp} XP`,
+        completionRatio: mission.completionRatio,
+        state: mission.currentCount === 0
+            ? 'zero_state'
+            : mission.isComplete
+                ? 'complete'
+                : 'in_progress',
+        primaryAction: {
+            label: 'Abrir proxima acao',
+            href: resolveCommunityDiscoveryActionHref(primaryEventType, viewer.viewerUserId),
+        },
+    };
+}
+
+function toCommunityDiscoveryRecapPanel(
+    recap: ReturnType<typeof buildCommunityPersonalRecap>,
+): CommunityDiscoveryRecapPanel {
+    return {
+        state: recap.state,
+        title: recap.headline,
+        summary: recap.summary,
+        ritualCount: recap.completedRituals.length,
+        rewardCount: recap.unlockedRewards.length,
+        earnedXp: recap.earnedXp,
+        nextAction: recap.nextAction
+            ? {
+                title: recap.nextAction.title,
+                href: resolveCommunityDiscoveryActionHref(recap.nextAction.eventType, recap.userId),
+            }
+            : null,
+    };
+}
+
+function toCommunityDiscoverySquadSpotlight(input: {
+    readonly squad: {
+        readonly squadId: string;
+        readonly squadName: string;
+        readonly squadDescription: string | null;
+        readonly squadVisibility: typeof communitySquads.$inferSelect.visibility;
+        readonly squadActiveGoal: typeof communitySquads.$inferSelect.activeGoal;
+    };
+    readonly goal: ReturnType<typeof buildCommunitySquadGoalProgressSnapshot>;
+    readonly recap: ReturnType<typeof buildCommunitySquadRecap>;
+}): CommunityDiscoverySquadSpotlight {
+    return {
+        title: input.squad.squadName,
+        description: input.squad.squadDescription?.trim()
+            || 'Squad configurado para loops leves, assincronos e baseados em contribuicao util.',
+        visibilityLabel: input.squad.squadVisibility === 'public'
+            ? 'Squad publico'
+            : 'Squad privado',
+        goalHeadline: input.goal.headline,
+        goalSummary: input.goal.summary,
+        progressLabel: `${input.goal.currentCount}/${input.goal.targetCount} acoes`,
+        memberCount: input.recap.memberCount,
+        recapTitle: input.recap.headline,
+        recapSummary: input.recap.summary,
+        nextAction: input.goal.nextAction
+            ? {
+                title: input.goal.nextAction.title,
+                href: resolveCommunityDiscoveryActionHref(
+                    input.goal.nextAction.eventType,
+                    'viewer',
+                ),
+            }
+            : input.recap.nextAction
+                ? {
+                    title: input.recap.nextAction.title,
+                    href: resolveCommunityDiscoveryActionHref(
+                        input.recap.nextAction.eventType,
+                        'viewer',
+                    ),
+                }
+                : null,
+    };
+}
+
+function createZeroCommunityDiscoveryViewerProgressSummary(
+    viewer: CommunityDiscoveryViewerContext,
+): CommunityDiscoveryViewerProgressSummary {
+    const nextAction = viewer.hasPublicProfile
+        ? {
+            title: 'Publique uma analise publica',
+            description: 'Transforme um snapshot em contribuicao publica para abrir seu primeiro XP.',
+            href: '/history',
+        }
+        : {
+            title: 'Complete seu perfil publico',
+            description: 'Ative sua operator plate para destravar missões e progresso viewer-aware.',
+            href: '/profile',
+        };
+
+    return {
+        state: 'zero_state',
+        title: 'Sua progressao ainda esta zerada',
+        summary: 'As primeiras placas aparecem assim que voce ativa seu perfil ou publica uma analise util.',
+        level: 1,
+        totalXp: 0,
+        currentLevelXp: 0,
+        nextLevelXp: 100,
+        xpToNextLevel: 100,
+        progressRatio: 0,
+        currentStreak: 0,
+        streakState: 'inactive',
+        nextAction,
+        nextMilestone: {
+            title: 'Nivel 2',
+            description: 'Faltam 100 XP para abrir o proximo nivel comunitario.',
+        },
+        publicProfileHref: viewer.publicProfileHref,
+    };
+}
+
+function createEmptyCommunityDiscoveryMissionBoard(
+    viewer: CommunityDiscoveryViewerContext,
+): CommunityDiscoveryMissionBoard {
+    const primaryAction = viewer.hasPublicProfile
+        ? {
+            label: 'Publicar analise',
+            href: '/history',
+        }
+        : {
+            label: 'Completar perfil',
+            href: '/profile',
+        };
+
+    return {
+        title: 'Mission board semanal',
+        summary: 'Sem missao ativa agora. O proximo ritual aparece assim que uma janela nova abrir.',
+        items: [],
+        emptyState: {
+            title: 'Mission board em zero state',
+            body: 'Use a proxima acao sugerida para abrir seu primeiro objetivo semanal sem ruido artificial.',
+            primaryAction,
+        },
+    };
+}
+
+function createZeroCommunityDiscoveryRecapPanel(
+    viewer: CommunityDiscoveryViewerContext,
+): CommunityDiscoveryRecapPanel {
+    return {
+        state: 'zero_state',
+        title: 'Recap ainda em branco',
+        summary: 'Seus rituais, XP da semana e recompensas desbloqueadas aparecem aqui quando voce registrar a primeira contribuicao util.',
+        ritualCount: 0,
+        rewardCount: 0,
+        earnedXp: 0,
+        nextAction: {
+            title: viewer.hasPublicProfile ? 'Publicar analise' : 'Completar perfil',
+            href: viewer.hasPublicProfile ? '/history' : '/profile',
+        },
+    };
+}
+
+function formatCommunityDiscoveryWindowLabel(
+    startsAt: Date | null,
+    endsAt: Date | null,
+): string {
+    if (!startsAt || !endsAt) {
+        return 'Sempre disponivel';
+    }
+
+    return `${communityDiscoveryWindowDateFormatter.format(startsAt)} - ${communityDiscoveryWindowDateFormatter.format(endsAt)}`;
+}
+
+function resolveCommunityDiscoveryActionHref(
+    eventType: CommunityProgressionHistoryEvent['eventType'],
+    viewerUserId: string | null,
+): string {
+    switch (eventType) {
+        case 'complete_public_profile':
+            return viewerUserId ? '/profile' : '/login';
+
+        case 'publish_post':
+            return viewerUserId ? '/history' : '/login';
+
+        case 'follow_profile':
+            return viewerUserId ? '/community#creator-plates' : '/login';
+
+        case 'comment_with_context':
+        case 'receive_unique_save':
+        case 'receive_unique_copy':
+        case 'weekly_challenge_complete':
+        case 'mission_complete':
+        case 'squad_goal_contribution':
+            return '/community';
+
+        case 'streak_participation':
+            return viewerUserId ? '/analyze' : '/login';
+    }
 }

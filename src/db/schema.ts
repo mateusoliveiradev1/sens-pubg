@@ -21,9 +21,26 @@ import type { AdapterAccount } from '@auth/core/adapters';
 import type { CommunityPostAnalysisSnapshot } from '@/core/community-post-snapshot';
 import type {
     CommunityEntitlementKey,
+    CommunityMissionCadence,
+    CommunityMissionStatus,
+    CommunityMissionType,
     CommunityPostStatus,
     CommunityPostType,
     CommunityPostVisibility,
+    CommunityProgressionAggregateScope,
+    CommunityProgressionEntityType,
+    CommunityProgressionEventType,
+    CommunityProgressionStreakState,
+    CommunityRewardDisplayState,
+    CommunityRewardKind,
+    CommunityRewardOwnerType,
+    CommunityRewardStatus,
+    CommunitySeasonStatus,
+    CommunitySquadMembershipStatus,
+    CommunitySquadInviteStatus,
+    CommunitySquadRole,
+    CommunitySquadStatus,
+    CommunitySquadVisibility,
 } from '@/types/community';
 
 export type WeaponProfileAttachmentSlot = 'muzzle' | 'grip' | 'stock';
@@ -91,6 +108,34 @@ export type CommunityUserEntitlementSource =
     | 'manual'
     | 'subscription_future'
     | 'creator_program_future';
+export interface CommunityMissionEligibleAction {
+    readonly eventType: CommunityProgressionEventType;
+    readonly title: string;
+    readonly description?: string;
+    readonly entityType?: CommunityProgressionEntityType;
+}
+export interface CommunityMissionConfig {
+    readonly targetCount: number;
+    readonly eligibleEventTypes: readonly CommunityProgressionEventType[];
+    readonly metadata?: Record<string, unknown>;
+}
+export interface CommunitySquadGoalState {
+    readonly goalKey: string;
+    readonly title: string;
+    readonly description?: string;
+    readonly targetCount: number;
+    readonly currentCount: number;
+    readonly eligibleEventTypes: readonly CommunityProgressionEventType[];
+    readonly windowStartedAt?: string;
+    readonly windowEndsAt?: string;
+}
+export interface CommunityRewardPublicPayload {
+    readonly label?: string;
+    readonly shortLabel?: string;
+    readonly description?: string;
+    readonly factualContext?: string;
+    readonly iconKey?: string;
+}
 
 // ═══════════════════════════════════════════
 // Auth.js Tables (NextAuth adapter)
@@ -133,6 +178,27 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     communityPosts: many(communityPosts),
     communityPostCopyEvents: many(communityPostCopyEvents),
     userEntitlements: many(userEntitlements),
+    progressionAggregates: many(communityUserProgressionAggregates),
+    progressionEventsAuthored: many(communityProgressionEvents, {
+        relationName: 'community_progression_events_actor',
+    }),
+    progressionEventsBenefited: many(communityProgressionEvents, {
+        relationName: 'community_progression_events_beneficiary',
+    }),
+    squadOwnerships: many(communitySquads, {
+        relationName: 'community_squads_owner',
+    }),
+    squadMemberships: many(communitySquadMemberships),
+    squadInvitesCreated: many(communitySquadInvites, {
+        relationName: 'community_squad_invites_creator',
+    }),
+    squadInvitesReceived: many(communitySquadInvites, {
+        relationName: 'community_squad_invites_invited_user',
+    }),
+    squadInvitesAccepted: many(communitySquadInvites, {
+        relationName: 'community_squad_invites_accepted_user',
+    }),
+    rewardRecords: many(communityRewardRecords),
 }));
 
 export const accounts = pgTable(
@@ -518,6 +584,487 @@ export const communityPostAnalysisSnapshotsRelations = relations(
 // Community Engagement & Moderation
 // ═══════════════════════════════════════════
 
+// =================================================================
+// Community Gamification
+// =================================================================
+
+export const communitySeasons = pgTable(
+    'community_seasons',
+    {
+        id: uuid('id').defaultRandom().primaryKey(),
+        slug: text('slug').notNull(),
+        title: text('title').notNull(),
+        theme: text('theme').notNull(),
+        summary: text('summary'),
+        status: text('status')
+            .$type<CommunitySeasonStatus>()
+            .notNull()
+            .default('draft'),
+        startsAt: timestamp('starts_at', { mode: 'date' }).notNull(),
+        endsAt: timestamp('ends_at', { mode: 'date' }).notNull(),
+        createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+        updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+    },
+    (table) => [
+        uniqueIndex('community_seasons_slug_uidx').on(table.slug),
+        index('community_seasons_status_window_idx').on(
+            table.status,
+            table.startsAt,
+            table.endsAt,
+        ),
+    ],
+);
+
+export const communitySeasonsRelations = relations(communitySeasons, ({ many }) => ({
+    progressionAggregates: many(communityUserProgressionAggregates),
+    missions: many(communityMissions),
+    squads: many(communitySquads),
+    progressionEvents: many(communityProgressionEvents),
+    rewardRecords: many(communityRewardRecords),
+}));
+
+export const communityUserProgressionAggregates = pgTable(
+    'community_user_progression_aggregates',
+    {
+        id: uuid('id').defaultRandom().primaryKey(),
+        userId: uuid('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        seasonId: uuid('season_id').references(() => communitySeasons.id, {
+            onDelete: 'set null',
+        }),
+        scope: text('scope')
+            .$type<CommunityProgressionAggregateScope>()
+            .notNull()
+            .default('evergreen'),
+        scopeKey: text('scope_key').notNull().default('evergreen'),
+        totalXp: integer('total_xp').notNull().default(0),
+        currentLevel: integer('current_level').notNull().default(1),
+        currentLevelXp: integer('current_level_xp').notNull().default(0),
+        nextLevelXp: integer('next_level_xp').notNull().default(100),
+        activeMissionCount: integer('active_mission_count').notNull().default(0),
+        currentStreak: integer('current_streak').notNull().default(0),
+        longestStreak: integer('longest_streak').notNull().default(0),
+        streakState: text('streak_state')
+            .$type<CommunityProgressionStreakState>()
+            .notNull()
+            .default('inactive'),
+        lastMeaningfulAt: timestamp('last_meaningful_at', { mode: 'date' }),
+        lastWindowStartedAt: timestamp('last_window_started_at', { mode: 'date' }),
+        lastWindowEndedAt: timestamp('last_window_ended_at', { mode: 'date' }),
+        createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+        updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+    },
+    (table) => [
+        uniqueIndex('community_user_progression_aggregates_scope_uidx').on(
+            table.userId,
+            table.scope,
+            table.scopeKey,
+        ),
+        index('community_user_progression_aggregates_season_idx').on(
+            table.seasonId,
+            table.userId,
+        ),
+    ],
+);
+
+export const communityUserProgressionAggregatesRelations = relations(
+    communityUserProgressionAggregates,
+    ({ one }) => ({
+        user: one(users, {
+            fields: [communityUserProgressionAggregates.userId],
+            references: [users.id],
+        }),
+        season: one(communitySeasons, {
+            fields: [communityUserProgressionAggregates.seasonId],
+            references: [communitySeasons.id],
+        }),
+    }),
+);
+
+export const communityMissions = pgTable(
+    'community_missions',
+    {
+        id: uuid('id').defaultRandom().primaryKey(),
+        seasonId: uuid('season_id').references(() => communitySeasons.id, {
+            onDelete: 'set null',
+        }),
+        slug: text('slug').notNull(),
+        title: text('title').notNull(),
+        description: text('description').notNull(),
+        theme: text('theme'),
+        missionType: text('mission_type')
+            .$type<CommunityMissionType>()
+            .notNull(),
+        status: text('status')
+            .$type<CommunityMissionStatus>()
+            .notNull()
+            .default('draft'),
+        cadence: text('cadence')
+            .$type<CommunityMissionCadence>()
+            .notNull()
+            .default('one_time'),
+        targetCount: integer('target_count').notNull().default(1),
+        rewardXp: integer('reward_xp').notNull().default(0),
+        eligibleActions: jsonb('eligible_actions')
+            .notNull()
+            .default('[]')
+            .$type<CommunityMissionEligibleAction[]>(),
+        config: jsonb('config')
+            .notNull()
+            .default('{}')
+            .$type<CommunityMissionConfig>(),
+        startsAt: timestamp('starts_at', { mode: 'date' }),
+        endsAt: timestamp('ends_at', { mode: 'date' }),
+        createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+        updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+    },
+    (table) => [
+        uniqueIndex('community_missions_slug_uidx').on(table.slug),
+        index('community_missions_status_window_idx').on(
+            table.status,
+            table.cadence,
+            table.startsAt,
+            table.endsAt,
+        ),
+    ],
+);
+
+export const communityMissionsRelations = relations(communityMissions, ({ one, many }) => ({
+    season: one(communitySeasons, {
+        fields: [communityMissions.seasonId],
+        references: [communitySeasons.id],
+    }),
+    progressionEvents: many(communityProgressionEvents),
+    rewardRecords: many(communityRewardRecords),
+}));
+
+export const communitySquads = pgTable(
+    'community_squads',
+    {
+        id: uuid('id').defaultRandom().primaryKey(),
+        ownerUserId: uuid('owner_user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        seasonId: uuid('season_id').references(() => communitySeasons.id, {
+            onDelete: 'set null',
+        }),
+        slug: text('slug').notNull(),
+        name: text('name').notNull(),
+        description: text('description'),
+        visibility: text('visibility')
+            .$type<CommunitySquadVisibility>()
+            .notNull()
+            .default('private'),
+        status: text('status')
+            .$type<CommunitySquadStatus>()
+            .notNull()
+            .default('active'),
+        memberLimit: integer('member_limit').notNull().default(4),
+        activeGoal: jsonb('active_goal').$type<CommunitySquadGoalState | null>(),
+        createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+        updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+    },
+    (table) => [
+        uniqueIndex('community_squads_slug_uidx').on(table.slug),
+        index('community_squads_owner_idx').on(table.ownerUserId),
+        index('community_squads_status_idx').on(table.status, table.visibility),
+    ],
+);
+
+export const communitySquadsRelations = relations(communitySquads, ({ one, many }) => ({
+    owner: one(users, {
+        relationName: 'community_squads_owner',
+        fields: [communitySquads.ownerUserId],
+        references: [users.id],
+    }),
+    season: one(communitySeasons, {
+        fields: [communitySquads.seasonId],
+        references: [communitySeasons.id],
+    }),
+    memberships: many(communitySquadMemberships),
+    invites: many(communitySquadInvites),
+    progressionEvents: many(communityProgressionEvents),
+    rewardRecords: many(communityRewardRecords),
+}));
+
+export const communitySquadMemberships = pgTable(
+    'community_squad_memberships',
+    {
+        squadId: uuid('squad_id')
+            .notNull()
+            .references(() => communitySquads.id, { onDelete: 'cascade' }),
+        userId: uuid('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        role: text('role').$type<CommunitySquadRole>().notNull().default('member'),
+        status: text('status')
+            .$type<CommunitySquadMembershipStatus>()
+            .notNull()
+            .default('active'),
+        isPubliclyVisible: boolean('is_publicly_visible').notNull().default(true),
+        joinedAt: timestamp('joined_at', { mode: 'date' }).defaultNow().notNull(),
+        leftAt: timestamp('left_at', { mode: 'date' }),
+        updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+    },
+    (table) => [
+        primaryKey({
+            columns: [table.squadId, table.userId],
+            name: 'community_squad_memberships_squad_id_user_id_pk',
+        }),
+        index('community_squad_memberships_user_idx').on(table.userId, table.status),
+    ],
+);
+
+export const communitySquadMembershipsRelations = relations(
+    communitySquadMemberships,
+    ({ one }) => ({
+        squad: one(communitySquads, {
+            fields: [communitySquadMemberships.squadId],
+            references: [communitySquads.id],
+        }),
+        user: one(users, {
+            fields: [communitySquadMemberships.userId],
+            references: [users.id],
+        }),
+    }),
+);
+
+export const communitySquadInvites = pgTable(
+    'community_squad_invites',
+    {
+        id: uuid('id').defaultRandom().primaryKey(),
+        squadId: uuid('squad_id')
+            .notNull()
+            .references(() => communitySquads.id, { onDelete: 'cascade' }),
+        createdByUserId: uuid('created_by_user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        invitedUserId: uuid('invited_user_id').references(() => users.id, {
+            onDelete: 'set null',
+        }),
+        acceptedByUserId: uuid('accepted_by_user_id').references(() => users.id, {
+            onDelete: 'set null',
+        }),
+        inviteCode: text('invite_code').notNull(),
+        status: text('status')
+            .$type<CommunitySquadInviteStatus>()
+            .notNull()
+            .default('pending'),
+        expiresAt: timestamp('expires_at', { mode: 'date' }).notNull(),
+        acceptedAt: timestamp('accepted_at', { mode: 'date' }),
+        revokedAt: timestamp('revoked_at', { mode: 'date' }),
+        createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+        updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+    },
+    (table) => [
+        uniqueIndex('community_squad_invites_code_uidx').on(table.inviteCode),
+        index('community_squad_invites_squad_idx').on(table.squadId, table.status),
+        index('community_squad_invites_user_idx').on(table.invitedUserId, table.status),
+    ],
+);
+
+export const communitySquadInvitesRelations = relations(
+    communitySquadInvites,
+    ({ one }) => ({
+        squad: one(communitySquads, {
+            fields: [communitySquadInvites.squadId],
+            references: [communitySquads.id],
+        }),
+        createdByUser: one(users, {
+            relationName: 'community_squad_invites_creator',
+            fields: [communitySquadInvites.createdByUserId],
+            references: [users.id],
+        }),
+        invitedUser: one(users, {
+            relationName: 'community_squad_invites_invited_user',
+            fields: [communitySquadInvites.invitedUserId],
+            references: [users.id],
+        }),
+        acceptedByUser: one(users, {
+            relationName: 'community_squad_invites_accepted_user',
+            fields: [communitySquadInvites.acceptedByUserId],
+            references: [users.id],
+        }),
+    }),
+);
+
+export const communityProgressionEvents = pgTable(
+    'community_progression_events',
+    {
+        id: uuid('id').defaultRandom().primaryKey(),
+        seasonId: uuid('season_id').references(() => communitySeasons.id, {
+            onDelete: 'set null',
+        }),
+        missionId: uuid('mission_id').references(() => communityMissions.id, {
+            onDelete: 'set null',
+        }),
+        squadId: uuid('squad_id').references(() => communitySquads.id, {
+            onDelete: 'set null',
+        }),
+        actorUserId: uuid('actor_user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        beneficiaryUserId: uuid('beneficiary_user_id').references(() => users.id, {
+            onDelete: 'set null',
+        }),
+        eventType: text('event_type')
+            .$type<CommunityProgressionEventType>()
+            .notNull(),
+        entityType: text('entity_type')
+            .$type<CommunityProgressionEntityType>()
+            .notNull(),
+        entityId: text('entity_id').notNull(),
+        idempotencyKey: text('idempotency_key').notNull(),
+        rawXp: integer('raw_xp').notNull().default(0),
+        effectiveXp: integer('effective_xp').notNull().default(0),
+        metadata: jsonb('metadata')
+            .notNull()
+            .default('{}')
+            .$type<Record<string, unknown>>(),
+        occurredAt: timestamp('occurred_at', { mode: 'date' }).defaultNow().notNull(),
+    },
+    (table) => [
+        uniqueIndex('community_progression_events_idempotency_uidx').on(
+            table.idempotencyKey,
+        ),
+        index('community_progression_events_actor_idx').on(
+            table.actorUserId,
+            table.occurredAt,
+        ),
+        index('community_progression_events_beneficiary_idx').on(
+            table.beneficiaryUserId,
+            table.occurredAt,
+        ),
+        index('community_progression_events_scope_idx').on(
+            table.seasonId,
+            table.missionId,
+            table.squadId,
+            table.occurredAt,
+        ),
+    ],
+);
+
+export const communityProgressionEventsRelations = relations(
+    communityProgressionEvents,
+    ({ one, many }) => ({
+        season: one(communitySeasons, {
+            fields: [communityProgressionEvents.seasonId],
+            references: [communitySeasons.id],
+        }),
+        mission: one(communityMissions, {
+            fields: [communityProgressionEvents.missionId],
+            references: [communityMissions.id],
+        }),
+        squad: one(communitySquads, {
+            fields: [communityProgressionEvents.squadId],
+            references: [communitySquads.id],
+        }),
+        actor: one(users, {
+            relationName: 'community_progression_events_actor',
+            fields: [communityProgressionEvents.actorUserId],
+            references: [users.id],
+        }),
+        beneficiary: one(users, {
+            relationName: 'community_progression_events_beneficiary',
+            fields: [communityProgressionEvents.beneficiaryUserId],
+            references: [users.id],
+        }),
+        rewardRecords: many(communityRewardRecords),
+    }),
+);
+
+export const communityRewardRecords = pgTable(
+    'community_reward_records',
+    {
+        id: uuid('id').defaultRandom().primaryKey(),
+        seasonId: uuid('season_id').references(() => communitySeasons.id, {
+            onDelete: 'set null',
+        }),
+        missionId: uuid('mission_id').references(() => communityMissions.id, {
+            onDelete: 'set null',
+        }),
+        squadId: uuid('squad_id').references(() => communitySquads.id, {
+            onDelete: 'set null',
+        }),
+        userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+        awardedByEventId: uuid('awarded_by_event_id').references(
+            () => communityProgressionEvents.id,
+            { onDelete: 'set null' },
+        ),
+        ownerType: text('owner_type')
+            .$type<CommunityRewardOwnerType>()
+            .notNull(),
+        rewardKind: text('reward_kind')
+            .$type<CommunityRewardKind>()
+            .notNull(),
+        rewardKey: text('reward_key').notNull(),
+        rewardFingerprint: text('reward_fingerprint').notNull(),
+        status: text('status')
+            .$type<CommunityRewardStatus>()
+            .notNull()
+            .default('earned'),
+        displayState: text('display_state')
+            .$type<CommunityRewardDisplayState>()
+            .notNull()
+            .default('hidden'),
+        isPublicSafe: boolean('is_public_safe').notNull().default(false),
+        label: text('label').notNull(),
+        description: text('description'),
+        publicPayload: jsonb('public_payload')
+            .notNull()
+            .default('{}')
+            .$type<CommunityRewardPublicPayload>(),
+        metadata: jsonb('metadata')
+            .notNull()
+            .default('{}')
+            .$type<Record<string, unknown>>(),
+        earnedAt: timestamp('earned_at', { mode: 'date' }).defaultNow().notNull(),
+        expiresAt: timestamp('expires_at', { mode: 'date' }),
+        revokedAt: timestamp('revoked_at', { mode: 'date' }),
+    },
+    (table) => [
+        uniqueIndex('community_reward_records_fingerprint_uidx').on(
+            table.rewardFingerprint,
+        ),
+        index('community_reward_records_owner_idx').on(
+            table.ownerType,
+            table.userId,
+            table.squadId,
+        ),
+        index('community_reward_records_display_idx').on(
+            table.displayState,
+            table.status,
+        ),
+    ],
+);
+
+export const communityRewardRecordsRelations = relations(
+    communityRewardRecords,
+    ({ one }) => ({
+        season: one(communitySeasons, {
+            fields: [communityRewardRecords.seasonId],
+            references: [communitySeasons.id],
+        }),
+        mission: one(communityMissions, {
+            fields: [communityRewardRecords.missionId],
+            references: [communityMissions.id],
+        }),
+        squad: one(communitySquads, {
+            fields: [communityRewardRecords.squadId],
+            references: [communitySquads.id],
+        }),
+        user: one(users, {
+            fields: [communityRewardRecords.userId],
+            references: [users.id],
+        }),
+        awardedByEvent: one(communityProgressionEvents, {
+            fields: [communityRewardRecords.awardedByEventId],
+            references: [communityProgressionEvents.id],
+        }),
+    }),
+);
+
 export const communityPostLikes = pgTable(
     'community_post_likes',
     {
@@ -847,3 +1394,29 @@ export type FeatureEntitlementRow = typeof featureEntitlements.$inferSelect;
 export type NewFeatureEntitlement = typeof featureEntitlements.$inferInsert;
 export type UserEntitlementRow = typeof userEntitlements.$inferSelect;
 export type NewUserEntitlement = typeof userEntitlements.$inferInsert;
+export type CommunitySeasonRow = typeof communitySeasons.$inferSelect;
+export type NewCommunitySeason = typeof communitySeasons.$inferInsert;
+export type CommunityUserProgressionAggregateRow =
+    typeof communityUserProgressionAggregates.$inferSelect;
+export type NewCommunityUserProgressionAggregate =
+    typeof communityUserProgressionAggregates.$inferInsert;
+export type CommunityMissionRow = typeof communityMissions.$inferSelect;
+export type NewCommunityMission = typeof communityMissions.$inferInsert;
+export type CommunitySquadRow = typeof communitySquads.$inferSelect;
+export type NewCommunitySquad = typeof communitySquads.$inferInsert;
+export type CommunitySquadMembershipRow =
+    typeof communitySquadMemberships.$inferSelect;
+export type NewCommunitySquadMembership =
+    typeof communitySquadMemberships.$inferInsert;
+export type CommunitySquadInviteRow =
+    typeof communitySquadInvites.$inferSelect;
+export type NewCommunitySquadInvite =
+    typeof communitySquadInvites.$inferInsert;
+export type CommunityProgressionEventRow =
+    typeof communityProgressionEvents.$inferSelect;
+export type NewCommunityProgressionEvent =
+    typeof communityProgressionEvents.$inferInsert;
+export type CommunityRewardRecordRow =
+    typeof communityRewardRecords.$inferSelect;
+export type NewCommunityRewardRecord =
+    typeof communityRewardRecords.$inferInsert;

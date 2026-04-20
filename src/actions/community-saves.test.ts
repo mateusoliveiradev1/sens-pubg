@@ -4,6 +4,8 @@ import { communityPostSaves } from '@/db/schema';
 
 const mocks = vi.hoisted(() => {
     const auth = vi.fn();
+    const checkCommunityActionRateLimit = vi.fn();
+    const trackCommunityProgressionForAction = vi.fn();
     const select = vi.fn();
     const from = vi.fn();
     const where = vi.fn();
@@ -16,6 +18,8 @@ const mocks = vi.hoisted(() => {
 
     return {
         auth,
+        checkCommunityActionRateLimit,
+        trackCommunityProgressionForAction,
         select,
         from,
         where,
@@ -30,6 +34,14 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('@/auth', () => ({
     auth: mocks.auth,
+}));
+
+vi.mock('@/lib/rate-limit', () => ({
+    checkCommunityActionRateLimit: mocks.checkCommunityActionRateLimit,
+}));
+
+vi.mock('@/lib/community-progression-recorder', () => ({
+    trackCommunityProgressionForAction: mocks.trackCommunityProgressionForAction,
 }));
 
 vi.mock('@/db', () => ({
@@ -49,6 +61,12 @@ describe('setCommunityPostSave', () => {
         mocks.auth.mockResolvedValue({
             user: { id: 'user-1' },
         });
+        mocks.checkCommunityActionRateLimit.mockReturnValue({
+            success: true,
+            remaining: 2,
+            resetMs: 1000,
+        });
+        mocks.trackCommunityProgressionForAction.mockResolvedValue(undefined);
 
         mocks.select.mockReturnValue({
             from: mocks.from,
@@ -99,7 +117,12 @@ describe('setCommunityPostSave', () => {
     });
 
     it('creates a private save idempotently without exposing any public counter', async () => {
-        mocks.limit.mockResolvedValueOnce([{ id: 'post-1' }]);
+        mocks.limit.mockResolvedValueOnce([{
+            authorId: 'author-1',
+            id: 'post-1',
+            status: 'published',
+            visibility: 'public',
+        }]);
 
         const result = await setCommunityPostSave({
             slug: 'beryl-control-lab',
@@ -120,12 +143,34 @@ describe('setCommunityPostSave', () => {
             target: [communityPostSaves.postId, communityPostSaves.userId],
         });
         expect(mocks.deleteFn).not.toHaveBeenCalled();
+        expect(mocks.trackCommunityProgressionForAction).toHaveBeenCalledWith({
+            actorUserId: 'user-1',
+            beneficiaryUserId: 'author-1',
+            eventType: 'receive_unique_save',
+            entityType: 'post',
+            entityId: 'post-1',
+            isPubliclyVisible: true,
+            metadata: {
+                sourceAuthorId: 'author-1',
+                sourcePostId: 'post-1',
+            },
+        });
     });
 
     it('keeps the private save state stable when the same save request is sent twice', async () => {
         mocks.limit
-            .mockResolvedValueOnce([{ id: 'post-1' }])
-            .mockResolvedValueOnce([{ id: 'post-1' }]);
+            .mockResolvedValueOnce([{
+                authorId: 'author-1',
+                id: 'post-1',
+                status: 'published',
+                visibility: 'public',
+            }])
+            .mockResolvedValueOnce([{
+                authorId: 'author-1',
+                id: 'post-1',
+                status: 'published',
+                visibility: 'public',
+            }]);
 
         await setCommunityPostSave({
             slug: 'beryl-control-lab',
@@ -148,8 +193,18 @@ describe('setCommunityPostSave', () => {
 
     it('keeps the private unsave state stable when the same unsave request is sent twice', async () => {
         mocks.limit
-            .mockResolvedValueOnce([{ id: 'post-1' }])
-            .mockResolvedValueOnce([{ id: 'post-1' }]);
+            .mockResolvedValueOnce([{
+                authorId: 'author-1',
+                id: 'post-1',
+                status: 'published',
+                visibility: 'public',
+            }])
+            .mockResolvedValueOnce([{
+                authorId: 'author-1',
+                id: 'post-1',
+                status: 'published',
+                visibility: 'public',
+            }]);
 
         await setCommunityPostSave({
             slug: 'beryl-control-lab',
@@ -167,5 +222,6 @@ describe('setCommunityPostSave', () => {
         });
         expect(mocks.deleteWhere).toHaveBeenCalledTimes(2);
         expect(mocks.insert).not.toHaveBeenCalled();
+        expect(mocks.trackCommunityProgressionForAction).not.toHaveBeenCalled();
     });
 });

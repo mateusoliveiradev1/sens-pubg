@@ -16,6 +16,7 @@ import {
     communityProfiles,
 } from '@/db/schema';
 import { getWeapon } from '@/game/pubg';
+import { trackCommunityProgressionForAction } from '@/lib/community-progression-recorder';
 import { checkCommunityActionRateLimit } from '@/lib/rate-limit';
 import type { CommunityPostStatus, CommunityPostVisibility } from '@/types/community';
 import type { AnalysisResult } from '@/types/engine';
@@ -103,6 +104,7 @@ async function findOrCreateCommunityProfile(
 ): Promise<{
     readonly id: string;
     readonly slug: string;
+    readonly wasCreated: boolean;
 } | null> {
     const [existingCommunityProfile] = await db
         .select({
@@ -114,7 +116,10 @@ async function findOrCreateCommunityProfile(
         .limit(1);
 
     if (existingCommunityProfile) {
-        return existingCommunityProfile;
+        return {
+            ...existingCommunityProfile,
+            wasCreated: false,
+        };
     }
 
     const displayName = resolveCommunityProfileDisplayName(owner);
@@ -140,7 +145,12 @@ async function findOrCreateCommunityProfile(
         .where(eq(communityProfiles.userId, owner.id))
         .limit(1);
 
-    return createdCommunityProfile ?? null;
+    return createdCommunityProfile
+        ? {
+            ...createdCommunityProfile,
+            wasCreated: true,
+        }
+        : null;
 }
 
 function toSnapshotSourceSession(
@@ -271,6 +281,20 @@ export async function publishAnalysisSessionToCommunity(
         };
     }
 
+    if (communityProfile.wasCreated) {
+        await trackCommunityProgressionForAction({
+            actorUserId: session.user.id,
+            eventType: 'complete_public_profile',
+            entityType: 'profile',
+            entityId: communityProfile.id,
+            isPubliclyVisible: true,
+            metadata: {
+                profileSlug: communityProfile.slug,
+                source: 'community_profile_activation',
+            },
+        });
+    }
+
     if (!storedAnalysisSession.fullResult || typeof storedAnalysisSession.fullResult !== 'object') {
         return {
             success: false,
@@ -346,6 +370,29 @@ export async function publishAnalysisSessionToCommunity(
             sensSnapshot: analysisSnapshot.sensSnapshot,
             trackingSnapshot: analysisSnapshot.trackingSnapshot,
         });
+
+    if (createdPost?.status === 'published' && (input.visibility ?? 'public') === 'public') {
+        await trackCommunityProgressionForAction({
+            actorUserId: session.user.id,
+            eventType: 'publish_post',
+            entityType: 'post',
+            entityId: createdPost.id,
+            isPubliclyVisible: true,
+            metadata: {
+                analysisSessionId: storedAnalysisSession.id,
+                profileId: communityProfile.id,
+                profileSlug: communityProfile.slug,
+                primaryDiagnosisKey: resolvePrimaryDiagnosisKey(analysisResult),
+                primaryPatchVersion: storedAnalysisSession.patchVersion,
+                primaryWeaponId: publishedWeaponId,
+            },
+            ...(publishedAt
+                ? {
+                    occurredAt: publishedAt,
+                }
+                : {}),
+        });
+    }
 
     return {
         success: true,
