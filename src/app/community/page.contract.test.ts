@@ -22,4 +22,29 @@ describe('/community page contract', () => {
         expect(source).toMatch(/Explorar todos|emptyState\.secondaryAction/);
         expect(source).not.toMatch(/Nenhum resultado no feed/);
     });
+
+    it('renders community growth loops for following feed, trends and weekly drills', () => {
+        const source = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/followingFeed|following-feed/);
+        expect(source).toMatch(/Feed dos creators acompanhados|Seguindo/);
+        expect(source).toMatch(/trendBoard|trend-board/);
+        expect(source).toMatch(/Trend board|Armas, patches e diagnosticos em alta/);
+        expect(source).toMatch(/weeklyDrillPrompt|weekly-drill-prompt/);
+        expect(source).toMatch(/Drill semanal/);
+        expect(source).toMatch(/\/community\?/);
+    });
+
+    it('renders trust rails in community highlights with accessible textual reasons', () => {
+        const source = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/trustSignals/);
+        expect(source).toMatch(/Sinais publicos explicaveis/);
+        expect(source).toMatch(/data-community-section=["']community-trust-rail["']/);
+        expect(source).toMatch(/data-community-signal=["']community-trust-signal["']/);
+        expect(source).toMatch(/trustSignalLabel/);
+        expect(source).toMatch(/trustSignalReason/);
+        expect(source).toMatch(/\{signal\.label\}/);
+        expect(source).toMatch(/\{signal\.reason\}/);
+    });
 });

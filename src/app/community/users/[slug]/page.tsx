@@ -27,6 +27,9 @@ interface CommunityUserProfilePageProps {
 
 type CommunityProfileMetricKey = keyof CommunityPublicProfileViewModel['metrics'];
 type CommunityProfileTag = CommunityPublicProfilePostCard['analysisTags'][number];
+type CommunityProfilePublicSetup = NonNullable<CommunityPublicProfileViewModel['publicSetup']>;
+type CommunityProfileRelatedLink = CommunityPublicProfileViewModel['relatedLinks'][number];
+type CommunityProfileTrustSignal = CommunityPublicProfileViewModel['trustSignals'][number];
 
 const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
     dateStyle: 'medium',
@@ -91,6 +94,44 @@ function createTagFilterHref(tag: CommunityProfileTag): string {
     return `/community?${new URLSearchParams({
         [queryKeyByTagKey[tag.key]]: tag.value,
     }).toString()}`;
+}
+
+function hasSetupValue(value: string | number | null): boolean {
+    return typeof value === 'number' || Boolean(value?.trim());
+}
+
+function hasPublicSetupData(
+    publicSetup: CommunityPublicProfileViewModel['publicSetup'],
+): publicSetup is CommunityProfilePublicSetup {
+    if (!publicSetup) {
+        return false;
+    }
+
+    return [
+        ...Object.values(publicSetup.aimSetup),
+        ...Object.values(publicSetup.surfaceGrip),
+        ...Object.values(publicSetup.pubgCore),
+    ].some(hasSetupValue);
+}
+
+function formatSetupValue(
+    value: string | number | null,
+    options: {
+        readonly suffix?: string;
+        readonly decimals?: number;
+    } = {},
+): string {
+    if (typeof value === 'number') {
+        const formattedValue = typeof options.decimals === 'number'
+            ? value.toFixed(options.decimals).replace(/\.?0+$/, '')
+            : String(value);
+
+        return `${formattedValue}${options.suffix ?? ''}`;
+    }
+
+    const normalizedValue = value?.trim();
+
+    return normalizedValue || 'Nao publicado';
 }
 
 export async function generateMetadata({
@@ -176,6 +217,40 @@ function ProfileLoadoutChips({
                     Snapshot publico
                 </span>
             )}
+        </div>
+    );
+}
+
+function ProfileTrustSignalRail({
+    signals,
+}: {
+    readonly signals: readonly CommunityProfileTrustSignal[];
+}): JSX.Element | null {
+    if (signals.length === 0) {
+        return null;
+    }
+
+    return (
+        <div
+            aria-label="Sinais publicos explicaveis do perfil"
+            className={styles.trustSignalRail}
+            data-community-layout="stable-trust-rail"
+            data-community-section="profile-trust-rail"
+        >
+            {signals.map((signal) => (
+                <article
+                    key={signal.key}
+                    aria-label={`${signal.label}: ${signal.reason}`}
+                    className={styles.trustSignalPlate}
+                    data-community-signal="community-trust-signal"
+                >
+                    <span className={styles.trustSignalLabel}>{signal.label}</span>
+                    <p className={styles.trustSignalReason}>{signal.reason}</p>
+                    {signal.count !== null ? (
+                        <span className={styles.trustSignalCount}>{signal.count}</span>
+                    ) : null}
+                </article>
+            ))}
         </div>
     );
 }
@@ -268,14 +343,16 @@ function OperatorProfileBoard({
                                 <span className={styles.authorMeta}>Operador publico</span>
                             )}
                         </div>
-                        <p className={styles.profileLead}>
-                            {viewModel.identity.headline
-                                ?? 'Perfil publico pronto para publicar snapshots de recoil.'}
-                        </p>
-                        <p className={styles.profileBio}>
-                            {viewModel.identity.bio
-                                ?? 'Acompanhe os posts publicos deste operador e volte para a comunidade para comparar setups, patch e diagnosticos.'}
-                        </p>
+                        {viewModel.identity.headline ? (
+                            <p className={styles.profileLead}>{viewModel.identity.headline}</p>
+                        ) : null}
+                        {viewModel.identity.bio ? (
+                            <p className={styles.profileBio}>{viewModel.identity.bio}</p>
+                        ) : (
+                            <p className={styles.profileBio}>
+                                Bio publica ainda nao publicada neste perfil.
+                            </p>
+                        )}
                     </div>
                 </div>
 
@@ -316,9 +393,193 @@ function OperatorProfileBoard({
                 </p>
             )}
 
+            <ProfileTrustSignalRail signals={viewModel.trustSignals} />
+
             {viewModel.follow.disabledReason ? (
                 <p className={styles.profileStatusNote}>{viewModel.follow.disabledReason}</p>
             ) : null}
+        </section>
+    );
+}
+
+function SetupMetric({
+    label,
+    value,
+}: {
+    readonly label: string;
+    readonly value: string;
+}): JSX.Element {
+    return (
+        <div className={styles.setupMetricRow}>
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+        </div>
+    );
+}
+
+function SetupPlate({
+    title,
+    subtitle,
+    metrics,
+}: {
+    readonly title: string;
+    readonly subtitle: string;
+    readonly metrics: readonly {
+        readonly label: string;
+        readonly value: string;
+    }[];
+}): JSX.Element {
+    return (
+        <article
+            aria-label={title}
+            className={styles.setupPlate}
+            data-community-card="setup-plate"
+        >
+            <div className={styles.setupPlateHeader}>
+                <span className={styles.sectionKicker}>Setup publico</span>
+                <h3>{title}</h3>
+                <p>{subtitle}</p>
+            </div>
+
+            <dl className={styles.setupMetricList}>
+                {metrics.map((metric) => (
+                    <SetupMetric
+                        key={metric.label}
+                        label={metric.label}
+                        value={metric.value}
+                    />
+                ))}
+            </dl>
+        </article>
+    );
+}
+
+function ProfileSetupEmptyState({
+    isSelfProfile,
+}: {
+    readonly isSelfProfile: boolean;
+}): JSX.Element {
+    return (
+        <section
+            className={styles.sectionShell}
+            data-community-section="profile-public-setup"
+        >
+            <div className={styles.emptyState}>
+                <span className={styles.emptyKicker}>Setup publico</span>
+                <h2>{isSelfProfile ? 'Complete seu setup publico' : 'Setup ainda nao publicado'}</h2>
+                <p>
+                    {isSelfProfile
+                        ? 'Preencha os dados de Meu Perfil para liberar as placas de mouse, superficie, grip e PUBG core neste operator plate.'
+                        : 'Este operador ainda nao publicou dados de setup. A comunidade mostra apenas campos liberados pela allowlist publica.'}
+                </p>
+                <div className={styles.emptyActions}>
+                    <Link
+                        className={isSelfProfile ? 'btn btn-primary' : styles.cardAction}
+                        href={isSelfProfile ? '/profile/settings' : '/community'}
+                    >
+                        {isSelfProfile ? 'Completar Meu Perfil' : 'Ver feed da comunidade'}
+                    </Link>
+                </div>
+            </div>
+        </section>
+    );
+}
+
+function ProfileSetupShowcase({
+    publicSetup,
+    isSelfProfile,
+}: {
+    readonly publicSetup: CommunityPublicProfileViewModel['publicSetup'];
+    readonly isSelfProfile: boolean;
+}): JSX.Element {
+    if (!hasPublicSetupData(publicSetup)) {
+        return <ProfileSetupEmptyState isSelfProfile={isSelfProfile} />;
+    }
+
+    return (
+        <section
+            className={styles.sectionShell}
+            data-community-section="profile-public-setup"
+        >
+            <div className={styles.sectionHeader}>
+                <div>
+                    <span className={styles.sectionKicker}>Meu Perfil publico</span>
+                    <h2 className={styles.sectionTitle}>Setup publicado</h2>
+                </div>
+                <p className={styles.sectionSummary}>
+                    Placas montadas somente com campos allowlisted de perfil: aim setup,
+                    superficie/grip e configuracoes PUBG core.
+                </p>
+            </div>
+
+            <div className={styles.setupPlateGrid}>
+                <SetupPlate
+                    title="Aim setup"
+                    subtitle="Mouse, sensor e taxa de leitura usados pelo operador."
+                    metrics={[
+                        {
+                            label: 'Mouse',
+                            value: formatSetupValue(publicSetup.aimSetup.mouseModel),
+                        },
+                        {
+                            label: 'Sensor',
+                            value: formatSetupValue(publicSetup.aimSetup.mouseSensor),
+                        },
+                        {
+                            label: 'DPI',
+                            value: formatSetupValue(publicSetup.aimSetup.mouseDpi),
+                        },
+                        {
+                            label: 'Polling',
+                            value: formatSetupValue(publicSetup.aimSetup.mousePollingRate, { suffix: ' Hz' }),
+                        },
+                    ]}
+                />
+                <SetupPlate
+                    title="Surface/grip"
+                    subtitle="Superficie, friccao e pivots de mira publicados."
+                    metrics={[
+                        {
+                            label: 'Mousepad',
+                            value: formatSetupValue(publicSetup.surfaceGrip.mousepadModel),
+                        },
+                        {
+                            label: 'Surface',
+                            value: formatSetupValue(publicSetup.surfaceGrip.mousepadType),
+                        },
+                        {
+                            label: 'Grip',
+                            value: formatSetupValue(publicSetup.surfaceGrip.gripStyle),
+                        },
+                        {
+                            label: 'Pivot',
+                            value: formatSetupValue(publicSetup.surfaceGrip.playStyle),
+                        },
+                    ]}
+                />
+                <SetupPlate
+                    title="PUBG core"
+                    subtitle="Sensibilidade base publica para comparar snapshots."
+                    metrics={[
+                        {
+                            label: 'General',
+                            value: formatSetupValue(publicSetup.pubgCore.generalSens),
+                        },
+                        {
+                            label: 'ADS',
+                            value: formatSetupValue(publicSetup.pubgCore.adsSens),
+                        },
+                        {
+                            label: 'Vert. Mult',
+                            value: formatSetupValue(publicSetup.pubgCore.verticalMultiplier, { suffix: 'x' }),
+                        },
+                        {
+                            label: 'FOV',
+                            value: formatSetupValue(publicSetup.pubgCore.fov),
+                        },
+                    ]}
+                />
+            </div>
         </section>
     );
 }
@@ -343,13 +604,67 @@ function ProfileMetricStrip({
 
             <dl className={styles.profileMetricGrid}>
                 {profileMetricCards.map((metric) => (
-                    <div key={metric.key} className={styles.profileMetricPlate}>
+                    <div
+                        key={metric.key}
+                        className={styles.profileMetricPlate}
+                        data-community-layout="stable-metric-plate"
+                    >
                         <dt>{metric.label}</dt>
                         <dd>{metrics[metric.key]}</dd>
                         <span>{metric.hint}</span>
                     </div>
                 ))}
             </dl>
+        </section>
+    );
+}
+
+function ProfileRelatedLinkPlate({
+    link,
+}: {
+    readonly link: CommunityProfileRelatedLink;
+}): JSX.Element {
+    return (
+        <article className={styles.relatedPlate}>
+            <span className={styles.sectionKicker}>Relacionado</span>
+            <h3>{link.label}</h3>
+            <p>{link.description}</p>
+            <Link className={styles.cardAction} href={link.href}>
+                Explorar no squad board
+            </Link>
+        </article>
+    );
+}
+
+function ProfileRelatedContentLinks({
+    links,
+}: {
+    readonly links: readonly CommunityProfileRelatedLink[];
+}): JSX.Element | null {
+    if (links.length === 0) {
+        return null;
+    }
+
+    return (
+        <section
+            className={styles.sectionShell}
+            data-community-section="profile-related-links"
+        >
+            <div className={styles.sectionHeader}>
+                <div>
+                    <span className={styles.sectionKicker}>Continuar descobrindo</span>
+                    <h2 className={styles.sectionTitle}>Caminhos relacionados</h2>
+                </div>
+                <p className={styles.sectionSummary}>
+                    Links derivados somente de tags publicas dos snapshots deste perfil.
+                </p>
+            </div>
+
+            <div className={styles.relatedGrid}>
+                {links.map((link) => (
+                    <ProfileRelatedLinkPlate key={link.key} link={link} />
+                ))}
+            </div>
         </section>
     );
 }
@@ -467,7 +782,12 @@ export default async function CommunityUserProfilePage({
                         viewModel={viewModel}
                         viewerCanReport={viewerCanReport}
                     />
+                    <ProfileSetupShowcase
+                        isSelfProfile={viewModel.follow.isSelfProfile}
+                        publicSetup={viewModel.publicSetup}
+                    />
                     <ProfileMetricStrip metrics={viewModel.metrics} />
+                    <ProfileRelatedContentLinks links={viewModel.relatedLinks} />
                     <ProfilePostShowcase
                         emptyState={viewModel.emptyState}
                         posts={viewModel.posts}

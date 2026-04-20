@@ -2,6 +2,7 @@ import { and, count, desc, eq, inArray, isNotNull } from 'drizzle-orm';
 
 import {
     analysisSessions,
+    communityFollows,
     communityPostComments,
     communityPostCopyEvents,
     communityPostLikes,
@@ -20,6 +21,7 @@ import type {
 import {
     buildCommunityAnalysisTags,
     buildCommunityFallbackInitials,
+    formatCommunityCount,
     formatCommunityDiagnosisLabel,
     formatCommunityPatchLabel,
     formatCommunityWeaponLabel,
@@ -34,6 +36,8 @@ import {
 } from './community-highlights';
 
 const COMMUNITY_DISCOVERY_QUERY_LIMIT = 50;
+const COMMUNITY_FOLLOWING_FEED_LIMIT = 4;
+const COMMUNITY_TREND_BOARD_LIMIT = 6;
 
 export interface CommunityDiscoveryFilters {
     readonly weaponId?: string;
@@ -109,6 +113,7 @@ export interface CommunityDiscoveryViewerContext {
     readonly hasPublicProfile: boolean;
     readonly publicProfileHref: string | null;
     readonly publishableAnalysisCount: number;
+    readonly followedUserIds?: readonly string[];
 }
 
 export interface CommunityDiscoveryPostCard {
@@ -143,6 +148,38 @@ export interface CommunityDiscoveryPostCard {
     readonly publishedAtIso: string;
 }
 
+export type CommunityDiscoveryTrendKind = 'weapon' | 'patch' | 'diagnosis';
+
+export interface CommunityDiscoveryTrendItem {
+    readonly key: string;
+    readonly kind: CommunityDiscoveryTrendKind;
+    readonly value: string;
+    readonly label: string;
+    readonly href: string;
+    readonly postCount: number;
+    readonly engagementCount: number;
+    readonly reason: string;
+}
+
+export interface CommunityDiscoveryTrendBoard {
+    readonly items: readonly CommunityDiscoveryTrendItem[];
+    readonly emptyState: CommunityDiscoveryEmptyState | null;
+}
+
+export interface CommunityDiscoveryWeeklyDrillPrompt {
+    readonly trendKey: string | null;
+    readonly title: string;
+    readonly body: string;
+    readonly action: {
+        readonly label: string;
+        readonly href: string;
+    };
+    readonly secondaryAction: {
+        readonly label: string;
+        readonly href: string;
+    };
+}
+
 export interface CommunityDiscoveryViewModel {
     readonly hubSummary: {
         readonly publicPostCount: number;
@@ -162,6 +199,13 @@ export interface CommunityDiscoveryViewModel {
         readonly cards: readonly CommunityDiscoveryPostCard[];
         readonly emptyState: CommunityDiscoveryEmptyState | null;
     };
+    readonly followingFeed: {
+        readonly summary: string;
+        readonly cards: readonly CommunityDiscoveryPostCard[];
+        readonly emptyState: CommunityDiscoveryEmptyState | null;
+    };
+    readonly trendBoard: CommunityDiscoveryTrendBoard;
+    readonly weeklyDrillPrompt: CommunityDiscoveryWeeklyDrillPrompt;
     readonly featuredPosts: CommunityPostHighlightsViewModel;
     readonly creatorHighlights: CommunityCreatorHighlightsViewModel;
     readonly participationPrompts: readonly CommunityDiscoveryParticipationPrompt[];
@@ -186,6 +230,9 @@ export function buildCommunityDiscoveryViewModel(
         matchesDiscoveryFilters(post, selectedFilters),
     );
     const now = input.now ?? new Date();
+    const viewer = input.viewer ?? createAnonymousViewerContext();
+    const followingPosts = buildFollowingFeedPosts(publicPosts, viewer);
+    const trendBoard = buildCommunityTrendBoard({ posts: publicPosts });
 
     return {
         hubSummary: {
@@ -224,6 +271,13 @@ export function buildCommunityDiscoveryViewModel(
             cards: visiblePosts.map(toDiscoveryPostCard),
             emptyState: buildFeedEmptyState(publicPosts.length, visiblePosts.length, selectedFilters),
         },
+        followingFeed: {
+            summary: buildFollowingFeedSummary(followingPosts.length, viewer),
+            cards: followingPosts.slice(0, COMMUNITY_FOLLOWING_FEED_LIMIT).map(toDiscoveryPostCard),
+            emptyState: buildFollowingFeedEmptyState(followingPosts.length, viewer),
+        },
+        trendBoard,
+        weeklyDrillPrompt: buildWeeklyDrillPrompt(trendBoard),
         featuredPosts: buildFeaturedCommunityPostHighlights({
             now,
             posts: publicPosts.map((post) => ({
@@ -245,7 +299,7 @@ export function buildCommunityDiscoveryViewModel(
             now,
             creators: input.creators ?? buildCreatorHighlightSources(publicPosts),
         }),
-        participationPrompts: buildParticipationPrompts(input.viewer ?? createAnonymousViewerContext()),
+        participationPrompts: buildParticipationPrompts(viewer),
     };
 }
 
@@ -522,6 +576,318 @@ function buildFeedEmptyState(
     return null;
 }
 
+function buildFollowingFeedPosts(
+    publicPosts: readonly CommunityDiscoverySourcePost[],
+    viewer: CommunityDiscoveryViewerContext,
+): readonly CommunityDiscoverySourcePost[] {
+    if (!viewer.viewerUserId) {
+        return [];
+    }
+
+    const followedUserIds = new Set(
+        (viewer.followedUserIds ?? [])
+            .map((userId) => userId.trim())
+            .filter(Boolean),
+    );
+
+    if (followedUserIds.size === 0) {
+        return [];
+    }
+
+    return publicPosts.filter((post) =>
+        post.author?.userId ? followedUserIds.has(post.author.userId) : false,
+    );
+}
+
+function buildFollowingFeedSummary(
+    followingPostCount: number,
+    viewer: CommunityDiscoveryViewerContext,
+): string {
+    if (!viewer.viewerUserId) {
+        return 'Entre para acompanhar os creators que voce seguir.';
+    }
+
+    if ((viewer.followedUserIds ?? []).length === 0) {
+        return 'Siga creators para montar um feed tecnico.';
+    }
+
+    if (followingPostCount === 0) {
+        return 'Perfis seguidos ainda sem snapshots publicos recentes.';
+    }
+
+    if (followingPostCount === 1) {
+        return '1 snapshot publico de perfis seguidos.';
+    }
+
+    return `${followingPostCount} snapshots publicos de perfis seguidos.`;
+}
+
+function buildFollowingFeedEmptyState(
+    followingPostCount: number,
+    viewer: CommunityDiscoveryViewerContext,
+): CommunityDiscoveryEmptyState | null {
+    if (followingPostCount > 0) {
+        return null;
+    }
+
+    if (!viewer.viewerUserId) {
+        return {
+            title: 'Entre para montar seu feed seguindo',
+            body: 'O feed seguindo mostra apenas posts publicos dos creators que voce acompanha.',
+            primaryAction: {
+                label: 'Entrar',
+                href: '/login',
+            },
+            secondaryAction: {
+                label: 'Ver creators',
+                href: '/community#creator-plates',
+            },
+        };
+    }
+
+    if ((viewer.followedUserIds ?? []).length === 0) {
+        return {
+            title: 'Voce ainda nao segue creators',
+            body: 'Abra creator plates e siga operadores para preencher este feed com snapshots publicos.',
+            primaryAction: {
+                label: 'Descobrir creators',
+                href: '/community#creator-plates',
+            },
+            secondaryAction: {
+                label: 'Explorar todos',
+                href: '/community',
+            },
+        };
+    }
+
+    return {
+        title: 'Sem posts publicos dos perfis seguidos',
+        body: 'Os creators que voce segue ainda nao publicaram snapshots publicos recentes.',
+        primaryAction: {
+            label: 'Explorar comunidade',
+            href: '/community',
+        },
+        secondaryAction: {
+            label: 'Publicar analise',
+            href: '/history',
+        },
+    };
+}
+
+interface CommunityTrendAccumulator {
+    readonly key: string;
+    readonly kind: CommunityDiscoveryTrendKind;
+    readonly value: string;
+    readonly label: string;
+    readonly href: string;
+    readonly postIds: Set<string>;
+    likeCount: number;
+    commentCount: number;
+    copyCount: number;
+    saveCount: number;
+    lastPublishedAt: Date | null;
+}
+
+export function buildCommunityTrendBoard(input: {
+    readonly posts: readonly CommunityDiscoverySourcePost[];
+    readonly maxItems?: number;
+}): CommunityDiscoveryTrendBoard {
+    const trends = new Map<string, CommunityTrendAccumulator>();
+
+    for (const post of input.posts.filter(isPublicDiscoveryPost)) {
+        addTrendSignal(trends, post, 'weapon', post.primaryWeaponId);
+        addTrendSignal(trends, post, 'patch', post.primaryPatchVersion);
+        addTrendSignal(trends, post, 'diagnosis', post.primaryDiagnosisKey);
+    }
+
+    const items = [...trends.values()]
+        .filter((trend) => trend.postIds.size >= 2)
+        .sort(compareTrendAccumulators)
+        .slice(0, input.maxItems ?? COMMUNITY_TREND_BOARD_LIMIT)
+        .map(toTrendItem);
+
+    return {
+        items,
+        emptyState: items.length > 0
+            ? null
+            : {
+                title: 'Sem tendencia publica suficiente',
+                body: 'Publique ou explore analises para formar sinais por arma, patch e diagnostico.',
+                primaryAction: {
+                    label: 'Analisar recoil',
+                    href: '/analyze',
+                },
+                secondaryAction: {
+                    label: 'Abrir historico',
+                    href: '/history',
+                },
+            },
+    };
+}
+
+function addTrendSignal(
+    trends: Map<string, CommunityTrendAccumulator>,
+    post: CommunityDiscoverySourcePost,
+    kind: CommunityDiscoveryTrendKind,
+    value: string | null,
+): void {
+    const normalizedValue = value?.trim();
+
+    if (!normalizedValue) {
+        return;
+    }
+
+    const key = `${kind}:${normalizedValue}`;
+    const existingTrend = trends.get(key) ?? createTrendAccumulator(kind, normalizedValue);
+
+    existingTrend.postIds.add(post.id);
+    existingTrend.likeCount += toSafeCommunityCount(post.engagement.likeCount);
+    existingTrend.commentCount += toSafeCommunityCount(post.engagement.commentCount);
+    existingTrend.copyCount += toSafeCommunityCount(post.engagement.copyCount);
+    existingTrend.saveCount += toSafeCommunityCount(post.engagement.saveCount);
+
+    if (
+        post.publishedAt instanceof Date
+        && (!existingTrend.lastPublishedAt || post.publishedAt > existingTrend.lastPublishedAt)
+    ) {
+        existingTrend.lastPublishedAt = post.publishedAt;
+    }
+
+    trends.set(key, existingTrend);
+}
+
+function createTrendAccumulator(
+    kind: CommunityDiscoveryTrendKind,
+    value: string,
+): CommunityTrendAccumulator {
+    const filterKeyByKind = {
+        weapon: 'weaponId',
+        patch: 'patchVersion',
+        diagnosis: 'diagnosisKey',
+    } as const;
+    const labelByKind = {
+        weapon: formatCommunityWeaponLabel,
+        patch: formatCommunityPatchLabel,
+        diagnosis: formatCommunityDiagnosisLabel,
+    } as const;
+
+    return {
+        key: `${kind}:${value}`,
+        kind,
+        value,
+        label: labelByKind[kind](value),
+        href: createFilterHref(filterKeyByKind[kind], value),
+        postIds: new Set<string>(),
+        likeCount: 0,
+        commentCount: 0,
+        copyCount: 0,
+        saveCount: 0,
+        lastPublishedAt: null,
+    };
+}
+
+function getTrendScore(trend: CommunityTrendAccumulator): number {
+    return trend.postIds.size * 10
+        + trend.copyCount * 4
+        + trend.saveCount * 3
+        + trend.commentCount * 2
+        + trend.likeCount;
+}
+
+function compareTrendAccumulators(
+    left: CommunityTrendAccumulator,
+    right: CommunityTrendAccumulator,
+): number {
+    const scoreDelta = getTrendScore(right) - getTrendScore(left);
+
+    if (scoreDelta !== 0) {
+        return scoreDelta;
+    }
+
+    return (right.lastPublishedAt?.getTime() ?? 0) - (left.lastPublishedAt?.getTime() ?? 0);
+}
+
+function toTrendItem(trend: CommunityTrendAccumulator): CommunityDiscoveryTrendItem {
+    return {
+        key: trend.key,
+        kind: trend.kind,
+        value: trend.value,
+        label: trend.label,
+        href: trend.href,
+        postCount: trend.postIds.size,
+        engagementCount: trend.likeCount + trend.commentCount + trend.copyCount + trend.saveCount,
+        reason: formatTrendReason(trend),
+    };
+}
+
+function formatTrendReason(trend: CommunityTrendAccumulator): string {
+    const postSummary = formatCommunityCount(
+        trend.postIds.size,
+        'post publico',
+        'posts publicos',
+    );
+
+    if (trend.copyCount > 0) {
+        return `${postSummary} com ${formatCommunityCount(trend.copyCount, 'preset copiado', 'presets copiados')}.`;
+    }
+
+    if (trend.saveCount > 0) {
+        return `${postSummary} com ${formatCommunityCount(trend.saveCount, 'drill salvo', 'drills salvos')}.`;
+    }
+
+    if (trend.commentCount > 0) {
+        return `${postSummary} com ${formatCommunityCount(trend.commentCount, 'comentario publico', 'comentarios publicos')}.`;
+    }
+
+    if (trend.likeCount > 0) {
+        return `${postSummary} com ${formatCommunityCount(trend.likeCount, 'curtida publica', 'curtidas publicas')}.`;
+    }
+
+    return `${postSummary} recentes.`;
+}
+
+function buildWeeklyDrillPrompt(
+    trendBoard: CommunityDiscoveryTrendBoard,
+): CommunityDiscoveryWeeklyDrillPrompt {
+    const topTrend = trendBoard.items[0];
+
+    if (!topTrend) {
+        return {
+            trendKey: null,
+            title: 'Drill semanal: publique um snapshot base',
+            body: 'Sem tendencia publica suficiente ainda. Rode uma analise, salve o historico e publique um snapshot para abrir o proximo sinal.',
+            action: {
+                label: 'Analisar recoil',
+                href: '/analyze',
+            },
+            secondaryAction: {
+                label: 'Abrir historico',
+                href: '/history',
+            },
+        };
+    }
+
+    const titlePrefixByKind = {
+        weapon: 'estabilizar',
+        patch: 'validar',
+        diagnosis: 'corrigir',
+    } as const;
+
+    return {
+        trendKey: topTrend.key,
+        title: `Drill semanal: ${titlePrefixByKind[topTrend.kind]} ${topTrend.label}`,
+        body: `${topTrend.reason} Grave um spray novo, compare o recoil e publique o snapshot quando o preset estiver consistente.`,
+        action: {
+            label: 'Ver tendencia',
+            href: topTrend.href,
+        },
+        secondaryAction: {
+            label: 'Analisar recoil',
+            href: '/analyze',
+        },
+    };
+}
+
 function toDiscoveryPostCard(post: CommunityDiscoverySourcePost): CommunityDiscoveryPostCard {
     const href = `/community/${post.slug}`;
     const displayName = post.author?.displayName?.trim() || 'Operador publico';
@@ -601,6 +967,7 @@ function createAnonymousViewerContext(): CommunityDiscoveryViewerContext {
         hasPublicProfile: false,
         publicProfileHref: null,
         publishableAnalysisCount: 0,
+        followedUserIds: [],
     };
 }
 
@@ -679,7 +1046,7 @@ async function getCommunityDiscoveryViewerContext(
     }
 
     const { db } = await import('@/db');
-    const [[profile], [analysisCountRow]] = await Promise.all([
+    const [[profile], [analysisCountRow], followRows] = await Promise.all([
         db
             .select({
                 slug: communityProfiles.slug,
@@ -695,6 +1062,12 @@ async function getCommunityDiscoveryViewerContext(
             .from(analysisSessions)
             .where(eq(analysisSessions.userId, normalizedViewerUserId))
             .limit(1),
+        db
+            .select({
+                followedUserId: communityFollows.followedUserId,
+            })
+            .from(communityFollows)
+            .where(eq(communityFollows.followerUserId, normalizedViewerUserId)),
     ]);
 
     const hasPublicProfile = profile?.visibility === 'public';
@@ -704,6 +1077,7 @@ async function getCommunityDiscoveryViewerContext(
         hasPublicProfile,
         publicProfileHref: hasPublicProfile ? `/community/users/${profile.slug}` : null,
         publishableAnalysisCount: toSafeCommunityCount(analysisCountRow?.count),
+        followedUserIds: followRows.map((row) => row.followedUserId),
     };
 }
 

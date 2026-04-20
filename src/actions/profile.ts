@@ -6,10 +6,16 @@
 'use server';
 
 import { db } from '@/db';
-import { playerProfiles, analysisSessions, sessions as authSessions, users } from '@/db/schema';
+import {
+    analysisSessions,
+    communityProfiles,
+    playerProfiles,
+    sessions as authSessions,
+    users,
+} from '@/db/schema';
 import { auth } from '@/auth';
 import { playerProfileSchema } from '@/types/schemas';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { normalizeScopeSensitivityMap } from '@/game/pubg';
 
@@ -77,6 +83,23 @@ export const saveProfile = authActionClient
             }
 
             revalidatePath('/profile');
+            const [publicCommunityProfile] = await db
+                .select({
+                    slug: communityProfiles.slug,
+                })
+                .from(communityProfiles)
+                .where(
+                    and(
+                        eq(communityProfiles.userId, session.user.id),
+                        eq(communityProfiles.visibility, 'public'),
+                    ),
+                )
+                .limit(1);
+
+            if (publicCommunityProfile?.slug) {
+                revalidatePath(`/community/users/${publicCommunityProfile.slug}`);
+            }
+
             return { success: true };
         } catch (err) {
             console.error('[saveProfile] CRITICAL ERROR:', err);

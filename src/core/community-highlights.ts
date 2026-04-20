@@ -11,6 +11,11 @@ import {
     formatCommunityCount,
     formatCommunityCreatorStatusBadge,
 } from './community-public-formatting';
+import {
+    buildCreatorTrustSignals,
+    buildPostTrustSignals,
+    type CommunityTrustSignal,
+} from './community-trust-signals';
 
 export interface CommunityHighlightSourcePost {
     readonly id: string;
@@ -67,6 +72,7 @@ export interface CommunityPostHighlight {
     readonly title: string;
     readonly excerpt: string;
     readonly reason: string;
+    readonly trustSignals: readonly CommunityTrustSignal[];
     readonly analysisTags: readonly {
         readonly key: 'weapon' | 'patch' | 'diagnosis';
         readonly value: string;
@@ -80,6 +86,7 @@ export interface CommunityCreatorHighlight {
     readonly displayName: string;
     readonly badge: CommunityCreatorBadge | null;
     readonly reasons: readonly string[];
+    readonly trustSignals: readonly CommunityTrustSignal[];
 }
 
 export interface CommunityPostHighlightsViewModel {
@@ -116,6 +123,14 @@ export function buildFeaturedCommunityPostHighlights(
             title: post.title,
             excerpt: post.excerpt,
             reason: formatPostHighlightReason(post),
+            trustSignals: buildPostTrustSignals({
+                status: post.status,
+                visibility: post.visibility,
+                publishedAt: post.publishedAt,
+                primaryPatchVersion: post.primaryPatchVersion,
+                copyCount: post.engagement.copyCount,
+                saveCount: post.engagement.saveCount,
+            }),
             analysisTags: buildCommunityAnalysisTags({
                 weaponId: post.primaryWeaponId,
                 patchVersion: post.primaryPatchVersion,
@@ -151,6 +166,12 @@ export function buildCommunityCreatorHighlights(
             displayName: creator.displayName,
             badge: formatCommunityCreatorBadge(creator.creatorProgramStatus),
             reasons: buildCreatorHighlightReasons(creator),
+            trustSignals: buildCreatorTrustSignals({
+                creatorProgramStatus: creator.creatorProgramStatus,
+                followerCount: creator.followerCount,
+                publicPostCount: creator.publicPostCount,
+                copyCount: creator.copyCount,
+            }),
         }));
 
     return {

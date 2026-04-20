@@ -8,6 +8,8 @@ import {
     communityPostSaves,
     communityPosts,
     communityProfiles,
+    playerProfiles,
+    users,
 } from '@/db/schema';
 import type {
     CommunityCreatorProgramStatus,
@@ -25,6 +27,10 @@ import {
     normalizeCommunityExternalLinks,
     toSafeCommunityCount,
 } from './community-public-formatting';
+import {
+    buildProfileTrustSignals,
+    type CommunityTrustSignal,
+} from './community-trust-signals';
 
 export interface CommunityPublicProfileSourceProfile {
     readonly userId: string;
@@ -37,6 +43,29 @@ export interface CommunityPublicProfileSourceProfile {
     readonly links: readonly CommunityProfileLink[];
     readonly visibility: CommunityProfileVisibility;
     readonly creatorProgramStatus: CommunityCreatorProgramStatus;
+}
+
+export interface CommunityPublicProfileSourceUser {
+    readonly name: string | null;
+    readonly image: string | null;
+}
+
+export interface CommunityPublicProfileSourcePlayerProfile {
+    readonly bio?: string | null;
+    readonly twitter?: string | null;
+    readonly twitch?: string | null;
+    readonly mouseModel?: string | null;
+    readonly mouseSensor?: string | null;
+    readonly mouseDpi?: number | null;
+    readonly mousePollingRate?: number | null;
+    readonly mousepadModel?: string | null;
+    readonly mousepadType?: string | null;
+    readonly gripStyle?: string | null;
+    readonly playStyle?: string | null;
+    readonly generalSens?: number | null;
+    readonly adsSens?: number | null;
+    readonly verticalMultiplier?: number | null;
+    readonly fov?: number | null;
 }
 
 export interface CommunityPublicProfileSourcePost {
@@ -84,6 +113,35 @@ export interface CommunityPublicProfilePostCard {
     };
 }
 
+export interface CommunityPublicProfileRelatedLink {
+    readonly key: string;
+    readonly label: string;
+    readonly href: string;
+    readonly description: string;
+    readonly postCount: number;
+}
+
+export interface CommunityPublicProfilePublicSetup {
+    readonly aimSetup: {
+        readonly mouseModel: string | null;
+        readonly mouseSensor: string | null;
+        readonly mouseDpi: number | null;
+        readonly mousePollingRate: number | null;
+    };
+    readonly surfaceGrip: {
+        readonly mousepadModel: string | null;
+        readonly mousepadType: string | null;
+        readonly gripStyle: string | null;
+        readonly playStyle: string | null;
+    };
+    readonly pubgCore: {
+        readonly generalSens: number | null;
+        readonly adsSens: number | null;
+        readonly verticalMultiplier: number | null;
+        readonly fov: number | null;
+    };
+}
+
 export interface CommunityPublicProfileViewModel {
     readonly identity: {
         readonly profileId: string;
@@ -115,6 +173,7 @@ export interface CommunityPublicProfileViewModel {
         readonly copyCount: number;
         readonly saveCount: number;
     };
+    readonly trustSignals: readonly CommunityTrustSignal[];
     readonly follow: {
         readonly followerCount: number;
         readonly viewerIsFollowing: boolean;
@@ -123,6 +182,8 @@ export interface CommunityPublicProfileViewModel {
         readonly actionLabel: string;
         readonly disabledReason: string | null;
     };
+    readonly publicSetup: CommunityPublicProfilePublicSetup | null;
+    readonly relatedLinks: readonly CommunityPublicProfileRelatedLink[];
     readonly posts: readonly CommunityPublicProfilePostCard[];
     readonly emptyState: {
         readonly title: string;
@@ -136,6 +197,8 @@ export interface CommunityPublicProfileViewModel {
 
 export interface BuildPublicCommunityProfileViewModelInput {
     readonly profile: CommunityPublicProfileSourceProfile;
+    readonly user?: CommunityPublicProfileSourceUser | null;
+    readonly playerProfile?: CommunityPublicProfileSourcePlayerProfile | null;
     readonly posts: readonly CommunityPublicProfileSourcePost[];
     readonly creatorMetrics: CommunityPublicProfileCreatorMetrics;
     readonly followState: CommunityPublicProfileFollowState;
@@ -146,36 +209,62 @@ export function buildPublicCommunityProfileViewModel(
     input: BuildPublicCommunityProfileViewModelInput,
 ): CommunityPublicProfileViewModel {
     const profileHref = `/community/users/${input.profile.slug}`;
-    const publicPosts = input.posts
+    const publicSourcePosts = input.posts
         .filter(isPublicProfilePost)
-        .sort(compareProfilePostsByRecency)
-        .map(toProfilePostCard);
+        .sort(compareProfilePostsByRecency);
+    const publicPosts = publicSourcePosts.map(toProfilePostCard);
     const isSelfProfile = input.viewerUserId === input.profile.userId;
     const canFollow = Boolean(input.viewerUserId) && !isSelfProfile;
+    const displayName = firstPublicText(input.profile.displayName, input.user?.name) ?? 'Operador PUBG';
+    const avatarUrl = firstPublicText(input.profile.avatarUrl, input.user?.image);
+    const headline = firstPublicText(
+        input.profile.headline,
+        buildPublicSetupHeadline(input.playerProfile ?? null),
+    );
+    const bio = firstPublicText(input.profile.bio, input.playerProfile?.bio);
+    const fallbackInitials = buildCommunityFallbackInitials(displayName);
+    const links = normalizePublicProfileLinks({
+        communityLinks: input.profile.links,
+        playerProfile: input.playerProfile ?? null,
+    });
+    const publicSetup = toPublicSetup(input.playerProfile ?? null);
+    const metrics = {
+        followerCount: toSafeCommunityCount(input.followState.followerCount),
+        publicPostCount: toSafeCommunityCount(input.creatorMetrics.publicPostCount),
+        likeCount: toSafeCommunityCount(input.creatorMetrics.likeCount),
+        commentCount: toSafeCommunityCount(input.creatorMetrics.commentCount),
+        copyCount: toSafeCommunityCount(input.creatorMetrics.copyCount),
+        saveCount: toSafeCommunityCount(input.creatorMetrics.saveCount),
+    };
 
     return {
         identity: {
             profileId: input.profile.profileId,
             slug: input.profile.slug,
-            displayName: input.profile.displayName,
-            headline: input.profile.headline,
-            bio: input.profile.bio,
-            avatarUrl: input.profile.avatarUrl,
-            fallbackInitials: buildCommunityFallbackInitials(input.profile.displayName),
+            displayName,
+            headline,
+            bio,
+            avatarUrl,
+            fallbackInitials,
             creatorProgramStatus: input.profile.creatorProgramStatus,
             creatorBadge: formatCommunityCreatorStatusBadge(input.profile.creatorProgramStatus),
             profileHref,
             canonicalPath: profileHref,
         },
-        links: normalizeCommunityExternalLinks(input.profile.links),
-        metrics: {
-            followerCount: toSafeCommunityCount(input.followState.followerCount),
-            publicPostCount: toSafeCommunityCount(input.creatorMetrics.publicPostCount),
-            likeCount: toSafeCommunityCount(input.creatorMetrics.likeCount),
-            commentCount: toSafeCommunityCount(input.creatorMetrics.commentCount),
-            copyCount: toSafeCommunityCount(input.creatorMetrics.copyCount),
-            saveCount: toSafeCommunityCount(input.creatorMetrics.saveCount),
-        },
+        links,
+        metrics,
+        trustSignals: buildProfileTrustSignals({
+            creatorProgramStatus: input.profile.creatorProgramStatus,
+            displayName,
+            avatarUrl,
+            fallbackInitials,
+            bio,
+            linkCount: links.length,
+            publicSetup,
+            publicPostCount: metrics.publicPostCount,
+            copyCount: metrics.copyCount,
+            saveCount: metrics.saveCount,
+        }),
         follow: {
             followerCount: toSafeCommunityCount(input.followState.followerCount),
             viewerIsFollowing: canFollow ? input.followState.viewerIsFollowing : false,
@@ -203,6 +292,8 @@ export function buildPublicCommunityProfileViewModel(
                     href: '/community',
                 },
             },
+        publicSetup,
+        relatedLinks: buildPublicProfileRelatedLinks(publicSourcePosts),
     };
 }
 
@@ -248,29 +339,60 @@ export async function getPublicCommunityProfileViewModel(
         return null;
     }
 
-    const storedPosts = await db
-        .select({
-            id: communityPosts.id,
-            slug: communityPosts.slug,
-            title: communityPosts.title,
-            excerpt: communityPosts.excerpt,
-            status: communityPosts.status,
-            visibility: communityPosts.visibility,
-            publishedAt: communityPosts.publishedAt,
-            primaryWeaponId: communityPosts.primaryWeaponId,
-            primaryPatchVersion: communityPosts.primaryPatchVersion,
-            primaryDiagnosisKey: communityPosts.primaryDiagnosisKey,
-        })
-        .from(communityPosts)
-        .where(
-            and(
-                eq(communityPosts.communityProfileId, storedProfile.profileId),
-                eq(communityPosts.status, 'published'),
-                eq(communityPosts.visibility, 'public'),
-                isNotNull(communityPosts.publishedAt),
-            ),
-        )
-        .orderBy(desc(communityPosts.publishedAt));
+    const [storedPosts, storedUsers, storedPlayerProfiles] = await Promise.all([
+        db
+            .select({
+                id: communityPosts.id,
+                slug: communityPosts.slug,
+                title: communityPosts.title,
+                excerpt: communityPosts.excerpt,
+                status: communityPosts.status,
+                visibility: communityPosts.visibility,
+                publishedAt: communityPosts.publishedAt,
+                primaryWeaponId: communityPosts.primaryWeaponId,
+                primaryPatchVersion: communityPosts.primaryPatchVersion,
+                primaryDiagnosisKey: communityPosts.primaryDiagnosisKey,
+            })
+            .from(communityPosts)
+            .where(
+                and(
+                    eq(communityPosts.communityProfileId, storedProfile.profileId),
+                    eq(communityPosts.status, 'published'),
+                    eq(communityPosts.visibility, 'public'),
+                    isNotNull(communityPosts.publishedAt),
+                ),
+            )
+            .orderBy(desc(communityPosts.publishedAt)),
+        db
+            .select({
+                name: users.name,
+                image: users.image,
+            })
+            .from(users)
+            .where(eq(users.id, storedProfile.userId))
+            .limit(1),
+        db
+            .select({
+                bio: playerProfiles.bio,
+                twitter: playerProfiles.twitter,
+                twitch: playerProfiles.twitch,
+                mouseModel: playerProfiles.mouseModel,
+                mouseSensor: playerProfiles.mouseSensor,
+                mouseDpi: playerProfiles.mouseDpi,
+                mousePollingRate: playerProfiles.mousePollingRate,
+                mousepadModel: playerProfiles.mousepadModel,
+                mousepadType: playerProfiles.mousepadType,
+                gripStyle: playerProfiles.gripStyle,
+                playStyle: playerProfiles.playStyle,
+                generalSens: playerProfiles.generalSens,
+                adsSens: playerProfiles.adsSens,
+                verticalMultiplier: playerProfiles.verticalMultiplier,
+                fov: playerProfiles.fov,
+            })
+            .from(playerProfiles)
+            .where(eq(playerProfiles.userId, storedProfile.userId))
+            .limit(1),
+    ]);
     const postIds = storedPosts.map((post) => post.id);
     const [creatorMetrics, followState] = await Promise.all([
         getPublicProfileMetrics(postIds),
@@ -282,11 +404,149 @@ export async function getPublicCommunityProfileViewModel(
 
     return buildPublicCommunityProfileViewModel({
         profile: storedProfile,
+        user: storedUsers[0] ?? null,
+        playerProfile: storedPlayerProfiles[0] ?? null,
         posts: storedPosts,
         creatorMetrics,
         followState,
         viewerUserId: input.viewerUserId,
     });
+}
+
+function firstPublicText(
+    ...values: readonly (string | null | undefined)[]
+): string | null {
+    for (const value of values) {
+        const normalizedValue = value?.trim();
+
+        if (normalizedValue) {
+            return normalizedValue;
+        }
+    }
+
+    return null;
+}
+
+function normalizePublicProfileLinks(input: {
+    readonly communityLinks: readonly CommunityProfileLink[];
+    readonly playerProfile: CommunityPublicProfileSourcePlayerProfile | null;
+}): CommunityPublicProfileViewModel['links'] {
+    const playerLinks: CommunityProfileLink[] = [
+        createPlayerSocialLink({
+            label: 'X',
+            value: input.playerProfile?.twitter ?? null,
+            domains: ['x.com', 'twitter.com'],
+            handleBaseUrl: 'https://x.com/',
+        }),
+        createPlayerSocialLink({
+            label: 'Twitch',
+            value: input.playerProfile?.twitch ?? null,
+            domains: ['twitch.tv', 'www.twitch.tv'],
+            handleBaseUrl: 'https://twitch.tv/',
+        }),
+    ].filter((link): link is CommunityProfileLink => Boolean(link));
+    const links = normalizeCommunityExternalLinks([
+        ...input.communityLinks,
+        ...playerLinks,
+    ]);
+    const seenUrls = new Set<string>();
+
+    return links.filter((link) => {
+        const dedupeKey = link.url.toLowerCase();
+
+        if (seenUrls.has(dedupeKey)) {
+            return false;
+        }
+
+        seenUrls.add(dedupeKey);
+        return true;
+    });
+}
+
+function createPlayerSocialLink(input: {
+    readonly label: string;
+    readonly value: string | null;
+    readonly domains: readonly string[];
+    readonly handleBaseUrl: string;
+}): CommunityProfileLink | null {
+    const normalizedValue = input.value?.trim();
+
+    if (!normalizedValue) {
+        return null;
+    }
+
+    const candidateUrl = /^[a-z][a-z\d+.-]*:/i.test(normalizedValue)
+        ? normalizedValue
+        : `${input.handleBaseUrl}${normalizedValue.replace(/^@/, '')}`;
+
+    try {
+        const parsedUrl = new URL(candidateUrl);
+        const host = parsedUrl.hostname.toLowerCase().replace(/^www\./, '');
+        const allowedDomains = input.domains.map((domain) => domain.toLowerCase().replace(/^www\./, ''));
+
+        if ((parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:')
+            || !allowedDomains.includes(host)
+            || parsedUrl.pathname === '/') {
+            return null;
+        }
+
+        return {
+            label: input.label,
+            url: parsedUrl.toString(),
+        };
+    } catch {
+        return null;
+    }
+}
+
+function toPublicSetup(
+    playerProfile: CommunityPublicProfileSourcePlayerProfile | null,
+): CommunityPublicProfilePublicSetup | null {
+    if (!playerProfile) {
+        return null;
+    }
+
+    return {
+        aimSetup: {
+            mouseModel: firstPublicText(playerProfile.mouseModel),
+            mouseSensor: firstPublicText(playerProfile.mouseSensor),
+            mouseDpi: playerProfile.mouseDpi ?? null,
+            mousePollingRate: playerProfile.mousePollingRate ?? null,
+        },
+        surfaceGrip: {
+            mousepadModel: firstPublicText(playerProfile.mousepadModel),
+            mousepadType: firstPublicText(playerProfile.mousepadType),
+            gripStyle: firstPublicText(playerProfile.gripStyle),
+            playStyle: firstPublicText(playerProfile.playStyle),
+        },
+        pubgCore: {
+            generalSens: playerProfile.generalSens ?? null,
+            adsSens: playerProfile.adsSens ?? null,
+            verticalMultiplier: playerProfile.verticalMultiplier ?? null,
+            fov: playerProfile.fov ?? null,
+        },
+    };
+}
+
+function buildPublicSetupHeadline(
+    playerProfile: CommunityPublicProfileSourcePlayerProfile | null,
+): string | null {
+    const gripStyle = firstPublicText(playerProfile?.gripStyle);
+    const playStyle = firstPublicText(playerProfile?.playStyle);
+
+    if (gripStyle && playStyle) {
+        return `Grip ${gripStyle} / ${playStyle}`;
+    }
+
+    if (gripStyle) {
+        return `Grip ${gripStyle}`;
+    }
+
+    if (playStyle) {
+        return `Setup ${playStyle}`;
+    }
+
+    return null;
 }
 
 function isPublicProfilePost(post: CommunityPublicProfileSourcePost): boolean {
@@ -323,6 +583,71 @@ function toProfilePostCard(post: CommunityPublicProfileSourcePost): CommunityPub
             href,
         },
     };
+}
+
+function buildPublicProfileRelatedLinks(
+    publicPosts: readonly CommunityPublicProfileSourcePost[],
+): readonly CommunityPublicProfileRelatedLink[] {
+    const links = new Map<string, CommunityPublicProfileRelatedLink>();
+
+    for (const post of publicPosts) {
+        for (const tag of buildCommunityAnalysisTags({
+            weaponId: post.primaryWeaponId,
+            patchVersion: post.primaryPatchVersion,
+            diagnosisKey: post.primaryDiagnosisKey,
+        })) {
+            const key = `${tag.key}:${tag.value}`;
+            const existingLink = links.get(key);
+            const postCount = (existingLink?.postCount ?? 0) + 1;
+
+            links.set(key, {
+                key,
+                label: tag.label,
+                href: createProfileRelatedHref(tag),
+                description: formatProfileRelatedDescription(tag.key, postCount),
+                postCount,
+            });
+        }
+    }
+
+    return [...links.values()]
+        .sort((left, right) => {
+            const countDelta = right.postCount - left.postCount;
+
+            if (countDelta !== 0) {
+                return countDelta;
+            }
+
+            return left.label.localeCompare(right.label, 'pt-BR');
+        })
+        .slice(0, 6);
+}
+
+function createProfileRelatedHref(
+    tag: CommunityPublicProfilePostCard['analysisTags'][number],
+): string {
+    const queryKeyByTagKey = {
+        weapon: 'weaponId',
+        patch: 'patchVersion',
+        diagnosis: 'diagnosisKey',
+    } as const;
+
+    return `/community?${new URLSearchParams({
+        [queryKeyByTagKey[tag.key]]: tag.value,
+    }).toString()}`;
+}
+
+function formatProfileRelatedDescription(
+    key: CommunityPublicProfilePostCard['analysisTags'][number]['key'],
+    postCount: number,
+): string {
+    const nounByKey = {
+        weapon: postCount === 1 ? 'snapshot desta arma' : 'snapshots desta arma',
+        patch: postCount === 1 ? 'snapshot deste patch' : 'snapshots deste patch',
+        diagnosis: postCount === 1 ? 'snapshot deste diagnostico' : 'snapshots deste diagnostico',
+    } as const;
+
+    return `${postCount} ${nounByKey[key]} no perfil publico.`;
 }
 
 function resolveFollowActionLabel(input: {

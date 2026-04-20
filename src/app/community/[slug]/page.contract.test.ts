@@ -23,4 +23,14 @@ describe('/community/[slug] page contract', () => {
         expect(source).toMatch(/diagnosisKey/);
         expect(source).toMatch(/\/community\?/);
     });
+
+    it('keeps report actions visible for posts and comments with login states', () => {
+        const detailSource = readFileSync(new URL('./post-detail.tsx', import.meta.url), 'utf8');
+
+        expect(detailSource).toMatch(/<ReportButton[\s\S]*entityType=["']post["']/);
+        expect(detailSource).toMatch(/<ReportButton[\s\S]*entityType=["']comment["']/);
+        expect(detailSource).toMatch(/disabledHref=\{post\.viewerCanReport \? undefined : ['"]\/login['"]\}/);
+        expect(detailSource).toMatch(/Entre na sua conta para reportar conteudo da comunidade/);
+        expect(detailSource).toMatch(/Entre na sua conta para reportar este comentario/);
+    });
 });

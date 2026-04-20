@@ -48,6 +48,9 @@ type CommunityAnalysisTag = CommunityDiscoveryPostCard['analysisTags'][number];
 type FeaturedPost = CommunityDiscoveryViewModel['featuredPosts']['items'][number];
 type CreatorHighlight = CommunityDiscoveryViewModel['creatorHighlights']['items'][number];
 type ParticipationPrompt = CommunityDiscoveryViewModel['participationPrompts'][number];
+type TrendItem = CommunityDiscoveryViewModel['trendBoard']['items'][number];
+type WeeklyDrillPrompt = CommunityDiscoveryViewModel['weeklyDrillPrompt'];
+type TrustSignal = FeaturedPost['trustSignals'][number];
 
 const COMMUNITY_PROFILE_PATH_PREFIX = '/community/users/';
 
@@ -108,6 +111,39 @@ function LoadoutChip({ tag }: { readonly tag: CommunityAnalysisTag }): React.JSX
         >
             {tag.label}
         </Link>
+    );
+}
+
+function TrustSignalRail({
+    signals,
+}: {
+    readonly signals: readonly TrustSignal[];
+}): React.JSX.Element | null {
+    if (signals.length === 0) {
+        return null;
+    }
+
+    return (
+        <div
+            aria-label="Sinais publicos explicaveis"
+            className={styles.trustSignalRailCompact}
+            data-community-layout="stable-trust-rail"
+            data-community-section="community-trust-rail"
+        >
+            {signals.map((signal) => (
+                <article
+                    key={signal.key}
+                    className={styles.trustSignalPill}
+                    data-community-signal="community-trust-signal"
+                >
+                    <span className={styles.trustSignalLabel}>{signal.label}</span>
+                    <span className={styles.trustSignalReason}>{signal.reason}</span>
+                    {signal.count !== null ? (
+                        <span className={styles.trustSignalCount}>{signal.count}</span>
+                    ) : null}
+                </article>
+            ))}
+        </div>
     );
 }
 
@@ -311,6 +347,7 @@ function FeaturedSnapshotPlate({ post }: {
     return (
         <article className={styles.featuredPlate} data-community-card="snapshot-plate">
             <div className={styles.featuredReason}>{post.reason}</div>
+            <TrustSignalRail signals={post.trustSignals} />
             <LoadoutChips tags={post.analysisTags} />
             <div className={styles.snapshotBody}>
                 <h3 className={styles.snapshotTitle}>
@@ -376,6 +413,101 @@ function FeaturedSection({ featuredPosts }: {
     );
 }
 
+function FollowingFeed({ followingFeed }: {
+    readonly followingFeed: CommunityDiscoveryViewModel['followingFeed'];
+}): React.JSX.Element {
+    return (
+        <section className={styles.sectionShell} data-community-section="following-feed">
+            <div className={styles.sectionHeader}>
+                <div>
+                    <span className={styles.sectionKicker}>Seguindo</span>
+                    <h2 className={styles.sectionTitle}>Feed dos creators acompanhados</h2>
+                </div>
+                <p className={styles.sectionSummary}>{followingFeed.summary}</p>
+            </div>
+
+            {followingFeed.cards.length > 0 ? (
+                <div className={styles.feedGrid}>
+                    {followingFeed.cards.map((card) => (
+                        <SnapshotPlate key={card.id} card={card} />
+                    ))}
+                </div>
+            ) : followingFeed.emptyState ? (
+                <ActionableEmptyState emptyState={followingFeed.emptyState} />
+            ) : null}
+        </section>
+    );
+}
+
+function TrendPlate({ trend }: {
+    readonly trend: TrendItem;
+}): React.JSX.Element {
+    return (
+        <article className={styles.trendPlate}>
+            <div className={styles.trendTopline}>
+                <span className={styles.sectionKicker}>{trend.kind}</span>
+                <span className={styles.trendCount}>{trend.postCount}</span>
+            </div>
+            <h3>{trend.label}</h3>
+            <p>{trend.reason}</p>
+            <Link className={styles.cardAction} href={trend.href}>
+                Ver filtro
+            </Link>
+        </article>
+    );
+}
+
+function TrendBoard({ trendBoard }: {
+    readonly trendBoard: CommunityDiscoveryViewModel['trendBoard'];
+}): React.JSX.Element {
+    return (
+        <section className={styles.sectionShell} data-community-section="trend-board">
+            <div className={styles.sectionHeader}>
+                <div>
+                    <span className={styles.sectionKicker}>Trend board</span>
+                    <h2 className={styles.sectionTitle}>Armas, patches e diagnosticos em alta</h2>
+                </div>
+                <p className={styles.sectionSummary}>
+                    Tendencias aparecem apenas quando posts publicos repetem contexto e geram
+                    sinais publicos de comentario, save, copia ou curtida.
+                </p>
+            </div>
+
+            {trendBoard.items.length > 0 ? (
+                <div className={styles.trendGrid}>
+                    {trendBoard.items.map((trend) => (
+                        <TrendPlate key={trend.key} trend={trend} />
+                    ))}
+                </div>
+            ) : trendBoard.emptyState ? (
+                <ActionableEmptyState emptyState={trendBoard.emptyState} />
+            ) : null}
+        </section>
+    );
+}
+
+function WeeklyDrillPromptPanel({ prompt }: {
+    readonly prompt: WeeklyDrillPrompt;
+}): React.JSX.Element {
+    return (
+        <section className={styles.promptGrid} aria-label="Drill semanal da comunidade">
+            <article className={styles.promptPanel} data-community-section="weekly-drill-prompt">
+                <span className={styles.sectionKicker}>Drill semanal</span>
+                <h2>{prompt.title}</h2>
+                <p>{prompt.body}</p>
+                <div className={styles.emptyActions}>
+                    <Link className={styles.cardAction} href={prompt.action.href}>
+                        {prompt.action.label}
+                    </Link>
+                    <Link className={styles.cardAction} href={prompt.secondaryAction.href}>
+                        {prompt.secondaryAction.label}
+                    </Link>
+                </div>
+            </article>
+        </section>
+    );
+}
+
 function CreatorPlate({ creator }: {
     readonly creator: CreatorHighlight;
 }): React.JSX.Element {
@@ -407,6 +539,7 @@ function CreatorPlate({ creator }: {
                     <span>Atividade publica recente</span>
                 )}
             </div>
+            <TrustSignalRail signals={creator.trustSignals} />
             <Link className={styles.cardAction} href={normalizeCommunityProfileHref(creator.profileHref)}>
                 Ver perfil
             </Link>
@@ -525,6 +658,9 @@ export default async function CommunityPage({
                         filters={viewModel.filters}
                     />
 
+                    <FollowingFeed followingFeed={viewModel.followingFeed} />
+                    <TrendBoard trendBoard={viewModel.trendBoard} />
+                    <WeeklyDrillPromptPanel prompt={viewModel.weeklyDrillPrompt} />
                     <FeaturedSection featuredPosts={viewModel.featuredPosts} />
                     <CommunityFeed feed={viewModel.feed} />
                     <CreatorHighlights creatorHighlights={viewModel.creatorHighlights} />
