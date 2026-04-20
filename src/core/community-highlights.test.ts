@@ -96,6 +96,26 @@ describe('community highlight helpers', () => {
                 title: 'Beryl spray lab',
                 excerpt: 'Patch 36.1 recoil snapshot for mid-range fights.',
                 reason: 'Preset copiado 9 vezes no Patch 36.1.',
+                trustSignals: [
+                    {
+                        key: 'active-patch',
+                        label: 'Patch ativo',
+                        reason: 'Snapshot publico marcado como Patch 36.1.',
+                        count: null,
+                    },
+                    {
+                        key: 'copied-preset',
+                        label: 'Presets copiados',
+                        reason: '9 presets copiados por leitores publicos.',
+                        count: 9,
+                    },
+                    {
+                        key: 'saved-drill',
+                        label: 'Drills salvos',
+                        reason: '4 drills salvos por leitores publicos.',
+                        count: 4,
+                    },
+                ],
                 analysisTags: [
                     {
                         key: 'weapon',
@@ -156,6 +176,26 @@ describe('community highlight helpers', () => {
                     label: 'Creator aprovado',
                     status: 'approved',
                 },
+                trustSignals: [
+                    {
+                        key: 'creator-approved',
+                        label: 'Creator aprovado',
+                        reason: 'Status publico aprovado no programa de creators.',
+                        count: null,
+                    },
+                    {
+                        key: 'public-activity',
+                        label: 'Atividade publica',
+                        reason: '4 analises publicas e 18 seguidores',
+                        count: 22,
+                    },
+                    {
+                        key: 'copied-preset',
+                        label: 'Presets copiados',
+                        reason: '11 presets copiados por leitores publicos.',
+                        count: 11,
+                    },
+                ],
                 reasons: [
                     'Creator aprovado',
                     '18 seguidores',

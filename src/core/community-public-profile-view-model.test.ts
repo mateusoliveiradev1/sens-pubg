@@ -2,9 +2,42 @@ import { describe, expect, it } from 'vitest';
 
 import {
     buildPublicCommunityProfileViewModel,
+    type BuildPublicCommunityProfileViewModelInput,
     type CommunityPublicProfileSourcePost,
     type CommunityPublicProfileSourceProfile,
 } from './community-public-profile-view-model';
+
+type PublicProfileFallbackBuildInput = BuildPublicCommunityProfileViewModelInput & {
+    readonly user?: {
+        readonly name: string | null;
+        readonly image: string | null;
+    } | null;
+    readonly playerProfile?: {
+        readonly bio: string | null;
+        readonly twitter: string | null;
+        readonly twitch: string | null;
+        readonly mouseModel?: string | null;
+        readonly mouseSensor?: string | null;
+        readonly mouseDpi?: number | null;
+        readonly mousePollingRate?: number | null;
+        readonly mousepadModel?: string | null;
+        readonly mousepadType?: string | null;
+        readonly gripStyle?: string | null;
+        readonly playStyle?: string | null;
+        readonly generalSens?: number | null;
+        readonly adsSens?: number | null;
+        readonly verticalMultiplier?: number | null;
+        readonly fov?: number | null;
+        readonly mouseWeight?: number | null;
+        readonly mouseLod?: number | null;
+        readonly monitorResolution?: string | null;
+        readonly monitorRefreshRate?: number | null;
+        readonly monitorPanel?: string | null;
+        readonly scopeSens?: Record<string, number> | null;
+        readonly armLength?: string | null;
+        readonly deskSpace?: number | null;
+    } | null;
+};
 
 const publicProfile: CommunityPublicProfileSourceProfile = {
     userId: 'user-spray-doctor',
@@ -42,7 +75,221 @@ function createSourcePost(
     };
 }
 
+function createViewModelInput(
+    overrides: {
+        readonly profile?: Partial<CommunityPublicProfileSourceProfile>;
+        readonly user?: PublicProfileFallbackBuildInput['user'];
+        readonly playerProfile?: PublicProfileFallbackBuildInput['playerProfile'];
+    } = {},
+): PublicProfileFallbackBuildInput {
+    return {
+        profile: {
+            ...publicProfile,
+            ...overrides.profile,
+        },
+        user: overrides.user ?? null,
+        playerProfile: overrides.playerProfile ?? null,
+        posts: [createSourcePost()],
+        creatorMetrics: {
+            publicPostCount: 1,
+            likeCount: 12,
+            commentCount: 3,
+            copyCount: 5,
+            saveCount: 2,
+        },
+        followState: {
+            followerCount: 9,
+            viewerIsFollowing: false,
+        },
+        viewerUserId: null,
+    };
+}
+
 describe('buildPublicCommunityProfileViewModel', () => {
+    it('falls back to player profile bio and auth user avatar when community identity fields are empty', () => {
+        const viewModel = buildPublicCommunityProfileViewModel(createViewModelInput({
+            profile: {
+                bio: null,
+                avatarUrl: null,
+            },
+            user: {
+                name: 'Spray Doctor Auth',
+                image: 'https://cdn.example.com/avatars/spray-doctor-auth.jpg',
+            },
+            playerProfile: {
+                bio: 'Meu Perfil bio with real setup context.',
+                twitter: null,
+                twitch: null,
+            },
+        }));
+
+        expect(viewModel.identity.bio).toBe('Meu Perfil bio with real setup context.');
+        expect(viewModel.identity.avatarUrl).toBe('https://cdn.example.com/avatars/spray-doctor-auth.jpg');
+    });
+
+    it('keeps community profile bio and avatar above player profile fallbacks', () => {
+        const viewModel = buildPublicCommunityProfileViewModel(createViewModelInput({
+            profile: {
+                bio: 'Community profile bio wins.',
+                avatarUrl: 'https://cdn.example.com/community/spray-doctor.jpg',
+            },
+            user: {
+                name: 'Spray Doctor Auth',
+                image: 'https://cdn.example.com/avatars/spray-doctor-auth.jpg',
+            },
+            playerProfile: {
+                bio: 'Meu Perfil bio should stay behind community copy.',
+                twitter: null,
+                twitch: null,
+            },
+        }));
+
+        expect(viewModel.identity.bio).toBe('Community profile bio wins.');
+        expect(viewModel.identity.avatarUrl).toBe('https://cdn.example.com/community/spray-doctor.jpg');
+    });
+
+    it('normalizes community and player profile social links with duplicates removed', () => {
+        const viewModel = buildPublicCommunityProfileViewModel(createViewModelInput({
+            profile: {
+                links: [
+                    {
+                        label: 'X community',
+                        url: 'https://x.com/spraydoctor',
+                    },
+                    {
+                        label: 'Loadout lab',
+                        url: 'https://example.com/loadout',
+                    },
+                    {
+                        label: 'Unsafe legacy link',
+                        url: 'javascript:alert(1)',
+                    },
+                ],
+            },
+            playerProfile: {
+                bio: null,
+                twitter: 'https://x.com/spraydoctor',
+                twitch: 'https://twitch.tv/spraydoctor',
+            },
+        }));
+        const linkUrls = viewModel.links.map((link) => link.url);
+
+        expect(linkUrls).toEqual([
+            'https://x.com/spraydoctor',
+            'https://example.com/loadout',
+            'https://twitch.tv/spraydoctor',
+        ]);
+        expect(linkUrls.filter((url) => url === 'https://x.com/spraydoctor')).toHaveLength(1);
+        expect(viewModel.links).toEqual([
+            {
+                label: 'X community',
+                url: 'https://x.com/spraydoctor',
+                target: '_blank',
+                rel: 'noreferrer',
+            },
+            {
+                label: 'Loadout lab',
+                url: 'https://example.com/loadout',
+                target: '_blank',
+                rel: 'noreferrer',
+            },
+            {
+                label: 'Twitch',
+                url: 'https://twitch.tv/spraydoctor',
+                target: '_blank',
+                rel: 'noreferrer',
+            },
+        ]);
+    });
+
+    it('exposes public setup grouped by aim setup, surface/grip and PUBG core allowlists', () => {
+        const viewModel = buildPublicCommunityProfileViewModel(createViewModelInput({
+            playerProfile: {
+                bio: null,
+                twitter: null,
+                twitch: null,
+                mouseModel: 'Logitech G Pro X Superlight 2',
+                mouseSensor: 'Hero 2',
+                mouseDpi: 800,
+                mousePollingRate: 2000,
+                mousepadModel: 'Artisan Zero XSoft',
+                mousepadType: 'control',
+                gripStyle: 'claw',
+                playStyle: 'arm',
+                generalSens: 41.5,
+                adsSens: 36,
+                verticalMultiplier: 1.05,
+                fov: 95,
+            },
+        }));
+
+        expect(viewModel).toMatchObject({
+            publicSetup: {
+                aimSetup: {
+                    mouseModel: 'Logitech G Pro X Superlight 2',
+                    mouseSensor: 'Hero 2',
+                    mouseDpi: 800,
+                    mousePollingRate: 2000,
+                },
+                surfaceGrip: {
+                    mousepadModel: 'Artisan Zero XSoft',
+                    mousepadType: 'control',
+                    gripStyle: 'claw',
+                    playStyle: 'arm',
+                },
+                pubgCore: {
+                    generalSens: 41.5,
+                    adsSens: 36,
+                    verticalMultiplier: 1.05,
+                    fov: 95,
+                },
+            },
+        });
+    });
+
+    it('keeps non-allowlisted player profile setup fields out of the public view model', () => {
+        const viewModel = buildPublicCommunityProfileViewModel(createViewModelInput({
+            playerProfile: {
+                bio: 'Public setup owner bio.',
+                twitter: null,
+                twitch: null,
+                mouseModel: 'Razer Viper V3 Pro',
+                mouseSensor: 'Focus Pro',
+                mouseDpi: 400,
+                mousePollingRate: 1000,
+                mousepadModel: 'Zowie G-SR-SE',
+                mousepadType: 'control',
+                gripStyle: 'hybrid',
+                playStyle: 'wrist',
+                generalSens: 47,
+                adsSens: 43,
+                verticalMultiplier: 1.1,
+                fov: 90,
+                mouseWeight: 54,
+                mouseLod: 1.2,
+                monitorResolution: 'private-2560x1440-monitor',
+                monitorRefreshRate: 240,
+                monitorPanel: 'private-oled-panel',
+                scopeSens: {
+                    private8xScope: 31,
+                },
+                armLength: 'private-arm-length',
+                deskSpace: 120,
+            },
+        }));
+        const serializedViewModel = JSON.stringify(viewModel);
+
+        expect(serializedViewModel).toContain('Razer Viper V3 Pro');
+        expect(serializedViewModel).toContain('Zowie G-SR-SE');
+        expect(serializedViewModel).not.toContain('private-2560x1440-monitor');
+        expect(serializedViewModel).not.toContain('private-oled-panel');
+        expect(serializedViewModel).not.toContain('private8xScope');
+        expect(serializedViewModel).not.toContain('private-arm-length');
+        expect(serializedViewModel).not.toContain('mouseWeight');
+        expect(serializedViewModel).not.toContain('mouseLod');
+        expect(serializedViewModel).not.toContain('deskSpace');
+    });
+
     it('exposes only the approved public profile allowlist', () => {
         const profileWithPrivateData = {
             ...publicProfile,
@@ -196,6 +443,79 @@ describe('buildPublicCommunityProfileViewModel', () => {
         expect(JSON.stringify(viewModel)).not.toContain('missing-published-at');
     });
 
+    it('builds related discovery links from public profile post tags only', () => {
+        const viewModel = buildPublicCommunityProfileViewModel({
+            profile: publicProfile,
+            posts: [
+                createSourcePost({
+                    id: 'post-public-latest',
+                    slug: 'beryl-spray-lab',
+                    publishedAt: new Date('2026-04-19T12:00:00.000Z'),
+                }),
+                createSourcePost({
+                    id: 'post-public-older',
+                    slug: 'beryl-spray-review',
+                    publishedAt: new Date('2026-04-18T12:00:00.000Z'),
+                }),
+                createSourcePost({
+                    id: 'post-private-noise',
+                    slug: 'private-noise',
+                    visibility: 'unlisted',
+                    primaryWeaponId: 'secret-weapon',
+                    primaryPatchVersion: 'private-patch',
+                    primaryDiagnosisKey: 'private_diagnosis',
+                }),
+                createSourcePost({
+                    id: 'post-draft-noise',
+                    slug: 'draft-noise',
+                    status: 'draft',
+                    publishedAt: null,
+                    primaryWeaponId: 'draft-weapon',
+                    primaryPatchVersion: 'draft-patch',
+                    primaryDiagnosisKey: 'draft_diagnosis',
+                }),
+            ],
+            creatorMetrics: {
+                publicPostCount: 2,
+                likeCount: 12,
+                commentCount: 3,
+                copyCount: 5,
+                saveCount: 2,
+            },
+            followState: {
+                followerCount: 9,
+                viewerIsFollowing: false,
+            },
+            viewerUserId: 'viewer-1',
+        });
+
+        expect(viewModel.relatedLinks).toEqual([
+            {
+                key: 'weapon:beryl-m762',
+                label: 'Beryl M762',
+                href: '/community?weaponId=beryl-m762',
+                description: '2 snapshots desta arma no perfil publico.',
+                postCount: 2,
+            },
+            {
+                key: 'diagnosis:horizontal_drift',
+                label: 'Horizontal Drift',
+                href: '/community?diagnosisKey=horizontal_drift',
+                description: '2 snapshots deste diagnostico no perfil publico.',
+                postCount: 2,
+            },
+            {
+                key: 'patch:36.1',
+                label: 'Patch 36.1',
+                href: '/community?patchVersion=36.1',
+                description: '2 snapshots deste patch no perfil publico.',
+                postCount: 2,
+            },
+        ]);
+        expect(JSON.stringify(viewModel.relatedLinks)).not.toContain('secret-weapon');
+        expect(JSON.stringify(viewModel.relatedLinks)).not.toContain('draft-weapon');
+    });
+
     it('combines creator metrics, follower count and self-profile state without offering self-follow', () => {
         const viewModel = buildPublicCommunityProfileViewModel({
             profile: publicProfile,
@@ -230,5 +550,61 @@ describe('buildPublicCommunityProfileViewModel', () => {
             actionLabel: 'Seu perfil publico',
             disabledReason: 'Este e o seu perfil publico.',
         });
+    });
+
+    it('derives factual profile trust signals from public creator, setup and engagement facts', () => {
+        const viewModel = buildPublicCommunityProfileViewModel(createViewModelInput({
+            playerProfile: {
+                bio: 'Public setup owner bio.',
+                twitter: 'https://x.com/spraydoctor',
+                twitch: null,
+                mouseModel: 'Razer Viper V3 Pro',
+                mouseSensor: 'Focus Pro',
+                mouseDpi: 400,
+                mousePollingRate: 1000,
+                mousepadModel: 'Zowie G-SR-SE',
+                mousepadType: 'control',
+                gripStyle: 'hybrid',
+                playStyle: 'wrist',
+                generalSens: 47,
+                adsSens: 43,
+                verticalMultiplier: 1.1,
+                fov: 90,
+            },
+        }));
+
+        expect(viewModel.trustSignals).toEqual([
+            {
+                key: 'creator-approved',
+                label: 'Creator aprovado',
+                reason: 'Status publico aprovado no programa de creators.',
+                count: null,
+            },
+            {
+                key: 'profile-complete',
+                label: 'Perfil completo',
+                reason: 'Nome, imagem ou monograma, bio, link, setup e post publico estao preenchidos.',
+                count: 6,
+            },
+            {
+                key: 'setup-public',
+                label: 'Setup publico',
+                reason: '12 campos publicos de setup na allowlist.',
+                count: 12,
+            },
+            {
+                key: 'copied-preset',
+                label: 'Presets copiados',
+                reason: '5 presets copiados por leitores publicos.',
+                count: 5,
+            },
+            {
+                key: 'saved-drill',
+                label: 'Drills salvos',
+                reason: '2 drills salvos por leitores publicos.',
+                count: 2,
+            },
+        ]);
+        expect(JSON.stringify(viewModel.trustSignals).toLowerCase()).not.toMatch(/pro player|verified skill|best|melhor|rank|skill/);
     });
 });

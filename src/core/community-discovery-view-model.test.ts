@@ -357,4 +357,256 @@ describe('buildCommunityDiscoveryViewModel', () => {
             },
         ]);
     });
+
+    it('builds a following feed from only published public posts owned by followed public profiles', () => {
+        const followedAuthor: CommunityDiscoverySourceAuthor = {
+            ...publicAuthor,
+            userId: 'user-followed',
+            profileId: 'profile-followed',
+            profileSlug: 'followed-creator',
+            displayName: 'Followed Creator',
+        };
+        const otherAuthor: CommunityDiscoverySourceAuthor = {
+            ...publicAuthor,
+            userId: 'user-other',
+            profileId: 'profile-other',
+            profileSlug: 'other-creator',
+            displayName: 'Other Creator',
+        };
+        const hiddenFollowedAuthor: CommunityDiscoverySourceAuthor = {
+            ...followedAuthor,
+            profileId: 'profile-hidden-followed',
+            profileSlug: 'hidden-followed',
+            visibility: 'hidden',
+        };
+
+        const viewModel = buildCommunityDiscoveryViewModel({
+            posts: [
+                createSourcePost({
+                    id: 'post-followed-public',
+                    slug: 'followed-public',
+                    author: followedAuthor,
+                }),
+                createSourcePost({
+                    id: 'post-other-public',
+                    slug: 'other-public',
+                    author: otherAuthor,
+                }),
+                createSourcePost({
+                    id: 'post-followed-draft',
+                    slug: 'followed-draft',
+                    status: 'draft',
+                    publishedAt: null,
+                    author: followedAuthor,
+                }),
+                createSourcePost({
+                    id: 'post-followed-private',
+                    slug: 'followed-private',
+                    visibility: 'unlisted',
+                    author: followedAuthor,
+                }),
+                createSourcePost({
+                    id: 'post-followed-hidden-profile',
+                    slug: 'followed-hidden-profile',
+                    author: hiddenFollowedAuthor,
+                }),
+                createSourcePost({
+                    id: 'post-followed-unpublished',
+                    slug: 'followed-unpublished',
+                    publishedAt: null,
+                    author: followedAuthor,
+                }),
+            ],
+            viewer: {
+                viewerUserId: 'viewer-1',
+                hasPublicProfile: true,
+                publicProfileHref: '/community/users/viewer',
+                publishableAnalysisCount: 0,
+                followedUserIds: ['user-followed'],
+            },
+        });
+
+        expect(viewModel.followingFeed.cards.map((card) => card.id)).toEqual([
+            'post-followed-public',
+        ]);
+        expect(viewModel.followingFeed.summary).toBe('1 snapshot publico de perfis seguidos.');
+        expect(viewModel.followingFeed.emptyState).toBeNull();
+        expect(JSON.stringify(viewModel.followingFeed)).not.toContain('other-public');
+        expect(JSON.stringify(viewModel.followingFeed)).not.toContain('followed-draft');
+        expect(JSON.stringify(viewModel.followingFeed)).not.toContain('followed-private');
+        expect(JSON.stringify(viewModel.followingFeed)).not.toContain('followed-hidden-profile');
+        expect(JSON.stringify(viewModel.followingFeed)).not.toContain('followed-unpublished');
+    });
+
+    it('returns a creator-discovery empty state when an authenticated viewer follows nobody', () => {
+        const viewModel = buildCommunityDiscoveryViewModel({
+            posts: [createSourcePost()],
+            viewer: {
+                viewerUserId: 'viewer-without-follows',
+                hasPublicProfile: true,
+                publicProfileHref: '/community/users/viewer',
+                publishableAnalysisCount: 0,
+                followedUserIds: [],
+            },
+        });
+
+        expect(viewModel.followingFeed.cards).toEqual([]);
+        expect(viewModel.followingFeed.emptyState).toMatchObject({
+            title: 'Voce ainda nao segue creators',
+            primaryAction: {
+                label: 'Descobrir creators',
+                href: '/community#creator-plates',
+            },
+            secondaryAction: {
+                label: 'Explorar todos',
+                href: '/community',
+            },
+        });
+    });
+
+    it('builds explainable trend items by weapon, patch and diagnosis from public posts and public engagement only', () => {
+        const viewModel = buildCommunityDiscoveryViewModel({
+            posts: [
+                createSourcePost({
+                    id: 'post-trend-1',
+                    slug: 'trend-one',
+                    engagement: {
+                        likeCount: 1,
+                        commentCount: 0,
+                        copyCount: 2,
+                        saveCount: 1,
+                    },
+                }),
+                createSourcePost({
+                    id: 'post-trend-2',
+                    slug: 'trend-two',
+                    publishedAt: new Date('2026-04-19T11:00:00.000Z'),
+                    engagement: {
+                        likeCount: 2,
+                        commentCount: 1,
+                        copyCount: 1,
+                        saveCount: 0,
+                    },
+                }),
+                createSourcePost({
+                    id: 'post-private-trend-noise',
+                    slug: 'private-trend-noise',
+                    visibility: 'unlisted',
+                    engagement: {
+                        likeCount: 99,
+                        commentCount: 99,
+                        copyCount: 99,
+                        saveCount: 99,
+                    },
+                }),
+                createSourcePost({
+                    id: 'post-hidden-profile-trend-noise',
+                    slug: 'hidden-profile-trend-noise',
+                    author: {
+                        ...publicAuthor,
+                        profileId: 'profile-hidden-trend',
+                        profileSlug: 'hidden-trend',
+                        visibility: 'hidden',
+                    },
+                    engagement: {
+                        likeCount: 99,
+                        commentCount: 99,
+                        copyCount: 99,
+                        saveCount: 99,
+                    },
+                }),
+                createSourcePost({
+                    id: 'post-draft-trend-noise',
+                    slug: 'draft-trend-noise',
+                    status: 'draft',
+                    publishedAt: null,
+                    engagement: {
+                        likeCount: 99,
+                        commentCount: 99,
+                        copyCount: 99,
+                        saveCount: 99,
+                    },
+                }),
+            ],
+        });
+
+        const weaponTrend = viewModel.trendBoard.items.find((item) => item.key === 'weapon:beryl-m762');
+        const patchTrend = viewModel.trendBoard.items.find((item) => item.key === 'patch:36.1');
+        const diagnosisTrend = viewModel.trendBoard.items.find((item) => item.key === 'diagnosis:horizontal_drift');
+
+        expect(weaponTrend).toMatchObject({
+            kind: 'weapon',
+            value: 'beryl-m762',
+            label: 'Beryl M762',
+            href: '/community?weaponId=beryl-m762',
+            postCount: 2,
+            engagementCount: 8,
+            reason: '2 posts publicos com 3 presets copiados.',
+        });
+        expect(patchTrend).toMatchObject({
+            kind: 'patch',
+            value: '36.1',
+            label: 'Patch 36.1',
+            href: '/community?patchVersion=36.1',
+            postCount: 2,
+        });
+        expect(diagnosisTrend).toMatchObject({
+            kind: 'diagnosis',
+            value: 'horizontal_drift',
+            label: 'Horizontal Drift',
+            href: '/community?diagnosisKey=horizontal_drift',
+            postCount: 2,
+        });
+        expect(JSON.stringify(viewModel.trendBoard)).not.toContain('private-trend-noise');
+        expect(JSON.stringify(viewModel.trendBoard)).not.toContain('hidden-profile-trend-noise');
+        expect(JSON.stringify(viewModel.trendBoard)).not.toContain('draft-trend-noise');
+    });
+
+    it('builds a weekly drill prompt from trend context and falls back to analyze/history when trends are unavailable', () => {
+        const trendHub = buildCommunityDiscoveryViewModel({
+            posts: [
+                createSourcePost({
+                    id: 'post-trend-1',
+                    slug: 'trend-one',
+                }),
+                createSourcePost({
+                    id: 'post-trend-2',
+                    slug: 'trend-two',
+                    publishedAt: new Date('2026-04-19T11:00:00.000Z'),
+                }),
+            ],
+        });
+
+        expect(trendHub.weeklyDrillPrompt).toMatchObject({
+            trendKey: 'weapon:beryl-m762',
+            title: 'Drill semanal: estabilizar Beryl M762',
+            action: {
+                label: 'Ver tendencia',
+                href: '/community?weaponId=beryl-m762',
+            },
+            secondaryAction: {
+                label: 'Analisar recoil',
+                href: '/analyze',
+            },
+        });
+
+        const fallbackHub = buildCommunityDiscoveryViewModel({
+            posts: [createSourcePost()],
+        });
+
+        expect(fallbackHub.trendBoard.items).toEqual([]);
+        expect(fallbackHub.weeklyDrillPrompt).toEqual({
+            trendKey: null,
+            title: 'Drill semanal: publique um snapshot base',
+            body: 'Sem tendencia publica suficiente ainda. Rode uma analise, salve o historico e publique um snapshot para abrir o proximo sinal.',
+            action: {
+                label: 'Analisar recoil',
+                href: '/analyze',
+            },
+            secondaryAction: {
+                label: 'Abrir historico',
+                href: '/history',
+            },
+        });
+    });
 });
