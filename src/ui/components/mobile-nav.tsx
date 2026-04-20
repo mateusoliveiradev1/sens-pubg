@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import styles from './mobile-nav.module.css';
 
@@ -73,6 +73,11 @@ export function MobileNav({ user }: MobileNavProps) {
                             <li>
                                 <Link href="/profile" className={styles.link} onClick={closeMenu}>
                                     <span className={styles.icon} aria-hidden="true">👤</span> Perfil
+                                </Link>
+                            </li>
+                            <li>
+                                <Link href="/community" className={styles.link} onClick={closeMenu}>
+                                    <span className={styles.icon} aria-hidden="true">🌐</span> Comunidade
                                 </Link>
                             </li>
                             <li>
