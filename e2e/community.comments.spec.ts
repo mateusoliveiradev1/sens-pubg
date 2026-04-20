@@ -305,6 +305,7 @@ test.describe('Community flat comments', () => {
                     hasText: 'horizontal_drift',
                 }),
             ).toHaveCount(1);
+            await expect(page.getByRole('link', { name: /entrar para reportar/i })).toHaveCount(3);
         } finally {
             await fixture.cleanup();
         }

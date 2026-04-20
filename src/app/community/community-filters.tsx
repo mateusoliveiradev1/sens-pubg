@@ -1,52 +1,20 @@
 import Link from 'next/link';
 
-import type { ListPublicCommunityFeedInput } from '@/core/community-feed';
+import type {
+    CommunityDiscoveryFilterOption,
+    CommunityDiscoveryViewModel,
+} from '@/core/community-discovery-view-model';
 
-export interface CommunityFilterOption {
-    readonly value: string;
-    readonly label: string;
-}
+import styles from './community-hub.module.css';
 
 interface CommunityFiltersProps {
-    readonly selectedFilters: ListPublicCommunityFeedInput;
-    readonly weaponOptions: readonly CommunityFilterOption[];
-    readonly patchOptions: readonly CommunityFilterOption[];
-    readonly diagnosisOptions: readonly CommunityFilterOption[];
+    readonly filters: CommunityDiscoveryViewModel['filters'];
+    readonly clearHref: string;
 }
 
-const filterGridStyle = {
-    display: 'grid',
-    gap: 'var(--space-md)',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-} as const;
-
-const fieldStyle = {
-    display: 'grid',
-    gap: 'var(--space-xs)',
-} as const;
-
-const labelStyle = {
-    color: 'var(--color-text-secondary)',
-    fontSize: 'var(--text-sm)',
-    fontWeight: 600,
-    letterSpacing: '0.04em',
-    textTransform: 'uppercase',
-} as const;
-
-const sectionHeaderStyle = {
-    display: 'grid',
-    gap: 'var(--space-xs)',
-} as const;
-
-const actionsStyle = {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: 'var(--space-sm)',
-} as const;
-
-function renderOptions(options: readonly CommunityFilterOption[]) {
+function renderOptions(options: readonly CommunityDiscoveryFilterOption[]) {
     return options.map((option) => (
-        <option key={option.value} value={option.value}>
+        <option key={`${option.key}-${option.value}`} value={option.value}>
             {option.label}
         </option>
     ));
@@ -61,14 +29,14 @@ function renderFilterField({
     readonly label: string;
     readonly name: 'weaponId' | 'patchVersion' | 'diagnosisKey';
     readonly defaultValue: string;
-    readonly options: readonly CommunityFilterOption[];
+    readonly options: readonly CommunityDiscoveryFilterOption[];
 }) {
     return (
-        <label style={fieldStyle}>
-            <span style={labelStyle}>{label}</span>
+        <label className={styles.filterField}>
+            <span className={styles.filterLabel}>{label}</span>
             <select
                 aria-label={label}
-                className="input"
+                className={`input select ${styles.filterSelect}`}
                 defaultValue={defaultValue}
                 name={name}
             >
@@ -82,58 +50,70 @@ function renderFilterField({
 }
 
 export function CommunityFilters({
-    selectedFilters,
-    weaponOptions,
-    patchOptions,
-    diagnosisOptions,
+    filters,
+    clearHref,
 }: CommunityFiltersProps): React.JSX.Element {
-    const hasActiveFilters = Boolean(
-        selectedFilters.weaponId || selectedFilters.patchVersion || selectedFilters.diagnosisKey,
-    );
-
     return (
         <section
-            className="glass-card"
             aria-label="Filtros da comunidade"
-            style={{ display: 'grid', gap: 'var(--space-lg)' }}
+            className={`glass-card ${styles.filterPanel}`}
         >
-            <div style={sectionHeaderStyle}>
-                <h2 style={{ fontSize: 'var(--text-2xl)' }}>Filtros basicos</h2>
-                <p>
-                    Refine o feed publico por arma, patch e diagnostico sem sair do visual atual do app.
-                </p>
+            <div className={styles.filterTopline}>
+                <div>
+                    <span className={styles.sectionKicker}>Discovery de recoil</span>
+                    <h2>Filtros ativos</h2>
+                    <p>
+                        Corte o feed por arma, patch e diagnostico sem perder o caminho de volta para
+                        todos os snapshots publicos.
+                    </p>
+                </div>
+
+                {filters.hasActiveFilters ? (
+                    <div className={styles.activeFilters} aria-label="Filtros aplicados">
+                        {filters.activeFilters.map((filter) => (
+                            <span
+                                className={styles.activeFilter}
+                                key={`${filter.key}-${filter.value}`}
+                            >
+                                {filter.label}
+                            </span>
+                        ))}
+                    </div>
+                ) : (
+                    <span className={styles.activeFilter}>Todos os sinais</span>
+                )}
             </div>
 
-            <form method="get" style={{ display: 'grid', gap: 'var(--space-md)' }}>
-                <div style={filterGridStyle}>
+            <form className={styles.filterForm} method="get">
+                <div className={styles.filterGrid}>
                     {renderFilterField({
                         label: 'Arma',
                         name: 'weaponId',
-                        defaultValue: selectedFilters.weaponId ?? '',
-                        options: weaponOptions,
+                        defaultValue: filters.selected.weaponId ?? '',
+                        options: filters.weaponOptions,
                     })}
 
                     {renderFilterField({
                         label: 'Patch',
                         name: 'patchVersion',
-                        defaultValue: selectedFilters.patchVersion ?? '',
-                        options: patchOptions,
+                        defaultValue: filters.selected.patchVersion ?? '',
+                        options: filters.patchOptions,
                     })}
 
                     {renderFilterField({
                         label: 'Diagnostico',
                         name: 'diagnosisKey',
-                        defaultValue: selectedFilters.diagnosisKey ?? '',
-                        options: diagnosisOptions,
+                        defaultValue: filters.selected.diagnosisKey ?? '',
+                        options: filters.diagnosisOptions,
                     })}
                 </div>
 
-                <div style={actionsStyle}>
+                <div className={styles.filterActions}>
                     <button className="btn btn-primary" type="submit">
-                        Aplicar filtros
+                        Aplicar leitura
                     </button>
-                    {hasActiveFilters ? (
-                        <Link className="btn btn-ghost" href="/community">
+                    {filters.hasActiveFilters ? (
+                        <Link className="btn btn-ghost" href={clearHref}>
                             Limpar filtros
                         </Link>
                     ) : null}

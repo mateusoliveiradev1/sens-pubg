@@ -11,7 +11,13 @@ import {
     communityPostLikes,
     communityPosts,
     communityPostSaves,
+    communityProfiles,
 } from '@/db/schema';
+import {
+    formatCommunityDiagnosisLabel,
+    formatCommunityPatchLabel,
+    formatCommunityWeaponLabel,
+} from '@/core/community-public-formatting';
 import { getScope, getWeapon } from '@/game/pubg';
 import { getCommunityPostReadAccess } from '@/lib/community-access';
 import { Header } from '@/ui/components/header';
@@ -68,6 +74,40 @@ function buildCommunityPostMetadataDescription(post: CommunityPostMetadataRecord
     const diagnosisSummary = diagnosisLabels.length > 0 ? diagnosisLabels.join(', ') : 'snapshot tecnico';
 
     return `Snapshot tecnico de ${weaponName} com ${scopeName} a ${post.snapshotDistance} m no patch ${post.snapshotPatchVersion}. Diagnosticos: ${diagnosisSummary}. ${post.excerpt}`;
+}
+
+function createCommunityDiscoveryHref(
+    key: 'weaponId' | 'patchVersion' | 'diagnosisKey',
+    value: string,
+): string {
+    return `/community?${new URLSearchParams({ [key]: value }).toString()}`;
+}
+
+function buildCommunityContinuityLinks(input: {
+    readonly primaryWeaponId: string;
+    readonly primaryPatchVersion: string;
+    readonly primaryDiagnosisKey: string;
+}): CommunityPostDetailData['communityContinuityLinks'] {
+    return [
+        {
+            key: 'weapon',
+            label: `Explorar ${formatCommunityWeaponLabel(input.primaryWeaponId)}`,
+            href: createCommunityDiscoveryHref('weaponId', input.primaryWeaponId),
+            description: 'Compare recoil e presets publicados para esta arma.',
+        },
+        {
+            key: 'patch',
+            label: formatCommunityPatchLabel(input.primaryPatchVersion),
+            href: createCommunityDiscoveryHref('patchVersion', input.primaryPatchVersion),
+            description: 'Veja snapshots ativos no mesmo contexto de patch.',
+        },
+        {
+            key: 'diagnosis',
+            label: formatCommunityDiagnosisLabel(input.primaryDiagnosisKey),
+            href: createCommunityDiscoveryHref('diagnosisKey', input.primaryDiagnosisKey),
+            description: 'Encontre posts com diagnostico parecido para salvar drills.',
+        },
+    ];
 }
 
 async function loadCommunityPostMetadataRecord(
@@ -177,6 +217,13 @@ async function loadCommunityPostDetail(
             excerpt: communityPosts.excerpt,
             bodyMarkdown: communityPosts.bodyMarkdown,
             publishedAt: communityPosts.publishedAt,
+            primaryWeaponId: communityPosts.primaryWeaponId,
+            primaryPatchVersion: communityPosts.primaryPatchVersion,
+            primaryDiagnosisKey: communityPosts.primaryDiagnosisKey,
+            authorProfileSlug: communityProfiles.slug,
+            authorProfileDisplayName: communityProfiles.displayName,
+            authorProfileVisibility: communityProfiles.visibility,
+            authorCreatorProgramStatus: communityProfiles.creatorProgramStatus,
             snapshotPatchVersion: communityPostAnalysisSnapshots.patchVersion,
             snapshotWeaponId: communityPostAnalysisSnapshots.weaponId,
             snapshotScopeId: communityPostAnalysisSnapshots.scopeId,
@@ -187,6 +234,10 @@ async function loadCommunityPostDetail(
         .innerJoin(
             communityPostAnalysisSnapshots,
             eq(communityPostAnalysisSnapshots.postId, communityPosts.id),
+        )
+        .innerJoin(
+            communityProfiles,
+            eq(communityProfiles.id, communityPosts.communityProfileId),
         )
         .where(eq(communityPosts.slug, normalizedSlug))
         .limit(1);
@@ -270,6 +321,20 @@ async function loadCommunityPostDetail(
         excerpt: storedPost.excerpt,
         bodyMarkdown: storedPost.bodyMarkdown,
         publishedAt: storedPost.publishedAt,
+        authorProfile: storedPost.authorProfileVisibility === 'public'
+            ? {
+                displayName: storedPost.authorProfileDisplayName,
+                profileSlug: storedPost.authorProfileSlug,
+                profileHref: `/community/users/${storedPost.authorProfileSlug}`,
+                creatorProgramStatus: storedPost.authorCreatorProgramStatus,
+            }
+            : null,
+        communityContinuityLinks: buildCommunityContinuityLinks({
+            primaryWeaponId: storedPost.primaryWeaponId,
+            primaryPatchVersion: storedPost.primaryPatchVersion,
+            primaryDiagnosisKey: storedPost.primaryDiagnosisKey,
+        }),
+        viewerCanReport: Boolean(viewerUserId),
         snapshot: {
             patchVersion: storedPost.snapshotPatchVersion,
             weaponId: storedPost.snapshotWeaponId,

@@ -11,6 +11,9 @@ interface ReportButtonProps {
     readonly entityId: string;
     readonly subjectLabel?: string;
     readonly className?: string;
+    readonly disabledReason?: string | null | undefined;
+    readonly disabledHref?: string | undefined;
+    readonly disabledActionLabel?: string;
 }
 
 const reportReasonOptions = [
@@ -49,6 +52,9 @@ export function ReportButton({
     entityId,
     subjectLabel = 'este conteudo',
     className,
+    disabledReason = null,
+    disabledHref,
+    disabledActionLabel = 'Entrar para reportar',
 }: ReportButtonProps) {
     const panelId = useId();
     const [isOpen, setIsOpen] = useState(false);
@@ -57,6 +63,8 @@ export function ReportButton({
     const [details, setDetails] = useState('');
     const [statusMessage, setStatusMessage] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+    const resolvedClassName = className ?? 'btn btn-secondary';
 
     const handleSubmit = () => {
         setStatusMessage(null);
@@ -94,22 +102,48 @@ export function ReportButton({
                 alignItems: 'flex-start',
             }}
         >
-            <button
-                type="button"
-                className={className ?? 'btn btn-secondary'}
-                onClick={() => {
-                    setStatusMessage(null);
-                    setErrorMessage(null);
-                    setIsOpen((currentValue) => !currentValue);
-                }}
-                disabled={isPending}
-                aria-expanded={isOpen}
-                aria-controls={panelId}
-            >
-                {isOpen ? 'Cancelar report' : 'Reportar'}
-            </button>
+            {disabledReason ? (
+                disabledHref ? (
+                    <a className={resolvedClassName} href={disabledHref}>
+                        {disabledActionLabel}
+                    </a>
+                ) : (
+                    <button
+                        type="button"
+                        className={resolvedClassName}
+                        disabled
+                        aria-describedby={`${panelId}-disabled`}
+                    >
+                        Reportar
+                    </button>
+                )
+            ) : (
+                <button
+                    type="button"
+                    className={resolvedClassName}
+                    onClick={() => {
+                        setStatusMessage(null);
+                        setErrorMessage(null);
+                        setIsOpen((currentValue) => !currentValue);
+                    }}
+                    disabled={isPending}
+                    aria-expanded={isOpen}
+                    aria-controls={panelId}
+                >
+                    {isOpen ? 'Cancelar report' : 'Reportar'}
+                </button>
+            )}
 
-            {isOpen ? (
+            {disabledReason ? (
+                <p
+                    id={`${panelId}-disabled`}
+                    style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: 'var(--text-xs)', maxWidth: 320 }}
+                >
+                    {disabledReason}
+                </p>
+            ) : null}
+
+            {isOpen && !disabledReason ? (
                 <div
                     id={panelId}
                     className="glass-card"
