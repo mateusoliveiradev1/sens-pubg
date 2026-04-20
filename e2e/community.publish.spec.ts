@@ -286,9 +286,8 @@ test.describe('Community publish flow', () => {
 
             await expect(page).toHaveURL(`/community/${fixture.expectedSlug}`);
             await expect(page.getByRole('heading', { level: 1, name: /beryl-m762 - analise de spray/i })).toBeVisible();
-            await expect(
-                page.getByText(/entre na sua conta para comentar neste post/i),
-            ).toBeVisible();
+            await expect(page.getByLabel(/seu comentario/i)).toBeVisible();
+            await expect(page.getByRole('button', { name: /^comentar$/i })).toBeEnabled();
         } finally {
             await fixture.cleanup();
         }
