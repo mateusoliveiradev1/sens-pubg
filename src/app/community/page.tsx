@@ -50,6 +50,14 @@ type CreatorHighlight = CommunityDiscoveryViewModel['creatorHighlights']['items'
 type ParticipationPrompt = CommunityDiscoveryViewModel['participationPrompts'][number];
 type TrendItem = CommunityDiscoveryViewModel['trendBoard']['items'][number];
 type WeeklyDrillPrompt = CommunityDiscoveryViewModel['weeklyDrillPrompt'];
+type SeasonContextCard = CommunityDiscoveryViewModel['seasonContext'];
+type WeeklyChallengeBoard = CommunityDiscoveryViewModel['weeklyChallenge'];
+type WeeklyChallengeAction = WeeklyChallengeBoard['actions'][number];
+type ViewerProgressionSummary = NonNullable<CommunityDiscoveryViewModel['viewerProgressionSummary']>;
+type MissionBoard = NonNullable<CommunityDiscoveryViewModel['missionBoard']>;
+type MissionBoardItem = MissionBoard['items'][number];
+type PersonalRecap = NonNullable<CommunityDiscoveryViewModel['personalRecap']>;
+type SquadSpotlight = NonNullable<CommunityDiscoveryViewModel['squadSpotlight']>;
 type TrustSignal = FeaturedPost['trustSignals'][number];
 
 const COMMUNITY_PROFILE_PATH_PREFIX = '/community/users/';
@@ -172,6 +180,10 @@ function RecoilSignal({
             </div>
         </aside>
     );
+}
+
+function formatProgressPercent(value: number): string {
+    return `${Math.round(Math.min(Math.max(value, 0), 1) * 100)}%`;
 }
 
 function SquadBoard({ viewModel }: {
@@ -508,6 +520,281 @@ function WeeklyDrillPromptPanel({ prompt }: {
     );
 }
 
+function SeasonContextDeck({
+    season,
+    challenge,
+}: {
+    readonly season: SeasonContextCard;
+    readonly challenge: WeeklyChallengeBoard;
+}): React.JSX.Element {
+    return (
+        <section className={styles.ritualDeck} aria-label="Temporada e desafio semanal">
+            <article
+                className={styles.ritualPanel}
+                data-community-section="season-context"
+            >
+                <div className={styles.ritualPanelHeader}>
+                    <span className={styles.sectionKicker}>{season.stateLabel}</span>
+                    <span className={styles.loadoutChipMuted}>{season.windowLabel}</span>
+                </div>
+                <h2>{season.title}</h2>
+                <p>{season.summary}</p>
+                <div className={styles.ritualStatGrid}>
+                    <div className={styles.ritualStat}>
+                        <span>Tema</span>
+                        <strong>{season.theme}</strong>
+                    </div>
+                    <div className={styles.ritualStat}>
+                        <span>Janela</span>
+                        <strong>{season.windowLabel}</strong>
+                    </div>
+                </div>
+            </article>
+
+            <article
+                className={styles.ritualPanel}
+                data-community-section="weekly-challenge-board"
+            >
+                <div className={styles.ritualPanelHeader}>
+                    <span className={styles.sectionKicker}>Weekly challenge</span>
+                    <span className={styles.loadoutChipMuted}>{challenge.windowLabel}</span>
+                </div>
+                <h2>{challenge.title}</h2>
+                <p>{challenge.description}</p>
+                <p className={styles.ritualMeta}>{challenge.rationale}</p>
+                <div className={styles.challengeActionList}>
+                    {challenge.actions.map((action) => (
+                        <ChallengeActionPlate key={`${action.title}-${action.href}`} action={action} />
+                    ))}
+                </div>
+                <div className={styles.emptyActions}>
+                    {challenge.trendHref ? (
+                        <Link className={styles.cardAction} href={challenge.trendHref}>
+                            Ver contexto
+                        </Link>
+                    ) : null}
+                    <span className={styles.loadoutChipMuted}>{challenge.theme}</span>
+                </div>
+            </article>
+        </section>
+    );
+}
+
+function ChallengeActionPlate({
+    action,
+}: {
+    readonly action: WeeklyChallengeAction;
+}): React.JSX.Element {
+    return (
+        <article className={styles.challengeAction}>
+            <div className={styles.challengeActionTopline}>
+                <strong>{action.title}</strong>
+                <span className={styles.challengeXp}>{action.xpLabel}</span>
+            </div>
+            <p>{action.description}</p>
+            <Link className={styles.cardAction} href={action.href}>
+                Abrir acao
+            </Link>
+        </article>
+    );
+}
+
+function ViewerRitualDeck({
+    summary,
+    recap,
+    squadSpotlight,
+}: {
+    readonly summary: ViewerProgressionSummary | null;
+    readonly recap: PersonalRecap | null;
+    readonly squadSpotlight: SquadSpotlight | null;
+}): React.JSX.Element | null {
+    if (!summary) {
+        return null;
+    }
+
+    return (
+        <section className={styles.ritualDeck} aria-label="Superficies viewer-aware">
+            <article
+                className={styles.ritualPanel}
+                data-community-section="progression-summary"
+            >
+                <div className={styles.ritualPanelHeader}>
+                    <span className={styles.sectionKicker}>Progressao pessoal</span>
+                    <span className={styles.loadoutChipMuted}>Nivel {summary.level}</span>
+                </div>
+                <h2>{summary.title}</h2>
+                <p>{summary.summary}</p>
+                <div className={styles.progressMeter} aria-hidden="true">
+                    <span
+                        className={styles.progressMeterFill}
+                        style={{ width: formatProgressPercent(summary.progressRatio) }}
+                    />
+                </div>
+                <div className={styles.ritualStatGrid}>
+                    <div className={styles.ritualStat}>
+                        <span>XP total</span>
+                        <strong>{summary.totalXp}</strong>
+                    </div>
+                    <div className={styles.ritualStat}>
+                        <span>Streak</span>
+                        <strong>{summary.currentStreak}</strong>
+                    </div>
+                    <div className={styles.ritualStat}>
+                        <span>Proximo nivel</span>
+                        <strong>{summary.xpToNextLevel} XP</strong>
+                    </div>
+                </div>
+                <p className={styles.ritualMeta}>{summary.nextMilestone.description}</p>
+                <div className={styles.emptyActions}>
+                    <Link className={styles.cardAction} href={summary.nextAction.href}>
+                        {summary.nextAction.title}
+                    </Link>
+                    {summary.publicProfileHref ? (
+                        <Link className={styles.cardAction} href={summary.publicProfileHref}>
+                            Abrir perfil publico
+                        </Link>
+                    ) : null}
+                </div>
+            </article>
+
+            {recap ? (
+                <article
+                    className={styles.ritualPanel}
+                    data-community-section="personal-recap"
+                >
+                    <div className={styles.ritualPanelHeader}>
+                        <span className={styles.sectionKicker}>Recap pessoal</span>
+                        <span className={styles.loadoutChipMuted}>{recap.state}</span>
+                    </div>
+                    <h2>{recap.title}</h2>
+                    <p>{recap.summary}</p>
+                    <div className={styles.ritualStatGrid}>
+                        <div className={styles.ritualStat}>
+                            <span>Rituais</span>
+                            <strong>{recap.ritualCount}</strong>
+                        </div>
+                        <div className={styles.ritualStat}>
+                            <span>Rewards</span>
+                            <strong>{recap.rewardCount}</strong>
+                        </div>
+                        <div className={styles.ritualStat}>
+                            <span>XP da janela</span>
+                            <strong>{recap.earnedXp}</strong>
+                        </div>
+                    </div>
+                    {recap.nextAction ? (
+                        <div className={styles.emptyActions}>
+                            <Link className={styles.cardAction} href={recap.nextAction.href}>
+                                {recap.nextAction.title}
+                            </Link>
+                        </div>
+                    ) : null}
+                </article>
+            ) : null}
+
+            {squadSpotlight ? (
+                <article
+                    className={styles.ritualPanel}
+                    data-community-section="squad-spotlight"
+                >
+                    <div className={styles.ritualPanelHeader}>
+                        <span className={styles.sectionKicker}>Squad spotlight</span>
+                        <span className={styles.loadoutChipMuted}>{squadSpotlight.visibilityLabel}</span>
+                    </div>
+                    <h2>{squadSpotlight.title}</h2>
+                    <p>{squadSpotlight.description}</p>
+                    <div className={styles.ritualStatGrid}>
+                        <div className={styles.ritualStat}>
+                            <span>Meta</span>
+                            <strong>{squadSpotlight.progressLabel}</strong>
+                        </div>
+                        <div className={styles.ritualStat}>
+                            <span>Membros</span>
+                            <strong>{squadSpotlight.memberCount}</strong>
+                        </div>
+                    </div>
+                    <p className={styles.ritualMeta}>{squadSpotlight.goalHeadline}</p>
+                    <p className={styles.ritualMeta}>{squadSpotlight.recapSummary}</p>
+                    {squadSpotlight.nextAction ? (
+                        <div className={styles.emptyActions}>
+                            <Link className={styles.cardAction} href={squadSpotlight.nextAction.href}>
+                                {squadSpotlight.nextAction.title}
+                            </Link>
+                        </div>
+                    ) : null}
+                </article>
+            ) : null}
+        </section>
+    );
+}
+
+function MissionBoardSection({
+    missionBoard,
+}: {
+    readonly missionBoard: MissionBoard | null;
+}): React.JSX.Element | null {
+    if (!missionBoard) {
+        return null;
+    }
+
+    return (
+        <section className={styles.sectionShell} data-community-section="mission-board">
+            <div className={styles.sectionHeader}>
+                <div>
+                    <span className={styles.sectionKicker}>Mission board</span>
+                    <h2 className={styles.sectionTitle}>{missionBoard.title}</h2>
+                </div>
+                <p className={styles.sectionSummary}>{missionBoard.summary}</p>
+            </div>
+
+            {missionBoard.items.length > 0 ? (
+                <div className={styles.missionGrid}>
+                    {missionBoard.items.map((item) => (
+                        <MissionPlate key={item.missionId} item={item} />
+                    ))}
+                </div>
+            ) : missionBoard.emptyState ? (
+                <ActionableEmptyState emptyState={missionBoard.emptyState} />
+            ) : null}
+        </section>
+    );
+}
+
+function MissionPlate({
+    item,
+}: {
+    readonly item: MissionBoardItem;
+}): React.JSX.Element {
+    return (
+        <article className={styles.missionPlate}>
+            <div className={styles.challengeActionTopline}>
+                <strong>{item.title}</strong>
+                <span className={styles.challengeXp}>{item.rewardLabel}</span>
+            </div>
+            <p>{item.description}</p>
+            <div className={styles.progressMeter} aria-hidden="true">
+                <span
+                    className={styles.progressMeterFill}
+                    style={{ width: formatProgressPercent(item.completionRatio) }}
+                />
+            </div>
+            <div className={styles.ritualStatGrid}>
+                <div className={styles.ritualStat}>
+                    <span>Progresso</span>
+                    <strong>{item.progressLabel}</strong>
+                </div>
+                <div className={styles.ritualStat}>
+                    <span>Estado</span>
+                    <strong>{item.state}</strong>
+                </div>
+            </div>
+            <Link className={styles.cardAction} href={item.primaryAction.href}>
+                {item.primaryAction.label}
+            </Link>
+        </article>
+    );
+}
+
 function CreatorPlate({ creator }: {
     readonly creator: CreatorHighlight;
 }): React.JSX.Element {
@@ -658,6 +945,16 @@ export default async function CommunityPage({
                         filters={viewModel.filters}
                     />
 
+                    <SeasonContextDeck
+                        challenge={viewModel.weeklyChallenge}
+                        season={viewModel.seasonContext}
+                    />
+                    <ViewerRitualDeck
+                        recap={viewModel.personalRecap}
+                        squadSpotlight={viewModel.squadSpotlight}
+                        summary={viewModel.viewerProgressionSummary}
+                    />
+                    <MissionBoardSection missionBoard={viewModel.missionBoard} />
                     <FollowingFeed followingFeed={viewModel.followingFeed} />
                     <TrendBoard trendBoard={viewModel.trendBoard} />
                     <WeeklyDrillPromptPanel prompt={viewModel.weeklyDrillPrompt} />

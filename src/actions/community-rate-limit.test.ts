@@ -13,6 +13,7 @@ import {
 
 const mocks = vi.hoisted(() => {
     const auth = vi.fn();
+    const trackCommunityProgressionForAction = vi.fn();
     const select = vi.fn();
     const from = vi.fn();
     const innerJoin = vi.fn();
@@ -29,6 +30,7 @@ const mocks = vi.hoisted(() => {
     const likeValues = vi.fn();
     const saveValues = vi.fn();
     const commentValues = vi.fn();
+    const commentReturning = vi.fn();
     const followValues = vi.fn();
     const reportValues = vi.fn();
     const onConflictDoNothing = vi.fn();
@@ -38,6 +40,7 @@ const mocks = vi.hoisted(() => {
 
     return {
         auth,
+        trackCommunityProgressionForAction,
         select,
         from,
         innerJoin,
@@ -54,6 +57,7 @@ const mocks = vi.hoisted(() => {
         likeValues,
         saveValues,
         commentValues,
+        commentReturning,
         followValues,
         reportValues,
         onConflictDoNothing,
@@ -85,6 +89,10 @@ vi.mock('@/core/community-post-snapshot', () => ({
 
 vi.mock('@/lib/rate-limit', () => ({
     checkCommunityActionRateLimit: mocks.checkCommunityActionRateLimit,
+}));
+
+vi.mock('@/lib/community-progression-recorder', () => ({
+    trackCommunityProgressionForAction: mocks.trackCommunityProgressionForAction,
 }));
 
 import { createCommunityPostComment } from './community-comments';
@@ -287,7 +295,14 @@ describe('community mutation rate limiting', () => {
             onConflictDoNothing: mocks.onConflictDoNothing,
         });
         mocks.onConflictDoNothing.mockResolvedValue(undefined);
-        mocks.commentValues.mockResolvedValue(undefined);
+        mocks.commentValues.mockReturnValue({
+            returning: mocks.commentReturning,
+        });
+        mocks.commentReturning.mockResolvedValue([
+            {
+                id: 'comment-1',
+            },
+        ]);
         mocks.reportValues.mockResolvedValue(undefined);
         mocks.deleteFn.mockReturnValue({
             where: mocks.deleteWhere,
@@ -295,6 +310,7 @@ describe('community mutation rate limiting', () => {
         mocks.deleteWhere.mockResolvedValue(undefined);
         mocks.createCommunityPostAnalysisSnapshot.mockReturnValue(createStoredSnapshot());
         mocks.checkCommunityActionRateLimit.mockResolvedValue(createRateLimitAllowedResult());
+        mocks.trackCommunityProgressionForAction.mockResolvedValue(undefined);
     });
 
     describe('publishAnalysisSessionToCommunity', () => {
@@ -477,6 +493,7 @@ describe('community mutation rate limiting', () => {
             mocks.limit.mockResolvedValueOnce([
                 {
                     id: 'post-1',
+                    authorId: 'user-2',
                     status: 'published',
                     visibility: 'public',
                 },
@@ -520,6 +537,7 @@ describe('community mutation rate limiting', () => {
             mocks.limit
                 .mockResolvedValueOnce([
                     {
+                        profileId: 'profile-2',
                         userId: 'user-2',
                     },
                 ])

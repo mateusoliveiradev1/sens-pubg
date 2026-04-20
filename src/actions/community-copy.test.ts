@@ -4,6 +4,9 @@ import { communityPostCopyEvents } from '@/db/schema';
 
 const mocks = vi.hoisted(() => {
     const auth = vi.fn();
+    const headers = vi.fn();
+    const checkCommunityActionRateLimit = vi.fn();
+    const trackCommunityProgressionForAction = vi.fn();
     const select = vi.fn();
     const from = vi.fn();
     const where = vi.fn();
@@ -13,6 +16,9 @@ const mocks = vi.hoisted(() => {
 
     return {
         auth,
+        headers,
+        checkCommunityActionRateLimit,
+        trackCommunityProgressionForAction,
         select,
         from,
         where,
@@ -24,6 +30,18 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('@/auth', () => ({
     auth: mocks.auth,
+}));
+
+vi.mock('next/headers', () => ({
+    headers: mocks.headers,
+}));
+
+vi.mock('@/lib/rate-limit', () => ({
+    checkCommunityActionRateLimit: mocks.checkCommunityActionRateLimit,
+}));
+
+vi.mock('@/lib/community-progression-recorder', () => ({
+    trackCommunityProgressionForAction: mocks.trackCommunityProgressionForAction,
 }));
 
 vi.mock('@/db', () => ({
@@ -109,6 +127,15 @@ describe('copyCommunityPostSens', () => {
         mocks.auth.mockResolvedValue({
             user: { id: 'user-1' },
         });
+        mocks.headers.mockResolvedValue({
+            get: vi.fn().mockReturnValue(null),
+        });
+        mocks.checkCommunityActionRateLimit.mockReturnValue({
+            success: true,
+            remaining: 3,
+            resetMs: 1000,
+        });
+        mocks.trackCommunityProgressionForAction.mockResolvedValue(undefined);
 
         mocks.select.mockReturnValue({
             from: mocks.from,
@@ -137,9 +164,12 @@ describe('copyCommunityPostSens', () => {
         const copySensPreset = createPersistedCopySensPreset();
         mocks.limit.mockResolvedValueOnce([
             {
+                authorId: 'author-1',
                 id: 'post-1',
                 slug: 'player-one-session-1',
                 copySensPreset,
+                status: 'published',
+                visibility: 'public',
             },
         ]);
 
@@ -175,15 +205,31 @@ describe('copyCommunityPostSens', () => {
             copiedByUserId: 'user-1',
             copyTarget: 'clipboard',
         });
+        expect(mocks.trackCommunityProgressionForAction).toHaveBeenCalledWith({
+            actorUserId: 'user-1',
+            beneficiaryUserId: 'author-1',
+            eventType: 'receive_unique_copy',
+            entityType: 'post',
+            entityId: 'post-1',
+            isPubliclyVisible: true,
+            metadata: {
+                copyTarget: 'clipboard',
+                sourceAuthorId: 'author-1',
+                sourcePostId: 'post-1',
+            },
+        });
     });
 
     it('allows anonymous copy by logging the event with copiedByUserId as null', async () => {
         mocks.auth.mockResolvedValue(null);
         mocks.limit.mockResolvedValueOnce([
             {
+                authorId: 'author-2',
                 id: 'post-2',
                 slug: 'public-post',
                 copySensPreset: createPersistedCopySensPreset(),
+                status: 'published',
+                visibility: 'public',
             },
         ]);
 
@@ -202,5 +248,6 @@ describe('copyCommunityPostSens', () => {
             copiedByUserId: null,
             copyTarget: 'clipboard',
         });
+        expect(mocks.trackCommunityProgressionForAction).not.toHaveBeenCalled();
     });
 });

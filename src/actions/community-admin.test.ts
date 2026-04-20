@@ -11,6 +11,7 @@ import {
 
 const mocks = vi.hoisted(() => {
     const auth = vi.fn();
+    const excludeCommunityEntityFromGamification = vi.fn();
     const select = vi.fn();
     const from = vi.fn();
     const where = vi.fn();
@@ -35,6 +36,7 @@ const mocks = vi.hoisted(() => {
 
     return {
         auth,
+        excludeCommunityEntityFromGamification,
         select,
         from,
         where,
@@ -58,6 +60,10 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('@/auth', () => ({
     auth: mocks.auth,
+}));
+
+vi.mock('@/lib/community-progression-recorder', () => ({
+    excludeCommunityEntityFromGamification: mocks.excludeCommunityEntityFromGamification,
 }));
 
 vi.mock('@/db', () => ({
@@ -87,6 +93,7 @@ describe('community admin moderation queue', () => {
                 role: 'admin',
             },
         });
+        mocks.excludeCommunityEntityFromGamification.mockResolvedValue(undefined);
 
         mocks.select.mockReturnValue({
             from: mocks.from,
@@ -322,6 +329,10 @@ describe('community admin moderation queue', () => {
                 actionKey: 'hide',
             },
         });
+        expect(mocks.excludeCommunityEntityFromGamification).toHaveBeenCalledWith({
+            entityType: 'post',
+            entityId: 'post-1',
+        });
         expect(mocks.revalidatePath).toHaveBeenCalledWith('/admin/community');
         expect(mocks.revalidatePath).toHaveBeenCalledWith('/admin/logs');
     });
@@ -383,5 +394,6 @@ describe('community admin moderation queue', () => {
                 actionKey: 'dismiss',
             },
         });
+        expect(mocks.excludeCommunityEntityFromGamification).not.toHaveBeenCalled();
     });
 });

@@ -30,6 +30,9 @@ type CommunityProfileTag = CommunityPublicProfilePostCard['analysisTags'][number
 type CommunityProfilePublicSetup = NonNullable<CommunityPublicProfileViewModel['publicSetup']>;
 type CommunityProfileRelatedLink = CommunityPublicProfileViewModel['relatedLinks'][number];
 type CommunityProfileTrustSignal = CommunityPublicProfileViewModel['trustSignals'][number];
+type CommunityProfileReward = CommunityPublicProfileViewModel['publicRewards'][number];
+type CommunityProfileStreak = CommunityPublicProfileViewModel['streak'];
+type CommunityProfileSquadIdentity = NonNullable<CommunityPublicProfileViewModel['squadIdentity']>;
 
 const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
     dateStyle: 'medium',
@@ -619,6 +622,175 @@ function ProfileMetricStrip({
     );
 }
 
+function RecognitionSection({
+    rewards,
+    streak,
+    squadIdentity,
+}: {
+    readonly rewards: readonly CommunityProfileReward[];
+    readonly streak: CommunityProfileStreak;
+    readonly squadIdentity: CommunityPublicProfileViewModel['squadIdentity'];
+}): JSX.Element {
+    return (
+        <section className={styles.sectionShell}>
+            <div className={styles.sectionHeader}>
+                <div>
+                    <span className={styles.sectionKicker}>Reconhecimento publico</span>
+                    <h2 className={styles.sectionTitle}>Rewards, streak e squad</h2>
+                </div>
+                <p className={styles.sectionSummary}>
+                    Apenas sinais public-safe e explicaveis entram aqui. Nada de claim de skill que o sistema nao mediu.
+                </p>
+            </div>
+
+            <div className={styles.profileRecognitionGrid}>
+                <RewardStrip rewards={rewards} />
+                <StreakSummaryCard streak={streak} />
+                <SquadIdentityCard squadIdentity={squadIdentity} />
+            </div>
+        </section>
+    );
+}
+
+function RewardStrip({
+    rewards,
+}: {
+    readonly rewards: readonly CommunityProfileReward[];
+}): JSX.Element {
+    return (
+        <article
+            className={styles.recognitionPlate}
+            data-community-layout="stable-reward-rail"
+            data-community-section="profile-reward-strip"
+        >
+            <div className={styles.ritualPanelHeader}>
+                <span className={styles.sectionKicker}>Reward strip</span>
+                <span className={styles.loadoutChipMuted}>
+                    {rewards.length === 1 ? '1 reward visivel' : `${rewards.length} rewards visiveis`}
+                </span>
+            </div>
+            <h3>Reconhecimentos publicos</h3>
+            <p>
+                Badges, titles e season marks aparecem so quando sao public-safe e factuais.
+            </p>
+
+            {rewards.length > 0 ? (
+                <div className={styles.rewardRail}>
+                    {rewards.map((reward) => (
+                        <article key={reward.id} className={styles.rewardItem}>
+                            <div className={styles.rewardHeadline}>
+                                <strong className={styles.rewardLabel}>
+                                    {reward.shortLabel ?? reward.label}
+                                </strong>
+                                <span className={styles.loadoutChipMuted}>
+                                    {reward.displayState}
+                                </span>
+                            </div>
+                            <p>{reward.factualContext}</p>
+                            {reward.description ? (
+                                <p className={styles.ritualMeta}>{reward.description}</p>
+                            ) : null}
+                        </article>
+                    ))}
+                </div>
+            ) : (
+                <div className={styles.rewardItem}>
+                    <span className={styles.rewardMeta}>Zero state</span>
+                    <p>
+                        Nenhum reward public-safe esta visivel neste perfil agora.
+                    </p>
+                </div>
+            )}
+        </article>
+    );
+}
+
+function StreakSummaryCard({
+    streak,
+}: {
+    readonly streak: CommunityProfileStreak;
+}): JSX.Element {
+    return (
+        <article
+            className={styles.recognitionPlate}
+            data-community-section="profile-streak-summary"
+        >
+            <div className={styles.ritualPanelHeader}>
+                <span className={styles.sectionKicker}>Streak summary</span>
+                <span className={styles.loadoutChipMuted}>{streak.streakState}</span>
+            </div>
+            <h3>{streak.title}</h3>
+            <p>{streak.summary}</p>
+            <div className={styles.ritualStatGrid}>
+                <div className={styles.ritualStat}>
+                    <span>Atual</span>
+                    <strong>{streak.currentStreak}</strong>
+                </div>
+                <div className={styles.ritualStat}>
+                    <span>Maior</span>
+                    <strong>{streak.longestStreak}</strong>
+                </div>
+            </div>
+        </article>
+    );
+}
+
+function SquadIdentityCard({
+    squadIdentity,
+}: {
+    readonly squadIdentity: CommunityPublicProfileViewModel['squadIdentity'];
+}): JSX.Element {
+    return (
+        <article
+            className={styles.recognitionPlate}
+            data-community-section="profile-squad-identity"
+        >
+            <div className={styles.ritualPanelHeader}>
+                <span className={styles.sectionKicker}>Squad identity</span>
+                <span className={styles.loadoutChipMuted}>
+                    {squadIdentity ? 'Publico' : 'Nao vinculado'}
+                </span>
+            </div>
+
+            {squadIdentity ? (
+                <ProfileSquadIdentityBody squadIdentity={squadIdentity} />
+            ) : (
+                <>
+                    <h3>Sem squad publico vinculado</h3>
+                    <p>
+                        Este perfil ainda nao exibe uma identidade publica de squad.
+                    </p>
+                    <Link className={styles.cardAction} href="/community">
+                        Voltar para comunidade
+                    </Link>
+                </>
+            )}
+        </article>
+    );
+}
+
+function ProfileSquadIdentityBody({
+    squadIdentity,
+}: {
+    readonly squadIdentity: CommunityProfileSquadIdentity;
+}): JSX.Element {
+    return (
+        <>
+            <h3>{squadIdentity.name}</h3>
+            <div className={styles.profileSlugRail}>
+                <span className={styles.loadoutChipMuted}>#{squadIdentity.slug}</span>
+            </div>
+            <p>
+                {squadIdentity.description
+                    ?? 'Squad publico com identidade liberada pelo owner e pela visibilidade do membro.'}
+            </p>
+            <Link className={styles.cardAction} href="/community">
+                Abrir squad board
+            </Link>
+        </>
+    );
+}
+
 function ProfileRelatedLinkPlate({
     link,
 }: {
@@ -781,6 +953,11 @@ export default async function CommunityUserProfilePage({
                         canonicalProfileUrl={canonicalProfileUrl}
                         viewModel={viewModel}
                         viewerCanReport={viewerCanReport}
+                    />
+                    <RecognitionSection
+                        rewards={viewModel.publicRewards}
+                        squadIdentity={viewModel.squadIdentity}
+                        streak={viewModel.streak}
                     />
                     <ProfileSetupShowcase
                         isSelfProfile={viewModel.follow.isSelfProfile}

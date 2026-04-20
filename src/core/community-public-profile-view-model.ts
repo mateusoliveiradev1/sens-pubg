@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, isNotNull } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNotNull, or } from 'drizzle-orm';
 
 import {
     communityFollows,
@@ -7,7 +7,11 @@ import {
     communityPostLikes,
     communityPostSaves,
     communityPosts,
+    communityProgressionEvents,
     communityProfiles,
+    communityRewardRecords,
+    communitySquadMemberships,
+    communitySquads,
     playerProfiles,
     users,
 } from '@/db/schema';
@@ -19,7 +23,12 @@ import type {
 import type {
     CommunityPostStatus,
     CommunityPostVisibility,
+    CommunityProgressionStreakState,
 } from '@/types/community';
+import {
+    buildCommunityProgressionStreakSnapshot,
+    toCommunityProgressionHistoryEvent,
+} from './community-progression';
 import {
     buildCommunityAnalysisTags,
     buildCommunityFallbackInitials,
@@ -28,9 +37,20 @@ import {
     toSafeCommunityCount,
 } from './community-public-formatting';
 import {
+    buildCommunityPublicRewardSummaries,
+    type CommunityPublicRewardSummary,
+} from './community-rewards';
+import {
+    buildCommunityPublicSquadIdentity,
+    type CommunityPublicSquadIdentity,
+} from './community-squads';
+import {
     buildProfileTrustSignals,
     type CommunityTrustSignal,
 } from './community-trust-signals';
+
+const COMMUNITY_PUBLIC_PROFILE_EVENT_LIMIT = 250;
+const COMMUNITY_PUBLIC_PROFILE_REWARD_LIMIT = 24;
 
 export interface CommunityPublicProfileSourceProfile {
     readonly userId: string;
@@ -142,6 +162,14 @@ export interface CommunityPublicProfilePublicSetup {
     };
 }
 
+export interface CommunityPublicProfileStreakSummary {
+    readonly currentStreak: number;
+    readonly longestStreak: number;
+    readonly streakState: CommunityProgressionStreakState;
+    readonly title: string;
+    readonly summary: string;
+}
+
 export interface CommunityPublicProfileViewModel {
     readonly identity: {
         readonly profileId: string;
@@ -182,6 +210,9 @@ export interface CommunityPublicProfileViewModel {
         readonly actionLabel: string;
         readonly disabledReason: string | null;
     };
+    readonly publicRewards: readonly CommunityPublicRewardSummary[];
+    readonly streak: CommunityPublicProfileStreakSummary;
+    readonly squadIdentity: CommunityPublicSquadIdentity | null;
     readonly publicSetup: CommunityPublicProfilePublicSetup | null;
     readonly relatedLinks: readonly CommunityPublicProfileRelatedLink[];
     readonly posts: readonly CommunityPublicProfilePostCard[];
@@ -203,6 +234,9 @@ export interface BuildPublicCommunityProfileViewModelInput {
     readonly creatorMetrics: CommunityPublicProfileCreatorMetrics;
     readonly followState: CommunityPublicProfileFollowState;
     readonly viewerUserId: string | null;
+    readonly publicRewards?: readonly CommunityPublicRewardSummary[];
+    readonly streakSummary?: CommunityPublicProfileStreakSummary;
+    readonly squadIdentity?: CommunityPublicSquadIdentity | null;
 }
 
 export function buildPublicCommunityProfileViewModel(
@@ -281,6 +315,9 @@ export function buildPublicCommunityProfileViewModel(
                 viewerUserId: input.viewerUserId,
             }),
         },
+        publicRewards: input.publicRewards ?? [],
+        streak: input.streakSummary ?? createZeroCommunityPublicProfileStreakSummary(),
+        squadIdentity: input.squadIdentity ?? null,
         posts: publicPosts,
         emptyState: publicPosts.length > 0
             ? null
@@ -393,6 +430,75 @@ export async function getPublicCommunityProfileViewModel(
             .where(eq(playerProfiles.userId, storedProfile.userId))
             .limit(1),
     ]);
+    const [storedProgressionEvents, storedRewards, storedSquadRows] = await withCommunityGamificationFallback(
+        () => Promise.all([
+            db
+                .select({
+                    idempotencyKey: communityProgressionEvents.idempotencyKey,
+                    eventType: communityProgressionEvents.eventType,
+                    actorUserId: communityProgressionEvents.actorUserId,
+                    beneficiaryUserId: communityProgressionEvents.beneficiaryUserId,
+                    entityType: communityProgressionEvents.entityType,
+                    entityId: communityProgressionEvents.entityId,
+                    rawXp: communityProgressionEvents.rawXp,
+                    effectiveXp: communityProgressionEvents.effectiveXp,
+                    occurredAt: communityProgressionEvents.occurredAt,
+                    seasonId: communityProgressionEvents.seasonId,
+                    missionId: communityProgressionEvents.missionId,
+                    squadId: communityProgressionEvents.squadId,
+                })
+                .from(communityProgressionEvents)
+                .where(
+                    or(
+                        eq(communityProgressionEvents.actorUserId, storedProfile.userId),
+                        eq(communityProgressionEvents.beneficiaryUserId, storedProfile.userId),
+                    ),
+                )
+                .orderBy(desc(communityProgressionEvents.occurredAt))
+                .limit(COMMUNITY_PUBLIC_PROFILE_EVENT_LIMIT),
+            db
+                .select({
+                    description: communityRewardRecords.description,
+                    displayState: communityRewardRecords.displayState,
+                    earnedAt: communityRewardRecords.earnedAt,
+                    id: communityRewardRecords.id,
+                    isPublicSafe: communityRewardRecords.isPublicSafe,
+                    label: communityRewardRecords.label,
+                    ownerType: communityRewardRecords.ownerType,
+                    publicPayload: communityRewardRecords.publicPayload,
+                    rewardKind: communityRewardRecords.rewardKind,
+                    squadId: communityRewardRecords.squadId,
+                    status: communityRewardRecords.status,
+                    userId: communityRewardRecords.userId,
+                })
+                .from(communityRewardRecords)
+                .where(eq(communityRewardRecords.userId, storedProfile.userId))
+                .orderBy(desc(communityRewardRecords.earnedAt))
+                .limit(COMMUNITY_PUBLIC_PROFILE_REWARD_LIMIT),
+            db
+                .select({
+                    squadId: communitySquads.id,
+                    squadName: communitySquads.name,
+                    squadSlug: communitySquads.slug,
+                    squadDescription: communitySquads.description,
+                    squadVisibility: communitySquads.visibility,
+                })
+                .from(communitySquadMemberships)
+                .innerJoin(communitySquads, eq(communitySquadMemberships.squadId, communitySquads.id))
+                .where(
+                    and(
+                        eq(communitySquadMemberships.userId, storedProfile.userId),
+                        eq(communitySquadMemberships.status, 'active'),
+                        eq(communitySquadMemberships.isPubliclyVisible, true),
+                        eq(communitySquads.visibility, 'public'),
+                        eq(communitySquads.status, 'active'),
+                    ),
+                )
+                .orderBy(desc(communitySquadMemberships.joinedAt))
+                .limit(1),
+        ]),
+        [[], [], []] as const,
+    );
     const postIds = storedPosts.map((post) => post.id);
     const [creatorMetrics, followState] = await Promise.all([
         getPublicProfileMetrics(postIds),
@@ -410,7 +516,66 @@ export async function getPublicCommunityProfileViewModel(
         creatorMetrics,
         followState,
         viewerUserId: input.viewerUserId,
+        publicRewards: buildCommunityPublicRewardSummaries({
+            rewards: storedRewards,
+            ownerType: 'user',
+            userId: storedProfile.userId,
+        }),
+        streakSummary: buildCommunityPublicProfileStreakSummary(
+            storedProgressionEvents.map((event) => toCommunityProgressionHistoryEvent(event)),
+            storedProfile.userId,
+        ),
+        squadIdentity: buildCommunityPublicSquadIdentity(
+            storedSquadRows[0]
+                ? {
+                    id: storedSquadRows[0].squadId,
+                    name: storedSquadRows[0].squadName,
+                    slug: storedSquadRows[0].squadSlug,
+                    description: storedSquadRows[0].squadDescription,
+                    visibility: storedSquadRows[0].squadVisibility,
+                }
+                : null,
+        ),
     });
+}
+
+function isMissingCommunityGamificationRelation(error: unknown): boolean {
+    const candidates = [error];
+
+    if (typeof error === 'object' && error !== null && 'cause' in error) {
+        candidates.push((error as { readonly cause?: unknown }).cause);
+    }
+
+    return candidates.some((candidate) => {
+        if (!candidate || typeof candidate !== 'object') {
+            return false;
+        }
+
+        const code = 'code' in candidate && typeof candidate.code === 'string'
+            ? candidate.code
+            : null;
+        const message = 'message' in candidate && typeof candidate.message === 'string'
+            ? candidate.message
+            : '';
+
+        return code === '42P01'
+            || /relation "community_[^"]+" does not exist/i.test(message);
+    });
+}
+
+async function withCommunityGamificationFallback<T>(
+    query: () => Promise<T>,
+    fallback: T,
+): Promise<T> {
+    try {
+        return await query();
+    } catch (error) {
+        if (isMissingCommunityGamificationRelation(error)) {
+            return fallback;
+        }
+
+        throw error;
+    }
 }
 
 function firstPublicText(
@@ -780,5 +945,57 @@ async function getPublicProfileFollowState(input: {
     return {
         followerCount,
         viewerIsFollowing: Boolean(storedFollow),
+    };
+}
+
+function buildCommunityPublicProfileStreakSummary(
+    events: Parameters<typeof buildCommunityProgressionStreakSnapshot>[0]['events'],
+    userId: string,
+): CommunityPublicProfileStreakSummary {
+    const streak = buildCommunityProgressionStreakSnapshot({
+        userId,
+        events,
+    });
+
+    switch (streak.streakState) {
+        case 'active':
+            return {
+                currentStreak: streak.currentStreak,
+                longestStreak: streak.longestStreak,
+                streakState: streak.streakState,
+                title: `${streak.currentStreak} semana(s) em sequencia`,
+                summary: `Maior streak publica: ${streak.longestStreak}. O operador segue em ritmo ativo nesta janela.`,
+            };
+
+        case 'at_risk':
+            return {
+                currentStreak: streak.currentStreak,
+                longestStreak: streak.longestStreak,
+                streakState: streak.streakState,
+                title: 'Janela de streak em risco',
+                summary: `A ultima contribuicao significativa abriu uma streak de ${streak.currentStreak}; falta uma nova acao util nesta semana para mante-la ativa.`,
+            };
+
+        case 'reentry':
+            return {
+                currentStreak: streak.currentStreak,
+                longestStreak: streak.longestStreak,
+                streakState: streak.streakState,
+                title: 'Pronto para retomar o ritmo',
+                summary: `A maior streak publica foi ${streak.longestStreak}. O operador esta em janela de retorno sem penalidade publica artificial.`,
+            };
+
+        case 'inactive':
+            return createZeroCommunityPublicProfileStreakSummary();
+    }
+}
+
+function createZeroCommunityPublicProfileStreakSummary(): CommunityPublicProfileStreakSummary {
+    return {
+        currentStreak: 0,
+        longestStreak: 0,
+        streakState: 'inactive',
+        title: 'Streak publica ainda nao iniciada',
+        summary: 'Sem participacoes publicas significativas registradas o bastante para abrir uma streak visivel.',
     };
 }

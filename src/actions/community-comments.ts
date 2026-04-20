@@ -6,6 +6,7 @@ import { and, asc, eq } from 'drizzle-orm';
 import { auth } from '@/auth';
 import { db } from '@/db';
 import { communityPostComments, communityPosts, users } from '@/db/schema';
+import { trackCommunityProgressionForAction } from '@/lib/community-progression-recorder';
 import { checkCommunityActionRateLimit } from '@/lib/rate-limit';
 
 export interface CreateCommunityPostCommentInput {
@@ -74,6 +75,7 @@ export async function createCommunityPostComment(
     const [storedPost] = await db
         .select({
             id: communityPosts.id,
+            authorId: communityPosts.authorId,
             status: communityPosts.status,
             visibility: communityPosts.visibility,
         })
@@ -95,13 +97,36 @@ export async function createCommunityPostComment(
         };
     }
 
-    await db.insert(communityPostComments).values({
-        postId: storedPost.id,
-        authorId: session.user.id,
-        status: 'visible',
-        bodyMarkdown: normalizedBodyMarkdown,
-        diagnosisContextKey: normalizedDiagnosisContextKey,
-    });
+    const [createdComment] = await db
+        .insert(communityPostComments)
+        .values({
+            postId: storedPost.id,
+            authorId: session.user.id,
+            status: 'visible',
+            bodyMarkdown: normalizedBodyMarkdown,
+            diagnosisContextKey: normalizedDiagnosisContextKey,
+        })
+        .returning({
+            id: communityPostComments.id,
+        });
+
+    if (normalizedDiagnosisContextKey && createdComment) {
+        await trackCommunityProgressionForAction({
+            actorUserId: session.user.id,
+            eventType: 'comment_with_context',
+            entityType: 'comment',
+            entityId: createdComment.id,
+            dedupeKey: createdComment.id,
+            hasRequiredContext: true,
+            isPubliclyVisible: true,
+            metadata: {
+                diagnosisContextKey: normalizedDiagnosisContextKey,
+                sourcePostAuthorId: storedPost.authorId,
+                sourceCommentId: createdComment.id,
+                sourcePostId: storedPost.id,
+            },
+        });
+    }
 
     revalidatePath(`/community/${normalizedSlug}`);
 

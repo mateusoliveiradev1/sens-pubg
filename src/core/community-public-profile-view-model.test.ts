@@ -607,4 +607,79 @@ describe('buildPublicCommunityProfileViewModel', () => {
         ]);
         expect(JSON.stringify(viewModel.trustSignals).toLowerCase()).not.toMatch(/pro player|verified skill|best|melhor|rank|skill/);
     });
+
+    it('uses neutral public recognition defaults when no reward, streak or squad identity is supplied', () => {
+        const viewModel = buildPublicCommunityProfileViewModel(createViewModelInput());
+
+        expect(viewModel.publicRewards).toEqual([]);
+        expect(viewModel.streak).toEqual({
+            currentStreak: 0,
+            longestStreak: 0,
+            streakState: 'inactive',
+            title: 'Streak publica ainda nao iniciada',
+            summary: 'Sem participacoes publicas significativas registradas o bastante para abrir uma streak visivel.',
+        });
+        expect(viewModel.squadIdentity).toBeNull();
+    });
+
+    it('passes through public-safe rewards, streak summary and squad identity for profile recognition surfaces', () => {
+        const viewModel = buildPublicCommunityProfileViewModel({
+            ...createViewModelInput(),
+            publicRewards: [
+                {
+                    id: 'reward-season-36-pioneer',
+                    rewardKind: 'season_mark',
+                    label: 'Season 36 Pioneer',
+                    shortLabel: 'S36 Pioneer',
+                    description: 'Reconhecimento factual por contribuicoes publicas na temporada.',
+                    factualContext: 'Liberado por contribuicoes publicas elegiveis na janela da Season 36.',
+                    iconKey: 'season-mark',
+                    displayState: 'visible',
+                    isEquipped: true,
+                    earnedAt: new Date('2026-04-18T10:00:00.000Z'),
+                },
+            ],
+            streakSummary: {
+                currentStreak: 3,
+                longestStreak: 5,
+                streakState: 'active',
+                title: '3 semana(s) em sequencia',
+                summary: 'Maior streak publica: 5. O operador segue em ritmo ativo nesta janela.',
+            },
+            squadIdentity: {
+                id: 'squad-spray-lab',
+                name: 'Spray Lab',
+                slug: 'spray-lab',
+                description: 'Squad publico focado em reviews de recoil e rotinas semanais.',
+            },
+        });
+
+        expect(viewModel.publicRewards).toEqual([
+            {
+                id: 'reward-season-36-pioneer',
+                rewardKind: 'season_mark',
+                label: 'Season 36 Pioneer',
+                shortLabel: 'S36 Pioneer',
+                description: 'Reconhecimento factual por contribuicoes publicas na temporada.',
+                factualContext: 'Liberado por contribuicoes publicas elegiveis na janela da Season 36.',
+                iconKey: 'season-mark',
+                displayState: 'visible',
+                isEquipped: true,
+                earnedAt: new Date('2026-04-18T10:00:00.000Z'),
+            },
+        ]);
+        expect(viewModel.streak).toEqual({
+            currentStreak: 3,
+            longestStreak: 5,
+            streakState: 'active',
+            title: '3 semana(s) em sequencia',
+            summary: 'Maior streak publica: 5. O operador segue em ritmo ativo nesta janela.',
+        });
+        expect(viewModel.squadIdentity).toEqual({
+            id: 'squad-spray-lab',
+            name: 'Spray Lab',
+            slug: 'spray-lab',
+            description: 'Squad publico focado em reviews de recoil e rotinas semanais.',
+        });
+    });
 });

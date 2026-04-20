@@ -6,6 +6,7 @@ import type { AnalysisResult } from '@/types/engine';
 const mocks = vi.hoisted(() => {
     const auth = vi.fn();
     const checkCommunityActionRateLimit = vi.fn();
+    const trackCommunityProgressionForAction = vi.fn();
     const select = vi.fn();
     const from = vi.fn();
     const where = vi.fn();
@@ -20,6 +21,7 @@ const mocks = vi.hoisted(() => {
     return {
         auth,
         checkCommunityActionRateLimit,
+        trackCommunityProgressionForAction,
         select,
         from,
         where,
@@ -39,6 +41,10 @@ vi.mock('@/auth', () => ({
 
 vi.mock('@/lib/rate-limit', () => ({
     checkCommunityActionRateLimit: mocks.checkCommunityActionRateLimit,
+}));
+
+vi.mock('@/lib/community-progression-recorder', () => ({
+    trackCommunityProgressionForAction: mocks.trackCommunityProgressionForAction,
 }));
 
 vi.mock('@/db', () => ({
@@ -181,6 +187,7 @@ describe('publishAnalysisSessionToCommunity', () => {
             remaining: 2,
             resetMs: 1000,
         });
+        mocks.trackCommunityProgressionForAction.mockResolvedValue(undefined);
 
         mocks.select.mockReturnValue({
             from: mocks.from,
@@ -331,6 +338,7 @@ describe('publishAnalysisSessionToCommunity', () => {
                 recommended: 'balanced',
             }),
         }));
+        expect(mocks.trackCommunityProgressionForAction).not.toHaveBeenCalled();
     });
 
     it('persists a published post with publishedAt populated when requested', async () => {
@@ -363,6 +371,21 @@ describe('publishAnalysisSessionToCommunity', () => {
             publishedAt: expect.any(Date),
         }));
         expect(mocks.snapshotValues).toHaveBeenCalledTimes(1);
+        expect(mocks.trackCommunityProgressionForAction).toHaveBeenCalledWith(expect.objectContaining({
+            actorUserId: 'user-1',
+            eventType: 'publish_post',
+            entityType: 'post',
+            entityId: 'post-1',
+            isPubliclyVisible: true,
+            occurredAt: expect.any(Date),
+            metadata: expect.objectContaining({
+                analysisSessionId: 'session-1',
+                profileId: 'profile-1',
+                profileSlug: 'player-one',
+                primaryPatchVersion: '35.1',
+                primaryWeaponId: 'beryl-m762',
+            }),
+        }));
     });
 
     it('normalizes legacy UUID weapon ids into technical ids when publishing community posts', async () => {
@@ -455,6 +478,17 @@ describe('publishAnalysisSessionToCommunity', () => {
         expect(mocks.postValues).toHaveBeenCalledWith(expect.objectContaining({
             communityProfileId: 'profile-1',
             slug: 'player-1-user1-session-1',
+        }));
+        expect(mocks.trackCommunityProgressionForAction).toHaveBeenCalledWith(expect.objectContaining({
+            actorUserId: 'user-1',
+            eventType: 'complete_public_profile',
+            entityType: 'profile',
+            entityId: 'profile-1',
+            isPubliclyVisible: true,
+            metadata: expect.objectContaining({
+                profileSlug: 'player-1-user1',
+                source: 'community_profile_activation',
+            }),
         }));
     });
 });

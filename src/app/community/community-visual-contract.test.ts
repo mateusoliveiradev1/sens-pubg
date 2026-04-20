@@ -17,10 +17,19 @@ describe('community visual contract', () => {
         expect(source).toMatch(/data-community-section=["']squad-board["']/);
         expect(source).toMatch(/data-community-section=["']featured-posts["']/);
         expect(source).toMatch(/data-community-section=["']creator-plates["']/);
+        expect(source).toMatch(/data-community-section=["']season-context["']/);
+        expect(source).toMatch(/data-community-section=["']weekly-challenge-board["']/);
+        expect(source).toMatch(/data-community-section=["']progression-summary["']/);
+        expect(source).toMatch(/data-community-section=["']personal-recap["']/);
+        expect(source).toMatch(/data-community-section=["']squad-spotlight["']/);
+        expect(source).toMatch(/data-community-section=["']mission-board["']/);
         expect(source).toMatch(/data-community-card=["']snapshot-plate["']/);
         expect(source).toMatch(/data-community-chip=["']loadout-chip["']/);
         expect(source).toMatch(/data-community-signal=["']recoil-signal["']/);
         expect(source).toMatch(/data-community-section=["']profile-trust-rail["']/);
+        expect(source).toMatch(/data-community-section=["']profile-reward-strip["']/);
+        expect(source).toMatch(/data-community-section=["']profile-streak-summary["']/);
+        expect(source).toMatch(/data-community-section=["']profile-squad-identity["']/);
         expect(source).toMatch(/data-community-section=["']community-trust-rail["']/);
         expect(source).toMatch(/data-community-signal=["']community-trust-signal["']/);
     });
@@ -61,8 +70,11 @@ describe('community visual contract', () => {
 
         expect(source).toMatch(/data-community-layout=["']stable-metric-plate["']/);
         expect(source).toMatch(/data-community-layout=["']stable-trust-rail["']/);
+        expect(source).toMatch(/data-community-layout=["']stable-reward-rail["']/);
         expect(source).toMatch(/trustSignalRail/);
+        expect(source).toMatch(/ritualDeck|missionGrid|profileRecognitionGrid/);
         expect(source).toMatch(/min-height:\s*92px/);
         expect(source).toMatch(/@media \(max-width: 767px\)[\s\S]*trustSignalRail/);
+        expect(source).toMatch(/@media \(max-width: 1023px\)[\s\S]*(ritualDeck|missionGrid|profileRecognitionGrid)/);
     });
 });
