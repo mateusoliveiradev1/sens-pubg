@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    resolvePersistedAnalysisWeaponId,
     resolvePreferredAnalysisWeaponId,
     summarizeAnalysisWeaponSupport,
 } from './analysis-weapon-support';
@@ -29,5 +30,13 @@ describe('analysis weapon support', () => {
         const summary = summarizeAnalysisWeaponSupport(dbWeapons);
 
         expect(resolvePreferredAnalysisWeaponId(summary.supported)).toBe('db-3');
+    });
+
+    it('returns the technical weapon id that should be persisted for history and community flows', () => {
+        const summary = summarizeAnalysisWeaponSupport(dbWeapons);
+
+        expect(resolvePersistedAnalysisWeaponId(summary.supported, 'db-3')).toBe('beryl-m762');
+        expect(resolvePersistedAnalysisWeaponId(summary.supported, 'db-2')).toBe('mini14');
+        expect(resolvePersistedAnalysisWeaponId(summary.supported, 'db-1')).toBeUndefined();
     });
 });

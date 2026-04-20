@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import { getCommunityProfileFollowState } from '@/actions/community-follows';
 import { getPublicCommunityProfileBySlug } from '@/actions/community-profiles';
 import { auth } from '@/auth';
+import { getWeapon } from '@/game/pubg';
 import { Header } from '@/ui/components/header';
 
 import { FollowButton } from './follow-button';
@@ -80,10 +81,11 @@ function humanizeCreatorProgramStatus(status: string): string {
 }
 
 function formatWeaponLabel(weaponId: string): string {
-    return weaponId
-        .split('-')
-        .map((part) => part.toUpperCase())
-        .join(' ');
+    return getWeapon(weaponId)?.name
+        ?? weaponId
+            .split('-')
+            .map((part) => part.toUpperCase())
+            .join(' ');
 }
 
 function formatDiagnosisLabel(diagnosisKey: string): string {

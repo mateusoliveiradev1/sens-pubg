@@ -15,6 +15,7 @@ import {
     communityPosts,
     communityProfiles,
 } from '@/db/schema';
+import { getWeapon } from '@/game/pubg';
 import { checkCommunityActionRateLimit } from '@/lib/rate-limit';
 import type { CommunityPostStatus, CommunityPostVisibility } from '@/types/community';
 import type { AnalysisResult } from '@/types/engine';
@@ -187,6 +188,25 @@ function normalizeStoredAnalysisResult(
     };
 }
 
+function resolvePublishedWeaponId(
+    storedWeaponId: string,
+    analysisResult: AnalysisResult,
+): string {
+    const technicalStoredWeaponId = getWeapon(storedWeaponId)?.id;
+
+    if (technicalStoredWeaponId) {
+        return technicalStoredWeaponId;
+    }
+
+    const technicalTrajectoryWeaponId = getWeapon(analysisResult.trajectory.weaponId)?.id;
+
+    if (technicalTrajectoryWeaponId) {
+        return technicalTrajectoryWeaponId;
+    }
+
+    return storedWeaponId;
+}
+
 export async function publishAnalysisSessionToCommunity(
     input: PublishAnalysisSessionToCommunityInput,
 ): Promise<PublishAnalysisSessionToCommunityResult> {
@@ -267,9 +287,16 @@ export async function publishAnalysisSessionToCommunity(
         };
     }
 
+    const publishedWeaponId = resolvePublishedWeaponId(
+        storedAnalysisSession.weaponId,
+        analysisResult,
+    );
     const analysisSnapshot = createCommunityPostAnalysisSnapshot({
         analysisResult,
-        session: toSnapshotSourceSession(storedAnalysisSession),
+        session: toSnapshotSourceSession({
+            ...storedAnalysisSession,
+            weaponId: publishedWeaponId,
+        }),
     });
     const slug = buildAnalysisSnapshotPostSlug(communityProfile.slug, storedAnalysisSession.id);
     const publishedAt = input.status === 'published' ? new Date() : null;
@@ -287,7 +314,7 @@ export async function publishAnalysisSessionToCommunity(
             excerpt: input.excerpt.trim(),
             bodyMarkdown: input.bodyMarkdown.trim(),
             sourceAnalysisSessionId: storedAnalysisSession.id,
-            primaryWeaponId: storedAnalysisSession.weaponId,
+            primaryWeaponId: publishedWeaponId,
             primaryPatchVersion: storedAnalysisSession.patchVersion,
             primaryDiagnosisKey: resolvePrimaryDiagnosisKey(analysisResult),
             copySensPreset: analysisSnapshot.sensSnapshot,

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState, useTransition } from 'react';
 
 import { publishAnalysisSessionToCommunity } from '@/actions/community-posts';
+import { buildCommunityPublishPayload } from './publish-analysis-button.payload';
 
 interface Props {
     readonly analysisSessionId: string;
@@ -13,30 +14,11 @@ interface Props {
     readonly createdAtIso: string;
 }
 
-function buildDraftPayload(input: Props) {
-    const createdAtLabel = new Date(input.createdAtIso).toLocaleDateString('pt-BR');
-
-    return {
-        analysisSessionId: input.analysisSessionId,
-        title: `${input.weaponName} - analise de spray`,
-        excerpt: `Analise de ${input.weaponName} com ${input.scopeName} no patch ${input.patchVersion}.`,
-        bodyMarkdown: [
-            'Analise publicada a partir do historico do jogador.',
-            '',
-            `- Arma: ${input.weaponName}`,
-            `- Mira: ${input.scopeName}`,
-            `- Patch: ${input.patchVersion}`,
-            `- Sessao original: ${createdAtLabel}`,
-        ].join('\n'),
-        status: 'draft' as const,
-    };
-}
-
 export function PublishAnalysisButton(props: Props) {
     const [isPending, startTransition] = useTransition();
     const [statusMessage, setStatusMessage] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
-    const [hasPublishedDraft, setHasPublishedDraft] = useState(false);
+    const [hasPublishedPost, setHasPublishedPost] = useState(false);
     const [createdSlug, setCreatedSlug] = useState<string | null>(null);
 
     const handlePublish = () => {
@@ -45,18 +27,20 @@ export function PublishAnalysisButton(props: Props) {
 
         startTransition(async () => {
             try {
-                const result = await publishAnalysisSessionToCommunity(buildDraftPayload(props));
+                const result = await publishAnalysisSessionToCommunity(
+                    buildCommunityPublishPayload(props),
+                );
 
                 if (!result.success) {
                     setErrorMessage(result.error);
                     return;
                 }
 
-                setHasPublishedDraft(true);
+                setHasPublishedPost(true);
                 setCreatedSlug(result.slug);
-                setStatusMessage('Rascunho criado na comunidade.');
+                setStatusMessage('Publicado na comunidade.');
             } catch {
-                setErrorMessage('Nao foi possivel criar o rascunho da comunidade agora.');
+                setErrorMessage('Nao foi possivel publicar na comunidade agora.');
             }
         });
     };
@@ -72,12 +56,12 @@ export function PublishAnalysisButton(props: Props) {
         >
             <button
                 type="button"
-                className={hasPublishedDraft ? 'btn btn-secondary' : 'btn btn-primary'}
+                className={hasPublishedPost ? 'btn btn-secondary' : 'btn btn-primary'}
                 onClick={handlePublish}
-                disabled={isPending || hasPublishedDraft}
+                disabled={isPending || hasPublishedPost}
                 aria-describedby={statusMessage || errorMessage ? 'publish-analysis-entry-status' : undefined}
             >
-                {isPending ? 'Criando rascunho...' : hasPublishedDraft ? 'Rascunho criado' : 'Publicar na comunidade'}
+                {isPending ? 'Publicando...' : hasPublishedPost ? 'Publicado' : 'Publicar na comunidade'}
             </button>
 
             <Link
@@ -104,7 +88,7 @@ export function PublishAnalysisButton(props: Props) {
                     href={`/community/${createdSlug}`}
                     style={{ paddingInline: '0.75rem' }}
                 >
-                    Abrir rascunho
+                    Abrir publicacao
                 </Link>
             ) : null}
 

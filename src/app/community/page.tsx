@@ -6,6 +6,7 @@ import {
     type ListPublicCommunityFeedInput,
     type PublicCommunityFeedEntry,
 } from '@/core/community-feed';
+import { getWeapon } from '@/game/pubg';
 import { Header } from '@/ui/components/header';
 
 import {
@@ -129,10 +130,11 @@ function parseFeedFilters(searchParams: CommunityPageSearchParams): ListPublicCo
 }
 
 function formatWeaponLabel(weaponId: string): string {
-    return weaponId
-        .split('-')
-        .map((part) => part.toUpperCase())
-        .join(' ');
+    return getWeapon(weaponId)?.name
+        ?? weaponId
+            .split('-')
+            .map((part) => part.toUpperCase())
+            .join(' ');
 }
 
 function formatDiagnosisLabel(diagnosisKey: string): string {

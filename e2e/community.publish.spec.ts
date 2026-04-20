@@ -1,6 +1,6 @@
 /**
  * E2E: Publish analysis into the community flow
- * Confirma que o usuario consegue criar o rascunho da comunidade
+ * Confirma que o usuario consegue publicar na comunidade
  * a partir do historico e seguir para abrir o post criado.
  */
 
@@ -234,7 +234,7 @@ async function seedCommunityPublishFixture() {
 }
 
 test.describe('Community publish flow', () => {
-    test('creates a draft from history detail and lets the author open the created post', async ({
+    test('publishes from history detail and lets the author open the created post', async ({
         page,
     }) => {
         const fixture = await seedCommunityPublishFixture();
@@ -245,8 +245,8 @@ test.describe('Community publish flow', () => {
 
             await page.getByRole('button', { name: /publicar na comunidade/i }).click();
 
-            await expect(page.getByText(/rascunho criado na comunidade/i)).toBeVisible();
-            await expect(page.getByRole('button', { name: /rascunho criado/i })).toBeDisabled();
+            await expect(page.getByText(/publicado na comunidade/i)).toBeVisible();
+            await expect(page.getByRole('button', { name: /^publicado$/i })).toBeDisabled();
 
             await expect
                 .poll(async () => {
@@ -276,19 +276,18 @@ test.describe('Community publish flow', () => {
                 .toEqual(
                     expect.objectContaining({
                         slug: fixture.expectedSlug,
-                        status: 'draft',
+                        status: 'published',
                         title: 'beryl-m762 - analise de spray',
                     }),
                 );
 
-            await expect(page.getByRole('link', { name: /abrir rascunho/i })).toBeVisible();
-            await page.getByRole('link', { name: /abrir rascunho/i }).click();
+            await expect(page.getByRole('link', { name: /abrir publicacao/i })).toBeVisible();
+            await page.getByRole('link', { name: /abrir publicacao/i }).click();
 
             await expect(page).toHaveURL(`/community/${fixture.expectedSlug}`);
             await expect(page.getByRole('heading', { level: 1, name: /beryl-m762 - analise de spray/i })).toBeVisible();
-            await expect(page.getByText(/rascunho/i)).toBeVisible();
             await expect(
-                page.getByText(/comentarios liberados apenas quando o post estiver publicado/i),
+                page.getByText(/entre na sua conta para comentar neste post/i),
             ).toBeVisible();
         } finally {
             await fixture.cleanup();

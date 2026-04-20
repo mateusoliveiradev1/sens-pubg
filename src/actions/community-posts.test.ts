@@ -50,7 +50,11 @@ vi.mock('@/db', () => ({
 
 import { publishAnalysisSessionToCommunity } from './community-posts';
 
-function createStoredAnalysisResult(): AnalysisResult {
+function createStoredAnalysisResult(overrides?: {
+    readonly trajectoryWeaponId?: string;
+}): AnalysisResult {
+    const trajectoryWeaponId = overrides?.trajectoryWeaponId ?? 'beryl-m762';
+
     return {
         id: 'analysis-1',
         timestamp: new Date('2026-04-18T18:45:00.000Z'),
@@ -61,7 +65,7 @@ function createStoredAnalysisResult(): AnalysisResult {
             displacements: [],
             totalFrames: 30,
             durationMs: 1000 as never,
-            weaponId: 'beryl-m762',
+            weaponId: trajectoryWeaponId,
             trackingQuality: 0.93,
             framesTracked: 28,
             framesLost: 2,
@@ -143,11 +147,14 @@ function createStoredAnalysisResult(): AnalysisResult {
     };
 }
 
-function createOwnedAnalysisSessionRow() {
+function createOwnedAnalysisSessionRow(overrides?: {
+    readonly weaponId?: string;
+    readonly fullResult?: Record<string, unknown>;
+}) {
     return {
         id: 'session-1',
         userId: 'user-1',
-        weaponId: 'beryl-m762',
+        weaponId: overrides?.weaponId ?? 'beryl-m762',
         scopeId: 'red-dot',
         patchVersion: '35.1',
         stance: 'standing',
@@ -157,7 +164,8 @@ function createOwnedAnalysisSessionRow() {
             stock: 'heavy_stock',
         },
         distance: 35,
-        fullResult: createStoredAnalysisResult() as unknown as Record<string, unknown>,
+        fullResult: overrides?.fullResult
+            ?? (createStoredAnalysisResult() as unknown as Record<string, unknown>),
     };
 }
 
@@ -355,6 +363,46 @@ describe('publishAnalysisSessionToCommunity', () => {
             publishedAt: expect.any(Date),
         }));
         expect(mocks.snapshotValues).toHaveBeenCalledTimes(1);
+    });
+
+    it('normalizes legacy UUID weapon ids into technical ids when publishing community posts', async () => {
+        mocks.limit
+            .mockResolvedValueOnce([
+                createOwnedAnalysisSessionRow({
+                    weaponId: '344ad184-1676-4f92-8230-8f6ea8e9903e',
+                    fullResult: createStoredAnalysisResult({
+                        trajectoryWeaponId: 'aug',
+                    }) as unknown as Record<string, unknown>,
+                }),
+            ])
+            .mockResolvedValueOnce([
+                {
+                    id: 'profile-1',
+                    userId: 'user-1',
+                    slug: 'player-one',
+                },
+            ]);
+
+        const result = await publishAnalysisSessionToCommunity({
+            analysisSessionId: 'session-1',
+            title: 'Published AUG analysis',
+            excerpt: 'Published excerpt',
+            bodyMarkdown: 'Published body',
+            status: 'published',
+        });
+
+        expect(result).toEqual({
+            success: true,
+            postId: 'post-1',
+            slug: 'player-one-session-1',
+            status: 'published',
+        });
+        expect(mocks.postValues).toHaveBeenCalledWith(expect.objectContaining({
+            primaryWeaponId: 'aug',
+        }));
+        expect(mocks.snapshotValues).toHaveBeenCalledWith(expect.objectContaining({
+            weaponId: 'aug',
+        }));
     });
 
     it('creates a community profile automatically before publishing when the user has none yet', async () => {
