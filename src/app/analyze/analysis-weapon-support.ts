@@ -49,6 +49,13 @@ export function resolveSupportedAnalysisWeapon<T extends AnalysisWeaponRecord>(
     return supportedWeapons.find((entry) => entry.dbWeapon.id === selectedWeaponId);
 }
 
+export function resolvePersistedAnalysisWeaponId<T extends AnalysisWeaponRecord>(
+    supportedWeapons: readonly SupportedAnalysisWeapon<T>[],
+    selectedWeaponId: string,
+): string | undefined {
+    return resolveSupportedAnalysisWeapon(supportedWeapons, selectedWeaponId)?.technicalWeapon.id;
+}
+
 export function resolvePreferredAnalysisWeaponId<T extends AnalysisWeaponRecord>(
     supportedWeapons: readonly SupportedAnalysisWeapon<T>[]
 ): string {

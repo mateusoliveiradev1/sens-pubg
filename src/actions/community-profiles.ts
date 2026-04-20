@@ -52,6 +52,23 @@ function isPublicPublishedPost(
     return post.status === 'published' && post.visibility === 'public' && post.publishedAt instanceof Date;
 }
 
+function toPublicCommunityProfilePost(
+    post: StoredPublicCommunityProfilePost & {
+        readonly publishedAt: Date;
+    },
+): PublicCommunityProfilePost {
+    return {
+        id: post.id,
+        slug: post.slug,
+        title: post.title,
+        excerpt: post.excerpt,
+        primaryWeaponId: post.primaryWeaponId,
+        primaryPatchVersion: post.primaryPatchVersion,
+        primaryDiagnosisKey: post.primaryDiagnosisKey,
+        publishedAt: post.publishedAt,
+    };
+}
+
 export async function getPublicCommunityProfileBySlug(
     input: GetPublicCommunityProfileBySlugInput,
 ): Promise<PublicCommunityProfile | null> {
@@ -113,6 +130,6 @@ export async function getPublicCommunityProfileBySlug(
         ...storedProfile,
         posts: storedPosts
             .filter(isPublicPublishedPost)
-            .map(({ status: _status, visibility: _visibility, ...post }) => post),
+            .map(toPublicCommunityProfilePost),
     };
 }

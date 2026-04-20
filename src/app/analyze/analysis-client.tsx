@@ -41,6 +41,7 @@ import { ResultsDashboard } from './results-dashboard';
 import { AnalysisGuide } from './analysis-guide';
 import { createAnalysisContext } from './analysis-context';
 import {
+    resolvePersistedAnalysisWeaponId,
     resolvePreferredAnalysisWeaponId,
     resolveSupportedAnalysisWeapon,
     summarizeAnalysisWeaponSupport,
@@ -316,8 +317,17 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
 
         try {
             const selectedWeapon = resolveSupportedAnalysisWeapon(weaponSupport.supported, weaponId);
+            const persistedWeaponId = resolvePersistedAnalysisWeaponId(
+                weaponSupport.supported,
+                weaponId,
+            );
+
             if (!selectedWeapon) {
                 throw new Error('A arma selecionada ainda nao possui perfil tecnico completo para analise.');
+            }
+
+            if (!persistedWeaponId) {
+                throw new Error('Nao foi possivel resolver o identificador tecnico da arma selecionada.');
             }
 
             const dbWeapon = selectedWeapon.dbWeapon;
@@ -485,7 +495,12 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
             let resultToDisplay: AnalysisResult = finalResult;
 
             try {
-                const persisted = await saveAnalysisResult(finalResult, weaponId, scopeId, effectiveDistanceMeters);
+                const persisted = await saveAnalysisResult(
+                    finalResult,
+                    persistedWeaponId,
+                    scopeId,
+                    effectiveDistanceMeters,
+                );
                 if (persisted.result) {
                     resultToDisplay = persisted.result;
                 }
