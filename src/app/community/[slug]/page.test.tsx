@@ -116,6 +116,13 @@ function createPersistedPostDetail(
         bodyMarkdown:
             'Linha de base validada com patch recente.\nPriorize consistencia antes de subir a sens.',
         publishedAt: new Date('2026-04-19T04:00:00.000Z'),
+        primaryWeaponId: 'beryl-m762',
+        primaryPatchVersion: '36.1',
+        primaryDiagnosisKey: 'horizontal_drift',
+        authorProfileSlug: 'spray-doctor',
+        authorProfileDisplayName: 'Spray Doctor',
+        authorProfileVisibility: 'public' as const,
+        authorCreatorProgramStatus: 'approved' as const,
         snapshotPatchVersion: '36.1',
         snapshotWeaponId: 'beryl-m762',
         snapshotScopeId: '4x',
@@ -178,6 +185,7 @@ describe('community post detail page', () => {
         });
 
         mocks.innerJoin.mockReturnValue({
+            innerJoin: mocks.innerJoin,
             where: mocks.where,
         });
 
@@ -234,6 +242,11 @@ describe('community post detail page', () => {
         expect(markup).toContain('copy-sens:beryl-control-lab');
         expect(markup).toContain('like:beryl-control-lab:false:4');
         expect(markup).toContain('save:beryl-control-lab:false');
+        expect(markup).toContain('Abrir perfil do autor');
+        expect(markup).toContain('/community/users/spray-doctor');
+        expect(markup).toContain('/community?weaponId=beryl-m762');
+        expect(markup).toContain('/community?patchVersion=36.1');
+        expect(markup).toContain('/community?diagnosisKey=horizontal_drift');
         expect(markup).toContain(
             'comment-form:beryl-control-lab:false:Entre na sua conta para comentar neste post.',
         );

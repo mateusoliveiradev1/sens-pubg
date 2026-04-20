@@ -293,6 +293,7 @@ async function seedCommunityFeedFixture() {
             primaryPatchVersion: '35.2',
             primaryDiagnosisKey: 'vertical_control',
             copySensPreset: copySensPreset as never,
+            featuredUntil: new Date('2026-05-01T00:00:00.000Z'),
             publishedAt: new Date('2026-04-18T15:30:00.000Z'),
         },
         {
@@ -463,6 +464,11 @@ async function seedCommunityFeedFixture() {
             beryl: berylTitle,
             hidden: hiddenTitle,
         },
+        authors: {
+            ace: aceAuthor,
+            beryl: berylAuthor,
+            hidden: hiddenAuthor,
+        },
         aceSlug,
         async getAceLikeCount() {
             const [likeCountRow] = await db
@@ -503,6 +509,36 @@ async function seedCommunityFeedFixture() {
 test.describe('Public community feed page', () => {
     test.describe.configure({ mode: 'serial' });
 
+    test('renders the squad board hub with discovery sections and profile continuity links', async ({ page }) => {
+        const fixture = await seedCommunityFeedFixture();
+
+        try {
+            await page.goto('/community');
+
+            await expect(page.locator('[data-community-section="squad-board"]')).toBeVisible();
+            await expect(page.locator('[data-community-signal="recoil-signal"]')).toContainText(
+                'snapshots na mira',
+            );
+            await expect(page.getByRole('link', { name: /explorar posts/i })).toBeVisible();
+            await expect(page.locator('[data-community-section="featured-posts"]')).toBeVisible();
+            await expect(page.getByRole('heading', { name: /snapshots com sinal forte/i })).toBeVisible();
+            await expect(page.locator('[data-community-section="creator-plates"]')).toBeVisible();
+            await expect(page.getByText(/siga creators e salve drills/i)).toBeVisible();
+
+            await page
+                .getByRole('link', { name: fixture.authors.ace.displayName })
+                .first()
+                .click();
+
+            await expect(page).toHaveURL(`/community/users/${fixture.authors.ace.slug}`);
+            await expect(
+                page.getByRole('heading', { level: 1, name: fixture.authors.ace.displayName }),
+            ).toBeVisible();
+        } finally {
+            await fixture.cleanup();
+        }
+    });
+
     test('loads the public feed with the current app header and hides non-public entries', async ({ page }) => {
         const fixture = await seedCommunityFeedFixture();
 
@@ -512,8 +548,8 @@ test.describe('Public community feed page', () => {
             await expect(page).toHaveTitle(/Comunidade/);
             await expect(page.getByRole('navigation', { name: /navega/i })).toBeVisible();
             await expect(page.getByRole('heading', { level: 1, name: /comunidade/i })).toBeVisible();
-            await expect(page.getByRole('heading', { level: 2, name: fixture.expectedTitles.ace })).toBeVisible();
-            await expect(page.getByRole('heading', { level: 2, name: fixture.expectedTitles.beryl })).toBeVisible();
+            await expect(page.getByRole('link', { name: fixture.expectedTitles.ace }).first()).toBeVisible();
+            await expect(page.getByRole('link', { name: fixture.expectedTitles.beryl })).toBeVisible();
             await expect(page.getByText(fixture.expectedTitles.hidden)).toHaveCount(0);
         } finally {
             await fixture.cleanup();
@@ -528,14 +564,84 @@ test.describe('Public community feed page', () => {
 
             await page.getByLabel(/arma/i).selectOption('ace32');
             await page.getByLabel(/patch/i).selectOption('35.2');
-            await page.getByLabel(/diagn[oó]stico/i).selectOption('vertical_control');
-            await page.getByRole('button', { name: /aplicar filtros/i }).click();
+            await page.getByLabel(/diagnostico/i).selectOption('vertical_control');
+            await page.getByRole('button', { name: /aplicar leitura/i }).click();
 
             await expect(page).toHaveURL(/weaponId=ace32/);
             await expect(page).toHaveURL(/patchVersion=35\.2/);
             await expect(page).toHaveURL(/diagnosisKey=vertical_control/);
-            await expect(page.getByRole('heading', { level: 2, name: fixture.expectedTitles.ace })).toBeVisible();
-            await expect(page.getByRole('heading', { level: 2, name: fixture.expectedTitles.beryl })).toHaveCount(0);
+            await expect(page.getByLabel(/filtros aplicados/i)).toContainText(/ACE32/i);
+            await expect(page.getByRole('link', { name: /limpar filtros/i })).toBeVisible();
+            await expect(page.locator('#community-feed').getByRole('link', { name: fixture.expectedTitles.ace })).toBeVisible();
+            await expect(page.locator('#community-feed').getByRole('link', { name: fixture.expectedTitles.beryl })).toHaveCount(0);
+        } finally {
+            await fixture.cleanup();
+        }
+    });
+
+    test('shows filter recovery empty state when no public posts match the active discovery path', async ({
+        page,
+    }) => {
+        const fixture = await seedCommunityFeedFixture();
+
+        try {
+            await page.goto('/community');
+
+            await page.getByLabel(/arma/i).selectOption('ace32');
+            await page.getByLabel(/patch/i).selectOption('35.1');
+            await page.getByLabel(/diagnostico/i).selectOption('vertical_control');
+            await page.getByRole('button', { name: /aplicar leitura/i }).click();
+
+            await expect(page).toHaveURL(/weaponId=ace32/);
+            await expect(page).toHaveURL(/patchVersion=35\.1/);
+            await expect(page.getByRole('heading', { name: /nenhum setup nesse filtro/i })).toBeVisible();
+            await expect(page.getByText(/publique uma analise com esse contexto/i)).toBeVisible();
+            await expect(page.getByRole('link', { name: /explorar todos/i })).toBeVisible();
+            await expect(page.locator('#community-feed').getByRole('link', { name: fixture.expectedTitles.ace })).toHaveCount(0);
+
+            await page.getByRole('link', { name: /limpar filtros/i }).first().click();
+
+            await expect(page).toHaveURL('/community');
+            await expect(page.locator('#community-feed').getByRole('link', { name: fixture.expectedTitles.ace })).toBeVisible();
+        } finally {
+            await fixture.cleanup();
+        }
+    });
+
+    test('opens public profiles, toggles follow state, exposes profile report and handles no-post recovery', async ({
+        page,
+    }) => {
+        const fixture = await seedCommunityFeedFixture();
+
+        try {
+            await signInAsSeededUser(page, fixture.viewer);
+
+            await page.goto(`/community/users/${fixture.authors.ace.slug}`);
+
+            await expect(
+                page.getByRole('heading', { level: 1, name: fixture.authors.ace.displayName }),
+            ).toBeVisible();
+            await expect(page.getByText(`@${fixture.authors.ace.slug}`)).toBeVisible();
+            await expect(page.getByRole('heading', { name: /impacto do operador/i })).toBeVisible();
+            await expect(page.getByRole('heading', { level: 3, name: fixture.expectedTitles.ace })).toBeVisible();
+
+            const followButton = page.getByRole('button', { name: /seguir/i });
+            await expect(followButton).toContainText(/0/);
+            await followButton.click();
+            await expect(page.getByRole('button', { name: /seguindo/i })).toContainText(/1/);
+
+            await page.getByRole('button', { name: /reportar/i }).click();
+            await expect(page.getByLabel(/motivo/i)).toBeVisible();
+            await expect(page.getByRole('button', { name: /enviar report/i })).toBeVisible();
+
+            await page.goto(`/community/users/${fixture.authors.hidden.slug}`);
+
+            await expect(
+                page.getByRole('heading', { level: 1, name: fixture.authors.hidden.displayName }),
+            ).toBeVisible();
+            await expect(page.getByRole('heading', { name: /sem analises publicas ainda/i })).toBeVisible();
+            await expect(page.getByText(fixture.expectedTitles.hidden)).toHaveCount(0);
+            await expect(page.getByRole('link', { name: /explorar comunidade/i })).toBeVisible();
         } finally {
             await fixture.cleanup();
         }
@@ -553,11 +659,14 @@ test.describe('Public community feed page', () => {
 
             await page.goto('/community');
 
-            await expect(page.getByRole('link', { name: fixture.expectedTitles.ace })).toBeVisible();
-            await page.getByRole('link', { name: fixture.expectedTitles.ace }).click();
+            await expect(page.getByRole('link', { name: fixture.expectedTitles.ace }).first()).toBeVisible();
+            await page.getByRole('link', { name: fixture.expectedTitles.ace }).first().click();
 
             await expect(page).toHaveURL(`/community/${fixture.aceSlug}`);
             await expect(page.getByRole('heading', { level: 1, name: fixture.expectedTitles.ace })).toBeVisible();
+            await expect(page.getByRole('button', { name: /reportar/i })).toBeVisible();
+            await expect(page.getByRole('link', { name: /abrir perfil do autor/i })).toBeVisible();
+            await expect(page.getByRole('link', { name: /ver caminho relacionado/i }).first()).toBeVisible();
 
             await page.getByRole('button', { name: /copiar sens/i }).click();
             await expect(page.getByText(/sens copiada para a area de transferencia/i)).toBeVisible();

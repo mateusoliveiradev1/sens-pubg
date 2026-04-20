@@ -120,13 +120,18 @@
     font-size: 1.15rem;
     font-weight: 800;
     color: var(--color-text-primary);
-    letter-spacing: -0.01em;
+    letter-spacing: 0;
+}
+
+.cardContent {
+    min-width: 0;
 }
 
 .cardContent span {
     font-size: 0.9rem;
     color: var(--color-text-secondary);
     line-height: 1.4;
+    overflow-wrap: anywhere;
 }
 
 /* Discord Specific Card */
@@ -218,7 +223,7 @@
     font-size: var(--text-lg);
     font-weight: 800;
     color: var(--color-text-primary);
-    letter-spacing: -0.02em;
+    letter-spacing: 0;
 }
 
 .desc {
@@ -283,6 +288,11 @@
 
     .contactCards {
         grid-template-columns: 1fr;
+    }
+
+    .contactCard {
+        gap: var(--space-md);
+        padding: var(--space-lg);
     }
 
     .top {

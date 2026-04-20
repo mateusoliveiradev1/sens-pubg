@@ -1,8 +1,10 @@
 import React from 'react';
 import { getScope, getWeapon } from '@/game/pubg';
 import type { Diagnosis } from '@/types/engine';
+import type { CommunityCreatorProgramStatus } from '@/db/schema';
 
 import type { VisibleCommunityPostComment } from '@/actions/community-comments';
+import { formatCommunityCreatorStatusBadge } from '@/core/community-public-formatting';
 
 import { CommentForm } from './comment-form';
 import { CopySensButton } from './copy-sens-button';
@@ -18,6 +20,19 @@ export interface CommunityPostDetailData {
     readonly excerpt: string;
     readonly bodyMarkdown: string;
     readonly publishedAt: Date | null;
+    readonly authorProfile: {
+        readonly displayName: string;
+        readonly profileSlug: string;
+        readonly profileHref: string;
+        readonly creatorProgramStatus: CommunityCreatorProgramStatus;
+    } | null;
+    readonly communityContinuityLinks: readonly {
+        readonly key: 'weapon' | 'patch' | 'diagnosis';
+        readonly label: string;
+        readonly href: string;
+        readonly description: string;
+    }[];
+    readonly viewerCanReport: boolean;
     readonly snapshot: {
         readonly patchVersion: string;
         readonly weaponId: string;
@@ -101,6 +116,29 @@ const heroActionsStyle = {
     gap: 'var(--space-sm)',
 } as const;
 
+const continuityGridStyle = {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+    gap: 'var(--space-md)',
+} as const;
+
+const continuityCardStyle = {
+    display: 'grid',
+    gap: 'var(--space-sm)',
+    padding: 'var(--space-md)',
+    borderRadius: '8px',
+    border: '1px solid rgba(0, 240, 255, 0.16)',
+    background: 'rgba(255, 255, 255, 0.03)',
+} as const;
+
+const continuityLinkStyle = {
+    color: 'var(--color-accent-cyan)',
+    fontSize: 'var(--text-sm)',
+    fontWeight: 800,
+    letterSpacing: '0.04em',
+    textTransform: 'uppercase',
+} as const;
+
 const statusLabelByValue: Record<CommunityPostDetailData['status'], string> = {
     draft: 'Rascunho',
     published: 'Publicado',
@@ -153,6 +191,12 @@ export function PostDetail({
     const scopeName =
         getScope(post.snapshot.scopeId, post.snapshot.patchVersion)?.name ?? post.snapshot.scopeId;
     const publishedLabel = formatPublishedLabel(post.publishedAt);
+    const creatorBadge = post.authorProfile
+        ? formatCommunityCreatorStatusBadge(post.authorProfile.creatorProgramStatus)
+        : null;
+    const reportDisabledReason = post.viewerCanReport
+        ? null
+        : 'Entre na sua conta para reportar conteudo da comunidade.';
 
     return (
         <div style={{ display: 'grid', gap: 'var(--space-xl)' }}>
@@ -188,7 +232,58 @@ export function PostDetail({
                         entityType="post"
                         entityId={post.id}
                         subjectLabel="este post"
+                        disabledHref={post.viewerCanReport ? undefined : '/login'}
+                        disabledReason={reportDisabledReason}
                     />
+                </div>
+            </section>
+
+            <section
+                className="glass-card"
+                data-community-section="community-continuity-links"
+                style={{ display: 'grid', gap: 'var(--space-lg)' }}
+            >
+                <div style={{ display: 'grid', gap: 'var(--space-xs)' }}>
+                    <h2 style={{ fontSize: 'var(--text-2xl)' }}>Continuar no squad board</h2>
+                    <p>
+                        Use o autor, a arma, o patch e o diagnostico deste snapshot para comparar
+                        recoil sem abrir dados privados.
+                    </p>
+                </div>
+
+                <div style={continuityGridStyle}>
+                    {post.authorProfile ? (
+                        <article style={continuityCardStyle}>
+                            <span style={snapshotLabelStyle}>Autor publico</span>
+                            <strong>{post.authorProfile.displayName}</strong>
+                            {creatorBadge ? <span style={chipStyle}>{creatorBadge.label}</span> : null}
+                            <a href={post.authorProfile.profileHref} style={continuityLinkStyle}>
+                                Abrir perfil do autor
+                            </a>
+                        </article>
+                    ) : (
+                        <article style={continuityCardStyle}>
+                            <span style={snapshotLabelStyle}>Autor publico</span>
+                            <strong>Perfil indisponivel</strong>
+                            <p style={{ margin: 0, color: 'var(--color-text-secondary)' }}>
+                                O perfil do autor nao esta publico, entao este post nao expoe a
+                                operator plate.
+                            </p>
+                        </article>
+                    )}
+
+                    {post.communityContinuityLinks.map((link) => (
+                        <article key={link.key} style={continuityCardStyle}>
+                            <span style={snapshotLabelStyle}>{link.key}</span>
+                            <strong>{link.label}</strong>
+                            <p style={{ margin: 0, color: 'var(--color-text-secondary)' }}>
+                                {link.description}
+                            </p>
+                            <a href={link.href} style={continuityLinkStyle}>
+                                Ver caminho relacionado
+                            </a>
+                        </article>
+                    ))}
                 </div>
             </section>
 
@@ -332,6 +427,10 @@ export function PostDetail({
                                     entityType="comment"
                                     entityId={comment.id}
                                     subjectLabel="este comentario"
+                                    disabledHref={post.viewerCanReport ? undefined : '/login'}
+                                    disabledReason={post.viewerCanReport
+                                        ? null
+                                        : 'Entre na sua conta para reportar este comentario.'}
                                 />
                             </article>
                         ))}
