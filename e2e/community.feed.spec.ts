@@ -244,7 +244,7 @@ async function seedCommunityFeedFixture() {
                 magnitude: 0.09,
             },
             consistencyScore: 79,
-            diagnoses: ['horizontal_instability'],
+            diagnoses: ['vertical_control'],
             fullResult: {} as never,
             sprayScore: 84,
         },
@@ -310,7 +310,7 @@ async function seedCommunityFeedFixture() {
             sourceAnalysisSessionId: berylAnalysisSessionId,
             primaryWeaponId: 'beryl-m762',
             primaryPatchVersion: '35.1',
-            primaryDiagnosisKey: 'horizontal_instability',
+            primaryDiagnosisKey: 'vertical_control',
             copySensPreset: copySensPreset as never,
             publishedAt: new Date('2026-04-18T14:00:00.000Z'),
         },
@@ -397,7 +397,7 @@ async function seedCommunityFeedFixture() {
             } as never,
             diagnosesSnapshot: [
                 {
-                    type: 'horizontal_instability',
+                    type: 'vertical_control',
                     severity: 4,
                     description: 'Oscilacao lateral reduzindo previsibilidade no meio do spray.',
                     cause: 'Entrada horizontal tardia com correcao longa demais.',
