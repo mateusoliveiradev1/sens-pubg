@@ -71,9 +71,11 @@ function buildCommunityPostMetadataDescription(post: CommunityPostMetadataRecord
     const diagnosisLabels = Array.from(
         new Set(post.snapshotDiagnoses.map((diagnosis) => formatDiagnosisMetadataLabel(diagnosis.type))),
     );
-    const diagnosisSummary = diagnosisLabels.length > 0 ? diagnosisLabels.join(', ') : 'snapshot tecnico';
+    const diagnosisSummary = diagnosisLabels.length > 0
+        ? diagnosisLabels.join(', ')
+        : 'leitura tecnica registrada';
 
-    return `Snapshot tecnico de ${weaponName} com ${scopeName} a ${post.snapshotDistance} m no patch ${post.snapshotPatchVersion}. Diagnosticos: ${diagnosisSummary}. ${post.excerpt}`;
+    return `Post publico de ${weaponName} com ${scopeName} a ${post.snapshotDistance} m no patch ${post.snapshotPatchVersion}. Diagnosticos: ${diagnosisSummary}. ${post.excerpt}`;
 }
 
 function createCommunityDiscoveryHref(
@@ -93,19 +95,19 @@ function buildCommunityContinuityLinks(input: {
             key: 'weapon',
             label: `Explorar ${formatCommunityWeaponLabel(input.primaryWeaponId)}`,
             href: createCommunityDiscoveryHref('weaponId', input.primaryWeaponId),
-            description: 'Compare recoil e presets publicados para esta arma.',
+            description: 'Compare outros posts desta arma.',
         },
         {
             key: 'patch',
             label: formatCommunityPatchLabel(input.primaryPatchVersion),
             href: createCommunityDiscoveryHref('patchVersion', input.primaryPatchVersion),
-            description: 'Veja snapshots ativos no mesmo contexto de patch.',
+            description: 'Veja posts abertos no mesmo patch.',
         },
         {
             key: 'diagnosis',
             label: formatCommunityDiagnosisLabel(input.primaryDiagnosisKey),
             href: createCommunityDiscoveryHref('diagnosisKey', input.primaryDiagnosisKey),
-            description: 'Encontre posts com diagnostico parecido para salvar drills.',
+            description: 'Encontre posts com leitura parecida para seguir treinando.',
         },
     ];
 }
@@ -168,7 +170,7 @@ export async function generateMetadata({
     if (!post) {
         return {
             title: 'Post da comunidade',
-            description: 'Publicacao tecnica da comunidade do PUBG Aim Analyzer.',
+            description: 'Post publico da comunidade do PUBG Aim Analyzer.',
         };
     }
 

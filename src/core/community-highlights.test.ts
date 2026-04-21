@@ -100,7 +100,7 @@ describe('community highlight helpers', () => {
                     {
                         key: 'active-patch',
                         label: 'Patch ativo',
-                        reason: 'Snapshot publico marcado como Patch 36.1.',
+                        reason: 'Post publico marcado como Patch 36.1.',
                         count: null,
                     },
                     {
@@ -186,7 +186,7 @@ describe('community highlight helpers', () => {
                     {
                         key: 'public-activity',
                         label: 'Atividade publica',
-                        reason: '4 analises publicas e 18 seguidores',
+                        reason: '4 posts publicos e 18 seguidores',
                         count: 22,
                     },
                     {
@@ -199,7 +199,7 @@ describe('community highlight helpers', () => {
                 reasons: [
                     'Creator aprovado',
                     '18 seguidores',
-                    '4 analises publicas',
+                    '4 posts publicos',
                     '11 presets copiados',
                 ],
             },
@@ -207,6 +207,65 @@ describe('community highlight helpers', () => {
         expect(JSON.stringify(highlights)).not.toContain('hidden-creator');
         expect(JSON.stringify(highlights)).not.toContain('empty-creator');
         expect(JSON.stringify(highlights).toLowerCase()).not.toMatch(/pro player|expert|melhor jogador|skill/);
+    });
+
+    it('requires more than a single weak public post before promoting a creator', () => {
+        const highlights = buildCommunityCreatorHighlights({
+            now,
+            creators: [
+                createHighlightCreator({
+                    profileId: 'profile-thin-post',
+                    profileSlug: 'thin-post',
+                    displayName: 'Thin Post',
+                    creatorProgramStatus: 'none',
+                    followerCount: 1,
+                    publicPostCount: 1,
+                    likeCount: 12,
+                    commentCount: 0,
+                    copyCount: 0,
+                }),
+                createHighlightCreator({
+                    profileId: 'profile-status-only',
+                    profileSlug: 'status-only',
+                    displayName: 'Status Only',
+                    creatorProgramStatus: 'approved',
+                    followerCount: 0,
+                    publicPostCount: 1,
+                    likeCount: 0,
+                    commentCount: 0,
+                    copyCount: 0,
+                }),
+                createHighlightCreator({
+                    profileId: 'profile-single-copy',
+                    profileSlug: 'single-copy',
+                    displayName: 'Single Copy',
+                    creatorProgramStatus: 'none',
+                    followerCount: 0,
+                    publicPostCount: 1,
+                    likeCount: 0,
+                    commentCount: 0,
+                    copyCount: 1,
+                }),
+                createHighlightCreator({
+                    profileId: 'profile-approved-active',
+                    profileSlug: 'approved-active',
+                    displayName: 'Approved Active',
+                    creatorProgramStatus: 'approved',
+                    followerCount: 1,
+                    publicPostCount: 1,
+                    likeCount: 0,
+                    commentCount: 0,
+                    copyCount: 0,
+                }),
+            ],
+        });
+
+        expect(highlights.items.map((item) => item.profileId)).toEqual([
+            'profile-approved-active',
+            'profile-single-copy',
+        ]);
+        expect(JSON.stringify(highlights)).not.toContain('profile-thin-post');
+        expect(JSON.stringify(highlights)).not.toContain('profile-status-only');
     });
 
     it('formats reputation badges as factual stored status labels only', () => {
@@ -241,10 +300,10 @@ describe('community highlight helpers', () => {
         expect(posts).toEqual({
             items: [],
             emptyState: {
-                title: 'Sem destaques publicos ainda',
-                body: 'Publique uma analise, compare recoil, copie um preset ou salve um drill para gerar sinais publicos.',
+                title: 'Ainda nao ha sinal publico suficiente para destacar posts',
+                body: 'Quando posts abertos receberem copias, saves, comentarios ou curtidas, eles aparecem aqui.',
                 primaryAction: {
-                    label: 'Publicar analise',
+                    label: 'Publicar post',
                     href: '/history',
                 },
             },
@@ -252,8 +311,8 @@ describe('community highlight helpers', () => {
         expect(creators).toEqual({
             items: [],
             emptyState: {
-                title: 'Sem creators em destaque ainda',
-                body: 'Siga creators, comente analises e copie setups para fortalecer sinais de patch, arma e preset.',
+                title: 'Ainda nao ha sinal publico suficiente para destacar jogadores',
+                body: 'Quando seguidores, copias ou interacoes reais aparecerem, os perfis mais uteis entram aqui.',
                 primaryAction: {
                     label: 'Explorar comunidade',
                     href: '/community',

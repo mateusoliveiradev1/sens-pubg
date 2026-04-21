@@ -320,10 +320,10 @@ test.describe('Community flat comments', () => {
             await signInAsSeededUser(page, fixture.viewer);
             await page.goto(`/community/${fixture.slug}`);
 
-            await page.getByLabel(/seu comentario/i).fill(
+            await page.getByLabel(/o que voce viu/i).fill(
                 'Novo comentario autenticado com contexto tecnico opcional.',
             );
-            await page.getByLabel(/contexto do diagnostico/i).selectOption('horizontal_drift');
+            await page.getByLabel(/falar de qual leitura/i).selectOption('horizontal_drift');
             await page.getByRole('button', { name: /^comentar$/i }).click();
 
             const commentBodies = page.locator('[data-community-comment-body]');

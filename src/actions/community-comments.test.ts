@@ -161,7 +161,7 @@ describe('community comments', () => {
             actorUserId: 'user-1',
             eventType: 'comment_with_context',
             entityType: 'comment',
-            entityId: 'comment-1',
+            entityId: 'post-1',
             dedupeKey: 'comment-1',
             hasRequiredContext: true,
             isPubliclyVisible: true,

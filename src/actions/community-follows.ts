@@ -132,6 +132,7 @@ export async function setCommunityProfileFollow(
 
         await trackCommunityProgressionForAction({
             actorUserId: session.user.id,
+            beneficiaryUserId: storedProfile.userId,
             eventType: 'follow_profile',
             entityType: 'profile',
             entityId: storedProfile.profileId,

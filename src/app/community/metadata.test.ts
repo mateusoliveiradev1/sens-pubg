@@ -131,9 +131,9 @@ describe('community metadata', () => {
     it('exposes discovery-ready metadata for the community feed page', async () => {
         const { metadata } = await import('./page');
 
-        expect(metadata.title).toBe('Comunidade de Analises PUBG');
+        expect(metadata.title).toBe('Comunidade PUBG Aim Analyzer');
         expect(metadata.description).toBe(
-            'Explore analises publicas, setups copiaveis e diagnosticos por arma, patch e tipo de problema na comunidade.',
+            'Veja posts publicos, setups e leituras de spray por arma, patch e diagnostico.',
         );
         expect(metadata.alternates?.canonical).toBe('/community');
     });
@@ -150,7 +150,7 @@ describe('community metadata', () => {
 
         expect(metadata.title).toBe('Beryl control lab - Beryl M762 no Patch 36.1');
         expect(metadata.description).toBe(
-            'Snapshot tecnico de Beryl M762 com 4x ACOG a 47 m no patch 36.1. Diagnosticos: horizontal drift, overpull. Snapshot tecnico para controlar recoil horizontal.',
+            'Post publico de Beryl M762 com 4x ACOG a 47 m no patch 36.1. Diagnosticos: horizontal drift, overpull. Snapshot tecnico para controlar recoil horizontal.',
         );
         expect(metadata.alternates?.canonical).toBe('/community/beryl-control-lab');
     });

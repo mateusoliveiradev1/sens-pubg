@@ -249,7 +249,7 @@ export function buildPublicCommunityProfileViewModel(
     const publicPosts = publicSourcePosts.map(toProfilePostCard);
     const isSelfProfile = input.viewerUserId === input.profile.userId;
     const canFollow = Boolean(input.viewerUserId) && !isSelfProfile;
-    const displayName = firstPublicText(input.profile.displayName, input.user?.name) ?? 'Operador PUBG';
+    const displayName = firstPublicText(input.profile.displayName, input.user?.name) ?? 'Jogador da comunidade';
     const avatarUrl = firstPublicText(input.profile.avatarUrl, input.user?.image);
     const headline = firstPublicText(
         input.profile.headline,
@@ -289,13 +289,7 @@ export function buildPublicCommunityProfileViewModel(
         metrics,
         trustSignals: buildProfileTrustSignals({
             creatorProgramStatus: input.profile.creatorProgramStatus,
-            displayName,
-            avatarUrl,
-            fallbackInitials,
-            bio,
-            linkCount: links.length,
             publicSetup,
-            publicPostCount: metrics.publicPostCount,
             copyCount: metrics.copyCount,
             saveCount: metrics.saveCount,
         }),
@@ -322,8 +316,8 @@ export function buildPublicCommunityProfileViewModel(
         emptyState: publicPosts.length > 0
             ? null
             : {
-                title: 'Sem analises publicas ainda',
-                body: 'Este perfil ainda nao publicou snapshots publicos. Continue explorando outros setups da comunidade.',
+                title: 'Sem posts publicos ainda',
+                body: 'Este perfil ainda nao publicou posts publicos. Continue explorando outros jogadores da comunidade.',
                 primaryAction: {
                     label: 'Explorar comunidade',
                     href: '/community',
@@ -744,7 +738,7 @@ function toProfilePostCard(post: CommunityPublicProfileSourcePost): CommunityPub
         publishedAt: post.publishedAt as Date,
         publishedAtIso: (post.publishedAt as Date).toISOString(),
         primaryAction: {
-            label: 'Abrir analise',
+            label: 'Ver post',
             href,
         },
     };
@@ -807,12 +801,12 @@ function formatProfileRelatedDescription(
     postCount: number,
 ): string {
     const nounByKey = {
-        weapon: postCount === 1 ? 'snapshot desta arma' : 'snapshots desta arma',
-        patch: postCount === 1 ? 'snapshot deste patch' : 'snapshots deste patch',
-        diagnosis: postCount === 1 ? 'snapshot deste diagnostico' : 'snapshots deste diagnostico',
+        weapon: postCount === 1 ? 'post desta arma' : 'posts desta arma',
+        patch: postCount === 1 ? 'post deste patch' : 'posts deste patch',
+        diagnosis: postCount === 1 ? 'post deste diagnostico' : 'posts deste diagnostico',
     } as const;
 
-    return `${postCount} ${nounByKey[key]} no perfil publico.`;
+    return `${postCount} ${nounByKey[key]} neste perfil.`;
 }
 
 function resolveFollowActionLabel(input: {
@@ -821,14 +815,14 @@ function resolveFollowActionLabel(input: {
     readonly viewerIsFollowing: boolean;
 }): string {
     if (input.isSelfProfile) {
-        return 'Seu perfil publico';
+        return 'Seu perfil';
     }
 
     if (!input.canFollow) {
         return 'Entrar para seguir';
     }
 
-    return input.viewerIsFollowing ? 'Deixar de seguir' : 'Seguir creator';
+    return input.viewerIsFollowing ? 'Deixar de seguir' : 'Seguir jogador';
 }
 
 function resolveFollowDisabledReason(input: {
@@ -837,11 +831,11 @@ function resolveFollowDisabledReason(input: {
     readonly viewerUserId: string | null;
 }): string | null {
     if (input.isSelfProfile) {
-        return 'Este e o seu perfil publico.';
+        return 'Este e o seu perfil.';
     }
 
     if (!input.canFollow && !input.viewerUserId) {
-        return 'Entre para seguir este perfil.';
+        return 'Entre para seguir este jogador.';
     }
 
     return null;
@@ -963,8 +957,8 @@ function buildCommunityPublicProfileStreakSummary(
                 currentStreak: streak.currentStreak,
                 longestStreak: streak.longestStreak,
                 streakState: streak.streakState,
-                title: `${streak.currentStreak} semana(s) em sequencia`,
-                summary: `Maior streak publica: ${streak.longestStreak}. O operador segue em ritmo ativo nesta janela.`,
+                title: `${streak.currentStreak} semana(s) seguidas`,
+                summary: `Maior sequencia: ${streak.longestStreak}. Esse jogador segue em ritmo ativo nesta janela.`,
             };
 
         case 'at_risk':
@@ -972,8 +966,8 @@ function buildCommunityPublicProfileStreakSummary(
                 currentStreak: streak.currentStreak,
                 longestStreak: streak.longestStreak,
                 streakState: streak.streakState,
-                title: 'Janela de streak em risco',
-                summary: `A ultima contribuicao significativa abriu uma streak de ${streak.currentStreak}; falta uma nova acao util nesta semana para mante-la ativa.`,
+                title: 'Sequencia em risco',
+                summary: `A ultima contribuicao abriu uma sequencia de ${streak.currentStreak}; falta uma nova acao nesta semana para mante-la ativa.`,
             };
 
         case 'reentry':
@@ -981,8 +975,8 @@ function buildCommunityPublicProfileStreakSummary(
                 currentStreak: streak.currentStreak,
                 longestStreak: streak.longestStreak,
                 streakState: streak.streakState,
-                title: 'Pronto para retomar o ritmo',
-                summary: `A maior streak publica foi ${streak.longestStreak}. O operador esta em janela de retorno sem penalidade publica artificial.`,
+                title: 'Hora de retomar o ritmo',
+                summary: `A maior sequencia foi ${streak.longestStreak}. Esse jogador esta em janela de retorno sem pressa artificial.`,
             };
 
         case 'inactive':
@@ -995,7 +989,7 @@ function createZeroCommunityPublicProfileStreakSummary(): CommunityPublicProfile
         currentStreak: 0,
         longestStreak: 0,
         streakState: 'inactive',
-        title: 'Streak publica ainda nao iniciada',
-        summary: 'Sem participacoes publicas significativas registradas o bastante para abrir uma streak visivel.',
+        title: 'Sequencia ainda nao comecou',
+        summary: 'Ainda nao ha participacoes publicas suficientes para mostrar uma sequencia visivel.',
     };
 }

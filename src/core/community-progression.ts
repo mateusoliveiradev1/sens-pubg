@@ -10,10 +10,23 @@ import type {
     CommunityProgressionEventType,
     CommunityProgressionStreakState,
 } from '@/types/community';
+import {
+    COMMUNITY_PROGRESSION_RULE_ORDER,
+    COMMUNITY_PROGRESSION_RULES,
+    COMMUNITY_STREAK_AT_RISK_WEEK_GAP,
+    COMMUNITY_STREAK_REENTRY_WEEK_GAP,
+    type CommunityProgressionRuleDefinition,
+} from './community-progression-policy';
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 const WEEK_MS = 7 * DAY_MS;
+
+export {
+    COMMUNITY_PROGRESSION_POLICY_SNAPSHOT,
+    COMMUNITY_PROGRESSION_RULE_ORDER,
+    COMMUNITY_PROGRESSION_RULES,
+} from './community-progression-policy';
 
 export interface CommunityLevelCurve {
     readonly baseXpPerLevel: number;
@@ -24,199 +37,6 @@ export const COMMUNITY_LEVEL_CURVE: CommunityLevelCurve = {
     baseXpPerLevel: 100,
     extraXpPerLevel: 25,
 };
-
-type CommunityProgressionIdempotencyStrategy = 'entity' | 'source' | 'window';
-
-export interface CommunityProgressionRuleDefinition {
-    readonly eventType: CommunityProgressionEventType;
-    readonly title: string;
-    readonly description: string;
-    readonly defaultXp: number;
-    readonly cooldownWindowMs: number;
-    readonly requiresPublicEntity: boolean;
-    readonly requiresContext: boolean;
-    readonly requiresBeneficiary: boolean;
-    readonly requiresDistinctActors: boolean;
-    readonly meaningfulParticipation: boolean;
-    readonly idempotencyStrategy: CommunityProgressionIdempotencyStrategy;
-    readonly nextActionHint: {
-        readonly title: string;
-        readonly description: string;
-    } | null;
-}
-
-const COMMUNITY_PROGRESSION_RULE_ORDER: readonly CommunityProgressionEventType[] = [
-    'publish_post',
-    'complete_public_profile',
-    'follow_profile',
-    'receive_unique_save',
-    'receive_unique_copy',
-    'comment_with_context',
-    'weekly_challenge_complete',
-    'mission_complete',
-    'squad_goal_contribution',
-    'streak_participation',
-] as const;
-
-export const COMMUNITY_PROGRESSION_RULES: Readonly<
-    Record<CommunityProgressionEventType, CommunityProgressionRuleDefinition>
-> = {
-    publish_post: {
-        eventType: 'publish_post',
-        title: 'Publicar analise',
-        description: 'Publicar uma analise publica e elegivel para a comunidade.',
-        defaultXp: 40,
-        cooldownWindowMs: 0,
-        requiresPublicEntity: true,
-        requiresContext: false,
-        requiresBeneficiary: false,
-        requiresDistinctActors: false,
-        meaningfulParticipation: true,
-        idempotencyStrategy: 'entity',
-        nextActionHint: {
-            title: 'Publique uma analise publica',
-            description: 'Transforme um snapshot util em post publico para ganhar XP real.',
-        },
-    },
-    complete_public_profile: {
-        eventType: 'complete_public_profile',
-        title: 'Completar perfil publico',
-        description: 'Ativar ou completar o perfil publico com dados visiveis da comunidade.',
-        defaultXp: 30,
-        cooldownWindowMs: 0,
-        requiresPublicEntity: true,
-        requiresContext: false,
-        requiresBeneficiary: false,
-        requiresDistinctActors: false,
-        meaningfulParticipation: true,
-        idempotencyStrategy: 'entity',
-        nextActionHint: {
-            title: 'Complete seu perfil publico',
-            description: 'Adicione bio, links e setup publico para iniciar sua identidade comunitaria.',
-        },
-    },
-    follow_profile: {
-        eventType: 'follow_profile',
-        title: 'Seguir operador',
-        description: 'Seguir um operador publico para reforcar descoberta recorrente.',
-        defaultXp: 10,
-        cooldownWindowMs: 0,
-        requiresPublicEntity: true,
-        requiresContext: false,
-        requiresBeneficiary: false,
-        requiresDistinctActors: false,
-        meaningfulParticipation: true,
-        idempotencyStrategy: 'entity',
-        nextActionHint: {
-            title: 'Siga um operador relevante',
-            description: 'Siga perfis uteis para montar um loop saudavel de descoberta e retorno.',
-        },
-    },
-    receive_unique_save: {
-        eventType: 'receive_unique_save',
-        title: 'Receber save unico',
-        description: 'Receber um save unico em conteudo publico e elegivel.',
-        defaultXp: 15,
-        cooldownWindowMs: 0,
-        requiresPublicEntity: true,
-        requiresContext: false,
-        requiresBeneficiary: true,
-        requiresDistinctActors: true,
-        meaningfulParticipation: true,
-        idempotencyStrategy: 'entity',
-        nextActionHint: null,
-    },
-    receive_unique_copy: {
-        eventType: 'receive_unique_copy',
-        title: 'Receber copy unico',
-        description: 'Receber um copy unico em conteudo publico e elegivel.',
-        defaultXp: 20,
-        cooldownWindowMs: 0,
-        requiresPublicEntity: true,
-        requiresContext: false,
-        requiresBeneficiary: true,
-        requiresDistinctActors: true,
-        meaningfulParticipation: true,
-        idempotencyStrategy: 'entity',
-        nextActionHint: null,
-    },
-    comment_with_context: {
-        eventType: 'comment_with_context',
-        title: 'Comentar com contexto',
-        description: 'Contribuir com comentario contextual, tecnico e publico.',
-        defaultXp: 20,
-        cooldownWindowMs: 12 * HOUR_MS,
-        requiresPublicEntity: true,
-        requiresContext: true,
-        requiresBeneficiary: false,
-        requiresDistinctActors: false,
-        meaningfulParticipation: true,
-        idempotencyStrategy: 'source',
-        nextActionHint: {
-            title: 'Deixe um comentario com contexto',
-            description: 'Explique recoil, patch ou diagnostico para gerar contribuicao de alto valor.',
-        },
-    },
-    weekly_challenge_complete: {
-        eventType: 'weekly_challenge_complete',
-        title: 'Completar desafio semanal',
-        description: 'Concluir um desafio semanal ativo da comunidade.',
-        defaultXp: 80,
-        cooldownWindowMs: 0,
-        requiresPublicEntity: false,
-        requiresContext: false,
-        requiresBeneficiary: false,
-        requiresDistinctActors: false,
-        meaningfulParticipation: true,
-        idempotencyStrategy: 'entity',
-        nextActionHint: null,
-    },
-    mission_complete: {
-        eventType: 'mission_complete',
-        title: 'Completar missao',
-        description: 'Finalizar uma missao ativa a partir de contribuicoes elegiveis.',
-        defaultXp: 60,
-        cooldownWindowMs: 0,
-        requiresPublicEntity: false,
-        requiresContext: false,
-        requiresBeneficiary: false,
-        requiresDistinctActors: false,
-        meaningfulParticipation: true,
-        idempotencyStrategy: 'entity',
-        nextActionHint: null,
-    },
-    squad_goal_contribution: {
-        eventType: 'squad_goal_contribution',
-        title: 'Contribuir para meta de squad',
-        description: 'Registrar uma contribuicao valida para a meta compartilhada do squad.',
-        defaultXp: 15,
-        cooldownWindowMs: 6 * HOUR_MS,
-        requiresPublicEntity: false,
-        requiresContext: false,
-        requiresBeneficiary: false,
-        requiresDistinctActors: false,
-        meaningfulParticipation: true,
-        idempotencyStrategy: 'source',
-        nextActionHint: null,
-    },
-    streak_participation: {
-        eventType: 'streak_participation',
-        title: 'Participacao de streak',
-        description: 'Registrar uma participacao significativa no intervalo saudavel da streak.',
-        defaultXp: 10,
-        cooldownWindowMs: WEEK_MS,
-        requiresPublicEntity: false,
-        requiresContext: false,
-        requiresBeneficiary: false,
-        requiresDistinctActors: false,
-        meaningfulParticipation: true,
-        idempotencyStrategy: 'window',
-        nextActionHint: {
-            title: 'Volte com uma acao significativa',
-            description: 'Retome sua rotina com uma contribuicao real, sem depender de volume vazio.',
-        },
-    },
-} as const;
 
 export function listCommunityProgressionRules(): readonly CommunityProgressionRuleDefinition[] {
     return COMMUNITY_PROGRESSION_RULE_ORDER.map(
@@ -537,21 +357,21 @@ export function resolveCommunityWeeklyChallenge(
         seasonId: seasonContext.kind === 'active'
             ? seasonContext.seasonId
             : null,
-        title: 'Desafio semanal: publique um snapshot util',
-        description: 'Sem tendencia publica suficiente ainda. Escolha uma analise, organize seu perfil ou publique um snapshot claro para abrir o proximo ritual da comunidade.',
+        title: 'Desafio semanal: publique um post util',
+        description: 'Sem tendencia publica suficiente ainda. Escolha uma analise, organize seu perfil ou publique um post claro para abrir o proximo passo da comunidade.',
         rationale: 'Fallback editorial neutro para semanas com pouco contexto publico.',
         theme: seasonContext.theme,
         startsAt: currentWeekWindow.startsAt,
         endsAt: currentWeekWindow.endsAt,
         eligibleActions: [
             createChallengeEligibleActionMetadata('complete_public_profile', {
-                title: 'Complete sua operator plate',
-                description: 'Ative ou revise seu perfil publico para preparar seus proximos rituais.',
+                title: 'Complete seu perfil publico',
+                description: 'Ative ou revise seu perfil para preparar seus proximos passos.',
                 entityType: 'profile',
             }),
             createChallengeEligibleActionMetadata('publish_post', {
-                title: 'Publique um snapshot util',
-                description: 'Compartilhe uma analise publica que possa virar save, copy ou comentario contextual.',
+                title: 'Publique um post util',
+                description: 'Compartilhe um post claro que possa virar save, copy ou comentario contextual.',
                 entityType: 'post',
             }),
         ],
@@ -808,6 +628,35 @@ export function buildCommunityMissionProgressSnapshots(
     );
 }
 
+export interface CommunityMissionCompletionRecord {
+    readonly missionId: string;
+    readonly title: string;
+    readonly description: string;
+    readonly missionType: CommunityMissionRow['missionType'];
+    readonly cadence: CommunityMissionRow['cadence'];
+    readonly rewardXp: number;
+    readonly seasonId: string | null;
+    readonly completedAt: Date;
+}
+
+export function listCommunityMissionCompletionRecords(
+    input: BuildCommunityMissionProgressSnapshotsInput,
+): readonly CommunityMissionCompletionRecord[] {
+    return buildCommunityMissionProgressSnapshots(input)
+        .filter((mission) => mission.isComplete && mission.completedAt)
+        .map((mission) => ({
+            missionId: mission.missionId,
+            title: mission.title,
+            description: mission.description,
+            missionType: mission.missionType,
+            cadence: mission.cadence,
+            rewardXp: mission.rewardXp,
+            seasonId: input.missions.find((candidate) => candidate.id === mission.missionId)?.seasonId ?? null,
+            completedAt: cloneDate(mission.completedAt!),
+        }))
+        .sort((left, right) => left.completedAt.getTime() - right.completedAt.getTime());
+}
+
 export interface CommunityProgressionStreakSnapshot {
     readonly currentStreak: number;
     readonly longestStreak: number;
@@ -873,12 +722,15 @@ export function buildCommunityProgressionStreakSnapshot(
 
     if (weeksSinceLatestRun === 0) {
         streakState = 'active';
-    } else if (weeksSinceLatestRun === 1) {
+    } else if (weeksSinceLatestRun === COMMUNITY_STREAK_AT_RISK_WEEK_GAP) {
         streakState = 'at_risk';
     } else {
         streakState = 'reentry';
         currentStreak = 0;
-        missedWindowCount = Math.max(weeksSinceLatestRun - 1, 1);
+        missedWindowCount = Math.max(
+            weeksSinceLatestRun - COMMUNITY_STREAK_AT_RISK_WEEK_GAP,
+            COMMUNITY_STREAK_REENTRY_WEEK_GAP - COMMUNITY_STREAK_AT_RISK_WEEK_GAP,
+        );
     }
 
     const lastMeaningfulAt = meaningfulEvents.reduce(
@@ -902,6 +754,53 @@ export function buildCommunityProgressionStreakSnapshot(
         ),
         missedWindowCount,
     };
+}
+
+export interface CommunityStreakParticipationWindow {
+    readonly weekStartedAt: Date;
+    readonly weekEndsAt: Date;
+    readonly triggeredAt: Date;
+    readonly sourceEventType: CommunityProgressionEventType;
+    readonly sourceEntityType: CommunityProgressionEntityType;
+    readonly sourceEntityId: string;
+    readonly seasonId: string | null;
+}
+
+export function listCommunityStreakParticipationWindows(
+    input: BuildCommunityProgressionStreakSnapshotInput,
+): readonly CommunityStreakParticipationWindow[] {
+    const now = cloneDate(input.now ?? new Date());
+    const meaningfulEvents = getMeaningfulCommunityProgressionEventsForUser(
+        input.userId,
+        input.events,
+        now,
+    ).slice().sort((left, right) => left.occurredAt.getTime() - right.occurredAt.getTime());
+    const firstEventByWeek = new Map<number, CommunityProgressionHistoryEvent>();
+
+    for (const event of meaningfulEvents) {
+        const weekStartedAt = startOfUtcWeek(event.occurredAt);
+        const weekKey = weekStartedAt.getTime();
+
+        if (!firstEventByWeek.has(weekKey)) {
+            firstEventByWeek.set(weekKey, event);
+        }
+    }
+
+    return [...firstEventByWeek.entries()]
+        .sort((left, right) => left[0] - right[0])
+        .map(([weekKey, sourceEvent]) => {
+            const weekStartedAt = new Date(weekKey);
+
+            return {
+                weekStartedAt,
+                weekEndsAt: endOfUtcWeek(weekStartedAt),
+                triggeredAt: cloneDate(sourceEvent.occurredAt),
+                sourceEventType: sourceEvent.eventType,
+                sourceEntityType: sourceEvent.entityType,
+                sourceEntityId: sourceEvent.entityId,
+                seasonId: sourceEvent.seasonId,
+            };
+        });
 }
 
 export interface CommunityProgressionAggregateSnapshot {
@@ -975,6 +874,69 @@ export function buildCommunityProgressionAggregateSnapshot(
     };
 }
 
+export interface CommunityProgressionLatestGain {
+    readonly eventType: CommunityProgressionEventType;
+    readonly title: string;
+    readonly description: string;
+    readonly xpDelta: number;
+    readonly occurredAt: Date;
+    readonly totalXpBefore: number;
+    readonly totalXpAfter: number;
+    readonly levelBefore: number;
+    readonly levelAfter: number;
+    readonly leveledUp: boolean;
+}
+
+export interface BuildCommunityProgressionLatestGainInput {
+    readonly userId: string;
+    readonly events: readonly CommunityProgressionHistoryEvent[];
+    readonly missions?: readonly CommunityProgressionMissionSource[];
+    readonly curve?: CommunityLevelCurve;
+}
+
+export function buildCommunityProgressionLatestGain(
+    input: BuildCommunityProgressionLatestGainInput,
+): CommunityProgressionLatestGain | null {
+    const userEvents = getCommunityProgressionEventsForUser(input.userId, input.events)
+        .filter((event) => event.effectiveXp > 0)
+        .slice()
+        .sort((left, right) => left.occurredAt.getTime() - right.occurredAt.getTime());
+
+    if (userEvents.length === 0) {
+        return null;
+    }
+
+    const latestEvent = userEvents[userEvents.length - 1]!;
+    const missionsById = new Map(
+        (input.missions ?? []).map((mission) => [mission.id, mission]),
+    );
+    const mission = latestEvent.missionId
+        ? missionsById.get(latestEvent.missionId)
+        : null;
+    const rule = COMMUNITY_PROGRESSION_RULES[latestEvent.eventType];
+    const totalXpBefore = userEvents
+        .slice(0, -1)
+        .reduce((sum, event) => sum + normalizeNonNegativeInteger(event.effectiveXp), 0);
+    const levelBefore = calculateCommunityLevelState(totalXpBefore, input.curve);
+    const levelAfter = calculateCommunityLevelState(
+        totalXpBefore + normalizeNonNegativeInteger(latestEvent.effectiveXp),
+        input.curve,
+    );
+
+    return {
+        eventType: latestEvent.eventType,
+        title: mission?.title ?? rule.title,
+        description: mission?.description ?? rule.description,
+        xpDelta: normalizeNonNegativeInteger(latestEvent.effectiveXp),
+        occurredAt: cloneDate(latestEvent.occurredAt),
+        totalXpBefore: levelBefore.totalXp,
+        totalXpAfter: levelAfter.totalXp,
+        levelBefore: levelBefore.level,
+        levelAfter: levelAfter.level,
+        leveledUp: levelAfter.level > levelBefore.level,
+    };
+}
+
 export interface CommunityProgressionNextMilestone {
     readonly type: 'level' | 'mission';
     readonly title: string;
@@ -1003,6 +965,7 @@ export interface CommunityPrivateProgressionSummary {
     readonly aggregate: CommunityProgressionAggregateSnapshot;
     readonly missionProgress: readonly CommunityMissionProgressSnapshot[];
     readonly streak: CommunityProgressionStreakSnapshot;
+    readonly latestGain: CommunityProgressionLatestGain | null;
     readonly nextMilestone: CommunityProgressionNextMilestone;
     readonly nextMeaningfulAction: CommunityProgressionNextAction;
 }
@@ -1058,6 +1021,12 @@ export function buildCommunityPrivateProgressionSummary(
         aggregate,
         missionProgress,
         streak,
+        latestGain: buildCommunityProgressionLatestGain({
+            userId: input.userId,
+            events: input.events,
+            missions,
+            ...(input.curve ? { curve: input.curve } : {}),
+        }),
         nextMilestone: resolveNextMilestone({
             activeMissions,
             aggregate,
@@ -1100,8 +1069,8 @@ export function buildCommunityPersonalRecap(
             userId: input.userId,
             season,
             window: null,
-            headline: 'Comece seu primeiro ritual comunitario',
-            summary: 'Complete o perfil publico ou publique uma analise util para iniciar seu progresso semanal sem pressa artificial.',
+            headline: 'Abra seu primeiro marco na comunidade',
+            summary: 'Complete o perfil ou publique um post util para ligar sua primeira janela publica de progresso.',
             earnedXp: 0,
             completedRituals: [],
             unlockedRewards: [],
@@ -1116,8 +1085,8 @@ export function buildCommunityPersonalRecap(
             userId: input.userId,
             season,
             window: null,
-            headline: 'Retome seu loop com calma',
-            summary: 'Voce pode reiniciar seu ritmo nesta semana com uma unica contribuicao significativa, sem perder o contexto do que ja construiu.',
+            headline: 'Reative seu ritmo nesta janela',
+            summary: 'Uma contribuicao significativa ja recoloca seu loop em movimento sem apagar o que voce construiu.',
             earnedXp: 0,
             completedRituals: [],
             unlockedRewards: [],
@@ -1144,8 +1113,8 @@ export function buildCommunityPersonalRecap(
         season,
         window: recapWindow,
         headline: recapWindow.kind === 'current'
-            ? 'Seu recap da semana'
-            : 'Seu recap da semana passada',
+            ? 'Fechamento da sua semana'
+            : 'Fechamento da semana passada',
         summary: buildRecapSummaryCopy({
             earnedXp,
             rewardCount: unlockedRewards.length,
@@ -1211,8 +1180,8 @@ export function buildCommunitySquadRecap(
             activeMemberCount: 0,
             season,
             window: null,
-            headline: `Inicie o recap do squad ${input.squadName}`,
-            summary: 'O squad ainda nao registrou rituais suficientes. Comecem com uma analise publica ou comentario contextual compartilhado.',
+            headline: `Abram o primeiro marco do squad ${input.squadName}`,
+            summary: 'O squad ainda nao fechou sinais suficientes. Um post publico ou comentario contextual compartilhado ja abre essa trilha.',
             earnedXp: 0,
             completedRituals: [],
             unlockedRewards: [],
@@ -1229,8 +1198,8 @@ export function buildCommunitySquadRecap(
             activeMemberCount: 0,
             season,
             window: null,
-            headline: `Reative o squad ${input.squadName}`,
-            summary: 'Uma unica contribuicao coletiva nesta semana ja recoloca o squad no loop, sem copy agressiva ou urgencia artificial.',
+            headline: `Reativem o squad ${input.squadName}`,
+            summary: 'Uma unica contribuicao coletiva nesta semana ja recoloca o squad no loop com sinal publico real.',
             earnedXp: 0,
             completedRituals: [],
             unlockedRewards: [],
@@ -1264,9 +1233,9 @@ export function buildCommunitySquadRecap(
         season,
         window: recapWindow,
         headline: recapWindow.kind === 'current'
-            ? `Recap semanal do squad ${input.squadName}`
-            : `Recap anterior do squad ${input.squadName}`,
-        summary: `${activeMemberCount} membro(s) ativos, ${completedRituals.length} ritual(is) concluido(s) e ${earnedXp} XP somados nesta janela.`,
+            ? `Fechamento semanal do squad ${input.squadName}`
+            : `Fechamento anterior do squad ${input.squadName}`,
+        summary: `${activeMemberCount} membro(s) ativos, ${completedRituals.length} marco(s) fechados e ${earnedXp} XP somados nesta janela.`,
         earnedXp,
         completedRituals,
         unlockedRewards,
@@ -1571,7 +1540,7 @@ function resolveNextMilestone(input: {
         return {
             type: 'mission',
             title: nextActiveMission.title,
-            description: `${nextActiveMission.remainingCount} acao(oes) restante(s) para concluir esta missao.`,
+            description: `${nextActiveMission.remainingCount} acao(oes) restante(s) para fechar esta missao e liberar a reward.`,
             remainingCount: nextActiveMission.remainingCount,
             missionId: nextActiveMission.missionId,
         };
@@ -1580,7 +1549,7 @@ function resolveNextMilestone(input: {
     return {
         type: 'level',
         title: `Nivel ${input.aggregate.currentLevel + 1}`,
-        description: `Faltam ${input.aggregate.levelState.xpToNextLevel} XP para o proximo nivel.`,
+        description: `Faltam ${input.aggregate.levelState.xpToNextLevel} XP para abrir o proximo nivel.`,
         remainingXp: input.aggregate.levelState.xpToNextLevel,
     };
 }
@@ -1733,21 +1702,21 @@ function buildTrendWeeklyChallengeTitle(
 function buildTrendWeeklyChallengeDescription(
     trend: CommunityWeeklyChallengeTrendSignal,
 ): string {
-    return `${trend.reason} Use esse foco para publicar uma leitura util ou deixar um comentario contextual que ajude a comunidade a voltar melhor na proxima sessao.`;
+    return `${trend.reason} Use esse foco para publicar uma leitura util ou deixar um comentario contextual que empurre a comunidade para frente nesta semana.`;
 }
 
 function buildTrendWeeklyChallengeEligibleActions(
     trend: CommunityWeeklyChallengeTrendSignal,
 ): readonly CommunityWeeklyChallengeEligibleActionMetadata[] {
     const publishDescriptionsByKind = {
-        weapon: `Publique uma analise publica mostrando como voce estabilizou ${trend.label}.`,
-        patch: `Publique uma analise publica validando o impacto de ${trend.label} no seu recoil.`,
-        diagnosis: `Publique uma analise publica mostrando como voce tratou ${trend.label}.`,
+        weapon: `Publique um post mostrando como voce estabilizou ${trend.label} com leitura clara e repetivel.`,
+        patch: `Publique um post validando o impacto de ${trend.label} no seu recoil com sinal observavel.`,
+        diagnosis: `Publique um post mostrando como voce tratou ${trend.label} com contexto util para quem vier depois.`,
     } as const;
     const commentDescriptionsByKind = {
-        weapon: `Adicione contexto em um post de ${trend.label} com leitura tecnica ou ajuste pratico.`,
-        patch: `Explique em um comentario publico o que mudou em ${trend.label} e como voce adaptou o treino.`,
-        diagnosis: `Deixe um comentario contextual explicando como diagnosticar ou corrigir ${trend.label}.`,
+        weapon: `Adicione contexto em um post de ${trend.label} com leitura tecnica ou ajuste pratico que ajude outra pessoa.`,
+        patch: `Explique em um comentario publico o que mudou em ${trend.label} e como voce adaptou o treino sem chute generico.`,
+        diagnosis: `Deixe um comentario contextual explicando como diagnosticar ou corrigir ${trend.label} com criterio.`,
     } as const;
 
     return [
@@ -1916,7 +1885,7 @@ function buildRecapSummaryCopy(input: {
         ? 'nesta semana'
         : 'na semana passada';
 
-    return `${input.ritualCount} ritual(is), ${input.rewardCount} recompensa(s) e ${input.earnedXp} XP ${windowLabel}.`;
+    return `${input.ritualCount} marco(s) fechados, ${input.rewardCount} reward(s) abertos e ${input.earnedXp} XP somados ${windowLabel}.`;
 }
 
 function countActiveRecapMembers(
@@ -1938,7 +1907,9 @@ function getCommunityProgressionEventsForUser(
 function getCommunityProgressionUserId(
     event: CommunityProgressionHistoryEvent,
 ): string {
-    return event.beneficiaryUserId ?? event.actorUserId;
+    return isBeneficiaryOwnedCommunityProgressionEvent(event.eventType)
+        ? (event.beneficiaryUserId ?? event.actorUserId)
+        : event.actorUserId;
 }
 
 function getMeaningfulCommunityProgressionEventsForUser(
@@ -2014,6 +1985,13 @@ function uniqueUtcWeekStarts(dates: readonly Date[]): readonly Date[] {
     }
 
     return uniqueWeekStarts;
+}
+
+function isBeneficiaryOwnedCommunityProgressionEvent(
+    eventType: CommunityProgressionEventType,
+): boolean {
+    return eventType === 'receive_unique_save'
+        || eventType === 'receive_unique_copy';
 }
 
 function startOfUtcDay(date: Date): Date {

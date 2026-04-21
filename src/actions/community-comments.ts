@@ -115,7 +115,7 @@ export async function createCommunityPostComment(
             actorUserId: session.user.id,
             eventType: 'comment_with_context',
             entityType: 'comment',
-            entityId: createdComment.id,
+            entityId: storedPost.id,
             dedupeKey: createdComment.id,
             hasRequiredContext: true,
             isPubliclyVisible: true,

@@ -433,7 +433,7 @@ describe('buildPublicCommunityProfileViewModel', () => {
             ],
             publishedAtIso: '2026-04-19T12:00:00.000Z',
             primaryAction: {
-                label: 'Abrir analise',
+                label: 'Ver post',
                 href: '/community/beryl-spray-lab',
             },
         });
@@ -494,21 +494,21 @@ describe('buildPublicCommunityProfileViewModel', () => {
                 key: 'weapon:beryl-m762',
                 label: 'Beryl M762',
                 href: '/community?weaponId=beryl-m762',
-                description: '2 snapshots desta arma no perfil publico.',
+                description: '2 posts desta arma neste perfil.',
                 postCount: 2,
             },
             {
                 key: 'diagnosis:horizontal_drift',
                 label: 'Horizontal Drift',
                 href: '/community?diagnosisKey=horizontal_drift',
-                description: '2 snapshots deste diagnostico no perfil publico.',
+                description: '2 posts deste diagnostico neste perfil.',
                 postCount: 2,
             },
             {
                 key: 'patch:36.1',
                 label: 'Patch 36.1',
                 href: '/community?patchVersion=36.1',
-                description: '2 snapshots deste patch no perfil publico.',
+                description: '2 posts deste patch neste perfil.',
                 postCount: 2,
             },
         ]);
@@ -547,8 +547,8 @@ describe('buildPublicCommunityProfileViewModel', () => {
             viewerIsFollowing: false,
             canFollow: false,
             isSelfProfile: true,
-            actionLabel: 'Seu perfil publico',
-            disabledReason: 'Este e o seu perfil publico.',
+            actionLabel: 'Seu perfil',
+            disabledReason: 'Este e o seu perfil.',
         });
     });
 
@@ -581,15 +581,9 @@ describe('buildPublicCommunityProfileViewModel', () => {
                 count: null,
             },
             {
-                key: 'profile-complete',
-                label: 'Perfil completo',
-                reason: 'Nome, imagem ou monograma, bio, link, setup e post publico estao preenchidos.',
-                count: 6,
-            },
-            {
                 key: 'setup-public',
                 label: 'Setup publico',
-                reason: '12 campos publicos de setup na allowlist.',
+                reason: '12 campos publicos de setup liberados no perfil.',
                 count: 12,
             },
             {
@@ -616,8 +610,8 @@ describe('buildPublicCommunityProfileViewModel', () => {
             currentStreak: 0,
             longestStreak: 0,
             streakState: 'inactive',
-            title: 'Streak publica ainda nao iniciada',
-            summary: 'Sem participacoes publicas significativas registradas o bastante para abrir uma streak visivel.',
+            title: 'Sequencia ainda nao comecou',
+            summary: 'Ainda nao ha participacoes publicas suficientes para mostrar uma sequencia visivel.',
         });
         expect(viewModel.squadIdentity).toBeNull();
     });
@@ -643,8 +637,8 @@ describe('buildPublicCommunityProfileViewModel', () => {
                 currentStreak: 3,
                 longestStreak: 5,
                 streakState: 'active',
-                title: '3 semana(s) em sequencia',
-                summary: 'Maior streak publica: 5. O operador segue em ritmo ativo nesta janela.',
+                title: '3 semana(s) seguidas',
+                summary: 'Maior sequencia: 5. Esse jogador segue em ritmo ativo nesta janela.',
             },
             squadIdentity: {
                 id: 'squad-spray-lab',
@@ -672,8 +666,8 @@ describe('buildPublicCommunityProfileViewModel', () => {
             currentStreak: 3,
             longestStreak: 5,
             streakState: 'active',
-            title: '3 semana(s) em sequencia',
-            summary: 'Maior streak publica: 5. O operador segue em ritmo ativo nesta janela.',
+            title: '3 semana(s) seguidas',
+            summary: 'Maior sequencia: 5. Esse jogador segue em ritmo ativo nesta janela.',
         });
         expect(viewModel.squadIdentity).toEqual({
             id: 'squad-spray-lab',

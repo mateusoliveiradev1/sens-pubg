@@ -47,32 +47,32 @@ const profileMetricCards: readonly {
     {
         key: 'followerCount',
         label: 'Seguidores',
-        hint: 'sinal da squad',
+        hint: 'gente acompanhando',
     },
     {
         key: 'publicPostCount',
         label: 'Posts publicos',
-        hint: 'snapshots publicados',
+        hint: 'posts abertos',
     },
     {
         key: 'likeCount',
         label: 'Curtidas',
-        hint: 'leitura aprovada',
+        hint: 'curtidas recebidas',
     },
     {
         key: 'commentCount',
         label: 'Comentarios',
-        hint: 'review da comunidade',
+        hint: 'respostas da comunidade',
     },
     {
         key: 'copyCount',
         label: 'Copias',
-        hint: 'presets copiados',
+        hint: 'setup aproveitado',
     },
     {
         key: 'saveCount',
         label: 'Saves',
-        hint: 'drills guardados',
+        hint: 'post guardado',
     },
 ];
 
@@ -134,7 +134,33 @@ function formatSetupValue(
 
     const normalizedValue = value?.trim();
 
-    return normalizedValue || 'Nao publicado';
+    return normalizedValue || 'Nao informado';
+}
+
+function formatRewardDisplayStateLabel(displayState: CommunityProfileReward['displayState']): string {
+    switch (displayState) {
+        case 'equipped':
+            return 'Em uso';
+        case 'hidden':
+            return 'Oculto';
+        case 'visible':
+        default:
+            return 'Visivel';
+    }
+}
+
+function formatStreakStateLabel(streakState: CommunityProfileStreak['streakState']): string {
+    switch (streakState) {
+        case 'active':
+            return 'Ativo';
+        case 'at_risk':
+            return 'Em risco';
+        case 'reentry':
+            return 'Retorno';
+        case 'inactive':
+        default:
+            return 'Sem sequencia';
+    }
 }
 
 export async function generateMetadata({
@@ -148,7 +174,7 @@ export async function generateMetadata({
 
     if (!viewModel) {
         return {
-            title: 'Perfil publico nao encontrado',
+            title: 'Perfil da comunidade nao encontrado',
         };
     }
 
@@ -217,7 +243,7 @@ function ProfileLoadoutChips({
                 </Link>
             )) : (
                 <span className={styles.loadoutChipMuted} data-community-chip="loadout-chip">
-                    Snapshot publico
+                    Post publico
                 </span>
             )}
         </div>
@@ -275,7 +301,7 @@ function ProfileActionDeck({
                 Voltar para comunidade
             </Link>
             <Link className={styles.cardAction} href="#profile-snapshots">
-                Ver snapshots
+                Ver posts
             </Link>
 
             {viewModel.follow.canFollow ? (
@@ -336,14 +362,14 @@ function OperatorProfileBoard({
                     />
 
                     <div className={styles.profileCopy}>
-                        <span className={styles.boardEyebrow}>Operator plate publico</span>
+                        <span className={styles.boardEyebrow}>Perfil do jogador</span>
                         <h1 className={styles.profileTitle}>{viewModel.identity.displayName}</h1>
                         <div className={styles.profileSlugRail}>
                             <span className={styles.loadoutChipMuted}>@{viewModel.identity.slug}</span>
                             {creatorBadge ? (
                                 <span className={styles.creatorBadge}>{creatorBadge.label}</span>
                             ) : (
-                                <span className={styles.authorMeta}>Operador publico</span>
+                                <span className={styles.authorMeta}>Jogador da comunidade</span>
                             )}
                         </div>
                         {viewModel.identity.headline ? (
@@ -353,7 +379,7 @@ function OperatorProfileBoard({
                             <p className={styles.profileBio}>{viewModel.identity.bio}</p>
                         ) : (
                             <p className={styles.profileBio}>
-                                Bio publica ainda nao publicada neste perfil.
+                                Esse jogador ainda nao escreveu uma bio publica.
                             </p>
                         )}
                     </div>
@@ -363,10 +389,10 @@ function OperatorProfileBoard({
                     aria-label="Acoes do perfil publico"
                     className={styles.profileControlPlate}
                 >
-                    <span className={styles.sectionKicker}>Navegacao da comunidade</span>
+                    <span className={styles.sectionKicker}>O que fazer aqui</span>
                     <p>
-                        Link publico sem identificadores privados. Use para seguir o creator,
-                        compartilhar a placa ou reportar um problema.
+                        Perfil publico pronto para compartilhar. Siga, copie o link ou reporte se
+                        encontrar algo que quebre a confianca deste espaco.
                     </p>
                     <ProfileActionDeck
                         canonicalProfileUrl={canonicalProfileUrl}
@@ -375,6 +401,8 @@ function OperatorProfileBoard({
                     />
                 </aside>
             </div>
+
+            <ProfileSpotlightDeck viewModel={viewModel} />
 
             {viewModel.links.length > 0 ? (
                 <div className={styles.profileExternalLinks} aria-label="Links publicos">
@@ -392,7 +420,7 @@ function OperatorProfileBoard({
                 </div>
             ) : (
                 <p className={styles.profileStatusNote}>
-                    Sem links externos publicados neste perfil.
+                    Sem links publicos por enquanto.
                 </p>
             )}
 
@@ -402,6 +430,107 @@ function OperatorProfileBoard({
                 <p className={styles.profileStatusNote}>{viewModel.follow.disabledReason}</p>
             ) : null}
         </section>
+    );
+}
+
+function ProfileSpotlightDeck({
+    viewModel,
+}: {
+    readonly viewModel: CommunityPublicProfileViewModel;
+}): JSX.Element {
+    const latestPost = viewModel.posts[0] ?? null;
+    const saveAndCopyCount = viewModel.metrics.saveCount + viewModel.metrics.copyCount;
+    const proofCards = [
+        {
+            label: 'Posts abertos',
+            value: String(viewModel.metrics.publicPostCount),
+            summary: viewModel.metrics.publicPostCount > 0
+                ? 'recortes publicos reais para abrir neste perfil.'
+                : 'nenhum post publico aberto por enquanto.',
+        },
+        {
+            label: 'Seguidores',
+            value: String(viewModel.metrics.followerCount),
+            summary: viewModel.metrics.followerCount > 0
+                ? 'pessoas voltando para acompanhar este jogador.'
+                : 'ainda sem seguidores visiveis.',
+        },
+        {
+            label: 'Saves + copias',
+            value: String(saveAndCopyCount),
+            summary: saveAndCopyCount > 0
+                ? 'retornos publicos que nasceram dos posts abertos.'
+                : 'sem retorno publico suficiente para virar prova forte ainda.',
+        },
+    ] as const;
+    const emptyStateActionHref = viewModel.emptyState?.primaryAction.href ?? '/community';
+    const emptyStateActionLabel = viewModel.emptyState?.primaryAction.label ?? 'Explorar comunidade';
+
+    return (
+        <div
+            className={styles.profileSpotlightGrid}
+            data-community-section="profile-spotlight"
+        >
+            <article
+                className={styles.profileSpotlightCard}
+                data-community-section="profile-recent-work"
+            >
+                <div className={styles.sectionHeader}>
+                    <div>
+                        <span className={styles.sectionKicker}>Trabalho recente</span>
+                        <h2 className={styles.sectionTitle}>
+                            {latestPost ? latestPost.title : viewModel.emptyState?.title ?? 'Ainda sem post aberto'}
+                        </h2>
+                    </div>
+                    {latestPost ? (
+                        <time className={styles.snapshotDate} dateTime={latestPost.publishedAtIso}>
+                            {dateFormatter.format(latestPost.publishedAt)}
+                        </time>
+                    ) : null}
+                </div>
+
+                {latestPost ? (
+                    <>
+                        <ProfileLoadoutChips tags={latestPost.analysisTags} />
+                        <p className={styles.sectionSummary}>{latestPost.excerpt}</p>
+                        <div className={styles.snapshotFooter}>
+                            <Link className={styles.cardAction} href={latestPost.href}>
+                                Abrir post mais recente
+                            </Link>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <p className={styles.sectionSummary}>
+                            {viewModel.emptyState?.body ?? 'Este jogador ainda nao abriu um post publico.'}
+                        </p>
+                        <div className={styles.emptyActions}>
+                            <Link className="btn btn-primary" href={emptyStateActionHref}>
+                                {emptyStateActionLabel}
+                            </Link>
+                        </div>
+                    </>
+                )}
+            </article>
+
+            <div className={styles.profileSpotlightRail}>
+                <div
+                    className={styles.profileProofGrid}
+                    data-community-layout="profile-proof-grid"
+                >
+                    {proofCards.map((card) => (
+                        <article
+                            key={card.label}
+                            className={styles.profileProofPlate}
+                        >
+                            <span className={styles.profileProofLabel}>{card.label}</span>
+                            <strong className={styles.profileProofValue}>{card.value}</strong>
+                            <p className={styles.profileProofSummary}>{card.summary}</p>
+                        </article>
+                    ))}
+                </div>
+            </div>
+        </div>
     );
 }
 
@@ -439,7 +568,7 @@ function SetupPlate({
             data-community-card="setup-plate"
         >
             <div className={styles.setupPlateHeader}>
-                <span className={styles.sectionKicker}>Setup publico</span>
+                <span className={styles.sectionKicker}>Setup</span>
                 <h3>{title}</h3>
                 <p>{subtitle}</p>
             </div>
@@ -468,19 +597,19 @@ function ProfileSetupEmptyState({
             data-community-section="profile-public-setup"
         >
             <div className={styles.emptyState}>
-                <span className={styles.emptyKicker}>Setup publico</span>
-                <h2>{isSelfProfile ? 'Complete seu setup publico' : 'Setup ainda nao publicado'}</h2>
+                <span className={styles.emptyKicker}>Setup</span>
+                <h2>{isSelfProfile ? 'Mostre seu setup' : 'Setup ainda nao apareceu'}</h2>
                 <p>
                     {isSelfProfile
-                        ? 'Preencha os dados de Meu Perfil para liberar as placas de mouse, superficie, grip e PUBG core neste operator plate.'
-                        : 'Este operador ainda nao publicou dados de setup. A comunidade mostra apenas campos liberados pela allowlist publica.'}
+                        ? 'Abra seu perfil e preencha mouse, mousepad e sensibilidade para mostrar seu jeito de jogar aqui.'
+                        : 'Este jogador ainda nao abriu mouse, mousepad ou sensibilidade no perfil publico.'}
                 </p>
                 <div className={styles.emptyActions}>
                     <Link
                         className={isSelfProfile ? 'btn btn-primary' : styles.cardAction}
                         href={isSelfProfile ? '/profile/settings' : '/community'}
                     >
-                        {isSelfProfile ? 'Completar Meu Perfil' : 'Ver feed da comunidade'}
+                        {isSelfProfile ? 'Abrir meu perfil' : 'Voltar para comunidade'}
                     </Link>
                 </div>
             </div>
@@ -506,19 +635,18 @@ function ProfileSetupShowcase({
         >
             <div className={styles.sectionHeader}>
                 <div>
-                    <span className={styles.sectionKicker}>Meu Perfil publico</span>
-                    <h2 className={styles.sectionTitle}>Setup publicado</h2>
+                    <span className={styles.sectionKicker}>Setup aberto</span>
+                    <h2 className={styles.sectionTitle}>Como esse jogador configura o jogo</h2>
                 </div>
                 <p className={styles.sectionSummary}>
-                    Placas montadas somente com campos allowlisted de perfil: aim setup,
-                    superficie/grip e configuracoes PUBG core.
+                    So aparece o que o jogador decidiu deixar publico.
                 </p>
             </div>
 
             <div className={styles.setupPlateGrid}>
                 <SetupPlate
-                    title="Aim setup"
-                    subtitle="Mouse, sensor e taxa de leitura usados pelo operador."
+                    title="Mouse e sensor"
+                    subtitle="Mouse, sensor, DPI e polling rate usados nas analises."
                     metrics={[
                         {
                             label: 'Mouse',
@@ -539,8 +667,8 @@ function ProfileSetupShowcase({
                     ]}
                 />
                 <SetupPlate
-                    title="Surface/grip"
-                    subtitle="Superficie, friccao e pivots de mira publicados."
+                    title="Mousepad e grip"
+                    subtitle="Superficie, pegada e estilo que acompanham o spray."
                     metrics={[
                         {
                             label: 'Mousepad',
@@ -561,8 +689,8 @@ function ProfileSetupShowcase({
                     ]}
                 />
                 <SetupPlate
-                    title="PUBG core"
-                    subtitle="Sensibilidade base publica para comparar snapshots."
+                    title="Sens do PUBG"
+                    subtitle="Sensibilidade base aberta para comparar com seus posts."
                     metrics={[
                         {
                             label: 'General',
@@ -596,12 +724,12 @@ function ProfileMetricStrip({
         <section className={styles.sectionShell} data-community-section="profile-metrics">
             <div className={styles.sectionHeader}>
                 <div>
-                    <span className={styles.sectionKicker}>Stat plates publicos</span>
-                    <h2 className={styles.sectionTitle}>Impacto do operador</h2>
+                    <span className={styles.sectionKicker}>Numeros publicos</span>
+                    <h2 className={styles.sectionTitle}>Como esse perfil se move na comunidade</h2>
                 </div>
                 <p className={styles.sectionSummary}>
-                    Apenas atividade publica entra nestas placas: seguidores, posts publicados,
-                    comentarios, curtidas, saves e presets copiados.
+                    Aqui entram so sinais reais: seguidores, posts, comentarios, curtidas, saves
+                    e copias.
                 </p>
             </div>
 
@@ -636,10 +764,10 @@ function RecognitionSection({
             <div className={styles.sectionHeader}>
                 <div>
                     <span className={styles.sectionKicker}>Reconhecimento publico</span>
-                    <h2 className={styles.sectionTitle}>Rewards, streak e squad</h2>
+                    <h2 className={styles.sectionTitle}>O que este perfil ja sustentou em publico</h2>
                 </div>
                 <p className={styles.sectionSummary}>
-                    Apenas sinais public-safe e explicaveis entram aqui. Nada de claim de skill que o sistema nao mediu.
+                    Aqui entram so rewards public-safe, streak factual e identidade coletiva com exibicao permitida.
                 </p>
             </div>
 
@@ -664,14 +792,14 @@ function RewardStrip({
             data-community-section="profile-reward-strip"
         >
             <div className={styles.ritualPanelHeader}>
-                <span className={styles.sectionKicker}>Reward strip</span>
+                <span className={styles.sectionKicker}>Rewards</span>
                 <span className={styles.loadoutChipMuted}>
-                    {rewards.length === 1 ? '1 reward visivel' : `${rewards.length} rewards visiveis`}
+                    {rewards.length === 1 ? '1 marca visivel' : `${rewards.length} marcas visiveis`}
                 </span>
             </div>
-            <h3>Reconhecimentos publicos</h3>
+            <h3>Marcas publicas</h3>
             <p>
-                Badges, titles e season marks aparecem so quando sao public-safe e factuais.
+                So entram rewards liberados de forma publica, factual e verificavel.
             </p>
 
             {rewards.length > 0 ? (
@@ -683,7 +811,7 @@ function RewardStrip({
                                     {reward.shortLabel ?? reward.label}
                                 </strong>
                                 <span className={styles.loadoutChipMuted}>
-                                    {reward.displayState}
+                                    {formatRewardDisplayStateLabel(reward.displayState)}
                                 </span>
                             </div>
                             <p>{reward.factualContext}</p>
@@ -695,9 +823,9 @@ function RewardStrip({
                 </div>
             ) : (
                 <div className={styles.rewardItem}>
-                    <span className={styles.rewardMeta}>Zero state</span>
+                    <span className={styles.rewardMeta}>Sem reward publico</span>
                     <p>
-                        Nenhum reward public-safe esta visivel neste perfil agora.
+                        Ainda nao existe reward publico liberado para este perfil.
                     </p>
                 </div>
             )}
@@ -716,18 +844,18 @@ function StreakSummaryCard({
             data-community-section="profile-streak-summary"
         >
             <div className={styles.ritualPanelHeader}>
-                <span className={styles.sectionKicker}>Streak summary</span>
-                <span className={styles.loadoutChipMuted}>{streak.streakState}</span>
+                <span className={styles.sectionKicker}>Ritmo</span>
+                <span className={styles.loadoutChipMuted}>{formatStreakStateLabel(streak.streakState)}</span>
             </div>
             <h3>{streak.title}</h3>
             <p>{streak.summary}</p>
             <div className={styles.ritualStatGrid}>
                 <div className={styles.ritualStat}>
-                    <span>Atual</span>
+                    <span>Agora</span>
                     <strong>{streak.currentStreak}</strong>
                 </div>
                 <div className={styles.ritualStat}>
-                    <span>Maior</span>
+                    <span>Melhor marca</span>
                     <strong>{streak.longestStreak}</strong>
                 </div>
             </div>
@@ -746,9 +874,9 @@ function SquadIdentityCard({
             data-community-section="profile-squad-identity"
         >
             <div className={styles.ritualPanelHeader}>
-                <span className={styles.sectionKicker}>Squad identity</span>
+                <span className={styles.sectionKicker}>Squad</span>
                 <span className={styles.loadoutChipMuted}>
-                    {squadIdentity ? 'Publico' : 'Nao vinculado'}
+                    {squadIdentity ? 'Publico' : 'Sem identidade aberta'}
                 </span>
             </div>
 
@@ -756,9 +884,9 @@ function SquadIdentityCard({
                 <ProfileSquadIdentityBody squadIdentity={squadIdentity} />
             ) : (
                 <>
-                    <h3>Sem squad publico vinculado</h3>
+                    <h3>Sem identidade coletiva aberta</h3>
                     <p>
-                        Este perfil ainda nao exibe uma identidade publica de squad.
+                        Este jogador ainda nao liberou uma identidade coletiva publica aqui.
                     </p>
                     <Link className={styles.cardAction} href="/community">
                         Voltar para comunidade
@@ -782,10 +910,10 @@ function ProfileSquadIdentityBody({
             </div>
             <p>
                 {squadIdentity.description
-                    ?? 'Squad publico com identidade liberada pelo owner e pela visibilidade do membro.'}
+                    ?? 'Identidade coletiva liberada com exibicao publica permitida.'}
             </p>
             <Link className={styles.cardAction} href="/community">
-                Abrir squad board
+                Ver comunidade
             </Link>
         </>
     );
@@ -798,11 +926,11 @@ function ProfileRelatedLinkPlate({
 }): JSX.Element {
     return (
         <article className={styles.relatedPlate}>
-            <span className={styles.sectionKicker}>Relacionado</span>
+            <span className={styles.sectionKicker}>Explorar depois</span>
             <h3>{link.label}</h3>
             <p>{link.description}</p>
             <Link className={styles.cardAction} href={link.href}>
-                Explorar no squad board
+                Ver posts
             </Link>
         </article>
     );
@@ -828,7 +956,7 @@ function ProfileRelatedContentLinks({
                     <h2 className={styles.sectionTitle}>Caminhos relacionados</h2>
                 </div>
                 <p className={styles.sectionSummary}>
-                    Links derivados somente de tags publicas dos snapshots deste perfil.
+                    Atalhos montados a partir dos posts publicos deste perfil.
                 </p>
             </div>
 
@@ -853,7 +981,7 @@ function ProfileSnapshotPlate({
         >
             <div className={styles.snapshotHeader}>
                 <div>
-                    <span className={styles.sectionKicker}>Snapshot publico</span>
+                    <span className={styles.sectionKicker}>Post publico</span>
                     <h3 className={styles.snapshotTitle}>
                         <Link href={post.href}>{post.title}</Link>
                     </h3>
@@ -887,20 +1015,20 @@ function ProfilePostShowcase({
 }): JSX.Element {
     return (
         <section
-            aria-label="Snapshots publicos do perfil"
+            aria-label="Posts publicos do perfil"
             className={styles.sectionShell}
             data-community-section="profile-snapshots"
             id="profile-snapshots"
         >
             <div className={styles.sectionHeader}>
                 <div>
-                    <span className={styles.sectionKicker}>Loadout/snapshot showcase</span>
-                    <h2 className={styles.sectionTitle}>Analises publicas</h2>
+                    <span className={styles.sectionKicker}>Posts do jogador</span>
+                    <h2 className={styles.sectionTitle}>Posts publicos</h2>
                 </div>
                 <p className={styles.sectionSummary}>
                     {posts.length === 1
-                        ? '1 snapshot publico pronto para abrir.'
-                        : `${posts.length} snapshots publicos prontos para abrir.`}
+                        ? '1 post publico para abrir.'
+                        : `${posts.length} posts publicos para abrir.`}
                 </p>
             </div>
 
@@ -912,7 +1040,7 @@ function ProfilePostShowcase({
                 </div>
             ) : emptyState ? (
                 <div className={styles.emptyState}>
-                    <span className={styles.emptyKicker}>Sem posts publicados</span>
+                    <span className={styles.emptyKicker}>Sem posts ainda</span>
                     <h3>{emptyState.title}</h3>
                     <p>{emptyState.body}</p>
                     <div className={styles.emptyActions}>
@@ -954,21 +1082,21 @@ export default async function CommunityUserProfilePage({
                         viewModel={viewModel}
                         viewerCanReport={viewerCanReport}
                     />
+                    <ProfileSetupShowcase
+                        isSelfProfile={viewModel.follow.isSelfProfile}
+                        publicSetup={viewModel.publicSetup}
+                    />
                     <RecognitionSection
                         rewards={viewModel.publicRewards}
                         squadIdentity={viewModel.squadIdentity}
                         streak={viewModel.streak}
                     />
-                    <ProfileSetupShowcase
-                        isSelfProfile={viewModel.follow.isSelfProfile}
-                        publicSetup={viewModel.publicSetup}
-                    />
                     <ProfileMetricStrip metrics={viewModel.metrics} />
-                    <ProfileRelatedContentLinks links={viewModel.relatedLinks} />
                     <ProfilePostShowcase
                         emptyState={viewModel.emptyState}
                         posts={viewModel.posts}
                     />
+                    <ProfileRelatedContentLinks links={viewModel.relatedLinks} />
                 </main>
             </div>
         </>

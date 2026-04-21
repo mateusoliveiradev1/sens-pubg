@@ -48,7 +48,7 @@ export function LikeButton({
                 setLiked(result.liked);
                 setLikeCount(result.likeCount);
             } catch {
-                setErrorMessage('Nao foi possivel atualizar o like agora.');
+                setErrorMessage('Nao foi possivel atualizar a curtida agora.');
             }
         });
     };
@@ -79,7 +79,7 @@ export function LikeButton({
                 aria-pressed={liked}
                 aria-describedby={errorMessage ? 'community-like-status' : undefined}
             >
-                {isPending ? 'Atualizando like...' : `${liked ? 'Curtido' : 'Curtir'} • ${likeCount}`}
+                {isPending ? 'Atualizando curtida...' : `${liked ? 'Curtido' : 'Curtir'} - ${likeCount}`}
             </button>
 
             {errorMessage ? (

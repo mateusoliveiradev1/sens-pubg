@@ -13,7 +13,6 @@ import {
 export type CommunityTrustSignalKey =
     | 'creator-approved'
     | 'creator-waitlist'
-    | 'profile-complete'
     | 'setup-public'
     | 'active-patch'
     | 'copied-preset'
@@ -35,13 +34,7 @@ export interface CommunityTrustSignalPublicSetup {
 
 export interface BuildProfileTrustSignalsInput {
     readonly creatorProgramStatus: CommunityCreatorProgramStatus;
-    readonly displayName: string | null;
-    readonly avatarUrl: string | null;
-    readonly fallbackInitials: string | null;
-    readonly bio: string | null;
-    readonly linkCount: number;
     readonly publicSetup: CommunityTrustSignalPublicSetup | null;
-    readonly publicPostCount: number;
     readonly copyCount: number;
     readonly saveCount: number;
 }
@@ -66,20 +59,10 @@ export function buildProfileTrustSignals(
     input: BuildProfileTrustSignalsInput,
 ): readonly CommunityTrustSignal[] {
     const setupFieldCount = countPublicSetupFields(input.publicSetup);
-    const safePublicPostCount = toSafeCommunityCount(input.publicPostCount);
     const safeCopyCount = toSafeCommunityCount(input.copyCount);
     const safeSaveCount = toSafeCommunityCount(input.saveCount);
     const signals = [
         createCreatorTrustSignal(input.creatorProgramStatus),
-        createProfileCompleteSignal({
-            displayName: input.displayName,
-            avatarUrl: input.avatarUrl,
-            fallbackInitials: input.fallbackInitials,
-            bio: input.bio,
-            linkCount: input.linkCount,
-            setupFieldCount,
-            publicPostCount: safePublicPostCount,
-        }),
         createSetupPublicSignal(setupFieldCount),
         createCopiedPresetSignal(safeCopyCount),
         createSavedDrillSignal(safeSaveCount),
@@ -163,36 +146,6 @@ function createCreatorTrustSignal(
     };
 }
 
-function createProfileCompleteSignal(input: {
-    readonly displayName: string | null;
-    readonly avatarUrl: string | null;
-    readonly fallbackInitials: string | null;
-    readonly bio: string | null;
-    readonly linkCount: number;
-    readonly setupFieldCount: number;
-    readonly publicPostCount: number;
-}): CommunityTrustSignal | null {
-    const completedFacts = [
-        Boolean(input.displayName?.trim()),
-        Boolean(input.avatarUrl?.trim() || input.fallbackInitials?.trim()),
-        Boolean(input.bio?.trim()),
-        input.linkCount > 0,
-        input.setupFieldCount > 0,
-        input.publicPostCount > 0,
-    ].filter(Boolean).length;
-
-    if (completedFacts < 6) {
-        return null;
-    }
-
-    return {
-        key: 'profile-complete',
-        label: 'Perfil completo',
-        reason: 'Nome, imagem ou monograma, bio, link, setup e post publico estao preenchidos.',
-        count: completedFacts,
-    };
-}
-
 function createSetupPublicSignal(setupFieldCount: number): CommunityTrustSignal | null {
     const safeSetupFieldCount = toSafeCommunityCount(setupFieldCount);
 
@@ -203,7 +156,7 @@ function createSetupPublicSignal(setupFieldCount: number): CommunityTrustSignal 
     return {
         key: 'setup-public',
         label: 'Setup publico',
-        reason: `${formatCommunityCount(safeSetupFieldCount, 'campo publico de setup', 'campos publicos de setup')} na allowlist.`,
+        reason: `${formatCommunityCount(safeSetupFieldCount, 'campo publico de setup', 'campos publicos de setup')} liberados no perfil.`,
         count: safeSetupFieldCount,
     };
 }
@@ -223,7 +176,7 @@ function createPublicActivitySignal(input: {
         label: 'Atividade publica',
         reason: [
             input.publicPostCount > 0
-                ? formatCommunityCount(input.publicPostCount, 'analise publica', 'analises publicas')
+                ? formatCommunityCount(input.publicPostCount, 'post publico', 'posts publicos')
                 : null,
             input.followerCount > 0
                 ? formatCommunityCount(input.followerCount, 'seguidor', 'seguidores')
@@ -243,7 +196,7 @@ function createActivePatchSignal(patchVersion: string | null): CommunityTrustSig
     return {
         key: 'active-patch',
         label: 'Patch ativo',
-        reason: `Snapshot publico marcado como ${formatCommunityPatchLabel(normalizedPatchVersion)}.`,
+        reason: `Post publico marcado como ${formatCommunityPatchLabel(normalizedPatchVersion)}.`,
         count: null,
     };
 }

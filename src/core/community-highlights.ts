@@ -113,7 +113,7 @@ export function buildFeaturedCommunityPostHighlights(
     input: BuildFeaturedCommunityPostHighlightsInput,
 ): CommunityPostHighlightsViewModel {
     const items = input.posts
-        .filter((post) => isPublicHighlightPost(post, input.now))
+        .filter((post) => isGroundedHighlightPost(post, input.now))
         .sort(compareHighlightPosts)
         .slice(0, 3)
         .map((post): CommunityPostHighlight => ({
@@ -143,10 +143,10 @@ export function buildFeaturedCommunityPostHighlights(
         emptyState: items.length > 0
             ? null
             : {
-                title: 'Sem destaques publicos ainda',
-                body: 'Publique uma analise, compare recoil, copie um preset ou salve um drill para gerar sinais publicos.',
+                title: 'Ainda nao ha sinal publico suficiente para destacar posts',
+                body: 'Quando posts abertos receberem copias, saves, comentarios ou curtidas, eles aparecem aqui.',
                 primaryAction: {
-                    label: 'Publicar analise',
+                    label: 'Publicar post',
                     href: '/history',
                 },
             },
@@ -157,7 +157,7 @@ export function buildCommunityCreatorHighlights(
     input: BuildCommunityCreatorHighlightsInput,
 ): CommunityCreatorHighlightsViewModel {
     const items = input.creators
-        .filter(isHighlightableCreator)
+        .filter(isGroundedCreatorHighlight)
         .sort(compareCreatorHighlights)
         .slice(0, 4)
         .map((creator): CommunityCreatorHighlight => ({
@@ -179,8 +179,8 @@ export function buildCommunityCreatorHighlights(
         emptyState: items.length > 0
             ? null
             : {
-                title: 'Sem creators em destaque ainda',
-                body: 'Siga creators, comente analises e copie setups para fortalecer sinais de patch, arma e preset.',
+                title: 'Ainda nao ha sinal publico suficiente para destacar jogadores',
+                body: 'Quando seguidores, copias ou interacoes reais aparecerem, os perfis mais uteis entram aqui.',
                 primaryAction: {
                     label: 'Explorar comunidade',
                     href: '/community',
@@ -195,7 +195,7 @@ export function formatCommunityCreatorBadge(
     return formatCommunityCreatorStatusBadge(status);
 }
 
-function isPublicHighlightPost(
+function isGroundedHighlightPost(
     post: CommunityHighlightSourcePost,
     now: Date,
 ): boolean {
@@ -211,7 +211,7 @@ function isPublicHighlightPost(
         return false;
     }
 
-    return Boolean(post.featuredUntil) || getPostEngagementScore(post) > 0;
+    return getPostEngagementScore(post) > 0;
 }
 
 function getPostEngagementScore(post: CommunityHighlightSourcePost): number {
@@ -244,36 +244,30 @@ function formatPostHighlightReason(post: CommunityHighlightSourcePost): string {
     }
 
     if (post.engagement.saveCount > 0) {
-        return `Drill salvo ${post.engagement.saveCount} ${post.engagement.saveCount === 1 ? 'vez' : 'vezes'}${patchLabel}.`;
+        return `Treino salvo ${post.engagement.saveCount} ${post.engagement.saveCount === 1 ? 'vez' : 'vezes'}${patchLabel}.`;
     }
 
     if (post.engagement.commentCount > 0) {
-        return `${formatCommunityCount(post.engagement.commentCount, 'comentario publico de recoil', 'comentarios publicos de recoil')}${patchLabel}.`;
+        return `${formatCommunityCount(post.engagement.commentCount, 'comentario publico no post', 'comentarios publicos no post')}${patchLabel}.`;
     }
 
     if (post.engagement.likeCount > 0) {
-        return `${formatCommunityCount(post.engagement.likeCount, 'curtida publica no snapshot', 'curtidas publicas no snapshot')}${patchLabel}.`;
+        return `${formatCommunityCount(post.engagement.likeCount, 'curtida publica neste post', 'curtidas publicas neste post')}${patchLabel}.`;
     }
 
-    if (post.primaryWeaponId) {
-        return `Snapshot publico com foco em ${post.primaryWeaponId}${patchLabel}.`;
-    }
-
-    return `Snapshot publico recente${patchLabel}.`;
+    return `Sinal publico recente neste post${patchLabel}.`;
 }
 
-function isHighlightableCreator(creator: CommunityHighlightSourceCreator): boolean {
+function isGroundedCreatorHighlight(creator: CommunityHighlightSourceCreator): boolean {
     if (creator.visibility !== 'public') {
         return false;
     }
 
-    return creator.creatorProgramStatus !== 'none'
-        || creator.followerCount > 0
-        || creator.publicPostCount > 0
-        || creator.likeCount > 0
-        || creator.commentCount > 0
-        || creator.copyCount > 0
-        || creator.lastPublicPostAt instanceof Date;
+    if (!(creator.lastPublicPostAt instanceof Date)) {
+        return false;
+    }
+
+    return meetsCreatorPromotionThreshold(creator);
 }
 
 function compareCreatorHighlights(
@@ -299,6 +293,32 @@ function getCreatorHighlightScore(creator: CommunityHighlightSourceCreator): num
         + creator.publicPostCount;
 }
 
+function meetsCreatorPromotionThreshold(
+    creator: CommunityHighlightSourceCreator,
+): boolean {
+    if (creator.publicPostCount >= 2) {
+        return true;
+    }
+
+    const evidenceScore = getCreatorPromotionEvidenceScore(creator);
+
+    if (creator.publicPostCount >= 1 && evidenceScore >= 2) {
+        return true;
+    }
+
+    return creator.creatorProgramStatus !== 'none'
+        && creator.publicPostCount >= 1
+        && evidenceScore >= 1;
+}
+
+function getCreatorPromotionEvidenceScore(
+    creator: CommunityHighlightSourceCreator,
+): number {
+    return creator.copyCount * 2
+        + creator.commentCount * 2
+        + creator.followerCount;
+}
+
 function buildCreatorHighlightReasons(
     creator: CommunityHighlightSourceCreator,
 ): readonly string[] {
@@ -314,7 +334,7 @@ function buildCreatorHighlightReasons(
     }
 
     if (creator.publicPostCount > 0) {
-        reasons.push(formatCommunityCount(creator.publicPostCount, 'analise publica', 'analises publicas'));
+        reasons.push(formatCommunityCount(creator.publicPostCount, 'post publico', 'posts publicos'));
     }
 
     if (creator.copyCount > 0) {

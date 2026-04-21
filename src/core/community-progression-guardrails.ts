@@ -2,6 +2,9 @@ import type {
     CommunityProgressionEventType,
 } from '@/types/community';
 import type { CommunityProgressionHistoryEvent } from './community-progression';
+import {
+    COMMUNITY_LOW_SIGNAL_GUARDRAIL_CONFIG,
+} from './community-progression-policy';
 
 export type CommunityProgressionGuardrailReason =
     | 'pair_period_cap'
@@ -22,36 +25,10 @@ export interface CommunityProgressionGuardrailOutcome {
     readonly reasons: readonly CommunityProgressionGuardrailReason[];
 }
 
-interface CommunityLowSignalGuardrailConfig {
-    readonly pairPeriodCap: number;
-    readonly periodCap: number;
-    readonly reciprocalPairPeriodCap: number;
-}
-
-const LOW_SIGNAL_GUARDRAIL_CONFIG: Readonly<
-    Partial<Record<CommunityProgressionEventType, CommunityLowSignalGuardrailConfig>>
-> = {
-    follow_profile: {
-        pairPeriodCap: 1,
-        periodCap: 3,
-        reciprocalPairPeriodCap: 2,
-    },
-    receive_unique_save: {
-        pairPeriodCap: 2,
-        periodCap: 5,
-        reciprocalPairPeriodCap: 3,
-    },
-    receive_unique_copy: {
-        pairPeriodCap: 2,
-        periodCap: 4,
-        reciprocalPairPeriodCap: 3,
-    },
-} as const;
-
 export function applyCommunityProgressionGuardrails(
     input: ApplyCommunityProgressionGuardrailsInput,
 ): CommunityProgressionGuardrailOutcome {
-    const config = LOW_SIGNAL_GUARDRAIL_CONFIG[input.eventType];
+    const config = COMMUNITY_LOW_SIGNAL_GUARDRAIL_CONFIG[input.eventType];
 
     if (!config || input.rawXp <= 0) {
         return {

@@ -171,6 +171,7 @@ describe('setCommunityProfileFollow', () => {
         expect(mocks.deleteFn).not.toHaveBeenCalled();
         expect(mocks.trackCommunityProgressionForAction).toHaveBeenCalledWith({
             actorUserId: 'user-1',
+            beneficiaryUserId: 'user-2',
             eventType: 'follow_profile',
             entityType: 'profile',
             entityId: 'profile-2',

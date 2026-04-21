@@ -31,16 +31,10 @@ const publicSetup = {
 };
 
 describe('community trust signals', () => {
-    it('builds factual profile signals for creator status, completeness and public setup', () => {
+    it('builds factual profile signals for creator status and public setup', () => {
         const signals = buildProfileTrustSignals({
             creatorProgramStatus: 'approved',
-            displayName: 'Spray Doctor',
-            avatarUrl: null,
-            fallbackInitials: 'SD',
-            bio: 'Bio publica real.',
-            linkCount: 2,
             publicSetup,
-            publicPostCount: 1,
             copyCount: 4,
             saveCount: 3,
         });
@@ -53,15 +47,9 @@ describe('community trust signals', () => {
                 count: null,
             },
             {
-                key: 'profile-complete',
-                label: 'Perfil completo',
-                reason: 'Nome, imagem ou monograma, bio, link, setup e post publico estao preenchidos.',
-                count: 6,
-            },
-            {
                 key: 'setup-public',
                 label: 'Setup publico',
-                reason: '12 campos publicos de setup na allowlist.',
+                reason: '12 campos publicos de setup liberados no perfil.',
                 count: 12,
             },
             {
@@ -80,16 +68,10 @@ describe('community trust signals', () => {
         expect(JSON.stringify(signals)).not.toMatch(unsupportedAuthorityClaims);
     });
 
-    it('does not grant completeness from missing public-safe profile facts', () => {
+    it('does not invent profile trust signals when public facts are missing', () => {
         const signals = buildProfileTrustSignals({
             creatorProgramStatus: 'waitlist',
-            displayName: 'Spray Doctor',
-            avatarUrl: null,
-            fallbackInitials: 'SD',
-            bio: null,
-            linkCount: 0,
             publicSetup: null,
-            publicPostCount: 0,
             copyCount: 0,
             saveCount: 0,
         });
@@ -119,7 +101,7 @@ describe('community trust signals', () => {
             {
                 key: 'active-patch',
                 label: 'Patch ativo',
-                reason: 'Snapshot publico marcado como Patch 36.1.',
+                reason: 'Post publico marcado como Patch 36.1.',
                 count: null,
             },
             {
@@ -165,7 +147,7 @@ describe('community trust signals', () => {
             {
                 key: 'public-activity',
                 label: 'Atividade publica',
-                reason: '4 analises publicas e 18 seguidores',
+                reason: '4 posts publicos e 18 seguidores',
                 count: 22,
             },
             {

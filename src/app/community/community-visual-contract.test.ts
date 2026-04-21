@@ -15,6 +15,10 @@ describe('community visual contract', () => {
         ].join('\n');
 
         expect(source).toMatch(/data-community-section=["']squad-board["']/);
+        expect(source).toMatch(/data-community-section=["']hero-pulse["']/);
+        expect(source).toMatch(/section=["']community-now-band["']/);
+        expect(source).toMatch(/section=["']community-pulse-band["']/);
+        expect(source).toMatch(/section=["']community-explore-band["']/);
         expect(source).toMatch(/data-community-section=["']featured-posts["']/);
         expect(source).toMatch(/data-community-section=["']creator-plates["']/);
         expect(source).toMatch(/data-community-section=["']season-context["']/);
@@ -42,7 +46,7 @@ describe('community visual contract', () => {
             readCommunitySource('./[slug]/post-detail.tsx'),
         ].join('\n');
 
-        expect(source).toMatch(/SquadBoard|SnapshotPlate|LoadoutChip|RecoilSignal|CreatorPlate/);
+        expect(source).toMatch(/SquadBoard|CommunityBand|SnapshotPlate|LoadoutChip|RecoilSignal|CreatorPlate/);
         expect(source).not.toMatch(/SocialFeed|SocialCard|DashboardFeed|DashboardCard|MarketingHero|GenericAvatarCard/);
     });
 
@@ -72,9 +76,9 @@ describe('community visual contract', () => {
         expect(source).toMatch(/data-community-layout=["']stable-trust-rail["']/);
         expect(source).toMatch(/data-community-layout=["']stable-reward-rail["']/);
         expect(source).toMatch(/trustSignalRail/);
-        expect(source).toMatch(/ritualDeck|missionGrid|profileRecognitionGrid/);
+        expect(source).toMatch(/bandGrid|ritualDeck|missionGrid|profileRecognitionGrid/);
         expect(source).toMatch(/min-height:\s*92px/);
         expect(source).toMatch(/@media \(max-width: 767px\)[\s\S]*trustSignalRail/);
-        expect(source).toMatch(/@media \(max-width: 1023px\)[\s\S]*(ritualDeck|missionGrid|profileRecognitionGrid)/);
+        expect(source).toMatch(/@media \(max-width: 1023px\)[\s\S]*(bandGrid|ritualDeck|missionGrid|profileRecognitionGrid)/);
     });
 });

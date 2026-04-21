@@ -176,4 +176,25 @@ describe('community rewards core', () => {
 
         expect(result).toEqual([]);
     });
+
+    it('ignores reward kinds outside the public-safe allowlist even if the row is flagged as public', () => {
+        const result = buildCommunityPublicRewardSummaries({
+            ownerType: 'user',
+            userId: 'user-1',
+            rewards: [
+                createReward({
+                    id: 'reward-legacy',
+                    ownerType: 'user',
+                    rewardKind: 'legacy_trophy' as CommunityRewardRecordSource['rewardKind'],
+                    label: 'Legacy trophy',
+                    displayState: 'visible',
+                    isPublicSafe: true,
+                    earnedAt: new Date('2026-04-24T12:00:00.000Z'),
+                    userId: 'user-1',
+                }),
+            ],
+        });
+
+        expect(result).toEqual([]);
+    });
 });
