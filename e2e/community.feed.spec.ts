@@ -112,7 +112,7 @@ async function signInAsSeededUser(page: Page, user: SeededViewer) {
 }
 
 async function seedCommunityFeedFixture() {
-    const [{ db }, { analysisSessions, communityPostAnalysisSnapshots, communityPostLikes, communityProfiles, communityPosts, users }] = await Promise.all([
+    const [{ db }, { analysisSessions, communityPostAnalysisSnapshots, communityPostLikes, communityPostSaves, communityProfiles, communityPosts, users }] = await Promise.all([
         import('../src/db'),
         import('../src/db/schema'),
     ]);
@@ -244,7 +244,7 @@ async function seedCommunityFeedFixture() {
                 magnitude: 0.09,
             },
             consistencyScore: 79,
-            diagnoses: ['horizontal_instability'],
+            diagnoses: ['vertical_control'],
             fullResult: {} as never,
             sprayScore: 84,
         },
@@ -310,7 +310,7 @@ async function seedCommunityFeedFixture() {
             sourceAnalysisSessionId: berylAnalysisSessionId,
             primaryWeaponId: 'beryl-m762',
             primaryPatchVersion: '35.1',
-            primaryDiagnosisKey: 'horizontal_instability',
+            primaryDiagnosisKey: 'vertical_control',
             copySensPreset: copySensPreset as never,
             publishedAt: new Date('2026-04-18T14:00:00.000Z'),
         },
@@ -397,7 +397,7 @@ async function seedCommunityFeedFixture() {
             } as never,
             diagnosesSnapshot: [
                 {
-                    type: 'horizontal_instability',
+                    type: 'vertical_control',
                     severity: 4,
                     description: 'Oscilacao lateral reduzindo previsibilidade no meio do spray.',
                     cause: 'Entrada horizontal tardia com correcao longa demais.',
@@ -457,6 +457,11 @@ async function seedCommunityFeedFixture() {
         },
     ]);
 
+    await db.insert(communityPostSaves).values({
+        postId: acePostId,
+        userId: viewer.userId,
+    });
+
     return {
         viewer,
         expectedTitles: {
@@ -483,6 +488,9 @@ async function seedCommunityFeedFixture() {
             return Number(likeCountRow?.count ?? 0);
         },
         async cleanup() {
+            await db
+                .delete(communityPostSaves)
+                .where(eq(communityPostSaves.postId, acePostId));
             await db
                 .delete(communityPostAnalysisSnapshots)
                 .where(eq(communityPostAnalysisSnapshots.postId, acePostId));
@@ -517,16 +525,17 @@ test.describe('Public community feed page', () => {
 
             await expect(page.locator('[data-community-section="squad-board"]')).toBeVisible();
             await expect(page.locator('[data-community-signal="recoil-signal"]')).toContainText(
-                'snapshots na mira',
+                'posts na tela',
             );
-            await expect(page.getByRole('link', { name: /explorar posts/i })).toBeVisible();
+            await expect(page.locator('[data-community-section="community-pulse-band"]')).toBeVisible();
+            await expect(page.locator('[data-community-section="community-explore-band"]')).toBeVisible();
+            await expect(page.getByRole('link', { name: /(entrar|ver posts)/i }).first()).toBeVisible();
             await expect(page.locator('[data-community-section="featured-posts"]')).toBeVisible();
-            await expect(page.getByRole('heading', { name: /snapshots com sinal forte/i })).toBeVisible();
-            await expect(page.locator('[data-community-section="creator-plates"]')).toBeVisible();
-            await expect(page.getByText(/siga creators e salve drills/i)).toBeVisible();
+            await expect(page.getByRole('heading', { name: /posts que puxaram a comunidade/i })).toBeVisible();
+            await expect(page.locator('#community-feed')).toBeVisible();
 
             await page
-                .getByRole('link', { name: fixture.authors.ace.displayName })
+                .locator(`a[href="/community/users/${fixture.authors.ace.slug}"]`)
                 .first()
                 .click();
 
@@ -565,7 +574,7 @@ test.describe('Public community feed page', () => {
             await page.getByLabel(/arma/i).selectOption('ace32');
             await page.getByLabel(/patch/i).selectOption('35.2');
             await page.getByLabel(/diagnostico/i).selectOption('vertical_control');
-            await page.getByRole('button', { name: /aplicar leitura/i }).click();
+            await page.getByRole('button', { name: /aplicar filtros/i }).click();
 
             await expect(page).toHaveURL(/weaponId=ace32/);
             await expect(page).toHaveURL(/patchVersion=35\.2/);
@@ -590,12 +599,12 @@ test.describe('Public community feed page', () => {
             await page.getByLabel(/arma/i).selectOption('ace32');
             await page.getByLabel(/patch/i).selectOption('35.1');
             await page.getByLabel(/diagnostico/i).selectOption('vertical_control');
-            await page.getByRole('button', { name: /aplicar leitura/i }).click();
+            await page.getByRole('button', { name: /aplicar filtros/i }).click();
 
             await expect(page).toHaveURL(/weaponId=ace32/);
             await expect(page).toHaveURL(/patchVersion=35\.1/);
-            await expect(page.getByRole('heading', { name: /nenhum setup nesse filtro/i })).toBeVisible();
-            await expect(page.getByText(/publique uma analise com esse contexto/i)).toBeVisible();
+            await expect(page.getByRole('heading', { name: /nada nesse recorte/i })).toBeVisible();
+            await expect(page.getByText(/limpe os filtros ou publique um post com essa arma, patch ou leitura/i)).toBeVisible();
             await expect(page.getByRole('link', { name: /explorar todos/i })).toBeVisible();
             await expect(page.locator('#community-feed').getByRole('link', { name: fixture.expectedTitles.ace })).toHaveCount(0);
 
@@ -622,7 +631,7 @@ test.describe('Public community feed page', () => {
                 page.getByRole('heading', { level: 1, name: fixture.authors.ace.displayName }),
             ).toBeVisible();
             await expect(page.getByText(`@${fixture.authors.ace.slug}`)).toBeVisible();
-            await expect(page.getByRole('heading', { name: /impacto do operador/i })).toBeVisible();
+            await expect(page.getByRole('heading', { name: /como esse perfil se move na comunidade/i })).toBeVisible();
             await expect(page.getByRole('heading', { level: 3, name: fixture.expectedTitles.ace })).toBeVisible();
 
             const followButton = page.getByRole('button', { name: /seguir/i });
@@ -639,9 +648,11 @@ test.describe('Public community feed page', () => {
             await expect(
                 page.getByRole('heading', { level: 1, name: fixture.authors.hidden.displayName }),
             ).toBeVisible();
-            await expect(page.getByRole('heading', { name: /sem analises publicas ainda/i })).toBeVisible();
+            await expect(page.getByText(/sem posts ainda/i)).toBeVisible();
             await expect(page.getByText(fixture.expectedTitles.hidden)).toHaveCount(0);
-            await expect(page.getByRole('link', { name: /explorar comunidade/i })).toBeVisible();
+            await expect(
+                page.getByRole('link', { name: /(explorar comunidade|voltar para comunidade)/i }).first(),
+            ).toBeVisible();
         } finally {
             await fixture.cleanup();
         }
@@ -665,11 +676,11 @@ test.describe('Public community feed page', () => {
             await expect(page).toHaveURL(`/community/${fixture.aceSlug}`);
             await expect(page.getByRole('heading', { level: 1, name: fixture.expectedTitles.ace })).toBeVisible();
             await expect(page.getByRole('button', { name: /reportar/i })).toBeVisible();
-            await expect(page.getByRole('link', { name: /abrir perfil do autor/i })).toBeVisible();
-            await expect(page.getByRole('link', { name: /ver caminho relacionado/i }).first()).toBeVisible();
+            await expect(page.getByRole('link', { name: /^ver perfil$/i }).first()).toBeVisible();
+            await expect(page.getByRole('link', { name: /ver posts parecidos/i }).first()).toBeVisible();
 
             await page.getByRole('button', { name: /copiar sens/i }).click();
-            await expect(page.getByText(/sens copiada para a area de transferencia/i)).toBeVisible();
+            await expect(page.getByText(/^sens copiada\.$/i)).toBeVisible();
 
             const copiedText = await page.evaluate(async () => navigator.clipboard.readText());
             expect(copiedText).toContain('Sensitivity Profile: Balanced');

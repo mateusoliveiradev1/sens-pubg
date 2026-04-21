@@ -1,4 +1,5 @@
 import type { CommunityRewardRecordRow } from '@/db/schema';
+import { isCommunityRewardKindPublicSafe } from './community-progression-policy';
 
 export type CommunityRewardRecordSource = Pick<
     CommunityRewardRecordRow,
@@ -48,6 +49,7 @@ export function buildCommunityPublicRewardSummaries(
         )
         .filter((reward) => reward.status === 'earned')
         .filter((reward) => reward.isPublicSafe)
+        .filter((reward) => isCommunityRewardKindPublicSafe(reward.rewardKind))
         .filter((reward) => reward.displayState !== 'hidden')
         .sort(comparePublicRewards)
         .map((reward) => ({

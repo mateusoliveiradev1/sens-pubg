@@ -147,7 +147,67 @@ describe('buildCommunityDiscoveryViewModel', () => {
         expect(viewModel.feed.cards.map((card) => card.id)).toEqual([
             'post-matching-filter',
         ]);
-        expect(viewModel.feed.summary).toBe('1 publicacao publica encontrada.');
+        expect(viewModel.feed.summary).toBe('1 post publico encontrado.');
+    });
+
+    it('returns a sparse public density mode when the visible hub is carried by one public author', () => {
+        const viewModel = buildCommunityDiscoveryViewModel({
+            posts: [
+                createSourcePost({
+                    id: 'post-author-one-a',
+                    slug: 'author-one-a',
+                }),
+                createSourcePost({
+                    id: 'post-author-one-b',
+                    slug: 'author-one-b',
+                    publishedAt: new Date('2026-04-19T11:00:00.000Z'),
+                }),
+            ],
+        });
+
+        expect(viewModel.publicDensity).toEqual({
+            mode: 'sparse',
+            visibleAuthorCount: 1,
+            supportingSurfaceCount: 3,
+        });
+    });
+
+    it('returns an active public density mode when visible posts, authors and public rails are grounded', () => {
+        const secondAuthor: CommunityDiscoverySourceAuthor = {
+            ...publicAuthor,
+            userId: 'user-recoil-coach',
+            profileId: 'profile-recoil-coach',
+            profileSlug: 'recoil-coach',
+            displayName: 'Recoil Coach',
+            creatorProgramStatus: 'none',
+        };
+
+        const viewModel = buildCommunityDiscoveryViewModel({
+            posts: [
+                createSourcePost({
+                    id: 'post-author-one',
+                    slug: 'author-one',
+                }),
+                createSourcePost({
+                    id: 'post-author-two',
+                    slug: 'author-two',
+                    author: secondAuthor,
+                    publishedAt: new Date('2026-04-19T11:00:00.000Z'),
+                    engagement: {
+                        likeCount: 8,
+                        commentCount: 2,
+                        copyCount: 3,
+                        saveCount: 1,
+                    },
+                }),
+            ],
+        });
+
+        expect(viewModel.publicDensity).toEqual({
+            mode: 'active',
+            visibleAuthorCount: 2,
+            supportingSurfaceCount: 3,
+        });
     });
 
     it('returns actionable empty states for a new hub and for no-result filters', () => {
@@ -157,13 +217,13 @@ describe('buildCommunityDiscoveryViewModel', () => {
 
         expect(emptyHub.feed.cards).toEqual([]);
         expect(emptyHub.feed.emptyState).toMatchObject({
-            title: 'Nenhuma analise publica ainda',
+            title: 'Ainda nao ha posts publicos',
             primaryAction: {
-                label: 'Publicar analise',
+                label: 'Publicar post',
                 href: '/history',
             },
             secondaryAction: {
-                label: 'Analisar recoil',
+                label: 'Abrir analise',
                 href: '/analyze',
             },
         });
@@ -184,7 +244,7 @@ describe('buildCommunityDiscoveryViewModel', () => {
 
         expect(filteredEmpty.feed.cards).toEqual([]);
         expect(filteredEmpty.feed.emptyState).toMatchObject({
-            title: 'Nenhum setup nesse filtro',
+            title: 'Nada nesse recorte',
             primaryAction: {
                 label: 'Limpar filtros',
                 href: '/community',
@@ -270,7 +330,7 @@ describe('buildCommunityDiscoveryViewModel', () => {
                 saveCount: 2,
             },
             primaryAction: {
-                label: 'Abrir analise',
+                label: 'Abrir post',
                 href: '/community/beryl-spray-lab',
             },
             publishedAt,
@@ -280,10 +340,10 @@ describe('buildCommunityDiscoveryViewModel', () => {
         const fallbackCard = viewModel.feed.cards.find((card) => card.id === 'post-fallback');
         expect(fallbackCard).toMatchObject({
             author: {
-                displayName: 'Operador publico',
+                displayName: 'Jogador da comunidade',
                 profileHref: null,
                 avatarUrl: null,
-                fallbackInitials: 'OP',
+                fallbackInitials: 'JD',
                 creatorProgramStatus: 'none',
             },
             analysisTags: [],
@@ -296,7 +356,7 @@ describe('buildCommunityDiscoveryViewModel', () => {
         });
     });
 
-    it('builds contextual participation prompts for reader, profile and publishable history states', () => {
+    it('builds one prioritized participation prompt for reader, profile and publishable history states', () => {
         const anonymousHub = buildCommunityDiscoveryViewModel({
             posts: [],
         });
@@ -304,8 +364,8 @@ describe('buildCommunityDiscoveryViewModel', () => {
         expect(anonymousHub.participationPrompts).toEqual([
             {
                 key: 'anonymous-reader',
-                title: 'Siga creators e salve drills',
-                body: 'Entre para seguir creators, salvar drills, comentar snapshots e copiar presets sem fechar a leitura publica.',
+                title: 'Siga jogadores e salve posts',
+                body: 'Entre para seguir jogadores, salvar posts, comentar e copiar sens sem perder a leitura publica.',
                 action: {
                     label: 'Entrar',
                     href: '/login',
@@ -319,21 +379,22 @@ describe('buildCommunityDiscoveryViewModel', () => {
                 viewerUserId: 'user-no-profile',
                 hasPublicProfile: false,
                 publicProfileHref: null,
-                publishableAnalysisCount: 0,
+                publishableAnalysisCount: 2,
             },
         });
 
         expect(profileIncompleteHub.participationPrompts).toEqual([
             {
                 key: 'complete-profile',
-                title: 'Ative sua operator plate',
-                body: 'Complete o perfil publico antes de publicar analises, seguir creators e deixar sua squad reconhecer seus snapshots.',
+                title: 'Ative seu perfil publico',
+                body: 'Complete o perfil antes de publicar posts, seguir jogadores e aparecer melhor na comunidade.',
                 action: {
                     label: 'Completar perfil',
                     href: '/profile',
                 },
             },
         ]);
+        expect(profileIncompleteHub.participationPrompts).toHaveLength(1);
 
         const publishableHistoryHub = buildCommunityDiscoveryViewModel({
             posts: [],
@@ -348,11 +409,33 @@ describe('buildCommunityDiscoveryViewModel', () => {
         expect(publishableHistoryHub.participationPrompts).toEqual([
             {
                 key: 'publish-analysis',
-                title: 'Transforme recoil em post',
-                body: '2 analises prontas no historico para publicar, comparar recoil e testar presets com a comunidade.',
+                title: 'Transforme sua analise em post',
+                body: '2 analises prontas no historico para virar post e continuar seu treino com a comunidade.',
                 action: {
-                    label: 'Publicar analise',
+                    label: 'Publicar post',
                     href: '/history',
+                },
+            },
+        ]);
+
+        const fallbackPromptHub = buildCommunityDiscoveryViewModel({
+            posts: [],
+            viewer: {
+                viewerUserId: 'user-fresh',
+                hasPublicProfile: true,
+                publicProfileHref: '/community/users/fresh-player',
+                publishableAnalysisCount: 0,
+            },
+        });
+
+        expect(fallbackPromptHub.participationPrompts).toEqual([
+            {
+                key: 'publish-analysis',
+                title: 'Abra um novo treino',
+                body: 'Rode uma analise nova para comparar o spray e publicar um post quando a leitura estiver pronta.',
+                action: {
+                    label: 'Abrir analise',
+                    href: '/analyze',
                 },
             },
         ]);
@@ -429,7 +512,7 @@ describe('buildCommunityDiscoveryViewModel', () => {
         expect(viewModel.followingFeed.cards.map((card) => card.id)).toEqual([
             'post-followed-public',
         ]);
-        expect(viewModel.followingFeed.summary).toBe('1 snapshot publico de perfis seguidos.');
+        expect(viewModel.followingFeed.summary).toBe('1 post publico de quem voce segue.');
         expect(viewModel.followingFeed.emptyState).toBeNull();
         expect(JSON.stringify(viewModel.followingFeed)).not.toContain('other-public');
         expect(JSON.stringify(viewModel.followingFeed)).not.toContain('followed-draft');
@@ -438,7 +521,7 @@ describe('buildCommunityDiscoveryViewModel', () => {
         expect(JSON.stringify(viewModel.followingFeed)).not.toContain('followed-unpublished');
     });
 
-    it('returns a creator-discovery empty state when an authenticated viewer follows nobody', () => {
+    it('returns a following-feed empty state when an authenticated viewer follows nobody', () => {
         const viewModel = buildCommunityDiscoveryViewModel({
             posts: [createSourcePost()],
             viewer: {
@@ -452,9 +535,9 @@ describe('buildCommunityDiscoveryViewModel', () => {
 
         expect(viewModel.followingFeed.cards).toEqual([]);
         expect(viewModel.followingFeed.emptyState).toMatchObject({
-            title: 'Voce ainda nao segue creators',
+            title: 'Voce ainda nao segue ninguem',
             primaryAction: {
-                label: 'Descobrir creators',
+                label: 'Ver jogadores',
                 href: '/community#creator-plates',
             },
             secondaryAction: {
@@ -562,7 +645,7 @@ describe('buildCommunityDiscoveryViewModel', () => {
         expect(JSON.stringify(viewModel.trendBoard)).not.toContain('draft-trend-noise');
     });
 
-    it('builds a weekly drill prompt from trend context and falls back to analyze/history when trends are unavailable', () => {
+    it('builds a weekly drill prompt from grounded trend context and suppresses it when trends are unavailable', () => {
         const trendHub = buildCommunityDiscoveryViewModel({
             posts: [
                 createSourcePost({
@@ -579,13 +662,13 @@ describe('buildCommunityDiscoveryViewModel', () => {
 
         expect(trendHub.weeklyDrillPrompt).toMatchObject({
             trendKey: 'weapon:beryl-m762',
-            title: 'Drill semanal: estabilizar Beryl M762',
+            title: 'Treino da semana: foque em Beryl M762',
             action: {
-                label: 'Ver tendencia',
+                label: 'Ver posts',
                 href: '/community?weaponId=beryl-m762',
             },
             secondaryAction: {
-                label: 'Analisar recoil',
+                label: 'Abrir analise',
                 href: '/analyze',
             },
         });
@@ -595,55 +678,23 @@ describe('buildCommunityDiscoveryViewModel', () => {
         });
 
         expect(fallbackHub.trendBoard.items).toEqual([]);
-        expect(fallbackHub.weeklyDrillPrompt).toEqual({
-            trendKey: null,
-            title: 'Drill semanal: publique um snapshot base',
-            body: 'Sem tendencia publica suficiente ainda. Rode uma analise, salve o historico e publique um snapshot para abrir o proximo sinal.',
-            action: {
-                label: 'Analisar recoil',
-                href: '/analyze',
-            },
-            secondaryAction: {
-                label: 'Abrir historico',
-                href: '/history',
-            },
-        });
+        expect(fallbackHub.weeklyDrillPrompt).toBeNull();
     });
 
-    it('builds evergreen season context and anonymous weekly challenge fallback without private progression modules', () => {
+    it('keeps season, challenge and private progression modules hidden when there is no grounded context', () => {
         const viewModel = buildCommunityDiscoveryViewModel({
             posts: [],
         });
 
-        expect(viewModel.seasonContext).toEqual({
-            title: 'Progressao da comunidade',
-            theme: 'Evergreen',
-            summary: 'Sem temporada ativa no momento. Continue contribuindo com progresso neutro e sem ranking sazonal.',
-            stateLabel: 'Modo evergreen',
-            windowLabel: 'Sempre disponivel',
-        });
-        expect(viewModel.weeklyChallenge).toMatchObject({
-            source: 'fallback',
-            title: 'Desafio semanal: publique um snapshot util',
-            trendHref: null,
-            actions: [
-                {
-                    title: 'Complete sua operator plate',
-                    href: '/login',
-                },
-                {
-                    title: 'Publique um snapshot util',
-                    href: '/login',
-                },
-            ],
-        });
+        expect(viewModel.seasonContext).toBeNull();
+        expect(viewModel.weeklyChallenge).toBeNull();
         expect(viewModel.viewerProgressionSummary).toBeNull();
         expect(viewModel.missionBoard).toBeNull();
         expect(viewModel.personalRecap).toBeNull();
         expect(viewModel.squadSpotlight).toBeNull();
     });
 
-    it('creates viewer zero states for progression summary, mission board and recap when ritual context is absent', () => {
+    it('keeps viewer progression modules hidden when private context is absent', () => {
         const viewModel = buildCommunityDiscoveryViewModel({
             posts: [],
             viewer: {
@@ -654,38 +705,9 @@ describe('buildCommunityDiscoveryViewModel', () => {
             },
         });
 
-        expect(viewModel.viewerProgressionSummary).toMatchObject({
-            state: 'zero_state',
-            title: 'Sua progressao ainda esta zerada',
-            level: 1,
-            totalXp: 0,
-            nextAction: {
-                title: 'Publique uma analise publica',
-                href: '/history',
-            },
-            publicProfileHref: '/community/users/viewer',
-        });
-        expect(viewModel.missionBoard).toMatchObject({
-            title: 'Mission board semanal',
-            items: [],
-            emptyState: {
-                title: 'Mission board em zero state',
-                primaryAction: {
-                    label: 'Publicar analise',
-                    href: '/history',
-                },
-            },
-        });
-        expect(viewModel.personalRecap).toMatchObject({
-            state: 'zero_state',
-            title: 'Recap ainda em branco',
-            rewardCount: 0,
-            earnedXp: 0,
-            nextAction: {
-                title: 'Publicar analise',
-                href: '/history',
-            },
-        });
+        expect(viewModel.viewerProgressionSummary).toBeNull();
+        expect(viewModel.missionBoard).toBeNull();
+        expect(viewModel.personalRecap).toBeNull();
         expect(viewModel.squadSpotlight).toBeNull();
     });
 });

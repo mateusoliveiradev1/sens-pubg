@@ -60,11 +60,11 @@ export function CommunityFilters({
         >
             <div className={styles.filterTopline}>
                 <div>
-                    <span className={styles.sectionKicker}>Discovery de recoil</span>
-                    <h2>Filtros ativos</h2>
+                    <span className={styles.sectionKicker}>Recorte rapido</span>
+                    <h2>Filtre o que quer ver</h2>
                     <p>
-                        Corte o feed por arma, patch e diagnostico sem perder o caminho de volta para
-                        todos os snapshots publicos.
+                        Corte os posts por arma, patch e diagnostico sem perder o caminho de volta
+                        para toda a comunidade.
                     </p>
                 </div>
 
@@ -80,7 +80,7 @@ export function CommunityFilters({
                         ))}
                     </div>
                 ) : (
-                    <span className={styles.activeFilter}>Todos os sinais</span>
+                    <span className={styles.activeFilter}>Tudo aberto</span>
                 )}
             </div>
 
@@ -110,7 +110,7 @@ export function CommunityFilters({
 
                 <div className={styles.filterActions}>
                     <button className="btn btn-primary" type="submit">
-                        Aplicar leitura
+                        Aplicar filtros
                     </button>
                     {filters.hasActiveFilters ? (
                         <Link className="btn btn-ghost" href={clearHref}>

@@ -18,7 +18,7 @@ function resolveCommentErrorMessage(error: string): string {
     }
 
     if (error === 'Comentario invalido.') {
-        return 'Escreva um comentario antes de enviar.';
+        return 'Escreva algo antes de enviar.';
     }
 
     return error;
@@ -93,7 +93,7 @@ export function CommentForm({
                     htmlFor="community-comment-body"
                     style={{ fontWeight: 700, fontSize: 'var(--text-sm)' }}
                 >
-                    Seu comentario
+                    O que voce viu
                 </label>
                 <textarea
                     id="community-comment-body"
@@ -101,7 +101,7 @@ export function CommentForm({
                     value={bodyMarkdown}
                     onChange={(event) => setBodyMarkdown(event.target.value)}
                     rows={4}
-                    placeholder="Compartilhe o ajuste, a leitura do spray ou o proximo teste."
+                    placeholder="Conte o ajuste que voce faria, o que sentiu no spray ou o proximo teste."
                     style={{
                         resize: 'vertical',
                         minHeight: 120,
@@ -114,7 +114,7 @@ export function CommentForm({
                     htmlFor="community-comment-diagnosis"
                     style={{ fontWeight: 700, fontSize: 'var(--text-sm)' }}
                 >
-                    Contexto do diagnostico
+                    Falar de qual leitura?
                 </label>
                 <select
                     id="community-comment-diagnosis"
@@ -122,7 +122,7 @@ export function CommentForm({
                     value={diagnosisContextKey}
                     onChange={(event) => setDiagnosisContextKey(event.target.value)}
                 >
-                    <option value="">Sem contexto tecnico</option>
+                    <option value="">Sem foco tecnico</option>
                     {diagnosisOptions.map((option) => (
                         <option key={option} value={option}>
                             {humanizeDiagnosisOption(option)}
@@ -141,7 +141,7 @@ export function CommentForm({
                         statusMessage || errorMessage ? 'community-comment-form-status' : undefined
                     }
                 >
-                    {isPending ? 'Enviando comentario...' : 'Comentar'}
+                    {isPending ? 'Enviando...' : 'Comentar'}
                 </button>
             </div>
 

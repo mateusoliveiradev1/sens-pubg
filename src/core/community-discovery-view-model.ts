@@ -23,7 +23,6 @@ import type {
 import type {
     CommunityPostStatus,
     CommunityPostVisibility,
-    CommunityProgressionStreakState,
 } from '@/types/community';
 import {
     buildCommunityPersonalRecap,
@@ -39,6 +38,10 @@ import {
     type CommunitySeasonSource,
     type CommunityWeeklyChallengeResolution,
 } from './community-progression';
+import {
+    buildCommunitySprayMasteryJourney,
+    type CommunitySprayMasteryJourneySummary,
+} from './community-spray-mastery';
 import {
     buildCommunityAnalysisTags,
     buildCommunityFallbackInitials,
@@ -58,6 +61,7 @@ import {
 import {
     buildCommunitySquadGoalProgressSnapshot,
 } from './community-squads';
+import { COMMUNITY_MISSION_BOARD_LIMIT } from './community-progression-policy';
 
 const COMMUNITY_DISCOVERY_QUERY_LIMIT = 50;
 const COMMUNITY_FOLLOWING_FEED_LIMIT = 4;
@@ -66,6 +70,7 @@ const COMMUNITY_DISCOVERY_SEASON_LIMIT = 8;
 const COMMUNITY_DISCOVERY_MISSION_LIMIT = 12;
 const COMMUNITY_DISCOVERY_EVENT_LIMIT = 250;
 const COMMUNITY_DISCOVERY_REWARD_LIMIT = 60;
+const COMMUNITY_DISCOVERY_ANALYSIS_LIMIT = 24;
 const communityDiscoveryWindowDateFormatter = new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit',
     month: 'short',
@@ -240,16 +245,13 @@ export interface CommunityDiscoveryWeeklyChallengeBoard {
 
 export interface CommunityDiscoveryViewerProgressSummary {
     readonly state: 'zero_state' | 'active';
+    readonly stageLabel: string;
     readonly title: string;
     readonly summary: string;
-    readonly level: number;
-    readonly totalXp: number;
-    readonly currentLevelXp: number;
-    readonly nextLevelXp: number;
-    readonly xpToNextLevel: number;
-    readonly progressRatio: number;
-    readonly currentStreak: number;
-    readonly streakState: CommunityProgressionStreakState;
+    readonly facts: readonly {
+        readonly label: string;
+        readonly value: string;
+    }[];
     readonly nextAction: {
         readonly title: string;
         readonly description: string;
@@ -259,6 +261,10 @@ export interface CommunityDiscoveryViewerProgressSummary {
         readonly title: string;
         readonly description: string;
     };
+    readonly socialReinforcement: {
+        readonly title: string;
+        readonly description: string;
+    } | null;
     readonly publicProfileHref: string | null;
 }
 
@@ -312,11 +318,18 @@ export interface CommunityDiscoverySquadSpotlight {
     } | null;
 }
 
+export interface CommunityDiscoveryPublicDensity {
+    readonly mode: 'sparse' | 'active';
+    readonly visibleAuthorCount: number;
+    readonly supportingSurfaceCount: number;
+}
+
 export interface CommunityDiscoveryViewModel {
     readonly hubSummary: {
         readonly publicPostCount: number;
         readonly visiblePostCount: number;
     };
+    readonly publicDensity: CommunityDiscoveryPublicDensity;
     readonly filters: {
         readonly selected: CommunityDiscoveryFilters;
         readonly hasActiveFilters: boolean;
@@ -337,9 +350,9 @@ export interface CommunityDiscoveryViewModel {
         readonly emptyState: CommunityDiscoveryEmptyState | null;
     };
     readonly trendBoard: CommunityDiscoveryTrendBoard;
-    readonly weeklyDrillPrompt: CommunityDiscoveryWeeklyDrillPrompt;
-    readonly seasonContext: CommunityDiscoverySeasonContextCard;
-    readonly weeklyChallenge: CommunityDiscoveryWeeklyChallengeBoard;
+    readonly weeklyDrillPrompt: CommunityDiscoveryWeeklyDrillPrompt | null;
+    readonly seasonContext: CommunityDiscoverySeasonContextCard | null;
+    readonly weeklyChallenge: CommunityDiscoveryWeeklyChallengeBoard | null;
     readonly viewerProgressionSummary: CommunityDiscoveryViewerProgressSummary | null;
     readonly missionBoard: CommunityDiscoveryMissionBoard | null;
     readonly personalRecap: CommunityDiscoveryRecapPanel | null;
@@ -356,8 +369,8 @@ export interface BuildCommunityDiscoveryViewModelInput {
     readonly creators?: readonly CommunityHighlightSourceCreator[];
     readonly viewer?: CommunityDiscoveryViewerContext;
     readonly trendBoard?: CommunityDiscoveryTrendBoard;
-    readonly seasonContext?: CommunityDiscoverySeasonContextCard;
-    readonly weeklyChallenge?: CommunityDiscoveryWeeklyChallengeBoard;
+    readonly seasonContext?: CommunityDiscoverySeasonContextCard | null;
+    readonly weeklyChallenge?: CommunityDiscoveryWeeklyChallengeBoard | null;
     readonly viewerProgressionSummary?: CommunityDiscoveryViewerProgressSummary | null;
     readonly missionBoard?: CommunityDiscoveryMissionBoard | null;
     readonly personalRecap?: CommunityDiscoveryRecapPanel | null;
@@ -378,40 +391,53 @@ export function buildCommunityDiscoveryViewModel(
     const viewer = input.viewer ?? createAnonymousViewerContext();
     const followingPosts = buildFollowingFeedPosts(publicPosts, viewer);
     const trendBoard = input.trendBoard ?? buildCommunityTrendBoard({ posts: publicPosts });
-    const seasonContext = input.seasonContext
-        ?? toCommunityDiscoverySeasonContextCard(
-            resolveActiveCommunitySeason({
-                seasons: [],
-                now,
-            }),
-        );
-    const weeklyChallenge = input.weeklyChallenge
-        ?? toCommunityDiscoveryWeeklyChallengeBoard(
-            resolveCommunityWeeklyChallenge({
-                seasonContext: resolveActiveCommunitySeason({
-                    seasons: [],
-                    now,
-                }),
-                trends: trendBoard.items,
-                now,
-            }),
-            viewer.viewerUserId,
-        );
+    const [topTrend] = trendBoard.items;
+    const weeklyDrillPrompt = topTrend
+        ? buildWeeklyDrillPrompt(topTrend)
+        : null;
     const viewerProgressionSummary = viewer.viewerUserId
-        ? (input.viewerProgressionSummary ?? createZeroCommunityDiscoveryViewerProgressSummary(viewer))
+        ? (input.viewerProgressionSummary ?? null)
         : null;
     const missionBoard = viewer.viewerUserId
-        ? (input.missionBoard ?? createEmptyCommunityDiscoveryMissionBoard(viewer))
+        ? (input.missionBoard ?? null)
         : null;
     const personalRecap = viewer.viewerUserId
-        ? (input.personalRecap ?? createZeroCommunityDiscoveryRecapPanel(viewer))
+        ? (input.personalRecap ?? null)
         : null;
+    const featuredPosts = buildFeaturedCommunityPostHighlights({
+        now,
+        posts: publicPosts.map((post) => ({
+            id: post.id,
+            slug: post.slug,
+            title: post.title,
+            excerpt: post.excerpt,
+            status: post.status,
+            visibility: post.visibility,
+            publishedAt: post.publishedAt,
+            featuredUntil: post.featuredUntil ?? null,
+            primaryWeaponId: post.primaryWeaponId,
+            primaryPatchVersion: post.primaryPatchVersion,
+            primaryDiagnosisKey: post.primaryDiagnosisKey,
+            engagement: post.engagement,
+        })),
+    });
+    const creatorHighlights = buildCommunityCreatorHighlights({
+        now,
+        creators: input.creators ?? buildCreatorHighlightSources(publicPosts),
+    });
+    const publicDensity = buildCommunityDiscoveryPublicDensity({
+        visiblePosts,
+        featuredPostCount: featuredPosts.items.length,
+        creatorHighlightCount: creatorHighlights.items.length,
+        trendCount: trendBoard.items.length,
+    });
 
     return {
         hubSummary: {
             publicPostCount: publicPosts.length,
             visiblePostCount: visiblePosts.length,
         },
+        publicDensity,
         filters: {
             selected: selectedFilters,
             hasActiveFilters: hasActiveDiscoveryFilters(selectedFilters),
@@ -450,34 +476,15 @@ export function buildCommunityDiscoveryViewModel(
             emptyState: buildFollowingFeedEmptyState(followingPosts.length, viewer),
         },
         trendBoard,
-        weeklyDrillPrompt: buildWeeklyDrillPrompt(trendBoard),
-        seasonContext,
-        weeklyChallenge,
+        weeklyDrillPrompt,
+        seasonContext: input.seasonContext ?? null,
+        weeklyChallenge: input.weeklyChallenge ?? null,
         viewerProgressionSummary,
         missionBoard,
         personalRecap,
         squadSpotlight: input.squadSpotlight ?? null,
-        featuredPosts: buildFeaturedCommunityPostHighlights({
-            now,
-            posts: publicPosts.map((post) => ({
-                id: post.id,
-                slug: post.slug,
-                title: post.title,
-                excerpt: post.excerpt,
-                status: post.status,
-                visibility: post.visibility,
-                publishedAt: post.publishedAt,
-                featuredUntil: post.featuredUntil ?? null,
-                primaryWeaponId: post.primaryWeaponId,
-                primaryPatchVersion: post.primaryPatchVersion,
-                primaryDiagnosisKey: post.primaryDiagnosisKey,
-                engagement: post.engagement,
-            })),
-        }),
-        creatorHighlights: buildCommunityCreatorHighlights({
-            now,
-            creators: input.creators ?? buildCreatorHighlightSources(publicPosts),
-        }),
+        featuredPosts,
+        creatorHighlights,
         participationPrompts: buildParticipationPrompts(viewer),
     };
 }
@@ -708,18 +715,18 @@ function buildFeedSummary(
     filters: CommunityDiscoveryFilters,
 ): string {
     if (visiblePostCount === 0 && hasActiveDiscoveryFilters(filters)) {
-        return 'Nenhuma publicacao corresponde aos filtros atuais.';
+        return 'Nenhum post combina com o recorte atual.';
     }
 
     if (visiblePostCount === 0) {
-        return 'Ainda nao existem publicacoes publicas para exibir.';
+        return 'Ainda nao ha posts publicos para abrir.';
     }
 
     if (visiblePostCount === 1) {
-        return '1 publicacao publica encontrada.';
+        return '1 post publico encontrado.';
     }
 
-    return `${visiblePostCount} publicacoes publicas encontradas.`;
+    return `${visiblePostCount} posts publicos encontrados.`;
 }
 
 function buildFeedEmptyState(
@@ -733,14 +740,14 @@ function buildFeedEmptyState(
 
     if (publicPostCount === 0) {
         return {
-            title: 'Nenhuma analise publica ainda',
-            body: 'Publique um snapshot de recoil para abrir o primeiro sinal da comunidade.',
+            title: 'Ainda nao ha posts publicos',
+            body: 'Publique um post com sua leitura do spray para abrir a comunidade.',
             primaryAction: {
-                label: 'Publicar analise',
+                label: 'Publicar post',
                 href: '/history',
             },
             secondaryAction: {
-                label: 'Analisar recoil',
+                label: 'Abrir analise',
                 href: '/analyze',
             },
         };
@@ -748,8 +755,8 @@ function buildFeedEmptyState(
 
     if (hasActiveDiscoveryFilters(filters)) {
         return {
-            title: 'Nenhum setup nesse filtro',
-            body: 'Limpe os filtros ou publique uma analise com esse contexto de arma, patch e diagnostico.',
+            title: 'Nada nesse recorte',
+            body: 'Limpe os filtros ou publique um post com essa arma, patch ou leitura.',
             primaryAction: {
                 label: 'Limpar filtros',
                 href: '/community',
@@ -792,22 +799,22 @@ function buildFollowingFeedSummary(
     viewer: CommunityDiscoveryViewerContext,
 ): string {
     if (!viewer.viewerUserId) {
-        return 'Entre para acompanhar os creators que voce seguir.';
+        return 'Entre para ver posts de quem voce seguir.';
     }
 
     if ((viewer.followedUserIds ?? []).length === 0) {
-        return 'Siga creators para montar um feed tecnico.';
+        return 'Siga alguns jogadores para montar esse espaco.';
     }
 
     if (followingPostCount === 0) {
-        return 'Perfis seguidos ainda sem snapshots publicos recentes.';
+        return 'Quem voce segue ainda nao postou nada recente.';
     }
 
     if (followingPostCount === 1) {
-        return '1 snapshot publico de perfis seguidos.';
+        return '1 post publico de quem voce segue.';
     }
 
-    return `${followingPostCount} snapshots publicos de perfis seguidos.`;
+    return `${followingPostCount} posts publicos de quem voce segue.`;
 }
 
 function buildFollowingFeedEmptyState(
@@ -820,14 +827,14 @@ function buildFollowingFeedEmptyState(
 
     if (!viewer.viewerUserId) {
         return {
-            title: 'Entre para montar seu feed seguindo',
-            body: 'O feed seguindo mostra apenas posts publicos dos creators que voce acompanha.',
+            title: 'Entre para montar seu feed',
+            body: 'Esse espaco mostra apenas posts publicos de quem voce acompanha.',
             primaryAction: {
                 label: 'Entrar',
                 href: '/login',
             },
             secondaryAction: {
-                label: 'Ver creators',
+                label: 'Ver jogadores',
                 href: '/community#creator-plates',
             },
         };
@@ -835,10 +842,10 @@ function buildFollowingFeedEmptyState(
 
     if ((viewer.followedUserIds ?? []).length === 0) {
         return {
-            title: 'Voce ainda nao segue creators',
-            body: 'Abra creator plates e siga operadores para preencher este feed com snapshots publicos.',
+            title: 'Voce ainda nao segue ninguem',
+            body: 'Abra a lista de jogadores e siga perfis que valem acompanhar.',
             primaryAction: {
-                label: 'Descobrir creators',
+                label: 'Ver jogadores',
                 href: '/community#creator-plates',
             },
             secondaryAction: {
@@ -849,14 +856,14 @@ function buildFollowingFeedEmptyState(
     }
 
     return {
-        title: 'Sem posts publicos dos perfis seguidos',
-        body: 'Os creators que voce segue ainda nao publicaram snapshots publicos recentes.',
+        title: 'Sem posts de quem voce segue',
+        body: 'Quem voce segue ainda nao publicou nada recente.',
         primaryAction: {
             label: 'Explorar comunidade',
             href: '/community',
         },
         secondaryAction: {
-            label: 'Publicar analise',
+            label: 'Publicar post',
             href: '/history',
         },
     };
@@ -889,7 +896,10 @@ export function buildCommunityTrendBoard(input: {
     }
 
     const items = [...trends.values()]
-        .filter((trend) => trend.postIds.size >= 2)
+        .filter((trend) =>
+            trend.postIds.size >= 2
+            && getTrendSignalScore(trend) > 0,
+        )
         .sort(compareTrendAccumulators)
         .slice(0, input.maxItems ?? COMMUNITY_TREND_BOARD_LIMIT)
         .map(toTrendItem);
@@ -899,15 +909,15 @@ export function buildCommunityTrendBoard(input: {
         emptyState: items.length > 0
             ? null
             : {
-                title: 'Sem tendencia publica suficiente',
-                body: 'Publique ou explore analises para formar sinais por arma, patch e diagnostico.',
+                title: 'Ainda nao ha sinal publico suficiente para abrir tendencias',
+                body: 'Quando posts com o mesmo tema receberem copias, saves, comentarios ou curtidas, eles aparecem aqui.',
                 primaryAction: {
-                    label: 'Analisar recoil',
-                    href: '/analyze',
+                    label: 'Publicar post',
+                    href: '/history',
                 },
                 secondaryAction: {
-                    label: 'Abrir historico',
-                    href: '/history',
+                    label: 'Abrir analise',
+                    href: '/analyze',
                 },
             },
     };
@@ -976,7 +986,11 @@ function createTrendAccumulator(
 
 function getTrendScore(trend: CommunityTrendAccumulator): number {
     return trend.postIds.size * 10
-        + trend.copyCount * 4
+        + getTrendSignalScore(trend);
+}
+
+function getTrendSignalScore(trend: CommunityTrendAccumulator): number {
+    return trend.copyCount * 4
         + trend.saveCount * 3
         + trend.commentCount * 2
         + trend.likeCount;
@@ -1031,46 +1045,28 @@ function formatTrendReason(trend: CommunityTrendAccumulator): string {
         return `${postSummary} com ${formatCommunityCount(trend.likeCount, 'curtida publica', 'curtidas publicas')}.`;
     }
 
-    return `${postSummary} recentes.`;
+    return `${postSummary} com os primeiros sinais publicos aparecendo.`;
 }
 
 function buildWeeklyDrillPrompt(
-    trendBoard: CommunityDiscoveryTrendBoard,
+    topTrend: CommunityDiscoveryTrendItem,
 ): CommunityDiscoveryWeeklyDrillPrompt {
-    const topTrend = trendBoard.items[0];
-
-    if (!topTrend) {
-        return {
-            trendKey: null,
-            title: 'Drill semanal: publique um snapshot base',
-            body: 'Sem tendencia publica suficiente ainda. Rode uma analise, salve o historico e publique um snapshot para abrir o proximo sinal.',
-            action: {
-                label: 'Analisar recoil',
-                href: '/analyze',
-            },
-            secondaryAction: {
-                label: 'Abrir historico',
-                href: '/history',
-            },
-        };
-    }
-
     const titlePrefixByKind = {
-        weapon: 'estabilizar',
-        patch: 'validar',
-        diagnosis: 'corrigir',
+        weapon: 'foque em',
+        patch: 'jogue no',
+        diagnosis: 'corrija',
     } as const;
 
     return {
         trendKey: topTrend.key,
-        title: `Drill semanal: ${titlePrefixByKind[topTrend.kind]} ${topTrend.label}`,
-        body: `${topTrend.reason} Grave um spray novo, compare o recoil e publique o snapshot quando o preset estiver consistente.`,
+        title: `Treino da semana: ${titlePrefixByKind[topTrend.kind]} ${topTrend.label}`,
+        body: `${topTrend.reason} Grave um spray novo, compare e publique o post quando a leitura estiver clara.`,
         action: {
-            label: 'Ver tendencia',
+            label: 'Ver posts',
             href: topTrend.href,
         },
         secondaryAction: {
-            label: 'Analisar recoil',
+            label: 'Abrir analise',
             href: '/analyze',
         },
     };
@@ -1078,7 +1074,7 @@ function buildWeeklyDrillPrompt(
 
 function toDiscoveryPostCard(post: CommunityDiscoverySourcePost): CommunityDiscoveryPostCard {
     const href = `/community/${post.slug}`;
-    const displayName = post.author?.displayName?.trim() || 'Operador publico';
+    const displayName = post.author?.displayName?.trim() || 'Jogador da comunidade';
 
     return {
         id: post.id,
@@ -1107,7 +1103,7 @@ function toDiscoveryPostCard(post: CommunityDiscoverySourcePost): CommunityDisco
             saveCount: toSafeCommunityCount(post.engagement.saveCount),
         },
         primaryAction: {
-            label: 'Abrir analise',
+            label: 'Abrir post',
             href,
         },
         publishedAt: post.publishedAt as Date,
@@ -1134,7 +1130,7 @@ function buildCreatorHighlightSources(
         creators.set(post.author.profileId, {
             profileId: post.author.profileId,
             profileSlug: post.author.profileSlug,
-            displayName: post.author.displayName?.trim() || 'Operador publico',
+            displayName: post.author.displayName?.trim() || 'Jogador da comunidade',
             visibility: post.author.visibility,
             creatorProgramStatus: post.author.creatorProgramStatus,
             followerCount: existingCreator?.followerCount ?? 0,
@@ -1147,6 +1143,40 @@ function buildCreatorHighlightSources(
     }
 
     return [...creators.values()];
+}
+
+function buildCommunityDiscoveryPublicDensity(input: {
+    readonly visiblePosts: readonly CommunityDiscoverySourcePost[];
+    readonly featuredPostCount: number;
+    readonly creatorHighlightCount: number;
+    readonly trendCount: number;
+}): CommunityDiscoveryPublicDensity {
+    const visibleAuthorCount = countDistinctCommunityDiscoveryAuthors(input.visiblePosts);
+    const supportingSurfaceCount = [
+        input.featuredPostCount > 0,
+        input.creatorHighlightCount > 0,
+        input.trendCount > 0,
+    ].filter(Boolean).length;
+
+    return {
+        mode: input.visiblePosts.length >= 2
+            && visibleAuthorCount >= 2
+            && supportingSurfaceCount >= 2
+            ? 'active'
+            : 'sparse',
+        visibleAuthorCount,
+        supportingSurfaceCount,
+    };
+}
+
+function countDistinctCommunityDiscoveryAuthors(
+    posts: readonly CommunityDiscoverySourcePost[],
+): number {
+    return new Set(
+        posts
+            .map((post) => post.author?.profileId ?? null)
+            .filter((profileId): profileId is string => typeof profileId === 'string'),
+    ).size;
 }
 
 function createAnonymousViewerContext(): CommunityDiscoveryViewerContext {
@@ -1165,8 +1195,8 @@ function buildParticipationPrompts(
     if (!viewer.viewerUserId) {
         return [{
             key: 'anonymous-reader',
-            title: 'Siga creators e salve drills',
-            body: 'Entre para seguir creators, salvar drills, comentar snapshots e copiar presets sem fechar a leitura publica.',
+            title: 'Siga jogadores e salve posts',
+            body: 'Entre para seguir jogadores, salvar posts, comentar e copiar sens sem perder a leitura publica.',
             action: {
                 label: 'Entrar',
                 href: '/login',
@@ -1174,45 +1204,39 @@ function buildParticipationPrompts(
         }];
     }
 
-    const prompts: CommunityDiscoveryParticipationPrompt[] = [];
-
     if (!viewer.hasPublicProfile) {
-        prompts.push({
+        return [{
             key: 'complete-profile',
-            title: 'Ative sua operator plate',
-            body: 'Complete o perfil publico antes de publicar analises, seguir creators e deixar sua squad reconhecer seus snapshots.',
+            title: 'Ative seu perfil publico',
+            body: 'Complete o perfil antes de publicar posts, seguir jogadores e aparecer melhor na comunidade.',
             action: {
                 label: 'Completar perfil',
                 href: '/profile',
             },
-        });
+        }];
     }
 
     if (viewer.publishableAnalysisCount > 0) {
-        prompts.push({
+        return [{
             key: 'publish-analysis',
-            title: 'Transforme recoil em post',
-            body: `${viewer.publishableAnalysisCount} ${viewer.publishableAnalysisCount === 1 ? 'analise pronta' : 'analises prontas'} no historico para publicar, comparar recoil e testar presets com a comunidade.`,
+            title: 'Transforme sua analise em post',
+            body: `${viewer.publishableAnalysisCount} ${viewer.publishableAnalysisCount === 1 ? 'analise pronta' : 'analises prontas'} no historico para virar post e continuar seu treino com a comunidade.`,
             action: {
-                label: 'Publicar analise',
+                label: 'Publicar post',
                 href: '/history',
             },
-        });
+        }];
     }
 
-    if (prompts.length === 0) {
-        prompts.push({
-            key: 'publish-analysis',
-            title: 'Crie um novo sinal de treino',
-            body: 'Analise um spray novo para comparar recoil, salvar drill e publicar um setup quando o snapshot estiver pronto.',
-            action: {
-                label: 'Analisar recoil',
-                href: '/analyze',
-            },
-        });
-    }
-
-    return prompts;
+    return [{
+        key: 'publish-analysis',
+        title: 'Abra um novo treino',
+        body: 'Rode uma analise nova para comparar o spray e publicar um post quando a leitura estiver pronta.',
+        action: {
+            label: 'Abrir analise',
+            href: '/analyze',
+        },
+    }];
 }
 
 function createEmptyEngagement(): CommunityDiscoverySourcePost['engagement'] {
@@ -1359,8 +1383,8 @@ async function getEngagementCountsByPostId(
 }
 
 interface CommunityDiscoveryRitualContext {
-    readonly seasonContext: CommunityDiscoverySeasonContextCard;
-    readonly weeklyChallenge: CommunityDiscoveryWeeklyChallengeBoard;
+    readonly seasonContext: CommunityDiscoverySeasonContextCard | null;
+    readonly weeklyChallenge: CommunityDiscoveryWeeklyChallengeBoard | null;
     readonly viewerProgressionSummary: CommunityDiscoveryViewerProgressSummary | null;
     readonly missionBoard: CommunityDiscoveryMissionBoard | null;
     readonly personalRecap: CommunityDiscoveryRecapPanel | null;
@@ -1478,74 +1502,97 @@ async function getCommunityDiscoveryRitualContext(input: {
     }
 
     const viewerUserId = input.viewer.viewerUserId;
-    const [storedViewerEvents, storedViewerRewards, storedViewerSquad] = await withCommunityGamificationFallback(
-        () => Promise.all([
-            db
-                .select({
-                    idempotencyKey: communityProgressionEvents.idempotencyKey,
-                    eventType: communityProgressionEvents.eventType,
-                    actorUserId: communityProgressionEvents.actorUserId,
-                    beneficiaryUserId: communityProgressionEvents.beneficiaryUserId,
-                    entityType: communityProgressionEvents.entityType,
-                    entityId: communityProgressionEvents.entityId,
-                    rawXp: communityProgressionEvents.rawXp,
-                    effectiveXp: communityProgressionEvents.effectiveXp,
-                    occurredAt: communityProgressionEvents.occurredAt,
-                    seasonId: communityProgressionEvents.seasonId,
-                    missionId: communityProgressionEvents.missionId,
-                    squadId: communityProgressionEvents.squadId,
-                })
-                .from(communityProgressionEvents)
-                .where(
-                    or(
-                        eq(communityProgressionEvents.actorUserId, viewerUserId),
-                        eq(communityProgressionEvents.beneficiaryUserId, viewerUserId),
-                    ),
-                )
-                .orderBy(desc(communityProgressionEvents.occurredAt))
-                .limit(COMMUNITY_DISCOVERY_EVENT_LIMIT),
-            db
-                .select({
-                    displayState: communityRewardRecords.displayState,
-                    earnedAt: communityRewardRecords.earnedAt,
-                    id: communityRewardRecords.id,
-                    isPublicSafe: communityRewardRecords.isPublicSafe,
-                    label: communityRewardRecords.label,
-                    ownerType: communityRewardRecords.ownerType,
-                    rewardKind: communityRewardRecords.rewardKind,
-                    squadId: communityRewardRecords.squadId,
-                    status: communityRewardRecords.status,
-                    userId: communityRewardRecords.userId,
-                })
-                .from(communityRewardRecords)
-                .where(eq(communityRewardRecords.userId, viewerUserId))
-                .orderBy(desc(communityRewardRecords.earnedAt))
-                .limit(COMMUNITY_DISCOVERY_REWARD_LIMIT),
-            db
-                .select({
-                    squadId: communitySquadMemberships.squadId,
-                    squadName: communitySquads.name,
-                    squadDescription: communitySquads.description,
-                    squadVisibility: communitySquads.visibility,
-                    squadActiveGoal: communitySquads.activeGoal,
-                })
-                .from(communitySquadMemberships)
-                .innerJoin(communitySquads, eq(communitySquadMemberships.squadId, communitySquads.id))
-                .where(
-                    and(
-                        eq(communitySquadMemberships.userId, viewerUserId),
-                        eq(communitySquadMemberships.status, 'active'),
-                        eq(communitySquads.status, 'active'),
-                    ),
-                )
-                .orderBy(desc(communitySquadMemberships.joinedAt))
-                .limit(1),
-        ]),
-        [[], [], []] as const,
-    );
+    const [storedViewerAnalyses, [storedViewerEvents, storedViewerRewards, storedViewerSquad]] = await Promise.all([
+        db
+            .select({
+                id: analysisSessions.id,
+                weaponId: analysisSessions.weaponId,
+                patchVersion: analysisSessions.patchVersion,
+                sprayScore: analysisSessions.sprayScore,
+                stabilityScore: analysisSessions.stabilityScore,
+                diagnoses: analysisSessions.diagnoses,
+                fullResult: analysisSessions.fullResult,
+                createdAt: analysisSessions.createdAt,
+            })
+            .from(analysisSessions)
+            .where(eq(analysisSessions.userId, viewerUserId))
+            .orderBy(desc(analysisSessions.createdAt))
+            .limit(COMMUNITY_DISCOVERY_ANALYSIS_LIMIT),
+        withCommunityGamificationFallback(
+            () => Promise.all([
+                db
+                    .select({
+                        idempotencyKey: communityProgressionEvents.idempotencyKey,
+                        eventType: communityProgressionEvents.eventType,
+                        actorUserId: communityProgressionEvents.actorUserId,
+                        beneficiaryUserId: communityProgressionEvents.beneficiaryUserId,
+                        entityType: communityProgressionEvents.entityType,
+                        entityId: communityProgressionEvents.entityId,
+                        rawXp: communityProgressionEvents.rawXp,
+                        effectiveXp: communityProgressionEvents.effectiveXp,
+                        occurredAt: communityProgressionEvents.occurredAt,
+                        seasonId: communityProgressionEvents.seasonId,
+                        missionId: communityProgressionEvents.missionId,
+                        squadId: communityProgressionEvents.squadId,
+                    })
+                    .from(communityProgressionEvents)
+                    .where(
+                        or(
+                            eq(communityProgressionEvents.actorUserId, viewerUserId),
+                            eq(communityProgressionEvents.beneficiaryUserId, viewerUserId),
+                        ),
+                    )
+                    .orderBy(desc(communityProgressionEvents.occurredAt))
+                    .limit(COMMUNITY_DISCOVERY_EVENT_LIMIT),
+                db
+                    .select({
+                        displayState: communityRewardRecords.displayState,
+                        earnedAt: communityRewardRecords.earnedAt,
+                        id: communityRewardRecords.id,
+                        isPublicSafe: communityRewardRecords.isPublicSafe,
+                        label: communityRewardRecords.label,
+                        ownerType: communityRewardRecords.ownerType,
+                        rewardKind: communityRewardRecords.rewardKind,
+                        squadId: communityRewardRecords.squadId,
+                        status: communityRewardRecords.status,
+                        userId: communityRewardRecords.userId,
+                    })
+                    .from(communityRewardRecords)
+                    .where(eq(communityRewardRecords.userId, viewerUserId))
+                    .orderBy(desc(communityRewardRecords.earnedAt))
+                    .limit(COMMUNITY_DISCOVERY_REWARD_LIMIT),
+                db
+                    .select({
+                        squadId: communitySquadMemberships.squadId,
+                        squadName: communitySquads.name,
+                        squadDescription: communitySquads.description,
+                        squadVisibility: communitySquads.visibility,
+                        squadActiveGoal: communitySquads.activeGoal,
+                    })
+                    .from(communitySquadMemberships)
+                    .innerJoin(communitySquads, eq(communitySquadMemberships.squadId, communitySquads.id))
+                    .where(
+                        and(
+                            eq(communitySquadMemberships.userId, viewerUserId),
+                            eq(communitySquadMemberships.status, 'active'),
+                            eq(communitySquads.status, 'active'),
+                        ),
+                    )
+                    .orderBy(desc(communitySquadMemberships.joinedAt))
+                    .limit(1),
+            ]),
+            [[], [], []] as const,
+        ),
+    ]);
     const viewerEvents = storedViewerEvents.map((event) =>
         toCommunityProgressionHistoryEvent(event),
     );
+    const sprayMasteryJourney = buildCommunitySprayMasteryJourney({
+        userId: viewerUserId,
+        analyses: storedViewerAnalyses,
+        events: storedViewerEvents,
+        now: input.now,
+    });
     const viewerSummary = buildCommunityPrivateProgressionSummary({
         userId: viewerUserId,
         events: viewerEvents,
@@ -1647,20 +1694,28 @@ async function getCommunityDiscoveryRitualContext(input: {
     }
 
     return {
-        seasonContext: toCommunityDiscoverySeasonContextCard(seasonContext),
-        weeklyChallenge: toCommunityDiscoveryWeeklyChallengeBoard(
-            weeklyChallengeResolution,
-            viewerUserId,
-        ),
+        seasonContext: seasonContext.kind === 'active'
+            ? toCommunityDiscoverySeasonContextCard(seasonContext)
+            : null,
+        weeklyChallenge: weeklyChallengeResolution.source !== 'fallback'
+            ? toCommunityDiscoveryWeeklyChallengeBoard(
+                weeklyChallengeResolution,
+                viewerUserId,
+            )
+            : null,
         viewerProgressionSummary: toCommunityDiscoveryViewerProgressSummary(
-            viewerSummary,
+            sprayMasteryJourney,
             input.viewer,
         ),
-        missionBoard: toCommunityDiscoveryMissionBoard(
-            viewerSummary,
-            input.viewer,
-        ),
-        personalRecap: toCommunityDiscoveryRecapPanel(personalRecap),
+        missionBoard: viewerSummary.activeMissionCount > 0
+            ? toCommunityDiscoveryMissionBoard(
+                viewerSummary,
+                input.viewer,
+            )
+            : null,
+        personalRecap: personalRecap.state !== 'zero_state'
+            ? toCommunityDiscoveryRecapPanel(personalRecap)
+            : null,
         squadSpotlight,
     };
 }
@@ -1698,44 +1753,35 @@ function toCommunityDiscoveryWeeklyChallengeBoard(
         actions: challenge.eligibleActions.map((action) => ({
             title: action.title,
             description: action.description,
-            xpLabel: `${action.defaultXp} XP`,
+            xpLabel: `+${action.defaultXp} XP`,
             href: resolveCommunityDiscoveryActionHref(action.eventType, viewerUserId),
         })),
     };
 }
 
 function toCommunityDiscoveryViewerProgressSummary(
-    summary: ReturnType<typeof buildCommunityPrivateProgressionSummary>,
+    journey: CommunitySprayMasteryJourneySummary,
     viewer: CommunityDiscoveryViewerContext,
 ): CommunityDiscoveryViewerProgressSummary {
     return {
-        state: summary.isZeroState ? 'zero_state' : 'active',
-        title: summary.isZeroState
-            ? 'Sua progressao ainda esta zerada'
-            : `Nivel ${summary.currentLevel} em progresso`,
-        summary: summary.isZeroState
-            ? 'Complete o perfil publico ou publique uma analise util para abrir seu primeiro loop comunitario.'
-            : `${summary.totalXp} XP acumulados, ${summary.activeMissionCount} missao(oes) ativa(s) e streak ${summary.streak.currentStreak}.`,
-        level: summary.currentLevel,
-        totalXp: summary.totalXp,
-        currentLevelXp: summary.currentLevelXp,
-        nextLevelXp: summary.nextLevelXp,
-        xpToNextLevel: summary.aggregate.levelState.xpToNextLevel,
-        progressRatio: summary.aggregate.levelState.progressRatio,
-        currentStreak: summary.streak.currentStreak,
-        streakState: summary.streak.streakState,
+        state: journey.state,
+        stageLabel: journey.stageLabel,
+        title: journey.title,
+        summary: journey.summary,
+        facts: journey.facts,
         nextAction: {
-            title: summary.nextMeaningfulAction.title,
-            description: summary.nextMeaningfulAction.description,
+            title: journey.nextAction.title,
+            description: journey.nextAction.description,
             href: resolveCommunityDiscoveryActionHref(
-                summary.nextMeaningfulAction.eventType,
+                journey.nextAction.eventType,
                 viewer.viewerUserId,
             ),
         },
         nextMilestone: {
-            title: summary.nextMilestone.title,
-            description: summary.nextMilestone.description,
+            title: journey.nextMilestone.title,
+            description: journey.nextMilestone.description,
         },
+        socialReinforcement: journey.socialReinforcement,
         publicProfileHref: viewer.publicProfileHref,
     };
 }
@@ -1746,21 +1792,21 @@ function toCommunityDiscoveryMissionBoard(
 ): CommunityDiscoveryMissionBoard {
     const activeMissions = summary.missionProgress
         .filter((mission) => mission.status === 'active' && !mission.isComplete)
-        .slice(0, 3);
+        .slice(0, COMMUNITY_MISSION_BOARD_LIMIT);
 
     return {
-        title: 'Mission board semanal',
+        title: 'Objetivos que rendem agora',
         summary: activeMissions.length > 0
-            ? `${activeMissions.length} missao(oes) abertas para manter seu ritmo sem trocar qualidade por volume.`
-            : 'Sem missao ativa agora. O proximo ritual aparece assim que uma janela nova abrir.',
+            ? `${activeMissions.length} objetivo(s) aberto(s) para sustentar seu ritmo e render XP real.`
+            : 'Sem objetivo aberto agora. A proxima janela libera um novo alvo sem inventar pressa.',
         items: activeMissions.map((mission) =>
             toCommunityDiscoveryMissionBoardItem(mission, viewer),
         ),
         emptyState: activeMissions.length > 0
             ? null
             : {
-                title: 'Mission board em zero state',
-                body: 'Enquanto isso, siga a proxima acao sugerida para manter sua progressao ativa sem containers vazios.',
+                title: 'Nada aberto por enquanto',
+                body: 'Enquanto a proxima janela nao abre, siga o proximo passo que ja rende contexto util.',
                 primaryAction: {
                     label: summary.nextMeaningfulAction.title,
                     href: resolveCommunityDiscoveryActionHref(
@@ -1782,8 +1828,8 @@ function toCommunityDiscoveryMissionBoardItem(
         missionId: mission.missionId,
         title: mission.title,
         description: mission.description,
-        progressLabel: `${mission.currentCount}/${mission.targetCount} passos`,
-        rewardLabel: `${mission.rewardXp} XP`,
+        progressLabel: `${mission.currentCount}/${mission.targetCount} marcos`,
+        rewardLabel: `+${mission.rewardXp} XP`,
         completionRatio: mission.completionRatio,
         state: mission.currentCount === 0
             ? 'zero_state'
@@ -1791,7 +1837,7 @@ function toCommunityDiscoveryMissionBoardItem(
                 ? 'complete'
                 : 'in_progress',
         primaryAction: {
-            label: 'Abrir proxima acao',
+            label: 'Abrir passo',
             href: resolveCommunityDiscoveryActionHref(primaryEventType, viewer.viewerUserId),
         },
     };
@@ -1830,13 +1876,13 @@ function toCommunityDiscoverySquadSpotlight(input: {
     return {
         title: input.squad.squadName,
         description: input.squad.squadDescription?.trim()
-            || 'Squad configurado para loops leves, assincronos e baseados em contribuicao util.',
+            || 'Squad montado para sustentar contribuicoes uteis em publico.',
         visibilityLabel: input.squad.squadVisibility === 'public'
-            ? 'Squad publico'
-            : 'Squad privado',
+            ? 'Publico'
+            : 'Privado',
         goalHeadline: input.goal.headline,
         goalSummary: input.goal.summary,
-        progressLabel: `${input.goal.currentCount}/${input.goal.targetCount} acoes`,
+        progressLabel: `${input.goal.currentCount}/${input.goal.targetCount} acoes uteis`,
         memberCount: input.recap.memberCount,
         recapTitle: input.recap.headline,
         recapSummary: input.recap.summary,
@@ -1857,84 +1903,6 @@ function toCommunityDiscoverySquadSpotlight(input: {
                     ),
                 }
                 : null,
-    };
-}
-
-function createZeroCommunityDiscoveryViewerProgressSummary(
-    viewer: CommunityDiscoveryViewerContext,
-): CommunityDiscoveryViewerProgressSummary {
-    const nextAction = viewer.hasPublicProfile
-        ? {
-            title: 'Publique uma analise publica',
-            description: 'Transforme um snapshot em contribuicao publica para abrir seu primeiro XP.',
-            href: '/history',
-        }
-        : {
-            title: 'Complete seu perfil publico',
-            description: 'Ative sua operator plate para destravar missões e progresso viewer-aware.',
-            href: '/profile',
-        };
-
-    return {
-        state: 'zero_state',
-        title: 'Sua progressao ainda esta zerada',
-        summary: 'As primeiras placas aparecem assim que voce ativa seu perfil ou publica uma analise util.',
-        level: 1,
-        totalXp: 0,
-        currentLevelXp: 0,
-        nextLevelXp: 100,
-        xpToNextLevel: 100,
-        progressRatio: 0,
-        currentStreak: 0,
-        streakState: 'inactive',
-        nextAction,
-        nextMilestone: {
-            title: 'Nivel 2',
-            description: 'Faltam 100 XP para abrir o proximo nivel comunitario.',
-        },
-        publicProfileHref: viewer.publicProfileHref,
-    };
-}
-
-function createEmptyCommunityDiscoveryMissionBoard(
-    viewer: CommunityDiscoveryViewerContext,
-): CommunityDiscoveryMissionBoard {
-    const primaryAction = viewer.hasPublicProfile
-        ? {
-            label: 'Publicar analise',
-            href: '/history',
-        }
-        : {
-            label: 'Completar perfil',
-            href: '/profile',
-        };
-
-    return {
-        title: 'Mission board semanal',
-        summary: 'Sem missao ativa agora. O proximo ritual aparece assim que uma janela nova abrir.',
-        items: [],
-        emptyState: {
-            title: 'Mission board em zero state',
-            body: 'Use a proxima acao sugerida para abrir seu primeiro objetivo semanal sem ruido artificial.',
-            primaryAction,
-        },
-    };
-}
-
-function createZeroCommunityDiscoveryRecapPanel(
-    viewer: CommunityDiscoveryViewerContext,
-): CommunityDiscoveryRecapPanel {
-    return {
-        state: 'zero_state',
-        title: 'Recap ainda em branco',
-        summary: 'Seus rituais, XP da semana e recompensas desbloqueadas aparecem aqui quando voce registrar a primeira contribuicao util.',
-        ritualCount: 0,
-        rewardCount: 0,
-        earnedXp: 0,
-        nextAction: {
-            title: viewer.hasPublicProfile ? 'Publicar analise' : 'Completar perfil',
-            href: viewer.hasPublicProfile ? '/history' : '/profile',
-        },
     };
 }
 

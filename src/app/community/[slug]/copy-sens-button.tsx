@@ -36,9 +36,9 @@ export function CopySensButton({ slug, className }: CopySensButtonProps) {
                 }
 
                 await navigator.clipboard.writeText(result.clipboardText);
-                setStatusMessage('Sens copiada para a area de transferencia.');
+                setStatusMessage('Sens copiada.');
             } catch {
-                setErrorMessage('Nao foi possivel copiar a sens agora.');
+                setErrorMessage('Nao deu para copiar a sens agora.');
             }
         });
     };

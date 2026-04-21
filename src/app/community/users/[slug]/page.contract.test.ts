@@ -193,7 +193,7 @@ function createPublicProfileViewModel(overrides: {
             {
                 key: 'setup-public',
                 label: 'Setup publico',
-                reason: '12 campos publicos de setup na allowlist.',
+                reason: '12 campos publicos de setup liberados no perfil.',
                 count: 12,
             },
         ],
@@ -215,8 +215,8 @@ function createPublicProfileViewModel(overrides: {
             currentStreak: 3,
             longestStreak: 5,
             streakState: 'active',
-            title: '3 semana(s) em sequencia',
-            summary: 'Maior streak publica: 5. O operador segue em ritmo ativo nesta janela.',
+            title: '3 semana(s) seguidas',
+            summary: 'Maior sequencia: 5. Esse jogador segue em ritmo ativo nesta janela.',
         },
         squadIdentity: Object.prototype.hasOwnProperty.call(overrides, 'squadIdentity')
             ? overrides.squadIdentity
@@ -232,7 +232,7 @@ function createPublicProfileViewModel(overrides: {
             canFollow: false,
             isSelfProfile: false,
             actionLabel: 'Entrar para seguir',
-            disabledReason: 'Entre para seguir este perfil.',
+            disabledReason: 'Entre para seguir este jogador.',
             ...overrides.follow,
         },
         relatedLinks: overrides.relatedLinks ?? [],
@@ -303,21 +303,65 @@ describe('/community/users/[slug] page contract', () => {
         expect(markup).toContain('Creator aprovado');
         expect(markup).toContain('Status publico aprovado no programa de creators.');
         expect(markup).toContain('Setup publico');
-        expect(markup).toContain('12 campos publicos de setup na allowlist.');
+        expect(markup).toContain('12 campos publicos de setup liberados no perfil.');
         expect(source).toMatch(/data-community-section=["']profile-trust-rail["']/);
         expect(source).toMatch(/data-community-layout=["']stable-trust-rail["']/);
         expect(source).toMatch(/data-community-layout=["']stable-metric-plate["']/);
+    });
+
+    it('keeps recent public work and proof surfaces near the top of the profile experience', async () => {
+        mocks.getPublicCommunityProfileViewModel.mockResolvedValueOnce(createPublicProfileViewModel({
+            posts: [
+                {
+                    id: 'post-beryl-lab',
+                    slug: 'beryl-spray-lab',
+                    href: '/community/beryl-spray-lab',
+                    title: 'Beryl spray lab',
+                    excerpt: 'Leitura publica mais recente para controlar recoil horizontal.',
+                    analysisTags: [
+                        {
+                            key: 'weapon',
+                            value: 'beryl-m762',
+                            label: 'Beryl M762',
+                        },
+                        {
+                            key: 'patch',
+                            value: '36.1',
+                            label: 'Patch 36.1',
+                        },
+                    ],
+                    publishedAt: new Date('2026-04-19T12:00:00.000Z'),
+                    publishedAtIso: '2026-04-19T12:00:00.000Z',
+                    primaryAction: {
+                        label: 'Ver post',
+                        href: '/community/beryl-spray-lab',
+                    },
+                },
+            ],
+        }));
+
+        const markup = await renderPage('spray-doctor');
+        const source = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
+
+        expect(markup).toContain('Trabalho recente');
+        expect(markup).toContain('Beryl spray lab');
+        expect(markup).toContain('Abrir post mais recente');
+        expect(markup).toContain('Posts abertos');
+        expect(markup).toContain('Saves + copias');
+        expect(source).toMatch(/data-community-section=["']profile-spotlight["']/);
+        expect(source).toMatch(/data-community-section=["']profile-recent-work["']/);
+        expect(source).toMatch(/data-community-layout=["']profile-proof-grid["']/);
     });
 
     it('renders public-safe recognition surfaces for rewards, streaks and squad identity', async () => {
         const markup = await renderPage('spray-doctor');
         const source = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
 
-        expect(markup).toContain('Reconhecimentos publicos');
-        expect(markup).toContain('1 reward visivel');
+        expect(markup).toContain('O que este perfil ja sustentou em publico');
+        expect(markup).toContain('1 marca visivel');
         expect(markup).toContain('S36 Pioneer');
         expect(markup).toContain('Liberado por contribuicoes publicas elegiveis na janela da Season 36.');
-        expect(markup).toContain('3 semana(s) em sequencia');
+        expect(markup).toContain('3 semana(s) seguidas');
         expect(markup).toContain('Spray Lab');
         expect(source).toMatch(/data-community-section=["']profile-reward-strip["']/);
         expect(source).toMatch(/data-community-section=["']profile-streak-summary["']/);
@@ -340,7 +384,7 @@ describe('/community/users/[slug] page contract', () => {
     it('keeps no-post profile states connected back to community discovery', () => {
         const source = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
 
-        expect(source).toMatch(/Sem posts publicados|emptyState\.title/);
+        expect(source).toMatch(/Sem posts ainda|emptyState\.title/);
         expect(source).toMatch(/Explorar comunidade|Voltar para comunidade|emptyState\.primaryAction/);
         expect(source).toMatch(/\/community/);
     });
@@ -356,9 +400,9 @@ describe('/community/users/[slug] page contract', () => {
         expect(markup).not.toContain('Acompanhe os posts publicos deste operador');
         expect(markup).toContain('href="https://x.com/spraydoctor"');
         expect(markup).toContain('href="https://twitch.tv/spraydoctor"');
-        expect(markup).toContain('Aim setup');
-        expect(markup).toContain('Surface/grip');
-        expect(markup).toContain('PUBG core');
+        expect(markup).toContain('Mouse e sensor');
+        expect(markup).toContain('Mousepad e grip');
+        expect(markup).toContain('Sens do PUBG');
         expect(markup).toContain('Logitech G Pro X Superlight 2');
         expect(markup).toContain('Hero 2');
         expect(markup).toContain('800');
@@ -380,17 +424,17 @@ describe('/community/users/[slug] page contract', () => {
                 currentStreak: 0,
                 longestStreak: 0,
                 streakState: 'inactive',
-                title: 'Streak publica ainda nao iniciada',
-                summary: 'Sem participacoes publicas significativas registradas o bastante para abrir uma streak visivel.',
+                title: 'Sequencia ainda nao comecou',
+                summary: 'Ainda nao ha participacoes publicas suficientes para mostrar uma sequencia visivel.',
             },
             squadIdentity: null,
         }));
 
         const markup = await renderPage('spray-doctor');
 
-        expect(markup).toContain('Nenhum reward public-safe esta visivel neste perfil agora.');
-        expect(markup).toContain('Streak publica ainda nao iniciada');
-        expect(markup).toContain('Sem squad publico vinculado');
+        expect(markup).toContain('Ainda nao existe reward publico liberado para este perfil.');
+        expect(markup).toContain('Sequencia ainda nao comecou');
+        expect(markup).toContain('Sem identidade coletiva aberta');
         expect(markup).not.toContain('privateReward');
     });
 
@@ -424,8 +468,8 @@ describe('/community/users/[slug] page contract', () => {
             follow: {
                 isSelfProfile: true,
                 canFollow: false,
-                actionLabel: 'Seu perfil publico',
-                disabledReason: 'Este e o seu perfil publico.',
+                actionLabel: 'Seu perfil',
+                disabledReason: 'Este e o seu perfil.',
             },
         }));
 
@@ -435,9 +479,9 @@ describe('/community/users/[slug] page contract', () => {
             slug: 'spray-doctor',
             viewerUserId: 'owner-user',
         });
-        expect(markup).toContain('Complete seu setup publico');
+        expect(markup).toContain('Mostre seu setup');
         expect(markup).toContain('href="/profile/settings"');
-        expect(markup).toContain('Completar Meu Perfil');
+        expect(markup).toContain('Abrir meu perfil');
     });
 
     it('renders related public discovery links from profile tags without requiring raw database reads', async () => {

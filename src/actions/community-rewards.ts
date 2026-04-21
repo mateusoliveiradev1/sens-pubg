@@ -3,6 +3,7 @@
 import { and, eq } from 'drizzle-orm';
 
 import { auth } from '@/auth';
+import { isCommunityRewardKindPublicSafe } from '@/core/community-progression-policy';
 import { db } from '@/db';
 import {
     communityRewardRecords,
@@ -83,7 +84,11 @@ export async function setCommunityRewardDisplayState(
         };
     }
 
-    if (storedReward.status !== 'earned' || !storedReward.isPublicSafe) {
+    if (
+        storedReward.status !== 'earned'
+        || !storedReward.isPublicSafe
+        || !isCommunityRewardKindPublicSafe(storedReward.rewardKind)
+    ) {
         return {
             success: false,
             error: 'Este reward nao pode ser exibido publicamente.',

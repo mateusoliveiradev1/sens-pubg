@@ -3,11 +3,14 @@ import { describe, expect, it } from 'vitest';
 import {
     COMMUNITY_PROGRESSION_RULES,
     buildCommunityPersonalRecap,
+    buildCommunityProgressionLatestGain,
     buildCommunityMissionProgressSnapshots,
     buildCommunityPrivateProgressionSummary,
     buildCommunityProgressionAggregateSnapshot,
     buildCommunityProgressionStreakSnapshot,
     buildCommunitySquadRecap,
+    listCommunityMissionCompletionRecords,
+    listCommunityStreakParticipationWindows,
     recordCommunityProgressionEvent,
     resolveActiveCommunitySeason,
     resolveCommunityWeeklyChallenge,
@@ -535,7 +538,7 @@ describe('community rituals and seasons', () => {
         expect(challenge).toMatchObject({
             source: 'fallback',
             seasonId: null,
-            title: 'Desafio semanal: publique um snapshot util',
+            title: 'Desafio semanal: publique um post util',
             theme: 'Evergreen',
             startsAt: new Date('2026-04-20T00:00:00.000Z'),
             endsAt: new Date('2026-04-26T23:59:59.999Z'),
@@ -590,6 +593,66 @@ describe('community rituals and seasons', () => {
             nextWindowEndsAt: new Date('2026-04-26T23:59:59.999Z'),
             missedWindowCount: 1,
         });
+    });
+
+    it('lists streak participation windows from the first meaningful action in each active week', () => {
+        const windows = listCommunityStreakParticipationWindows({
+            userId: 'user-1',
+            events: [
+                createHistoryEvent({
+                    idempotencyKey: 'publish-post-1',
+                    eventType: 'publish_post',
+                    actorUserId: 'user-1',
+                    entityType: 'post',
+                    entityId: 'post-1',
+                    effectiveXp: 40,
+                    occurredAt: new Date('2026-04-01T10:00:00.000Z'),
+                    seasonId: 'season-1',
+                }),
+                createHistoryEvent({
+                    idempotencyKey: 'comment-context-1',
+                    eventType: 'comment_with_context',
+                    actorUserId: 'user-1',
+                    entityType: 'comment',
+                    entityId: 'comment-1',
+                    effectiveXp: 20,
+                    occurredAt: new Date('2026-04-03T08:00:00.000Z'),
+                    seasonId: 'season-1',
+                }),
+                createHistoryEvent({
+                    idempotencyKey: 'publish-post-2',
+                    eventType: 'publish_post',
+                    actorUserId: 'user-1',
+                    entityType: 'post',
+                    entityId: 'post-2',
+                    effectiveXp: 40,
+                    occurredAt: new Date('2026-04-08T10:00:00.000Z'),
+                    seasonId: 'season-1',
+                }),
+            ],
+            now: new Date('2026-04-10T12:00:00.000Z'),
+        });
+
+        expect(windows).toEqual([
+            {
+                weekStartedAt: new Date('2026-03-30T00:00:00.000Z'),
+                weekEndsAt: new Date('2026-04-05T23:59:59.999Z'),
+                triggeredAt: new Date('2026-04-01T10:00:00.000Z'),
+                sourceEventType: 'publish_post',
+                sourceEntityType: 'post',
+                sourceEntityId: 'post-1',
+                seasonId: 'season-1',
+            },
+            {
+                weekStartedAt: new Date('2026-04-06T00:00:00.000Z'),
+                weekEndsAt: new Date('2026-04-12T23:59:59.999Z'),
+                triggeredAt: new Date('2026-04-08T10:00:00.000Z'),
+                sourceEventType: 'publish_post',
+                sourceEntityType: 'post',
+                sourceEntityId: 'post-2',
+                seasonId: 'season-1',
+            },
+        ]);
     });
 
     it('builds personal and squad recaps with rituals, rewards and next suggested actions', () => {
@@ -905,16 +968,55 @@ describe('community progression aggregates', () => {
             nextLevelXp: 125,
             activeMissionCount: 1,
             completedMissionCount: 1,
+            nextMeaningfulAction: {
+                eventType: 'publish_post',
+                title: 'Publique um post',
+            },
             nextMilestone: {
                 type: 'mission',
                 missionId: 'mission-1',
                 remainingCount: 1,
             },
-            nextMeaningfulAction: {
-                eventType: 'publish_post',
-                title: 'Publique uma analise publica',
+            latestGain: {
+                eventType: 'comment_with_context',
+                title: 'Comentar com contexto',
+                xpDelta: 20,
+                totalXpBefore: 85,
+                totalXpAfter: 105,
+                levelBefore: 1,
+                levelAfter: 2,
+                leveledUp: true,
             },
         });
+    });
+
+    it('keeps follow progression with the actor even when a beneficiary is attached for guardrails', () => {
+        const events = [
+            createHistoryEvent({
+                idempotencyKey: 'follow_profile:user-1:user-2:profile:profile-2',
+                eventType: 'follow_profile',
+                actorUserId: 'user-1',
+                beneficiaryUserId: 'user-2',
+                entityType: 'profile',
+                entityId: 'profile-2',
+                effectiveXp: 10,
+                occurredAt: new Date('2026-04-20T12:00:00.000Z'),
+            }),
+        ] satisfies readonly CommunityProgressionHistoryEvent[];
+
+        const actorAggregate = buildCommunityProgressionAggregateSnapshot({
+            userId: 'user-1',
+            events,
+            now: new Date('2026-04-20T12:00:00.000Z'),
+        });
+        const beneficiaryAggregate = buildCommunityProgressionAggregateSnapshot({
+            userId: 'user-2',
+            events,
+            now: new Date('2026-04-20T12:00:00.000Z'),
+        });
+
+        expect(actorAggregate.totalXp).toBe(10);
+        expect(beneficiaryAggregate.totalXp).toBe(0);
     });
 
     it('returns a neutral zero-state summary when the user has no progression history yet', () => {
@@ -942,11 +1044,103 @@ describe('community progression aggregates', () => {
                 eventType: 'complete_public_profile',
                 title: 'Complete seu perfil publico',
             },
+            latestGain: null,
         });
         expect(summary.streak).toMatchObject({
             currentStreak: 0,
             longestStreak: 0,
             streakState: 'inactive',
+        });
+    });
+
+    it('surfaces the latest gain and completed missions from the ledger without extra state', () => {
+        const missions = [
+            createMission({
+                id: 'mission-weekly',
+                title: 'Segure a Beryl no patch 36.1',
+                missionType: 'weekly_challenge',
+                targetCount: 2,
+                rewardXp: 80,
+                eligibleActions: [
+                    {
+                        eventType: 'publish_post',
+                        title: 'Publique uma analise da Beryl',
+                        description: 'Compartilhe uma leitura publica da Beryl.',
+                    },
+                ],
+                config: {
+                    targetCount: 2,
+                    eligibleEventTypes: ['publish_post'],
+                    metadata: {},
+                },
+                seasonId: 'season-1',
+                startsAt: new Date('2026-04-20T00:00:00.000Z'),
+                endsAt: new Date('2026-04-26T23:59:59.999Z'),
+            }),
+        ] satisfies readonly CommunityProgressionMissionSource[];
+        const events = [
+            createHistoryEvent({
+                idempotencyKey: 'publish-1',
+                eventType: 'publish_post',
+                actorUserId: 'user-1',
+                entityType: 'post',
+                entityId: 'post-1',
+                effectiveXp: 40,
+                occurredAt: new Date('2026-04-21T12:00:00.000Z'),
+                seasonId: 'season-1',
+            }),
+            createHistoryEvent({
+                idempotencyKey: 'publish-2',
+                eventType: 'publish_post',
+                actorUserId: 'user-1',
+                entityType: 'post',
+                entityId: 'post-2',
+                effectiveXp: 40,
+                occurredAt: new Date('2026-04-22T12:00:00.000Z'),
+                seasonId: 'season-1',
+            }),
+            createHistoryEvent({
+                idempotencyKey: 'weekly-complete-1',
+                eventType: 'weekly_challenge_complete',
+                actorUserId: 'user-1',
+                entityType: 'mission',
+                entityId: 'mission-weekly',
+                effectiveXp: 80,
+                occurredAt: new Date('2026-04-22T12:00:00.000Z'),
+                missionId: 'mission-weekly',
+                seasonId: 'season-1',
+            }),
+        ] satisfies readonly CommunityProgressionHistoryEvent[];
+
+        expect(listCommunityMissionCompletionRecords({
+            userId: 'user-1',
+            missions,
+            events: events.filter((event) => event.eventType !== 'weekly_challenge_complete'),
+            now: new Date('2026-04-23T12:00:00.000Z'),
+        })).toEqual([
+            expect.objectContaining({
+                missionId: 'mission-weekly',
+                missionType: 'weekly_challenge',
+                rewardXp: 80,
+                completedAt: new Date('2026-04-22T12:00:00.000Z'),
+            }),
+        ]);
+
+        expect(buildCommunityProgressionLatestGain({
+            userId: 'user-1',
+            missions,
+            events,
+        })).toEqual({
+            eventType: 'weekly_challenge_complete',
+            title: 'Segure a Beryl no patch 36.1',
+            description: 'Segure a Beryl no patch 36.1 description',
+            xpDelta: 80,
+            occurredAt: new Date('2026-04-22T12:00:00.000Z'),
+            totalXpBefore: 80,
+            totalXpAfter: 160,
+            levelBefore: 1,
+            levelAfter: 2,
+            leveledUp: true,
         });
     });
 

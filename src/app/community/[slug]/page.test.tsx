@@ -242,7 +242,7 @@ describe('community post detail page', () => {
         expect(markup).toContain('copy-sens:beryl-control-lab');
         expect(markup).toContain('like:beryl-control-lab:false:4');
         expect(markup).toContain('save:beryl-control-lab:false');
-        expect(markup).toContain('Abrir perfil do autor');
+        expect(markup).toContain('Ver perfil');
         expect(markup).toContain('/community/users/spray-doctor');
         expect(markup).toContain('/community?weaponId=beryl-m762');
         expect(markup).toContain('/community?patchVersion=36.1');

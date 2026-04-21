@@ -44,7 +44,7 @@ export function SaveButton({
 
                 setSaved(result.saved);
             } catch {
-                setErrorMessage('Nao foi possivel atualizar o save agora.');
+                setErrorMessage('Nao foi possivel salvar agora.');
             }
         });
     };
@@ -75,7 +75,7 @@ export function SaveButton({
                 aria-pressed={saved}
                 aria-describedby={errorMessage ? 'community-save-status' : undefined}
             >
-                {isPending ? 'Atualizando save...' : saved ? 'Salvo' : 'Salvar'}
+                {isPending ? 'Salvando...' : saved ? 'Salvo' : 'Salvar'}
             </button>
 
             {errorMessage ? (

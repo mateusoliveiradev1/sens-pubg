@@ -9,7 +9,7 @@ describe('/community/[slug] page contract', () => {
 
         expect(source).toMatch(/authorProfile|profileSlug|profileHref/);
         expect(source).toMatch(/\/community\/users\//);
-        expect(source).toMatch(/Perfil do autor|Abrir perfil|Ver operador/);
+        expect(source).toMatch(/Autor|Ver perfil/);
     });
 
     it('provides continuity links from post context back to relevant discovery paths', () => {
@@ -22,6 +22,18 @@ describe('/community/[slug] page contract', () => {
         expect(source).toMatch(/patchVersion/);
         expect(source).toMatch(/diagnosisKey/);
         expect(source).toMatch(/\/community\?/);
+    });
+
+    it('keeps a clear hierarchy between hero, narrative, technical context and conversation', () => {
+        const detailSource = readFileSync(new URL('./post-detail.tsx', import.meta.url), 'utf8');
+
+        expect(detailSource).toMatch(/data-community-section=["']post-hero["']/);
+        expect(detailSource).toMatch(/data-community-section=["']post-narrative["']/);
+        expect(detailSource).toMatch(/data-community-section=["']post-technical-context["']/);
+        expect(detailSource).toMatch(/data-community-section=["']post-conversation["']/);
+        expect(detailSource).toMatch(/Resumo e diagnosticos/);
+        expect(detailSource).toMatch(/Conversa deste post/);
+        expect(detailSource).toMatch(/Contexto tecnico/);
     });
 
     it('keeps report actions visible for posts and comments with login states', () => {
