@@ -112,7 +112,7 @@ async function signInAsSeededUser(page: Page, user: SeededViewer) {
 }
 
 async function seedCommunityFeedFixture() {
-    const [{ db }, { analysisSessions, communityPostAnalysisSnapshots, communityPostLikes, communityProfiles, communityPosts, users }] = await Promise.all([
+    const [{ db }, { analysisSessions, communityPostAnalysisSnapshots, communityPostLikes, communityPostSaves, communityProfiles, communityPosts, users }] = await Promise.all([
         import('../src/db'),
         import('../src/db/schema'),
     ]);
@@ -457,6 +457,11 @@ async function seedCommunityFeedFixture() {
         },
     ]);
 
+    await db.insert(communityPostSaves).values({
+        postId: acePostId,
+        userId: viewer.userId,
+    });
+
     return {
         viewer,
         expectedTitles: {
@@ -483,6 +488,9 @@ async function seedCommunityFeedFixture() {
             return Number(likeCountRow?.count ?? 0);
         },
         async cleanup() {
+            await db
+                .delete(communityPostSaves)
+                .where(eq(communityPostSaves.postId, acePostId));
             await db
                 .delete(communityPostAnalysisSnapshots)
                 .where(eq(communityPostAnalysisSnapshots.postId, acePostId));

@@ -50,6 +50,7 @@ async function seedCommunityVisualFixture(mode: CommunityVisualFixtureMode = 'ac
     const {
         analysisSessions,
         communityPostAnalysisSnapshots,
+        communityPostSaves,
         communityProfiles,
         communityPosts,
         playerProfiles,
@@ -347,10 +348,22 @@ async function seedCommunityVisualFixture(mode: CommunityVisualFixtureMode = 'ac
             : []),
     ]);
 
+    if (includeSecondaryOperator) {
+        await db.insert(communityPostSaves).values({
+            postId: acePostId,
+            userId: berylAuthor.userId,
+        });
+    }
+
     return {
         aceAuthor,
         sparseHubHref: `/community?patchVersion=${encodeURIComponent(acePatchVersion)}`,
         async cleanup() {
+            if (includeSecondaryOperator) {
+                await db
+                    .delete(communityPostSaves)
+                    .where(eq(communityPostSaves.postId, acePostId));
+            }
             await db
                 .delete(communityPostAnalysisSnapshots)
                 .where(eq(communityPostAnalysisSnapshots.postId, acePostId));
