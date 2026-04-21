@@ -10,6 +10,8 @@ import { expect, test, type Page } from '@playwright/test';
 import { config as loadEnv } from 'dotenv';
 import { eq } from 'drizzle-orm';
 
+import { cleanupLingeringCommunityE2ESeeds } from './community-seed-cleanup';
+
 loadEnv({ path: '.env.local' });
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL?.trim() || 'http://localhost:3000';
@@ -98,6 +100,8 @@ async function signInAsSeededUser(page: Page, user: SeededUser) {
 }
 
 async function seedCommunityCommentsFixture() {
+    await cleanupLingeringCommunityE2ESeeds();
+
     const [{ db }, schema] = await Promise.all([import('../src/db'), import('../src/db/schema')]);
     const {
         analysisSessions,

@@ -50,8 +50,9 @@ test.describe('Responsive - Desktop', () => {
         await page.goto('/');
         const nav = page.getByRole('navigation', { name: /navega/i });
         await expect(nav.locator('a[href="/analyze"]')).toBeVisible();
+        await expect(nav.locator('a[href="/community"]')).toBeVisible();
         await expect(nav.locator('a[href="/history"]')).toBeVisible();
-        await expect(nav.locator('a[href="/profile"]')).toBeVisible();
+        await expect(nav.locator('ul a[href="/profile"]')).toHaveCount(0);
     });
 
     test('hero content is visible above fold', async ({ page }) => {

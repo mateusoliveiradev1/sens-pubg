@@ -6,6 +6,8 @@ import { eq } from 'drizzle-orm';
 import { config as loadEnv } from 'dotenv';
 import { expect, test, type Page } from '@playwright/test';
 
+import { cleanupLingeringCommunityE2ESeeds } from './community-seed-cleanup';
+
 loadEnv({ path: '.env.local' });
 
 type CommunityVisualFixtureMode = 'active' | 'sparse';
@@ -46,6 +48,8 @@ function createPersistedCopySensPreset() {
 }
 
 async function seedCommunityVisualFixture(mode: CommunityVisualFixtureMode = 'active') {
+    await cleanupLingeringCommunityE2ESeeds();
+
     const [{ db }, schema] = await Promise.all([import('../src/db'), import('../src/db/schema')]);
     const {
         analysisSessions,

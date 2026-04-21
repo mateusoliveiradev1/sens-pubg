@@ -71,11 +71,6 @@ export function MobileNav({ user }: MobileNavProps) {
                                 </Link>
                             </li>
                             <li>
-                                <Link href="/profile" className={styles.link} onClick={closeMenu}>
-                                    <span className={styles.icon} aria-hidden="true">👤</span> Perfil
-                                </Link>
-                            </li>
-                            <li>
                                 <Link href="/community" className={styles.link} onClick={closeMenu}>
                                     <span className={styles.icon} aria-hidden="true">🌐</span> Comunidade
                                 </Link>
