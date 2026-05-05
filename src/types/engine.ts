@@ -580,6 +580,46 @@ export interface CoachEvidence {
     readonly optic?: CoachOpticEvidence;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Measurement Truth Contract
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export type SprayActionState = 'capture_again' | 'inconclusive' | 'testable' | 'ready';
+export type SprayActionLabel = 'Capturar de novo' | 'Incerto' | 'Testavel' | 'Pronto';
+export type SprayMechanicalLevel = 'initial' | 'intermediate' | 'advanced' | 'elite';
+export type SprayMechanicalLevelLabel = 'Inicial' | 'Intermediario' | 'Avancado' | 'Elite';
+
+export interface SprayMasteryPillars {
+    readonly control: number;
+    readonly consistency: number;
+    readonly confidence: number;
+    readonly clipQuality: number;
+}
+
+export interface SprayMasteryEvidence {
+    readonly coverage: number;
+    readonly confidence: number;
+    readonly visibleFrames: number;
+    readonly lostFrames: number;
+    readonly framesProcessed: number;
+    readonly sampleSize: number;
+    readonly qualityScore: number;
+    readonly usableForAnalysis: boolean;
+}
+
+export interface SprayMastery {
+    readonly actionState: SprayActionState;
+    readonly actionLabel: SprayActionLabel;
+    readonly mechanicalLevel: SprayMechanicalLevel;
+    readonly mechanicalLevelLabel: SprayMechanicalLevelLabel;
+    readonly actionableScore: number;
+    readonly mechanicalScore: number;
+    readonly pillars: SprayMasteryPillars;
+    readonly evidence: SprayMasteryEvidence;
+    readonly reasons: readonly string[];
+    readonly blockedRecommendations: readonly string[];
+}
+
 export interface AnalysisResult {
     readonly id: string;
     readonly timestamp: Date;
@@ -593,6 +633,7 @@ export interface AnalysisResult {
     readonly sensitivity: SensitivityRecommendation;
     readonly coaching: readonly CoachFeedback[];
     readonly coachPlan?: CoachPlan;
+    readonly mastery?: SprayMastery;
     readonly subSessions?: readonly AnalysisResult[];
 }
 

@@ -124,6 +124,11 @@ export {
 
 export { runDiagnostics } from './diagnostic-engine';
 export { generateSensitivityRecommendation } from './sensitivity-engine';
+export {
+    formatDiagnosisTruthLabel,
+    resolveMeasurementTruth,
+    type ResolveMeasurementTruthInput,
+} from './measurement-truth';
 export { generateCoaching } from './coach-engine';
 export {
     adaptCoachResultWithOptionalLlm,
