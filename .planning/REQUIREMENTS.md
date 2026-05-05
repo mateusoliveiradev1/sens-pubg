@@ -14,9 +14,9 @@
 
 ### Benchmark
 
-- [ ] **BENCH-01**: Maintainer can run a benchmark gate that covers tracking, diagnosis, coach tier, primary focus, and next-block protocol.
-- [ ] **BENCH-02**: Maintainer can add labeled real clips with patch, weapon, optic, attachments, distance, and expected diagnosis/coach outcomes.
-- [ ] **BENCH-03**: System can report regression against baseline before release.
+- [x] **BENCH-01**: Maintainer can run a benchmark gate that covers tracking, diagnosis, coach tier, primary focus, and next-block protocol.
+- [x] **BENCH-02**: Maintainer can add labeled real clips with patch, weapon, optic, attachments, distance, and expected diagnosis/coach outcomes.
+- [x] **BENCH-03**: System can report regression against baseline before release.
 
 ### Coach
 
@@ -77,9 +77,9 @@
 | PREC-02 | Phase 1 | Complete |
 | PREC-03 | Phase 3 | Pending |
 | PREC-04 | Phase 1 | Complete |
-| BENCH-01 | Phase 2 | Pending |
-| BENCH-02 | Phase 2 | Pending |
-| BENCH-03 | Phase 2 | Pending |
+| BENCH-01 | Phase 2 | Complete |
+| BENCH-02 | Phase 2 | Complete |
+| BENCH-03 | Phase 2 | Complete |
 | COACH-01 | Phase 4 | Pending |
 | COACH-02 | Phase 4 | Pending |
 | COACH-03 | Phase 4 | Pending |
@@ -103,4 +103,4 @@
 
 ---
 *Requirements defined: 2026-05-05*
-*Last updated: 2026-05-05 after research-backed project initialization*
+*Last updated: 2026-05-05 after Phase 2 benchmark expansion*
