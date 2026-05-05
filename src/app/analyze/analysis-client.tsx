@@ -16,8 +16,10 @@ import {
     runDiagnostics,
     generateSensitivityRecommendation,
     generateCoaching,
+    resolveMeasurementTruth,
 } from '@/core';
 import type { VideoMetadata } from '@/core';
+import { buildCoachPlan } from '@/core/coach-plan-builder';
 import type {
     AnalysisDistanceMode,
     AnalysisResult,
@@ -433,7 +435,7 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                 const pScopeSens = profile.scopeSens ?? {};
                 const pVerticalMultiplier = profile.verticalMultiplier ?? 1.0;
 
-                subSessions.push({
+                const subSessionWithoutMastery: AnalysisResult = {
                     id: crypto.randomUUID(),
                     timestamp: new Date(),
                     patchVersion: CURRENT_PUBG_PATCH_VERSION,
@@ -445,6 +447,16 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                     diagnoses,
                     sensitivity: generateSensitivityRecommendation(sprayMetrics, diagnoses, pMouseDpi, pPlayStyle, pGripStyle, pMousepadWidth, pScopeSens as Record<string, number>, pVerticalMultiplier, 1, pDeskSpace),
                     coaching: generateCoaching(diagnoses, loadout, coachingContext),
+                };
+                const subSessionCoachPlan = buildCoachPlan({ analysisResult: subSessionWithoutMastery });
+
+                subSessions.push({
+                    ...subSessionWithoutMastery,
+                    coachPlan: subSessionCoachPlan,
+                    mastery: resolveMeasurementTruth({
+                        ...subSessionWithoutMastery,
+                        coachPlan: subSessionCoachPlan,
+                    }),
                 });
 
                 setProgress((index + 1) * stepIncrement);
@@ -477,7 +489,7 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
             const fScopeSens = profile.scopeSens ?? {};
             const fVerticalMultiplier = profile.verticalMultiplier ?? 1.0;
 
-            const finalResult: AnalysisResult = {
+            const finalResultWithoutMastery: AnalysisResult = {
                 id: crypto.randomUUID(),
                 timestamp: new Date(),
                 patchVersion: CURRENT_PUBG_PATCH_VERSION,
@@ -487,9 +499,18 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                 loadout: { stance, muzzle, grip, stock },
                 metrics: finalMetrics,
                 diagnoses: finalDiagnoses,
-                    sensitivity: generateSensitivityRecommendation(finalMetrics, finalDiagnoses, fMouseDpi, fPlayStyle, fGripStyle, fMousepadWidth, fScopeSens as Record<string, number>, fVerticalMultiplier, subSessions.length, fDeskSpace),
+                sensitivity: generateSensitivityRecommendation(finalMetrics, finalDiagnoses, fMouseDpi, fPlayStyle, fGripStyle, fMousepadWidth, fScopeSens as Record<string, number>, fVerticalMultiplier, subSessions.length, fDeskSpace),
                 coaching: generateCoaching(finalDiagnoses, { stance, muzzle, grip, stock }, coachingContext),
                 subSessions,
+            };
+            const finalCoachPlan = buildCoachPlan({ analysisResult: finalResultWithoutMastery });
+            const finalResult: AnalysisResult = {
+                ...finalResultWithoutMastery,
+                coachPlan: finalCoachPlan,
+                mastery: resolveMeasurementTruth({
+                    ...finalResultWithoutMastery,
+                    coachPlan: finalCoachPlan,
+                }),
             };
 
             let resultToDisplay: AnalysisResult = finalResult;

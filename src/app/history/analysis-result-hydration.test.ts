@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { hydrateAnalysisResultFromHistory } from './analysis-result-hydration';
+import { resolveMeasurementTruth } from '@/core/measurement-truth';
+import {
+    analysisResultBase,
+    analysisResultWithWeakCapture,
+} from '@/core/coach-test-fixtures';
 import type { AnalysisContextDetails, CoachPlan } from '@/types/engine';
 
 function createStoredResult(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -331,5 +336,72 @@ describe('hydrateAnalysisResultFromHistory', () => {
         });
 
         expect(result.coachPlan).toBeUndefined();
+    });
+
+    it('preserves valid stored mastery from history payloads', () => {
+        const mastery = resolveMeasurementTruth(analysisResultBase);
+
+        const result = hydrateAnalysisResultFromHistory({
+            fullResult: {
+                ...analysisResultBase,
+                mastery,
+            } as unknown as Record<string, unknown>,
+            recordPatchVersion: '41.1',
+            scopeId: 'red-dot',
+            distanceMeters: 30,
+        });
+
+        expect(result.mastery).toEqual(mastery);
+    });
+
+    it('backfills missing mastery for legacy fullResult records', () => {
+        const result = hydrateAnalysisResultFromHistory({
+            fullResult: {
+                ...analysisResultBase,
+                mastery: undefined,
+            } as unknown as Record<string, unknown>,
+            recordPatchVersion: '41.1',
+            scopeId: 'red-dot',
+            distanceMeters: 30,
+        });
+
+        expect(result.mastery).toEqual(expect.objectContaining({
+            actionLabel: 'Testavel',
+            mechanicalLevelLabel: 'Avancado',
+        }));
+    });
+
+    it('drops malformed stored mastery and recomputes it', () => {
+        const result = hydrateAnalysisResultFromHistory({
+            fullResult: {
+                ...analysisResultBase,
+                mastery: {
+                    actionState: 'ready',
+                    actionLabel: 'Pronto',
+                },
+            } as unknown as Record<string, unknown>,
+            recordPatchVersion: '41.1',
+            scopeId: 'red-dot',
+            distanceMeters: 30,
+        });
+
+        expect(result.mastery).toEqual(expect.objectContaining({
+            actionLabel: 'Testavel',
+        }));
+        expect(result.mastery?.actionableScore).toEqual(expect.any(Number));
+    });
+
+    it('keeps capture_again when legacy evidence is weak', () => {
+        const result = hydrateAnalysisResultFromHistory({
+            fullResult: analysisResultWithWeakCapture as unknown as Record<string, unknown>,
+            recordPatchVersion: '41.1',
+            scopeId: 'red-dot',
+            distanceMeters: 30,
+        });
+
+        expect(result.mastery).toEqual(expect.objectContaining({
+            actionState: 'capture_again',
+            actionLabel: 'Capturar de novo',
+        }));
     });
 });

@@ -7,6 +7,7 @@ import { auth } from '@/auth';
 import { enrichAnalysisResultCoaching } from '@/core/analysis-result-coach-enrichment';
 import { buildCoachMemorySnapshot, type CoachMemoryHistorySession } from '@/core/coach-memory';
 import { buildCoachPlan } from '@/core/coach-plan-builder';
+import { resolveMeasurementTruth } from '@/core/measurement-truth';
 import {
     applySensitivityHistoryConvergence,
     type HistoricalSensitivitySignal,
@@ -305,11 +306,16 @@ export async function saveAnalysisResult(
             resultWithHistory,
             createGroqCoachClient()
         );
+        const coachPlan = buildCoachPlan({
+            analysisResult: resultWithCoaching,
+            memorySnapshot: coachMemorySnapshot,
+        });
         enrichedResult = {
             ...resultWithCoaching,
-            coachPlan: buildCoachPlan({
-                analysisResult: resultWithCoaching,
-                memorySnapshot: coachMemorySnapshot,
+            coachPlan,
+            mastery: resolveMeasurementTruth({
+                ...resultWithCoaching,
+                coachPlan,
             }),
         };
 

@@ -1,11 +1,17 @@
 import { createAnalysisContext } from '@/app/analyze/analysis-context';
 import { localizeStoredCoachPlanPtBr } from '@/core/coach-plan-builder';
+import { resolveMeasurementTruth } from '@/core/measurement-truth';
 import { normalizePatchVersion } from '@/game/pubg';
 import type {
     AnalysisResult,
     ProfileType,
     SensitivityAcceptanceFeedback,
     SensitivityAcceptanceOutcome,
+    SprayActionLabel,
+    SprayActionState,
+    SprayMastery,
+    SprayMechanicalLevel,
+    SprayMechanicalLevelLabel,
 } from '@/types/engine';
 
 type HistoryCoachPlan = NonNullable<AnalysisResult['coachPlan']>;
@@ -248,31 +254,117 @@ function normalizeCoachPlan(value: unknown): HistoryCoachPlan | undefined {
     return isCoachPlan(value) ? localizeStoredCoachPlanPtBr(value) : undefined;
 }
 
+function isSprayActionState(value: unknown): value is SprayActionState {
+    return value === 'capture_again'
+        || value === 'inconclusive'
+        || value === 'testable'
+        || value === 'ready';
+}
+
+function isSprayActionLabel(value: unknown): value is SprayActionLabel {
+    return value === 'Capturar de novo'
+        || value === 'Incerto'
+        || value === 'Testavel'
+        || value === 'Pronto';
+}
+
+function isSprayMechanicalLevel(value: unknown): value is SprayMechanicalLevel {
+    return value === 'initial'
+        || value === 'intermediate'
+        || value === 'advanced'
+        || value === 'elite';
+}
+
+function isSprayMechanicalLevelLabel(value: unknown): value is SprayMechanicalLevelLabel {
+    return value === 'Inicial'
+        || value === 'Intermediario'
+        || value === 'Avancado'
+        || value === 'Elite';
+}
+
+function isSprayMastery(value: unknown): value is SprayMastery {
+    if (!isRecord(value)) {
+        return false;
+    }
+
+    return isSprayActionState(value.actionState)
+        && isSprayActionLabel(value.actionLabel)
+        && isSprayMechanicalLevel(value.mechanicalLevel)
+        && isSprayMechanicalLevelLabel(value.mechanicalLevelLabel)
+        && isFiniteNumber(value.actionableScore)
+        && isFiniteNumber(value.mechanicalScore)
+        && isRecord(value.pillars)
+        && isFiniteNumber(value.pillars.control)
+        && isFiniteNumber(value.pillars.consistency)
+        && isFiniteNumber(value.pillars.confidence)
+        && isFiniteNumber(value.pillars.clipQuality)
+        && isRecord(value.evidence)
+        && isFiniteNumber(value.evidence.coverage)
+        && isFiniteNumber(value.evidence.confidence)
+        && isFiniteNumber(value.evidence.visibleFrames)
+        && isFiniteNumber(value.evidence.lostFrames)
+        && isFiniteNumber(value.evidence.framesProcessed)
+        && isFiniteNumber(value.evidence.sampleSize)
+        && isFiniteNumber(value.evidence.qualityScore)
+        && typeof value.evidence.usableForAnalysis === 'boolean'
+        && isStringArray(value.reasons)
+        && isStringArray(value.blockedRecommendations);
+}
+
+function normalizeMastery(result: AnalysisResult): SprayMastery | undefined {
+    if (isSprayMastery(result.mastery)) {
+        return result.mastery;
+    }
+
+    if (!result.metrics || !result.trajectory || !result.sensitivity) {
+        return undefined;
+    }
+
+    try {
+        return resolveMeasurementTruth(result);
+    } catch {
+        return undefined;
+    }
+}
+
 function normalizeHistoryAnalysisResult(result: AnalysisResult): AnalysisResult {
     const trajectory = result.trajectory as AnalysisResult['trajectory'] | undefined;
     const normalizedSubSessions = result.subSessions?.map(normalizeHistoryAnalysisResult);
     const normalizedCoachPlan = normalizeCoachPlan(result.coachPlan);
     const resultWithoutCoachPlan = { ...result };
     delete resultWithoutCoachPlan.coachPlan;
+    delete resultWithoutCoachPlan.mastery;
+    const normalizedSensitivity = result.sensitivity
+        ? normalizeSensitivityRecommendation(result)!
+        : undefined;
+    const baseResult = {
+        ...resultWithoutCoachPlan,
+        ...(normalizedSensitivity ? { sensitivity: normalizedSensitivity } : {}),
+        ...(normalizedCoachPlan ? { coachPlan: normalizedCoachPlan } : {}),
+        ...(normalizedSubSessions ? { subSessions: normalizedSubSessions } : {}),
+    } as AnalysisResult;
 
     if (!trajectory || typeof trajectory !== 'object') {
+        const normalizedMastery = normalizeMastery(baseResult);
+
         return {
-            ...resultWithoutCoachPlan,
-            ...(result.sensitivity ? { sensitivity: normalizeSensitivityRecommendation(result)! } : {}),
-            ...(normalizedCoachPlan ? { coachPlan: normalizedCoachPlan } : {}),
-            ...(normalizedSubSessions ? { subSessions: normalizedSubSessions } : {}),
+            ...baseResult,
+            ...(normalizedMastery ? { mastery: normalizedMastery } : {}),
         };
     }
 
-    return {
-        ...resultWithoutCoachPlan,
-        ...(result.sensitivity ? { sensitivity: normalizeSensitivityRecommendation(result)! } : {}),
-        ...(normalizedCoachPlan ? { coachPlan: normalizedCoachPlan } : {}),
+    const normalizedResult = {
+        ...baseResult,
         trajectory: {
             ...trajectory,
             statusCounts: normalizeTrackingStatusCounts(trajectory),
         },
-        ...(normalizedSubSessions ? { subSessions: normalizedSubSessions } : {}),
+    };
+    const normalizedMastery = normalizeMastery(normalizedResult);
+
+    return {
+        ...normalizedResult,
+        ...(normalizedMastery ? { mastery: normalizedMastery } : {}),
     };
 }
 
