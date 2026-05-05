@@ -37,6 +37,9 @@ const reviewProvenanceSourceSchema = z.enum(['machine-assisted', 'codex-assisted
 const occlusionLevelSchema = z.enum(['none', 'light', 'moderate', 'heavy']);
 const compressionLevelSchema = z.enum(['lossless', 'light', 'medium', 'heavy']);
 const visibilityTierSchema = z.enum(['clean', 'degraded', 'rejected']);
+const actionStateSchema = z.enum(['capture_again', 'inconclusive', 'testable', 'ready']);
+const mechanicalLevelSchema = z.enum(['initial', 'intermediate', 'advanced', 'elite']);
+const evidenceTierSchema = z.enum(['weak', 'moderate', 'strong']);
 
 export const benchmarkClipMediaSchema = z.object({
     videoPath: z.string().min(1),
@@ -82,11 +85,45 @@ export const benchmarkCoachPlanExpectationSchema = z.object({
     nextBlockTitle: z.string().min(1),
 });
 
+export const benchmarkTruthNextBlockExpectationSchema = z.object({
+    tier: coachDecisionTierSchema,
+    key: z.string().min(1),
+    title: z.string().min(1),
+    durationMinutes: z.number().int().positive(),
+    exercise: z.string().min(1).optional(),
+    stepMarker: z.string().min(1).optional(),
+    target: z.string().min(1),
+    minimumCoverage: z.number().min(0).max(1),
+    minimumConfidence: z.number().min(0).max(1),
+    successCondition: z.string().min(1),
+    failCondition: z.string().min(1),
+    nextClipValidation: z.string().min(1),
+}).superRefine((nextBlock, ctx) => {
+    if (!nextBlock.exercise && !nextBlock.stepMarker) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['stepMarker'],
+            message: 'nextBlock precisa de exercise ou stepMarker estavel para validar a estrutura do protocolo',
+        });
+    }
+});
+
+export const benchmarkTruthExpectationSchema = z.object({
+    actionState: actionStateSchema,
+    mechanicalLevel: mechanicalLevelSchema,
+    evidenceTier: evidenceTierSchema,
+    weakEvidenceDowngrade: z.boolean(),
+    primaryFocusArea: coachFocusAreaSchema,
+    secondaryFocusAreas: z.array(coachFocusAreaSchema).optional(),
+    nextBlock: benchmarkTruthNextBlockExpectationSchema,
+});
+
 export const benchmarkClipLabelsSchema = z.object({
     expectedDiagnoses: z.array(diagnosisTypeSchema),
     expectedCoachMode: coachModeSchema.optional(),
     expectedCoachPlan: benchmarkCoachPlanExpectationSchema.optional(),
     expectedTrackingTier: trackingTierSchema,
+    expectedTruth: benchmarkTruthExpectationSchema,
     notes: z.string().min(1).optional(),
 }).superRefine((labels, ctx) => {
     if (labels.expectedDiagnoses.length === 0 && labels.expectedCoachMode !== undefined) {
@@ -102,6 +139,42 @@ export const benchmarkClipLabelsSchema = z.object({
             code: z.ZodIssueCode.custom,
             path: ['expectedCoachMode'],
             message: 'expectedCoachMode e obrigatorio quando houver diagnosticos esperados',
+        });
+    }
+
+    if (labels.expectedDiagnoses.length > 0 && labels.expectedCoachPlan === undefined) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['expectedCoachPlan'],
+            message: 'expectedCoachPlan e obrigatorio quando houver diagnosticos esperados',
+        });
+    }
+
+    if (labels.expectedDiagnoses.length > 0 && labels.expectedTruth.nextBlock === undefined) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['expectedTruth', 'nextBlock'],
+            message: 'expectedTruth.nextBlock e obrigatorio quando houver diagnosticos esperados',
+        });
+    }
+
+    if (labels.expectedTruth.actionState === 'ready' && labels.expectedTruth.weakEvidenceDowngrade) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['expectedTruth', 'weakEvidenceDowngrade'],
+            message: 'clips prontos nao podem declarar weakEvidenceDowngrade=true',
+        });
+    }
+
+    if (
+        labels.expectedTruth.weakEvidenceDowngrade
+        && labels.expectedTruth.actionState !== 'capture_again'
+        && labels.expectedTruth.actionState !== 'inconclusive'
+    ) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['expectedTruth', 'actionState'],
+            message: 'weakEvidenceDowngrade=true exige actionState capture_again ou inconclusive',
         });
     }
 });
@@ -200,6 +273,8 @@ export type BenchmarkClipSprayWindow = z.infer<typeof benchmarkClipSprayWindowSc
 export type BenchmarkClipOptic = z.infer<typeof benchmarkClipOpticSchema>;
 export type BenchmarkClipCapture = z.infer<typeof benchmarkClipCaptureSchema>;
 export type BenchmarkCoachPlanExpectation = z.infer<typeof benchmarkCoachPlanExpectationSchema>;
+export type BenchmarkTruthNextBlockExpectation = z.infer<typeof benchmarkTruthNextBlockExpectationSchema>;
+export type BenchmarkTruthExpectation = z.infer<typeof benchmarkTruthExpectationSchema>;
 export type BenchmarkClipLabels = z.infer<typeof benchmarkClipLabelsSchema>;
 export type BenchmarkClipReviewProvenance = z.infer<typeof benchmarkClipReviewProvenanceSchema>;
 export type BenchmarkClipQuality = z.infer<typeof benchmarkClipQualitySchema>;

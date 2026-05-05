@@ -8,6 +8,27 @@ import {
     renderCapturedBenchmarkPlanMarkdown,
 } from './captured-benchmark-plan';
 
+const expectedTruth = () => ({
+    actionState: 'testable' as const,
+    mechanicalLevel: 'intermediate' as const,
+    evidenceTier: 'moderate' as const,
+    weakEvidenceDowngrade: false,
+    primaryFocusArea: 'vertical_control' as const,
+    nextBlock: {
+        tier: 'test_protocol' as const,
+        key: 'vertical-control-baseline',
+        title: 'Vertical control baseline',
+        durationMinutes: 15,
+        stepMarker: 'Run controlled three-spray validation',
+        target: 'Keep vertical spread inside the labeled control lane',
+        minimumCoverage: 0.7,
+        minimumConfidence: 0.6,
+        successCondition: 'Two of three sprays stay inside the labeled control lane.',
+        failCondition: 'More than one spray leaves the labeled control lane.',
+        nextClipValidation: 'Capture another same-loadout spray after the validation block.',
+    },
+});
+
 const dataset: BenchmarkDataset = {
     schemaVersion: 1,
     datasetId: 'captured-benchmark-draft',
@@ -41,6 +62,7 @@ const dataset: BenchmarkDataset = {
             labels: {
                 expectedDiagnoses: [],
                 expectedTrackingTier: 'clean',
+                expectedTruth: expectedTruth(),
             },
             quality: {
                 sourceType: 'captured',
@@ -81,6 +103,7 @@ const dataset: BenchmarkDataset = {
             labels: {
                 expectedDiagnoses: [],
                 expectedTrackingTier: 'degraded',
+                expectedTruth: expectedTruth(),
             },
             quality: {
                 sourceType: 'captured',
@@ -192,6 +215,7 @@ const labelSet: CapturedClipLabelSet = {
                 expectedDiagnoses: [],
                 expectedTrackingTier: 'clean',
                 expectedCoachMode: null,
+                expectedTruth: expectedTruth(),
             },
         },
         {
@@ -220,6 +244,7 @@ const labelSet: CapturedClipLabelSet = {
                 expectedDiagnoses: [],
                 expectedTrackingTier: 'degraded',
                 expectedCoachMode: null,
+                expectedTruth: expectedTruth(),
             },
         },
     ],

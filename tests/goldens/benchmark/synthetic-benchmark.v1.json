@@ -25,7 +25,32 @@
       },
       "labels": {
         "expectedDiagnoses": [],
-        "expectedTrackingTier": "clean"
+        "expectedTrackingTier": "clean",
+        "expectedTruth": {
+          "actionState": "capture_again",
+          "mechanicalLevel": "advanced",
+          "evidenceTier": "strong",
+          "weakEvidenceDowngrade": true,
+          "primaryFocusArea": "sensitivity",
+          "secondaryFocusAreas": [
+            "capture_quality",
+            "validation"
+          ],
+          "nextBlock": {
+            "tier": "capture_again",
+            "key": "capture-retry-protocol",
+            "title": "Bloco de captura limpa",
+            "durationMinutes": 5,
+            "exercise": "Grave um spray limpo com a mesma arma, mira, distancia e postura antes de mudar configuracoes.",
+            "stepMarker": "Grave um novo spray com a mesma arma, mira, distancia e postura.",
+            "target": "perfil recomendado melhora o controle sem nova instabilidade",
+            "minimumCoverage": 0.65,
+            "minimumConfidence": 0.65,
+            "successCondition": "Sucesso quando o perfil recomendado melhorar o erro principal sem derrubar a consistencia.",
+            "failCondition": "Falha se sensibilidade nao melhorar ou se a evidencia cair abaixo do limite.",
+            "nextClipValidation": "Validacao de sensibilidade"
+          }
+        }
       },
       "quality": {
         "sourceType": "synthetic",
@@ -65,7 +90,37 @@
           "underpull"
         ],
         "expectedCoachMode": "low-confidence",
-        "expectedTrackingTier": "degraded"
+        "expectedTrackingTier": "degraded",
+        "expectedCoachPlan": {
+          "tier": "capture_again",
+          "primaryFocusArea": "sensitivity",
+          "nextBlockTitle": "Bloco de captura limpa"
+        },
+        "expectedTruth": {
+          "actionState": "capture_again",
+          "mechanicalLevel": "intermediate",
+          "evidenceTier": "weak",
+          "weakEvidenceDowngrade": true,
+          "primaryFocusArea": "sensitivity",
+          "secondaryFocusAreas": [
+            "capture_quality",
+            "validation"
+          ],
+          "nextBlock": {
+            "tier": "capture_again",
+            "key": "capture-retry-protocol",
+            "title": "Bloco de captura limpa",
+            "durationMinutes": 5,
+            "exercise": "Grave um spray limpo com a mesma arma, mira, distancia e postura antes de mudar configuracoes.",
+            "stepMarker": "Grave um novo spray com a mesma arma, mira, distancia e postura.",
+            "target": "perfil recomendado melhora o controle sem nova instabilidade",
+            "minimumCoverage": 0.65,
+            "minimumConfidence": 0.65,
+            "successCondition": "Sucesso quando o perfil recomendado melhorar o erro principal sem derrubar a consistencia.",
+            "failCondition": "Falha se sensibilidade nao melhorar ou se a evidencia cair abaixo do limite.",
+            "nextClipValidation": "Validacao de sensibilidade"
+          }
+        }
       },
       "quality": {
         "sourceType": "synthetic",

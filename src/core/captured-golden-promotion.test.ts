@@ -6,6 +6,27 @@ import { parseCapturedClipLabelSet } from '@/types/captured-clip-labels';
 import { buildCapturedBenchmarkPromotion } from './captured-golden-promotion';
 
 const readJson = (path: string): unknown => JSON.parse(readFileSync(path, 'utf8'));
+const expectedTruth = {
+    actionState: 'testable',
+    mechanicalLevel: 'advanced',
+    evidenceTier: 'moderate',
+    weakEvidenceDowngrade: false,
+    primaryFocusArea: 'vertical_control',
+    nextBlock: {
+        tier: 'test_protocol',
+        key: 'vertical-control-drill-protocol',
+        title: 'Bloco curto de teste de controle vertical',
+        durationMinutes: 12,
+        exercise: 'Faca tres sprays focando em puxada constante para baixo durante a fase sustentada.',
+        stepMarker: 'Faca 3 sprays comparaveis focados em controle vertical.',
+        target: 'reduzir o erro vertical sustentado em sprays comparaveis',
+        minimumCoverage: 0.65,
+        minimumConfidence: 0.65,
+        successCondition: 'Sucesso quando controle vertical melhorar e cobertura/confianca continuarem acima do limite.',
+        failCondition: 'Falha se controle vertical nao melhorar ou se a evidencia cair abaixo do limite.',
+        nextClipValidation: 'Validacao de controle vertical',
+    },
+};
 
 describe('captured golden promotion', () => {
     it('promotes the reviewed captured clips into a benchmark dataset draft', () => {
@@ -39,6 +60,7 @@ describe('captured golden promotion', () => {
             endSeconds: 14.8,
         });
         expect(clip1?.labels.expectedDiagnoses).toEqual([]);
+        expect(clip1?.labels.expectedTruth.primaryFocusArea).toBe('sensitivity');
         expect(clip2?.capture.distanceMeters).toBe(50);
         expect(clip2?.quality.visibilityTier).toBe('degraded');
         expect(clip3?.capture.weaponId).toBe('aug');
@@ -89,7 +111,13 @@ describe('captured golden promotion', () => {
                     labels: {
                         expectedDiagnoses: ['underpull'],
                         expectedCoachMode: 'standard',
+                        expectedCoachPlan: {
+                            tier: 'test_protocol',
+                            primaryFocusArea: 'vertical_control',
+                            nextBlockTitle: 'Bloco curto de teste de controle vertical',
+                        },
                         expectedTrackingTier: 'clean',
+                        expectedTruth,
                     },
                 },
             ],
@@ -124,6 +152,7 @@ describe('captured golden promotion', () => {
             source: 'machine-assisted',
         });
         expect(promotion.dataset?.clips[0]?.quality.visibilityTier).toBe('clean');
+        expect(promotion.dataset?.clips[0]?.labels.expectedTruth).toEqual(expectedTruth);
     });
 
     it('keeps pending golden decisions as reviewed until approval is explicit', () => {
@@ -340,6 +369,8 @@ describe('captured golden promotion', () => {
                         expectedDiagnoses: null,
                         expectedCoachMode: null,
                         expectedTrackingTier: null,
+                        expectedCoachPlan: null,
+                        expectedTruth: null,
                     },
                 },
             ],
@@ -355,5 +386,23 @@ describe('captured golden promotion', () => {
         expect(promotion.dataset).toBeUndefined();
         expect(promotion.blockedClips[0]?.reason).toBe('missing-intake');
         expect(promotion.goldenClipCount).toBe(0);
+    });
+
+    it('blocks guided golden promotion without replay pass and strong justification', () => {
+        const intakeManifest = parseCapturedClipIntakeManifest(readJson('tests/fixtures/captured-clips/intake.v1.json'));
+        const labelSet = parseCapturedClipLabelSet(readJson('tests/fixtures/captured-clips/labels.todo.v1.json'));
+
+        const promotion = buildCapturedBenchmarkPromotion({
+            datasetId: 'captured-benchmark-draft',
+            createdAt: '2026-04-14T23:00:00.000Z',
+            intakeManifest,
+            labelSet,
+            targetMaturity: 'golden',
+            promotionReason: 'Promover evidencia forte para release.',
+        });
+
+        expect(promotion.dataset).toBeUndefined();
+        expect(promotion.blockedClips.some((clip) => clip.reason === 'golden-without-replay-pass')).toBe(true);
+        expect(promotion.blockedClips.some((clip) => clip.reason === 'golden-without-strong-review')).toBe(true);
     });
 });

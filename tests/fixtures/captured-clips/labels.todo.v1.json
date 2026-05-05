@@ -29,7 +29,37 @@
       "labels": {
         "expectedDiagnoses": [],
         "expectedCoachMode": null,
-        "expectedTrackingTier": "clean"
+        "expectedTrackingTier": "clean",
+        "expectedCoachPlan": {
+          "tier": "test_protocol",
+          "primaryFocusArea": "sensitivity",
+          "nextBlockTitle": "Bloco curto de teste de sensibilidade"
+        },
+        "expectedTruth": {
+          "actionState": "testable",
+          "mechanicalLevel": "advanced",
+          "evidenceTier": "moderate",
+          "weakEvidenceDowngrade": false,
+          "primaryFocusArea": "sensitivity",
+          "secondaryFocusAreas": [
+            "capture_quality",
+            "validation"
+          ],
+          "nextBlock": {
+            "tier": "test_protocol",
+            "key": "sensitivity-test-protocol",
+            "title": "Bloco curto de teste de sensibilidade",
+            "durationMinutes": 12,
+            "exercise": "Teste o perfil de sensibilidade recomendado em um bloco curto, sem assumir como definitivo ainda.",
+            "stepMarker": "Faca 3 sprays comparaveis focados em sensibilidade.",
+            "target": "perfil recomendado melhora o controle sem nova instabilidade",
+            "minimumCoverage": 0.9,
+            "minimumConfidence": 0.81,
+            "successCondition": "Sucesso quando o perfil recomendado melhorar o erro principal sem derrubar a consistencia.",
+            "failCondition": "Falha se sensibilidade nao melhorar ou se a evidencia cair abaixo do limite.",
+            "nextClipValidation": "Validacao de sensibilidade"
+          }
+        }
       },
       "notes": "Frame labels were machine-assisted from visible reticle samples. Weapon setup confirmed by player: AUG, Muzzle Brake, Thumb Grip, Red Dot Sight. HUD/build text visually suggests 40.1.x and is normalized to patchVersion 40.1. Stance, spray window, and 100m distance were visually estimated from the HUD/ADS firing segment and range boards. Expected diagnoses are set to [] because review did not show a clear, consistent overpull, underpull, jitter, drift, or inconsistency pattern."
     },
@@ -58,7 +88,37 @@
       "labels": {
         "expectedDiagnoses": [],
         "expectedCoachMode": null,
-        "expectedTrackingTier": "degraded"
+        "expectedTrackingTier": "degraded",
+        "expectedCoachPlan": {
+          "tier": "apply_protocol",
+          "primaryFocusArea": "sensitivity",
+          "nextBlockTitle": "Aplicar e validar sensibilidade"
+        },
+        "expectedTruth": {
+          "actionState": "testable",
+          "mechanicalLevel": "advanced",
+          "evidenceTier": "moderate",
+          "weakEvidenceDowngrade": false,
+          "primaryFocusArea": "sensitivity",
+          "secondaryFocusAreas": [
+            "capture_quality",
+            "validation"
+          ],
+          "nextBlock": {
+            "tier": "apply_protocol",
+            "key": "sensitivity-apply-protocol",
+            "title": "Aplicar e validar sensibilidade",
+            "durationMinutes": 20,
+            "exercise": "Aplique o perfil de sensibilidade Balanceada e deixe o VSM perto de 0.97; depois mantenha todas as outras variaveis fixas no bloco.",
+            "stepMarker": "Aplique o protocolo de sensibilidade uma vez.",
+            "target": "perfil recomendado melhora o controle sem nova instabilidade",
+            "minimumCoverage": 0.9,
+            "minimumConfidence": 0.87,
+            "successCondition": "Sucesso quando o perfil recomendado melhorar o erro principal sem derrubar a consistencia.",
+            "failCondition": "Falha se sensibilidade nao melhorar ou se a evidencia cair abaixo do limite.",
+            "nextClipValidation": "Validacao de sensibilidade"
+          }
+        }
       },
       "notes": "Frame labels were machine-assisted from visible reticle samples. Weapon setup confirmed by player: AUG, Muzzle Brake, Thumb Grip, Red Dot Sight. HUD/build text visually suggests 40.1.x and is normalized to patchVersion 40.1. Stance, spray window, and 50m distance were visually estimated from the HUD/ADS firing segment and range boards. Visual auto-triage suggests this is the degraded candidate because of foreground structure and mixed framing. Expected diagnoses are set to [] because review did not show a clear, consistent overpull, underpull, jitter, drift, or inconsistency pattern."
     },
@@ -87,7 +147,37 @@
       "labels": {
         "expectedDiagnoses": [],
         "expectedCoachMode": null,
-        "expectedTrackingTier": "clean"
+        "expectedTrackingTier": "clean",
+        "expectedCoachPlan": {
+          "tier": "apply_protocol",
+          "primaryFocusArea": "sensitivity",
+          "nextBlockTitle": "Aplicar e validar sensibilidade"
+        },
+        "expectedTruth": {
+          "actionState": "ready",
+          "mechanicalLevel": "elite",
+          "evidenceTier": "strong",
+          "weakEvidenceDowngrade": false,
+          "primaryFocusArea": "sensitivity",
+          "secondaryFocusAreas": [
+            "capture_quality",
+            "validation"
+          ],
+          "nextBlock": {
+            "tier": "apply_protocol",
+            "key": "sensitivity-apply-protocol",
+            "title": "Aplicar e validar sensibilidade",
+            "durationMinutes": 20,
+            "exercise": "Aplique o perfil de sensibilidade Balanceada e deixe o VSM perto de 0.97; depois mantenha todas as outras variaveis fixas no bloco.",
+            "stepMarker": "Aplique o protocolo de sensibilidade uma vez.",
+            "target": "perfil recomendado melhora o controle sem nova instabilidade",
+            "minimumCoverage": 0.9,
+            "minimumConfidence": 0.9,
+            "successCondition": "Sucesso quando o perfil recomendado melhorar o erro principal sem derrubar a consistencia.",
+            "failCondition": "Falha se sensibilidade nao melhorar ou se a evidencia cair abaixo do limite.",
+            "nextClipValidation": "Validacao de sensibilidade"
+          }
+        }
       },
       "notes": "Frame labels were machine-assisted from visible reticle samples. Inventory review confirms AUG with Red Dot Sight and Compensator; the grip icon was visually estimated as Thumb Grip from the attachment slot. The HUD/range markers show a 100 m training-range setup on patch 40.1.x. Spray window and stance were estimated from the late ADS firing segment, and expected diagnoses remain [] because the visible burst does not sustain a stable error signature across the sampled frames."
     },
@@ -118,7 +208,37 @@
           "overpull"
         ],
         "expectedCoachMode": "standard",
-        "expectedTrackingTier": "degraded"
+        "expectedTrackingTier": "degraded",
+        "expectedCoachPlan": {
+          "tier": "apply_protocol",
+          "primaryFocusArea": "vertical_control",
+          "nextBlockTitle": "Aplicar e validar controle vertical"
+        },
+        "expectedTruth": {
+          "actionState": "testable",
+          "mechanicalLevel": "advanced",
+          "evidenceTier": "moderate",
+          "weakEvidenceDowngrade": false,
+          "primaryFocusArea": "vertical_control",
+          "secondaryFocusAreas": [
+            "sensitivity",
+            "capture_quality"
+          ],
+          "nextBlock": {
+            "tier": "apply_protocol",
+            "key": "vertical-control-drill-protocol",
+            "title": "Aplicar e validar controle vertical",
+            "durationMinutes": 20,
+            "exercise": "Faca tres sprays focando em puxada constante para baixo durante a fase sustentada.",
+            "stepMarker": "Aplique o protocolo de controle vertical uma vez.",
+            "target": "reduzir o erro vertical sustentado em sprays comparaveis",
+            "minimumCoverage": 0.9,
+            "minimumConfidence": 0.9,
+            "successCondition": "Sucesso quando controle vertical melhorar e cobertura/confianca continuarem acima do limite.",
+            "failCondition": "Falha se controle vertical nao melhorar ou se a evidencia cair abaixo do limite.",
+            "nextClipValidation": "Validacao de controle vertical"
+          }
+        }
       },
       "notes": "Frame labels were machine-assisted from visible reticle samples. First-person weapon geometry and the HUD icon indicate a Beryl M762 with Red Dot Sight at a 100 m calibration overlay on patch 40.1.x; muzzle and grip were visually estimated from the visible weapon model because no inventory frame appears in the sampled segment. The clip is intentionally marked degraded because the stream webcam, HUD clutter, and TDM scene occlude part of the frame. The current proxy trajectory reproduces a measurable overpull pattern, so the expected diagnosis is locked to ['overpull'] with coach mode 'standard'."
     },
@@ -147,7 +267,37 @@
       "labels": {
         "expectedDiagnoses": [],
         "expectedCoachMode": null,
-        "expectedTrackingTier": "clean"
+        "expectedTrackingTier": "clean",
+        "expectedCoachPlan": {
+          "tier": "apply_protocol",
+          "primaryFocusArea": "sensitivity",
+          "nextBlockTitle": "Aplicar e validar sensibilidade"
+        },
+        "expectedTruth": {
+          "actionState": "ready",
+          "mechanicalLevel": "elite",
+          "evidenceTier": "strong",
+          "weakEvidenceDowngrade": false,
+          "primaryFocusArea": "sensitivity",
+          "secondaryFocusAreas": [
+            "capture_quality",
+            "validation"
+          ],
+          "nextBlock": {
+            "tier": "apply_protocol",
+            "key": "sensitivity-apply-protocol",
+            "title": "Aplicar e validar sensibilidade",
+            "durationMinutes": 20,
+            "exercise": "Aplique o perfil de sensibilidade Balanceada e deixe o VSM perto de 0.97; depois mantenha todas as outras variaveis fixas no bloco.",
+            "stepMarker": "Aplique o protocolo de sensibilidade uma vez.",
+            "target": "perfil recomendado melhora o controle sem nova instabilidade",
+            "minimumCoverage": 0.9,
+            "minimumConfidence": 0.9,
+            "successCondition": "Sucesso quando o perfil recomendado melhorar o erro principal sem derrubar a consistencia.",
+            "failCondition": "Falha se sensibilidade nao melhorar ou se a evidencia cair abaixo do limite.",
+            "nextClipValidation": "Validacao de sensibilidade"
+          }
+        }
       },
       "notes": "Frame labels were machine-assisted from central reticle samples and user-confirmed loadout metadata. The player confirmed AUG with Muzzle Brake, Tilted Grip, and 2x Scope at 10 m on the new clip; the patch is normalized to 41.1 to close the current SDD evidence gap. The selected spray window targets the clearest ADS segment around 7-10 s, while the rest of the clip keeps intermittent visibility because the app quality gate currently overreacts to red HUD pixels outside the center ROI."
     }

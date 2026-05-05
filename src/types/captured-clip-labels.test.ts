@@ -8,6 +8,26 @@ import {
 const labelsPath = 'tests/fixtures/captured-clips/labels.todo.v1.json';
 
 const readLabels = (): unknown => JSON.parse(readFileSync(labelsPath, 'utf8'));
+const expectedTruth = () => ({
+    actionState: 'testable' as const,
+    mechanicalLevel: 'intermediate' as const,
+    evidenceTier: 'moderate' as const,
+    weakEvidenceDowngrade: false,
+    primaryFocusArea: 'vertical_control' as const,
+    nextBlock: {
+        tier: 'test_protocol' as const,
+        key: 'vertical-control-baseline',
+        title: 'Vertical control baseline',
+        durationMinutes: 15,
+        stepMarker: 'Run controlled three-spray validation',
+        target: 'Keep vertical spread inside the labeled control lane',
+        minimumCoverage: 0.7,
+        minimumConfidence: 0.6,
+        successCondition: 'Two of three sprays stay inside the labeled control lane.',
+        failCondition: 'More than one spray leaves the labeled control lane.',
+        nextClipValidation: 'Capture another same-loadout spray after the validation block.',
+    },
+});
 
 describe('captured clip labels workflow', () => {
     it('loads the todo labels file and marks the captured corpus as golden-ready', () => {
@@ -65,7 +85,13 @@ describe('captured clip labels workflow', () => {
                     labels: {
                         expectedDiagnoses: ['underpull'],
                         expectedCoachMode: 'standard',
+                        expectedCoachPlan: {
+                            tier: 'apply_protocol',
+                            primaryFocusArea: 'vertical_control',
+                            nextBlockTitle: 'Underpull correction block',
+                        },
                         expectedTrackingTier: 'clean',
+                        expectedTruth: expectedTruth(),
                     },
                 },
             ],

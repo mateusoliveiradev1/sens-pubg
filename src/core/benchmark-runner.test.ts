@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -7,6 +7,52 @@ import { runBenchmark } from '../../scripts/run-benchmark';
 
 const datasetPath = fileURLToPath(new URL('../../tests/goldens/benchmark/synthetic-benchmark.v1.json', import.meta.url));
 const baselinePath = fileURLToPath(new URL('../../tests/goldens/benchmark/synthetic-benchmark.baseline.json', import.meta.url));
+
+const capturedSensitivityTestTruth = {
+    actionState: 'testable',
+    mechanicalLevel: 'advanced',
+    evidenceTier: 'moderate',
+    weakEvidenceDowngrade: false,
+    primaryFocusArea: 'sensitivity',
+    secondaryFocusAreas: ['capture_quality', 'validation'],
+    nextBlock: {
+        tier: 'test_protocol',
+        key: 'sensitivity-test-protocol',
+        title: 'Bloco curto de teste de sensibilidade',
+        durationMinutes: 12,
+        exercise: 'Teste o perfil de sensibilidade recomendado em um bloco curto, sem assumir como definitivo ainda.',
+        stepMarker: 'Faca 3 sprays comparaveis focados em sensibilidade.',
+        target: 'perfil recomendado melhora o controle sem nova instabilidade',
+        minimumCoverage: 0.9,
+        minimumConfidence: 0.81,
+        successCondition: 'Sucesso quando o perfil recomendado melhorar o erro principal sem derrubar a consistencia.',
+        failCondition: 'Falha se sensibilidade nao melhorar ou se a evidencia cair abaixo do limite.',
+        nextClipValidation: 'Validacao de sensibilidade',
+    },
+};
+
+const capturedSensitivityApplyTruth = {
+    actionState: 'testable',
+    mechanicalLevel: 'advanced',
+    evidenceTier: 'moderate',
+    weakEvidenceDowngrade: false,
+    primaryFocusArea: 'sensitivity',
+    secondaryFocusAreas: ['capture_quality', 'validation'],
+    nextBlock: {
+        tier: 'apply_protocol',
+        key: 'sensitivity-apply-protocol',
+        title: 'Aplicar e validar sensibilidade',
+        durationMinutes: 20,
+        exercise: 'Aplique o perfil de sensibilidade Balanceada e deixe o VSM perto de 0.97; depois mantenha todas as outras variaveis fixas no bloco.',
+        stepMarker: 'Aplique o protocolo de sensibilidade uma vez.',
+        target: 'perfil recomendado melhora o controle sem nova instabilidade',
+        minimumCoverage: 0.9,
+        minimumConfidence: 0.87,
+        successCondition: 'Sucesso quando o perfil recomendado melhorar o erro principal sem derrubar a consistencia.',
+        failCondition: 'Falha se sensibilidade nao melhorar ou se a evidencia cair abaixo do limite.',
+        nextClipValidation: 'Validacao de sensibilidade',
+    },
+};
 
 describe('runBenchmark', () => {
     it('runs tracking, diagnostics, and coach benchmarks with baseline regression summary', async () => {
@@ -21,6 +67,7 @@ describe('runBenchmark', () => {
         expect(report.summary.tracking.passed).toBe(2);
         expect(report.summary.diagnostics.passed).toBe(2);
         expect(report.summary.coach.passed).toBe(2);
+        expect(report.summary.truth.passed).toBe(2);
         expect(report.summary.tracking.meanShotAlignmentErrorMs).toBeGreaterThanOrEqual(0);
         expect(report.summary.tracking.confidenceCalibration.sampleCount).toBe(7);
         expect(report.summary.tracking.confidenceCalibration.brierScore).toBeLessThan(0.1);
@@ -29,6 +76,7 @@ describe('runBenchmark', () => {
         expect(report.sourceBreakdown.synthetic?.failedClips).toBe(0);
         expect(report.sourceBreakdown.synthetic?.tracking.meanShotAlignmentErrorMs).toBeGreaterThanOrEqual(0);
         expect(report.sourceBreakdown.synthetic?.tracking.confidenceCalibration.expectedCalibrationError).toBeGreaterThan(0);
+        expect(report.sourceBreakdown.synthetic?.truth.passed).toBe(2);
         expect(report.sourceBreakdown.captured).toBeUndefined();
         expect(report.regression?.isRegression).toBe(false);
         expect(report.clips.map((clip) => clip.clipId).sort()).toEqual([
@@ -74,6 +122,7 @@ describe('runBenchmark', () => {
                     labels: {
                         expectedDiagnoses: [],
                         expectedTrackingTier: 'clean',
+                        expectedTruth: capturedSensitivityTestTruth,
                     },
                     quality: {
                         sourceType: 'captured',
@@ -111,6 +160,7 @@ describe('runBenchmark', () => {
                     labels: {
                         expectedDiagnoses: [],
                         expectedTrackingTier: 'degraded',
+                        expectedTruth: capturedSensitivityApplyTruth,
                     },
                     quality: {
                         sourceType: 'captured',
@@ -133,9 +183,11 @@ describe('runBenchmark', () => {
         expect(report.summary.tracking.passed).toBe(2);
         expect(report.summary.diagnostics.passed).toBe(2);
         expect(report.summary.coach.passed).toBe(2);
+        expect(report.summary.truth.passed).toBe(2);
         expect(report.summary.tracking.meanShotAlignmentErrorMs).toBeGreaterThanOrEqual(0);
         expect(report.sourceBreakdown.captured?.totalClips).toBe(2);
         expect(report.sourceBreakdown.captured?.failedClips).toBe(0);
+        expect(report.sourceBreakdown.captured?.truth.passed).toBe(2);
         expect(report.summary.tracking.confidenceCalibration.expectedCalibrationError).toBeGreaterThan(0);
         expect(report.sourceBreakdown.captured?.tracking.confidenceCalibration.expectedCalibrationError).toBeGreaterThan(0);
 
@@ -171,5 +223,59 @@ describe('runBenchmark', () => {
         expect(degradedClip?.coach.fixtureName).toContain('captured-pipeline');
         expect(degradedClip?.coach.actualMode).toBeUndefined();
         expect(degradedClip?.coach.error).toBeUndefined();
+    });
+
+    it('fails a clip when expected action state drifts from the truth contract', async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), 'truth-action-drift-'));
+        const tempDatasetPath = path.join(tempDir, 'synthetic-benchmark.v1.json');
+        const dataset = JSON.parse(await readFile(datasetPath, 'utf8'));
+        dataset.clips[0].labels.expectedTruth.actionState = 'inconclusive';
+
+        await writeFile(tempDatasetPath, JSON.stringify(dataset, null, 2));
+
+        const report = await runBenchmark({
+            datasetPath: tempDatasetPath,
+        });
+        const clip = report.clips.find((item) => item.clipId === 'clean-centered-red-411');
+
+        expect(report.passed).toBe(false);
+        expect(clip?.truth.passed).toBe(false);
+        expect(clip?.truth.mismatches.some((mismatch) => mismatch.includes('actionState'))).toBe(true);
+    });
+
+    it('validates secondary focuses as an unordered set', async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), 'truth-secondary-focus-'));
+        const tempDatasetPath = path.join(tempDir, 'synthetic-benchmark.v1.json');
+        const dataset = JSON.parse(await readFile(datasetPath, 'utf8'));
+        dataset.clips[0].labels.expectedTruth.secondaryFocusAreas = [
+            ...dataset.clips[0].labels.expectedTruth.secondaryFocusAreas,
+        ].reverse();
+
+        await writeFile(tempDatasetPath, JSON.stringify(dataset, null, 2));
+
+        const report = await runBenchmark({
+            datasetPath: tempDatasetPath,
+        });
+
+        expect(report.passed).toBe(true);
+        expect(report.clips[0]?.truth.passed).toBe(true);
+    });
+
+    it('fails a clip when next-block protocol structure drifts beyond the title', async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), 'truth-next-block-'));
+        const tempDatasetPath = path.join(tempDir, 'synthetic-benchmark.v1.json');
+        const dataset = JSON.parse(await readFile(datasetPath, 'utf8'));
+        dataset.clips[0].labels.expectedTruth.nextBlock.durationMinutes += 1;
+
+        await writeFile(tempDatasetPath, JSON.stringify(dataset, null, 2));
+
+        const report = await runBenchmark({
+            datasetPath: tempDatasetPath,
+        });
+        const clip = report.clips.find((item) => item.clipId === 'clean-centered-red-411');
+
+        expect(report.passed).toBe(false);
+        expect(clip?.truth.passed).toBe(false);
+        expect(clip?.truth.mismatches.some((mismatch) => mismatch.includes('nextBlock.durationMinutes'))).toBe(true);
     });
 });

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { getAttachmentByLegacyId } from '@/game/pubg/attachment-catalog';
 import { getOptic, getOpticState } from '@/game/pubg/optic-catalog';
 import { getWeaponPatchProfile } from '@/game/pubg/weapon-patch-catalog';
+import { benchmarkCoachPlanExpectationSchema, benchmarkTruthExpectationSchema } from './benchmark';
 
 const CAPTURED_CLIP_LABEL_SET_SCHEMA_VERSION = 1 as const;
 
@@ -134,7 +135,9 @@ export const capturedClipExpectedLabelsSchema = z
     .object({
         expectedDiagnoses: z.array(diagnosisTypeSchema).nullable(),
         expectedCoachMode: coachModeSchema.nullable().optional(),
+        expectedCoachPlan: benchmarkCoachPlanExpectationSchema.nullable().optional(),
         expectedTrackingTier: trackingTierSchema.nullable(),
+        expectedTruth: benchmarkTruthExpectationSchema.nullable(),
     })
     .superRefine((labels, ctx) => {
         if (
@@ -146,6 +149,18 @@ export const capturedClipExpectedLabelsSchema = z
                 code: z.ZodIssueCode.custom,
                 path: ['expectedCoachMode'],
                 message: 'expectedCoachMode e obrigatorio quando ha diagnosticos esperados',
+            });
+        }
+
+        if (
+            labels.expectedDiagnoses !== null
+            && labels.expectedDiagnoses.length > 0
+            && (labels.expectedCoachPlan === undefined || labels.expectedCoachPlan === null)
+        ) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['expectedCoachPlan'],
+                message: 'expectedCoachPlan e obrigatorio quando ha diagnosticos esperados',
             });
         }
     });
@@ -212,6 +227,7 @@ export const summarizeCapturedClipLabel = (clip: CapturedClipLabel): CapturedCli
     pushIfMissing(missingFieldPaths, 'frameLabelsPath', clip.frameLabelsPath);
     pushIfMissing(missingFieldPaths, 'labels.expectedDiagnoses', clip.labels.expectedDiagnoses);
     pushIfMissing(missingFieldPaths, 'labels.expectedTrackingTier', clip.labels.expectedTrackingTier);
+    pushIfMissing(missingFieldPaths, 'labels.expectedTruth', clip.labels.expectedTruth);
 
     if (
         clip.labels.expectedDiagnoses !== null
@@ -219,6 +235,14 @@ export const summarizeCapturedClipLabel = (clip: CapturedClipLabel): CapturedCli
         && (clip.labels.expectedCoachMode === null || clip.labels.expectedCoachMode === undefined)
     ) {
         missingFieldPaths.push('labels.expectedCoachMode');
+    }
+
+    if (
+        clip.labels.expectedDiagnoses !== null
+        && clip.labels.expectedDiagnoses.length > 0
+        && (clip.labels.expectedCoachPlan === null || clip.labels.expectedCoachPlan === undefined)
+    ) {
+        missingFieldPaths.push('labels.expectedCoachPlan');
     }
 
     return {

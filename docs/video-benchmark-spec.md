@@ -13,7 +13,7 @@ O dataset operacional continua seguindo `src/types/benchmark.ts`:
 
 - `capture`: patch, arma, distancia, stance, optic e attachments
 - `quality`: origem, review, oclusao, compressao e tier de visibilidade
-- `labels`: diagnosticos esperados, modo de coach esperado e tier de tracking esperado
+- `labels`: diagnosticos esperados, modo/plano de coach esperado, tier de tracking esperado e `expectedTruth`
 - `fixtures`: harnesses sinteticos ou goldens auxiliares quando existirem
 
 Este documento define a cobertura minima que deve existir por dimensao. A cobertura e por eixo, nao por produto cartesiano completo; combinacoes criticas sao declaradas separadamente para evitar explosao de fixtures.
@@ -30,8 +30,40 @@ Um bucket conta para cobertura quando:
 
 - `quality.reviewStatus` e `reviewed` ou `golden`;
 - tracking label existe ou fixture sintetico equivalente existe;
+- `labels.expectedTruth` existe e usa enums internos, nao copy de UI;
 - o clip roda no benchmark sem erro estrutural;
 - clips `rejected` documentam exclusao, mas nao contam para cobertura minima.
+
+## Internal Promotion Workflow
+
+Benchmark labels and captured clip promotion are internal maintainer/dev/reviewer workflow, not public user-generated content.
+
+Maturity path:
+
+```text
+draft -> reviewed -> golden
+```
+
+Reviewed clips can count for the strict release gate when structured checks pass:
+
+- required metadata exists: patch, weapon, optic/state, attachments, distance, stance, spray window, frame labels, provenance;
+- `labels.expectedTrackingTier` is present;
+- `labels.expectedTruth` is present and stable;
+- if `labels.expectedDiagnoses` is not empty, `expectedCoachMode`, `expectedCoachPlan`, and truth next-block expectations are present;
+- the captured benchmark replays without structural error.
+
+Golden requires reviewed status, stable replay/benchmark pass, complete metadata, a strong human/specialist/Codex-assisted review justification, and a promotion reason. Missing metadata blocks promotion and must report field paths.
+
+Useful commands:
+
+```bash
+npm run promote:captured-clips -- --dry-run --clip captured-clip1-2026-04-14 --to reviewed --reason "Close release evidence gap" --reviewer maintainer --report docs/benchmark-reports/captured-promotion-2026-05-05.md
+npm run promote:captured-clips:with-review-decisions
+npm run benchmark:release
+npm run benchmark:update-baseline -- --dataset captured --reason "Intentional truth-contract change" --affected-clips "captured-clip1" --honesty-rationale "The new refusal avoids overclaiming weak evidence"
+```
+
+Run `benchmark:release` before commercial claims about precision, coaching, or paid analysis value. A correct refusal (`capture_again` or `inconclusive`) can be a pass when the clip evidence does not support a strong recommendation. Coverage impact is evidence for release readiness, not proof of perfect sensitivity or guaranteed improvement.
 
 ## Resolution Buckets
 

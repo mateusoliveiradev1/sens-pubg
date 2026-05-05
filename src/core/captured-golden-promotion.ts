@@ -8,7 +8,20 @@ import {
     type CapturedClipLabelSet,
 } from '@/types/captured-clip-labels';
 
-export type CapturedBenchmarkPromotionBlockerReason = 'missing-labels' | 'missing-intake';
+export type CapturedBenchmarkPromotionBlockerReason =
+    | 'missing-labels'
+    | 'missing-intake'
+    | 'missing-capture-metadata'
+    | 'missing-tracking-tier'
+    | 'missing-coach-expectation'
+    | 'missing-truth-expectation'
+    | 'missing-frame-labels'
+    | 'missing-spray-window'
+    | 'missing-provenance'
+    | 'missing-promotion-reason'
+    | 'golden-without-reviewed-status'
+    | 'golden-without-replay-pass'
+    | 'golden-without-strong-review';
 
 export interface CapturedBenchmarkPromotionBlocker {
     readonly clipId: string;
@@ -22,6 +35,10 @@ export interface CapturedBenchmarkPromotionInput {
     readonly intakeManifest: CapturedClipIntakeManifest;
     readonly labelSet: CapturedClipLabelSet;
     readonly reviewDecisionSet?: CapturedBenchmarkReviewDecisionSet;
+    readonly targetMaturity?: BenchmarkClip['quality']['reviewStatus'];
+    readonly promotionReason?: string;
+    readonly replayPassedClipIds?: readonly string[];
+    readonly strongReviewClipIds?: readonly string[];
 }
 
 export interface CapturedBenchmarkPromotionReport {
@@ -54,6 +71,7 @@ const toBenchmarkClip = (
 ): BenchmarkClip => {
     const expectedDiagnoses = required(label.labels.expectedDiagnoses, 'labels.expectedDiagnoses');
     const expectedTrackingTier = required(label.labels.expectedTrackingTier, 'labels.expectedTrackingTier');
+    const expectedTruth = required(label.labels.expectedTruth, 'labels.expectedTruth');
 
     return {
         clipId: label.clipId,
@@ -87,7 +105,11 @@ const toBenchmarkClip = (
             ...(label.labels.expectedCoachMode !== null && label.labels.expectedCoachMode !== undefined
                 ? { expectedCoachMode: label.labels.expectedCoachMode }
                 : {}),
+            ...(label.labels.expectedCoachPlan !== null && label.labels.expectedCoachPlan !== undefined
+                ? { expectedCoachPlan: label.labels.expectedCoachPlan }
+                : {}),
             expectedTrackingTier,
+            expectedTruth,
         },
         quality: {
             sourceType: 'captured',
@@ -100,6 +122,89 @@ const toBenchmarkClip = (
         },
     };
 };
+
+function pushBlocker(
+    blockers: CapturedBenchmarkPromotionBlocker[],
+    clipId: string,
+    reason: CapturedBenchmarkPromotionBlockerReason,
+    missingFieldPaths: readonly string[],
+): void {
+    if (missingFieldPaths.length === 0) {
+        return;
+    }
+
+    blockers.push({ clipId, reason, missingFieldPaths });
+}
+
+function collectStrictBlockers(input: {
+    readonly intakeClip: CapturedClipIntakeClip;
+    readonly label: CapturedClipLabel;
+    readonly reviewStatus: BenchmarkClip['quality']['reviewStatus'];
+    readonly reviewProvenance: BenchmarkClipReviewProvenance;
+    readonly targetMaturity?: BenchmarkClip['quality']['reviewStatus'];
+    readonly promotionReason?: string;
+    readonly replayPassedClipIds?: readonly string[];
+    readonly strongReviewClipIds?: readonly string[];
+}): readonly CapturedBenchmarkPromotionBlocker[] {
+    const blockers: CapturedBenchmarkPromotionBlocker[] = [];
+    const { label } = input;
+    const diagnosed = (label.labels.expectedDiagnoses?.length ?? 0) > 0;
+
+    pushBlocker(blockers, label.clipId, 'missing-capture-metadata', [
+        ...([
+            ['capture.patchVersion', label.capture.patchVersion],
+            ['capture.weaponId', label.capture.weaponId],
+            ['capture.distanceMeters', label.capture.distanceMeters],
+            ['capture.stance', label.capture.stance],
+            ['capture.optic.opticId', label.capture.optic.opticId],
+            ['capture.optic.stateId', label.capture.optic.stateId],
+            ['capture.attachments.muzzle', label.capture.attachments.muzzle],
+            ['capture.attachments.grip', label.capture.attachments.grip],
+            ['capture.attachments.stock', label.capture.attachments.stock],
+        ] as const)
+            .filter(([, value]) => value === null || value === undefined)
+            .map(([path]) => path),
+    ]);
+    pushBlocker(blockers, label.clipId, 'missing-tracking-tier', label.labels.expectedTrackingTier === null ? ['labels.expectedTrackingTier'] : []);
+    pushBlocker(blockers, label.clipId, 'missing-truth-expectation', label.labels.expectedTruth === null ? ['labels.expectedTruth'] : []);
+    pushBlocker(blockers, label.clipId, 'missing-frame-labels', label.frameLabelsPath === null ? ['frameLabelsPath'] : []);
+    pushBlocker(blockers, label.clipId, 'missing-spray-window', [
+        ...([
+            ['sprayWindow.startSeconds', label.sprayWindow.startSeconds],
+            ['sprayWindow.endSeconds', label.sprayWindow.endSeconds],
+        ] as const)
+            .filter(([, value]) => value === null || value === undefined)
+            .map(([path]) => path),
+    ]);
+    pushBlocker(blockers, label.clipId, 'missing-provenance', input.reviewProvenance.source ? [] : ['quality.reviewProvenance.source']);
+
+    if (diagnosed) {
+        pushBlocker(blockers, label.clipId, 'missing-coach-expectation', [
+            ...(label.labels.expectedCoachMode === null || label.labels.expectedCoachMode === undefined ? ['labels.expectedCoachMode'] : []),
+            ...(label.labels.expectedCoachPlan === null || label.labels.expectedCoachPlan === undefined ? ['labels.expectedCoachPlan'] : []),
+        ]);
+    }
+
+    if (input.targetMaturity !== undefined && !input.promotionReason?.trim()) {
+        pushBlocker(blockers, label.clipId, 'missing-promotion-reason', ['promotionReason']);
+    }
+
+    if (input.targetMaturity === 'golden') {
+        pushBlocker(blockers, label.clipId, 'golden-without-reviewed-status', input.reviewStatus === 'draft' ? ['quality.reviewStatus'] : []);
+        pushBlocker(
+            blockers,
+            label.clipId,
+            'golden-without-replay-pass',
+            input.replayPassedClipIds?.includes(label.clipId) ? [] : ['benchmark.replayPass'],
+        );
+        const hasStrongReview = input.strongReviewClipIds?.includes(label.clipId)
+            || input.reviewProvenance.source === 'specialist-reviewed'
+            || input.reviewProvenance.source === 'human-reviewed';
+        pushBlocker(blockers, label.clipId, 'golden-without-strong-review', hasStrongReview ? [] : ['review.strongJustification']);
+    }
+
+    return blockers;
+}
 
 const resolveReviewDecision = (
     clipId: string,
@@ -191,11 +296,29 @@ export const buildCapturedBenchmarkPromotion = (
             continue;
         }
 
+        const reviewStatus = input.targetMaturity ?? resolveReviewStatus(label.clipId, input.reviewDecisionSet);
+        const reviewProvenance = resolveReviewProvenance(intakeClip, label.clipId, input.reviewDecisionSet);
+        const strictBlockers = collectStrictBlockers({
+            intakeClip,
+            label,
+            reviewStatus,
+            reviewProvenance,
+            ...(input.targetMaturity ? { targetMaturity: input.targetMaturity } : {}),
+            ...(input.promotionReason ? { promotionReason: input.promotionReason } : {}),
+            ...(input.replayPassedClipIds ? { replayPassedClipIds: input.replayPassedClipIds } : {}),
+            ...(input.strongReviewClipIds ? { strongReviewClipIds: input.strongReviewClipIds } : {}),
+        });
+
+        if (strictBlockers.length > 0) {
+            blockedClips.push(...strictBlockers);
+            continue;
+        }
+
         benchmarkClips.push(toBenchmarkClip(
             intakeClip,
             label,
-            resolveReviewStatus(label.clipId, input.reviewDecisionSet),
-            resolveReviewProvenance(intakeClip, label.clipId, input.reviewDecisionSet),
+            reviewStatus,
+            reviewProvenance,
         ));
     }
 

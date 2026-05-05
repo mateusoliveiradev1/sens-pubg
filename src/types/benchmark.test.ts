@@ -1,6 +1,31 @@
 import { describe, expect, it } from 'vitest';
 import { benchmarkDatasetSchema, parseBenchmarkDataset } from './benchmark';
 
+function expectedTruth(overrides: Record<string, unknown> = {}) {
+    return {
+        actionState: 'testable',
+        mechanicalLevel: 'advanced',
+        evidenceTier: 'strong',
+        weakEvidenceDowngrade: false,
+        primaryFocusArea: 'validation',
+        secondaryFocusAreas: ['consistency'],
+        nextBlock: {
+            tier: 'test_protocol',
+            key: 'validation-block-protocol',
+            title: 'Bloco curto de teste de validacao',
+            durationMinutes: 12,
+            stepMarker: 'Faca 3 sprays comparaveis focados em validacao.',
+            target: 'evidencia mais forte para a proxima decisao do coach',
+            minimumCoverage: 0.65,
+            minimumConfidence: 0.65,
+            successCondition: 'Sucesso quando validacao melhorar e cobertura/confianca continuarem acima do limite.',
+            failCondition: 'Falha se validacao nao melhorar ou se a evidencia cair abaixo do limite.',
+            nextClipValidation: 'Validacao de validacao',
+        },
+        ...overrides,
+    };
+}
+
 describe('benchmark dataset schema', () => {
     it('accepts benchmark datasets with patch, weapon, optic, attachments, labels, and quality metadata', () => {
         const dataset = {
@@ -36,7 +61,15 @@ describe('benchmark dataset schema', () => {
                     labels: {
                         expectedDiagnoses: ['underpull'],
                         expectedCoachMode: 'standard',
+                        expectedCoachPlan: {
+                            tier: 'test_protocol',
+                            primaryFocusArea: 'vertical_control',
+                            nextBlockTitle: 'Bloco curto de teste de controle vertical',
+                        },
                         expectedTrackingTier: 'clean',
+                        expectedTruth: expectedTruth({
+                            primaryFocusArea: 'vertical_control',
+                        }),
                     },
                     quality: {
                         sourceType: 'captured',
@@ -92,6 +125,7 @@ describe('benchmark dataset schema', () => {
                     labels: {
                         expectedDiagnoses: [],
                         expectedTrackingTier: 'clean',
+                        expectedTruth: expectedTruth(),
                     },
                     quality: {
                         sourceType: 'synthetic',
@@ -171,7 +205,15 @@ describe('benchmark dataset schema', () => {
                     labels: {
                         expectedDiagnoses: ['horizontal_drift'],
                         expectedCoachMode: 'standard',
+                        expectedCoachPlan: {
+                            tier: 'test_protocol',
+                            primaryFocusArea: 'horizontal_control',
+                            nextBlockTitle: 'Bloco curto de teste de controle horizontal',
+                        },
                         expectedTrackingTier: 'degraded',
+                        expectedTruth: expectedTruth({
+                            primaryFocusArea: 'horizontal_control',
+                        }),
                     },
                     quality: {
                         sourceType: 'captured',
@@ -187,5 +229,152 @@ describe('benchmark dataset schema', () => {
         expect(result.success).toBe(false);
         expect(result.error.issues.some((issue) => issue.path.join('.') === 'clips.0.capture.optic.opticId')).toBe(true);
         expect(result.error.issues.some((issue) => issue.path.join('.') === 'clips.0.capture.attachments.grip')).toBe(true);
+    });
+
+    it('rejects ready truth expectations with weak-evidence downgrade', () => {
+        const result = benchmarkDatasetSchema.safeParse({
+            schemaVersion: 1,
+            datasetId: 'invalid-truth-dataset',
+            createdAt: '2026-04-14T12:00:00.000Z',
+            clips: [
+                {
+                    clipId: 'invalid-ready-downgrade',
+                    media: {
+                        videoPath: 'tests/goldens/real/invalid.mp4',
+                    },
+                    capture: {
+                        patchVersion: '41.1',
+                        weaponId: 'ace32',
+                        distanceMeters: 25,
+                        stance: 'standing',
+                        optic: {
+                            opticId: 'red-dot-sight',
+                            stateId: '1x',
+                        },
+                        attachments: {
+                            muzzle: 'none',
+                            grip: 'none',
+                            stock: 'none',
+                        },
+                    },
+                    labels: {
+                        expectedDiagnoses: [],
+                        expectedTrackingTier: 'clean',
+                        expectedTruth: expectedTruth({
+                            actionState: 'ready',
+                            weakEvidenceDowngrade: true,
+                        }),
+                    },
+                    quality: {
+                        sourceType: 'synthetic',
+                        reviewStatus: 'reviewed',
+                        occlusionLevel: 'none',
+                        compressionLevel: 'lossless',
+                        visibilityTier: 'clean',
+                    },
+                },
+            ],
+        });
+
+        expect(result.success).toBe(false);
+        expect(result.error.issues.some((issue) => issue.path.join('.') === 'clips.0.labels.expectedTruth.weakEvidenceDowngrade')).toBe(true);
+    });
+
+    it('rejects diagnosed clips that omit coach and truth protocol expectations', () => {
+        const result = benchmarkDatasetSchema.safeParse({
+            schemaVersion: 1,
+            datasetId: 'invalid-diagnosed-dataset',
+            createdAt: '2026-04-14T12:00:00.000Z',
+            clips: [
+                {
+                    clipId: 'diagnosed-without-plan',
+                    media: {
+                        videoPath: 'tests/goldens/real/invalid.mp4',
+                    },
+                    capture: {
+                        patchVersion: '41.1',
+                        weaponId: 'ace32',
+                        distanceMeters: 25,
+                        stance: 'standing',
+                        optic: {
+                            opticId: 'red-dot-sight',
+                            stateId: '1x',
+                        },
+                        attachments: {
+                            muzzle: 'none',
+                            grip: 'none',
+                            stock: 'none',
+                        },
+                    },
+                    labels: {
+                        expectedDiagnoses: ['underpull'],
+                        expectedTrackingTier: 'clean',
+                        expectedTruth: expectedTruth(),
+                    },
+                    quality: {
+                        sourceType: 'synthetic',
+                        reviewStatus: 'reviewed',
+                        occlusionLevel: 'none',
+                        compressionLevel: 'lossless',
+                        visibilityTier: 'clean',
+                    },
+                },
+            ],
+        });
+
+        expect(result.success).toBe(false);
+        expect(result.error.issues.some((issue) => issue.path.join('.') === 'clips.0.labels.expectedCoachMode')).toBe(true);
+        expect(result.error.issues.some((issue) => issue.path.join('.') === 'clips.0.labels.expectedCoachPlan')).toBe(true);
+    });
+
+    it('accepts stable truth enums without user-facing UI labels', () => {
+        const result = benchmarkDatasetSchema.safeParse({
+            schemaVersion: 1,
+            datasetId: 'stable-truth-dataset',
+            createdAt: '2026-04-14T12:00:00.000Z',
+            clips: [
+                {
+                    clipId: 'stable-truth',
+                    media: {
+                        videoPath: 'tests/goldens/tracking/clean-centered-red.json',
+                    },
+                    capture: {
+                        patchVersion: '41.1',
+                        weaponId: 'ace32',
+                        distanceMeters: 25,
+                        stance: 'standing',
+                        optic: {
+                            opticId: 'red-dot-sight',
+                            stateId: '1x',
+                        },
+                        attachments: {
+                            muzzle: 'compensator',
+                            grip: 'vertical',
+                            stock: 'none',
+                        },
+                    },
+                    labels: {
+                        expectedDiagnoses: [],
+                        expectedTrackingTier: 'clean',
+                        expectedTruth: expectedTruth({
+                            actionState: 'inconclusive',
+                            evidenceTier: 'weak',
+                            weakEvidenceDowngrade: true,
+                        }),
+                    },
+                    quality: {
+                        sourceType: 'synthetic',
+                        reviewStatus: 'reviewed',
+                        occlusionLevel: 'none',
+                        compressionLevel: 'lossless',
+                        visibilityTier: 'clean',
+                    },
+                },
+            ],
+        });
+
+        expect(result.success).toBe(true);
+        expect(JSON.stringify(result.data.clips[0]?.labels.expectedTruth)).not.toContain('Pronto');
+        expect(JSON.stringify(result.data.clips[0]?.labels.expectedTruth)).not.toContain('Capturar de novo');
     });
 });

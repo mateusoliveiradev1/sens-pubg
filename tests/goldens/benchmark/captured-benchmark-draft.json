@@ -37,7 +37,32 @@
           "primaryFocusArea": "sensitivity",
           "nextBlockTitle": "Bloco curto de teste de sensibilidade"
         },
-        "expectedTrackingTier": "clean"
+        "expectedTrackingTier": "clean",
+        "expectedTruth": {
+          "actionState": "testable",
+          "mechanicalLevel": "advanced",
+          "evidenceTier": "moderate",
+          "weakEvidenceDowngrade": false,
+          "primaryFocusArea": "sensitivity",
+          "secondaryFocusAreas": [
+            "capture_quality",
+            "validation"
+          ],
+          "nextBlock": {
+            "tier": "test_protocol",
+            "key": "sensitivity-test-protocol",
+            "title": "Bloco curto de teste de sensibilidade",
+            "durationMinutes": 12,
+            "exercise": "Teste o perfil de sensibilidade recomendado em um bloco curto, sem assumir como definitivo ainda.",
+            "stepMarker": "Faca 3 sprays comparaveis focados em sensibilidade.",
+            "target": "perfil recomendado melhora o controle sem nova instabilidade",
+            "minimumCoverage": 0.9,
+            "minimumConfidence": 0.81,
+            "successCondition": "Sucesso quando o perfil recomendado melhorar o erro principal sem derrubar a consistencia.",
+            "failCondition": "Falha se sensibilidade nao melhorar ou se a evidencia cair abaixo do limite.",
+            "nextClipValidation": "Validacao de sensibilidade"
+          }
+        }
       },
       "quality": {
         "sourceType": "captured",
@@ -87,7 +112,32 @@
           "primaryFocusArea": "sensitivity",
           "nextBlockTitle": "Aplicar e validar sensibilidade"
         },
-        "expectedTrackingTier": "degraded"
+        "expectedTrackingTier": "degraded",
+        "expectedTruth": {
+          "actionState": "testable",
+          "mechanicalLevel": "advanced",
+          "evidenceTier": "moderate",
+          "weakEvidenceDowngrade": false,
+          "primaryFocusArea": "sensitivity",
+          "secondaryFocusAreas": [
+            "capture_quality",
+            "validation"
+          ],
+          "nextBlock": {
+            "tier": "apply_protocol",
+            "key": "sensitivity-apply-protocol",
+            "title": "Aplicar e validar sensibilidade",
+            "durationMinutes": 20,
+            "exercise": "Aplique o perfil de sensibilidade Balanceada e deixe o VSM perto de 0.97; depois mantenha todas as outras variaveis fixas no bloco.",
+            "stepMarker": "Aplique o protocolo de sensibilidade uma vez.",
+            "target": "perfil recomendado melhora o controle sem nova instabilidade",
+            "minimumCoverage": 0.9,
+            "minimumConfidence": 0.87,
+            "successCondition": "Sucesso quando o perfil recomendado melhorar o erro principal sem derrubar a consistencia.",
+            "failCondition": "Falha se sensibilidade nao melhorar ou se a evidencia cair abaixo do limite.",
+            "nextClipValidation": "Validacao de sensibilidade"
+          }
+        }
       },
       "quality": {
         "sourceType": "captured",
@@ -135,7 +185,32 @@
           "primaryFocusArea": "sensitivity",
           "nextBlockTitle": "Aplicar e validar sensibilidade"
         },
-        "expectedTrackingTier": "clean"
+        "expectedTrackingTier": "clean",
+        "expectedTruth": {
+          "actionState": "ready",
+          "mechanicalLevel": "elite",
+          "evidenceTier": "strong",
+          "weakEvidenceDowngrade": false,
+          "primaryFocusArea": "sensitivity",
+          "secondaryFocusAreas": [
+            "capture_quality",
+            "validation"
+          ],
+          "nextBlock": {
+            "tier": "apply_protocol",
+            "key": "sensitivity-apply-protocol",
+            "title": "Aplicar e validar sensibilidade",
+            "durationMinutes": 20,
+            "exercise": "Aplique o perfil de sensibilidade Balanceada e deixe o VSM perto de 0.97; depois mantenha todas as outras variaveis fixas no bloco.",
+            "stepMarker": "Aplique o protocolo de sensibilidade uma vez.",
+            "target": "perfil recomendado melhora o controle sem nova instabilidade",
+            "minimumCoverage": 0.9,
+            "minimumConfidence": 0.9,
+            "successCondition": "Sucesso quando o perfil recomendado melhorar o erro principal sem derrubar a consistencia.",
+            "failCondition": "Falha se sensibilidade nao melhorar ou se a evidencia cair abaixo do limite.",
+            "nextClipValidation": "Validacao de sensibilidade"
+          }
+        }
       },
       "quality": {
         "sourceType": "captured",
@@ -186,7 +261,32 @@
           "primaryFocusArea": "vertical_control",
           "nextBlockTitle": "Aplicar e validar controle vertical"
         },
-        "expectedTrackingTier": "degraded"
+        "expectedTrackingTier": "degraded",
+        "expectedTruth": {
+          "actionState": "testable",
+          "mechanicalLevel": "advanced",
+          "evidenceTier": "moderate",
+          "weakEvidenceDowngrade": false,
+          "primaryFocusArea": "vertical_control",
+          "secondaryFocusAreas": [
+            "sensitivity",
+            "capture_quality"
+          ],
+          "nextBlock": {
+            "tier": "apply_protocol",
+            "key": "vertical-control-drill-protocol",
+            "title": "Aplicar e validar controle vertical",
+            "durationMinutes": 20,
+            "exercise": "Faca tres sprays focando em puxada constante para baixo durante a fase sustentada.",
+            "stepMarker": "Aplique o protocolo de controle vertical uma vez.",
+            "target": "reduzir o erro vertical sustentado em sprays comparaveis",
+            "minimumCoverage": 0.9,
+            "minimumConfidence": 0.9,
+            "successCondition": "Sucesso quando controle vertical melhorar e cobertura/confianca continuarem acima do limite.",
+            "failCondition": "Falha se controle vertical nao melhorar ou se a evidencia cair abaixo do limite.",
+            "nextClipValidation": "Validacao de controle vertical"
+          }
+        }
       },
       "quality": {
         "sourceType": "captured",
@@ -234,7 +334,32 @@
           "primaryFocusArea": "sensitivity",
           "nextBlockTitle": "Aplicar e validar sensibilidade"
         },
-        "expectedTrackingTier": "clean"
+        "expectedTrackingTier": "clean",
+        "expectedTruth": {
+          "actionState": "ready",
+          "mechanicalLevel": "elite",
+          "evidenceTier": "strong",
+          "weakEvidenceDowngrade": false,
+          "primaryFocusArea": "sensitivity",
+          "secondaryFocusAreas": [
+            "capture_quality",
+            "validation"
+          ],
+          "nextBlock": {
+            "tier": "apply_protocol",
+            "key": "sensitivity-apply-protocol",
+            "title": "Aplicar e validar sensibilidade",
+            "durationMinutes": 20,
+            "exercise": "Aplique o perfil de sensibilidade Balanceada e deixe o VSM perto de 0.97; depois mantenha todas as outras variaveis fixas no bloco.",
+            "stepMarker": "Aplique o protocolo de sensibilidade uma vez.",
+            "target": "perfil recomendado melhora o controle sem nova instabilidade",
+            "minimumCoverage": 0.9,
+            "minimumConfidence": 0.9,
+            "successCondition": "Sucesso quando o perfil recomendado melhorar o erro principal sem derrubar a consistencia.",
+            "failCondition": "Falha se sensibilidade nao melhorar ou se a evidencia cair abaixo do limite.",
+            "nextClipValidation": "Validacao de sensibilidade"
+          }
+        }
       },
       "quality": {
         "sourceType": "captured",

@@ -5,11 +5,12 @@ import { resolveSprayProjectionConfig } from '../src/app/analyze/analysis-sessio
 import type { TrackingResult } from '../src/core/crosshair-tracking';
 import { buildTrajectory, calculateSprayMetrics, generateCoaching, generateSensitivityRecommendation, runDiagnostics as runCoreDiagnostics } from '../src/core';
 import { buildCoachPlan } from '../src/core/coach-plan-builder';
+import { resolveMeasurementTruth } from '../src/core/measurement-truth';
 import { getWeapon } from '../src/game/pubg';
 import { asMilliseconds, asPixels, asScore } from '../src/types/branded';
 import { parseCapturedFrameLabelTemplate, type CapturedFrameLabelTemplate } from '../src/types/captured-frame-labels';
-import { parseBenchmarkDataset, type BenchmarkClip, type BenchmarkCoachPlanExpectation, type BenchmarkDataset } from '../src/types/benchmark';
-import type { AnalysisResult, CoachFeedback, CoachMode, Diagnosis, TrackingFrameStatus, VideoQualityReport, WeaponLoadout } from '../src/types/engine';
+import { parseBenchmarkDataset, type BenchmarkClip, type BenchmarkCoachPlanExpectation, type BenchmarkDataset, type BenchmarkTruthExpectation } from '../src/types/benchmark';
+import type { AnalysisResult, CoachFeedback, CoachMode, Diagnosis, MetricEvidenceQuality, SprayMetricQuality, SprayMetricQualityKey, SprayMetrics, TrackingFrameStatus, VideoQualityReport, WeaponLoadout } from '../src/types/engine';
 import {
     evaluateCoachGoldenFixture,
     loadCoachGoldenFixture,
@@ -17,6 +18,7 @@ import {
 import {
     evaluateDiagnosticGoldenFixture,
     loadDiagnosticGoldenFixture,
+    type DiagnosticGoldenFixture,
 } from './run-diagnostic-goldens';
 import {
     evaluateTrackingGoldenFixture,
@@ -29,6 +31,8 @@ import {
 export interface BenchmarkClipResult {
     readonly clipId: string;
     readonly sourceType: BenchmarkSourceType;
+    readonly reviewStatus: BenchmarkClip['quality']['reviewStatus'];
+    readonly reviewProvenanceSource?: NonNullable<BenchmarkClip['quality']['reviewProvenance']>['source'];
     readonly passed: boolean;
     readonly tracking: {
         readonly passed: boolean;
@@ -58,6 +62,14 @@ export interface BenchmarkClipResult {
         readonly actualPlan?: BenchmarkCoachPlanExpectation;
         readonly error?: string;
     };
+    readonly truth: {
+        readonly passed: boolean;
+        readonly fixtureName: string;
+        readonly expected: BenchmarkTruthExpectation;
+        readonly actual?: BenchmarkTruthExpectation;
+        readonly mismatches: readonly string[];
+        readonly error?: string;
+    };
 }
 
 export type BenchmarkSourceType = BenchmarkClip['quality']['sourceType'];
@@ -82,6 +94,10 @@ export interface BenchmarkReportSummary {
         readonly passed: number;
         readonly total: number;
     };
+    readonly truth: {
+        readonly passed: number;
+        readonly total: number;
+    };
     readonly score: number;
 }
 
@@ -96,6 +112,7 @@ export interface BenchmarkRegressionBaseline {
         readonly trackingMeanShotAlignmentErrorMs: number;
         readonly diagnosticsPassRate: number;
         readonly coachPassRate: number;
+        readonly truthPassRate?: number;
     };
 }
 
@@ -110,6 +127,7 @@ export interface BenchmarkRegressionResult {
         readonly trackingMeanShotAlignmentErrorMs: number;
         readonly diagnosticsPassRate: number;
         readonly coachPassRate: number;
+        readonly truthPassRate?: number;
     };
 }
 
@@ -127,6 +145,27 @@ export interface RunBenchmarkOptions {
     readonly datasetPath?: string;
     readonly baselinePath?: string;
 }
+
+const metricQualityKeys: readonly SprayMetricQualityKey[] = [
+    'stabilityScore',
+    'verticalControlIndex',
+    'horizontalNoiseIndex',
+    'shotAlignmentErrorMs',
+    'angularErrorDegrees',
+    'linearErrorCm',
+    'linearErrorSeverity',
+    'initialRecoilResponseMs',
+    'driftDirectionBias',
+    'consistencyScore',
+    'burstVCI',
+    'sustainedVCI',
+    'fatigueVCI',
+    'burstHNI',
+    'sustainedHNI',
+    'fatigueHNI',
+    'shotResiduals',
+    'sprayScore',
+] as const;
 
 function toFixedNumber(value: number, digits = 4): number {
     return Number(value.toFixed(digits));
@@ -174,6 +213,48 @@ function emptyConfidenceCalibration(): ConfidenceCalibrationSummary {
         observedVisibleRate: 0,
         brierScore: 0,
         expectedCalibrationError: 0,
+    };
+}
+
+function makeMetricQuality(overrides: Partial<MetricEvidenceQuality> = {}): SprayMetricQuality {
+    const evidence: MetricEvidenceQuality = {
+        coverage: 1,
+        confidence: 1,
+        sampleSize: 30,
+        framesTracked: 30,
+        framesLost: 0,
+        framesProcessed: 30,
+        ...overrides,
+    };
+
+    return Object.fromEntries(
+        metricQualityKeys.map((key) => [key, evidence])
+    ) as SprayMetricQuality;
+}
+
+function makeDiagnosticMetrics(fixture: DiagnosticGoldenFixture): SprayMetrics {
+    return {
+        stabilityScore: asScore(70),
+        verticalControlIndex: 1.0,
+        horizontalNoiseIndex: 0.1,
+        shotAlignmentErrorMs: 0,
+        angularErrorDegrees: 0.1,
+        linearErrorCm: 1,
+        linearErrorSeverity: 1,
+        targetDistanceMeters: 30,
+        initialRecoilResponseMs: asMilliseconds(100),
+        driftDirectionBias: { direction: 'neutral', magnitude: 0 },
+        consistencyScore: asScore(70),
+        burstVCI: 1.0,
+        sustainedVCI: 1.0,
+        fatigueVCI: 1.0,
+        burstHNI: 0.1,
+        sustainedHNI: 0.1,
+        fatigueHNI: 0.1,
+        shotResiduals: [],
+        metricQuality: makeMetricQuality(fixture.metricQualityOverrides ?? {}),
+        sprayScore: 80,
+        ...(fixture.metricOverrides ?? {}),
     };
 }
 
@@ -254,6 +335,7 @@ interface CapturedBenchmarkProxy {
     readonly diagnoses: readonly Diagnosis[];
     readonly coaching: readonly CoachFeedback[];
     readonly coachPlan: BenchmarkCoachPlanExpectation;
+    readonly truth: BenchmarkTruthExpectation;
 }
 
 type CapturedLabelStatus = Exclude<CapturedFrameLabelTemplate['frames'][number]['label']['status'], null>;
@@ -580,7 +662,7 @@ function buildCapturedBenchmarkProxy(
         1,
         45,
     );
-    const analysisResult: AnalysisResult = {
+    const analysisResultBase: AnalysisResult = {
         id: clip.clipId,
         timestamp: new Date(clip.quality.reviewProvenance?.reviewedAt ?? '2026-04-18T00:00:00.000Z'),
         patchVersion: clip.capture.patchVersion,
@@ -605,7 +687,20 @@ function buildCapturedBenchmarkProxy(
         sensitivity,
         coaching,
     };
-    const coachPlan = buildCoachPlan({ analysisResult });
+    const coachPlan = buildCoachPlan({ analysisResult: analysisResultBase });
+    const mastery = resolveMeasurementTruth({
+        metrics,
+        trajectory,
+        sensitivity,
+        ...(analysisResultBase.videoQualityReport ? { videoQualityReport: analysisResultBase.videoQualityReport } : {}),
+        diagnoses,
+        coachPlan,
+    });
+    const analysisResult: AnalysisResult = {
+        ...analysisResultBase,
+        coachPlan,
+        mastery,
+    };
 
     return {
         trackingFixture: buildTrackingGoldenFixtureFromCapturedLabels(clip, template),
@@ -614,6 +709,7 @@ function buildCapturedBenchmarkProxy(
         diagnoses,
         coaching,
         coachPlan: toStableCoachPlanExpectation(coachPlan),
+        truth: toStableTruthExpectation(analysisResult, coachPlan),
     };
 }
 
@@ -659,6 +755,25 @@ function scoreForVisibilityTier(tier: BenchmarkClip['quality']['visibilityTier']
     }
 }
 
+function evidenceTierForMastery(input: AnalysisResult): BenchmarkTruthExpectation['evidenceTier'] {
+    const mastery = input.mastery;
+    const coverage = mastery?.evidence.coverage ?? 0;
+    const confidence = mastery?.evidence.confidence ?? 0;
+    const qualityScore = mastery?.evidence.qualityScore ?? 0;
+    const usableForAnalysis = mastery?.evidence.usableForAnalysis ?? true;
+    const weakestEvidence = Math.min(coverage, confidence);
+
+    if (!usableForAnalysis || weakestEvidence < 0.6) {
+        return 'weak';
+    }
+
+    if (weakestEvidence >= 0.8 && qualityScore >= 70) {
+        return 'strong';
+    }
+
+    return 'moderate';
+}
+
 function toStableCoachPlanExpectation(
     coachPlan: ReturnType<typeof buildCoachPlan>
 ): BenchmarkCoachPlanExpectation {
@@ -666,6 +781,48 @@ function toStableCoachPlanExpectation(
         tier: coachPlan.tier,
         primaryFocusArea: coachPlan.primaryFocus.area,
         nextBlockTitle: coachPlan.nextBlock.title,
+    };
+}
+
+function toStableTruthExpectation(
+    analysisResult: AnalysisResult,
+    coachPlan: ReturnType<typeof buildCoachPlan>
+): BenchmarkTruthExpectation {
+    const mastery = analysisResult.mastery ?? resolveMeasurementTruth({
+        metrics: analysisResult.metrics,
+        trajectory: analysisResult.trajectory,
+        sensitivity: analysisResult.sensitivity,
+        ...(analysisResult.videoQualityReport ? { videoQualityReport: analysisResult.videoQualityReport } : {}),
+        diagnoses: analysisResult.diagnoses,
+        coachPlan,
+        ...(analysisResult.subSessions ? { subSessions: analysisResult.subSessions } : {}),
+    });
+    const nextBlockCheck = coachPlan.nextBlock.checks[0];
+    const primaryProtocol = coachPlan.actionProtocols[0];
+
+    return {
+        actionState: mastery.actionState,
+        mechanicalLevel: mastery.mechanicalLevel,
+        evidenceTier: evidenceTierForMastery({ ...analysisResult, mastery }),
+        weakEvidenceDowngrade: mastery.blockedRecommendations.length > 0,
+        primaryFocusArea: coachPlan.primaryFocus.area,
+        ...(coachPlan.secondaryFocuses.length > 0
+            ? { secondaryFocusAreas: coachPlan.secondaryFocuses.map((focus) => focus.area) }
+            : {}),
+        nextBlock: {
+            tier: coachPlan.tier,
+            key: primaryProtocol?.id ?? coachPlan.nextBlock.title,
+            title: coachPlan.nextBlock.title,
+            durationMinutes: coachPlan.nextBlock.durationMinutes,
+            ...(primaryProtocol ? { exercise: primaryProtocol.instruction } : {}),
+            ...(coachPlan.nextBlock.steps[0] ? { stepMarker: coachPlan.nextBlock.steps[0] } : {}),
+            target: nextBlockCheck?.target ?? coachPlan.nextBlock.title,
+            minimumCoverage: nextBlockCheck?.minimumCoverage ?? 0,
+            minimumConfidence: nextBlockCheck?.minimumConfidence ?? 0,
+            successCondition: nextBlockCheck?.successCondition ?? coachPlan.nextBlock.title,
+            failCondition: nextBlockCheck?.failCondition ?? coachPlan.nextBlock.title,
+            nextClipValidation: nextBlockCheck?.label ?? coachPlan.nextBlock.title,
+        },
     };
 }
 
@@ -689,6 +846,88 @@ function createCapturedBenchmarkProxyLoader(
             .then((template) => buildCapturedBenchmarkProxy(clip, template));
         return proxyPromise;
     };
+}
+
+async function buildSyntheticTruthExpectation(clip: BenchmarkClip): Promise<BenchmarkTruthExpectation> {
+    const weapon = getWeapon(clip.capture.weaponId);
+    if (!weapon) {
+        throw new Error(`weaponId "${clip.capture.weaponId}" nao existe para o clip ${clip.clipId}`);
+    }
+
+    const trackingFixturePath = clip.fixtures?.trackingFixturePath;
+    const diagnosticFixturePath = clip.fixtures?.diagnosticFixturePath;
+    if (!trackingFixturePath || !diagnosticFixturePath) {
+        throw new Error(`Clip ${clip.clipId} precisa de trackingFixturePath e diagnosticFixturePath para validar truth`);
+    }
+
+    const trackingFixture = await loadTrackingGoldenFixture(resolveInputPath(trackingFixturePath));
+    const diagnosticFixture = await loadDiagnosticGoldenFixture(resolveInputPath(diagnosticFixturePath));
+    const trackingResult = buildTrackingResultFromTrackingFixture(trackingFixture);
+    const trajectory = buildTrajectory(trackingResult, weapon);
+    const loadout: WeaponLoadout = {
+        stance: clip.capture.stance,
+        muzzle: clip.capture.attachments.muzzle,
+        grip: clip.capture.attachments.grip,
+        stock: clip.capture.attachments.stock,
+    };
+    const metrics = makeDiagnosticMetrics(diagnosticFixture);
+    const diagnoses = runCoreDiagnostics(metrics, weapon.category);
+    const coaching = generateCoaching(diagnoses, loadout, {
+        patchVersion: clip.capture.patchVersion,
+        opticId: clip.capture.optic.opticId,
+        opticStateId: clip.capture.optic.stateId,
+    });
+    const sensitivity = generateSensitivityRecommendation(
+        metrics,
+        diagnoses,
+        800,
+        'hybrid',
+        'claw',
+        45,
+        {},
+        1,
+        45,
+    );
+    const analysisResultBase: AnalysisResult = {
+        id: clip.clipId,
+        timestamp: new Date(clip.quality.reviewProvenance?.reviewedAt ?? '2026-04-18T00:00:00.000Z'),
+        patchVersion: clip.capture.patchVersion,
+        analysisContext: {
+            targetDistanceMeters: clip.capture.distanceMeters,
+            distanceMode: 'exact',
+            optic: {
+                scopeId: clip.capture.optic.opticId,
+                opticId: clip.capture.optic.opticId,
+                opticStateId: clip.capture.optic.stateId,
+                opticName: clip.capture.optic.opticId,
+                opticStateName: clip.capture.optic.stateId,
+                availableStateIds: [clip.capture.optic.stateId],
+                isDynamicOptic: false,
+            },
+        },
+        videoQualityReport: buildBenchmarkVideoQualityReport(clip),
+        trajectory,
+        loadout,
+        metrics,
+        diagnoses,
+        sensitivity,
+        coaching,
+    };
+    const coachPlan = buildCoachPlan({ analysisResult: analysisResultBase });
+    const mastery = resolveMeasurementTruth({
+        metrics,
+        trajectory,
+        sensitivity,
+        ...(analysisResultBase.videoQualityReport ? { videoQualityReport: analysisResultBase.videoQualityReport } : {}),
+        diagnoses,
+        coachPlan,
+    });
+
+    return toStableTruthExpectation({
+        ...analysisResultBase,
+        coachPlan,
+        mastery,
+    }, coachPlan);
 }
 
 function deriveTrackingTier(result: TrackingGoldenFixtureResult): 'clean' | 'degraded' {
@@ -851,19 +1090,93 @@ async function runCoachBenchmark(
     }
 }
 
+function compareTruthExpectation(
+    expected: BenchmarkTruthExpectation,
+    actual: BenchmarkTruthExpectation
+): readonly string[] {
+    const mismatches: string[] = [];
+    const compareField = (pathName: string, expectedValue: unknown, actualValue: unknown): void => {
+        if (stableJson(expectedValue) !== stableJson(actualValue)) {
+            mismatches.push(`${pathName}: expected ${stableJson(expectedValue)} but received ${stableJson(actualValue)}`);
+        }
+    };
+
+    compareField('actionState', expected.actionState, actual.actionState);
+    compareField('mechanicalLevel', expected.mechanicalLevel, actual.mechanicalLevel);
+    compareField('evidenceTier', expected.evidenceTier, actual.evidenceTier);
+    compareField('weakEvidenceDowngrade', expected.weakEvidenceDowngrade, actual.weakEvidenceDowngrade);
+    compareField('primaryFocusArea', expected.primaryFocusArea, actual.primaryFocusArea);
+    compareField(
+        'secondaryFocusAreas',
+        [...(expected.secondaryFocusAreas ?? [])].sort(),
+        [...(actual.secondaryFocusAreas ?? [])].sort()
+    );
+    compareField('nextBlock.tier', expected.nextBlock.tier, actual.nextBlock.tier);
+    compareField('nextBlock.key', expected.nextBlock.key, actual.nextBlock.key);
+    compareField('nextBlock.title', expected.nextBlock.title, actual.nextBlock.title);
+    compareField('nextBlock.durationMinutes', expected.nextBlock.durationMinutes, actual.nextBlock.durationMinutes);
+    compareField('nextBlock.exercise', expected.nextBlock.exercise, actual.nextBlock.exercise);
+    compareField('nextBlock.stepMarker', expected.nextBlock.stepMarker, actual.nextBlock.stepMarker);
+    compareField('nextBlock.target', expected.nextBlock.target, actual.nextBlock.target);
+    compareField('nextBlock.minimumCoverage', expected.nextBlock.minimumCoverage, actual.nextBlock.minimumCoverage);
+    compareField('nextBlock.minimumConfidence', expected.nextBlock.minimumConfidence, actual.nextBlock.minimumConfidence);
+    compareField('nextBlock.successCondition', expected.nextBlock.successCondition, actual.nextBlock.successCondition);
+    compareField('nextBlock.failCondition', expected.nextBlock.failCondition, actual.nextBlock.failCondition);
+    compareField('nextBlock.nextClipValidation', expected.nextBlock.nextClipValidation, actual.nextBlock.nextClipValidation);
+
+    return mismatches;
+}
+
+async function runTruthBenchmark(
+    clip: BenchmarkClip,
+    loadCapturedProxy?: () => Promise<CapturedBenchmarkProxy>
+): Promise<BenchmarkClipResult['truth']> {
+    try {
+        const actual = clip.quality.sourceType === 'captured'
+            ? (await loadCapturedProxy?.())?.truth
+            : await buildSyntheticTruthExpectation(clip);
+
+        if (!actual) {
+            throw new Error(`Clip ${clip.clipId} nao possui proxy suficiente para validar truth`);
+        }
+
+        const mismatches = compareTruthExpectation(clip.labels.expectedTruth, actual);
+
+        return {
+            passed: mismatches.length === 0,
+            fixtureName: `${clip.quality.sourceType}-truth:${clip.clipId}`,
+            expected: clip.labels.expectedTruth,
+            actual,
+            mismatches,
+        };
+    } catch (error) {
+        return {
+            passed: false,
+            fixtureName: '(missing truth proxy)',
+            expected: clip.labels.expectedTruth,
+            mismatches: [],
+            error: error instanceof Error ? error.message : 'erro desconhecido no benchmark de truth',
+        };
+    }
+}
+
 async function evaluateClip(clip: BenchmarkClip): Promise<BenchmarkClipResult> {
     const loadCapturedProxy = createCapturedBenchmarkProxyLoader(clip);
     const tracking = await runTrackingBenchmark(clip, loadCapturedProxy);
     const diagnostics = await runDiagnosticBenchmark(clip, loadCapturedProxy);
     const coach = await runCoachBenchmark(clip, loadCapturedProxy);
+    const truth = await runTruthBenchmark(clip, loadCapturedProxy);
 
     return {
         clipId: clip.clipId,
         sourceType: clip.quality.sourceType,
-        passed: tracking.passed && diagnostics.passed && coach.passed,
+        reviewStatus: clip.quality.reviewStatus,
+        ...(clip.quality.reviewProvenance?.source ? { reviewProvenanceSource: clip.quality.reviewProvenance.source } : {}),
+        passed: tracking.passed && diagnostics.passed && coach.passed && truth.passed,
         tracking,
         diagnostics,
         coach,
+        truth,
     };
 }
 
@@ -872,6 +1185,7 @@ function buildSummary(clips: readonly BenchmarkClipResult[]): BenchmarkReportSum
     const trackingPassed = clips.filter((clip) => clip.tracking.passed).length;
     const diagnosticsPassed = clips.filter((clip) => clip.diagnostics.passed).length;
     const coachPassed = clips.filter((clip) => clip.coach.passed).length;
+    const truthPassed = clips.filter((clip) => clip.truth.passed).length;
     const totalClips = clips.length;
     const trackingMeanCoverage = totalClips > 0
         ? clips.reduce((sum, clip) => sum + clip.tracking.coverage, 0) / totalClips
@@ -888,8 +1202,9 @@ function buildSummary(clips: readonly BenchmarkClipResult[]): BenchmarkReportSum
     const score = toFixedNumber((
         passRate(trackingPassed, totalClips) +
         passRate(diagnosticsPassed, totalClips) +
-        passRate(coachPassed, totalClips)
-    ) / 3 * 100, 2);
+        passRate(coachPassed, totalClips) +
+        passRate(truthPassed, totalClips)
+    ) / 4 * 100, 2);
 
     return {
         totalClips,
@@ -908,6 +1223,10 @@ function buildSummary(clips: readonly BenchmarkClipResult[]): BenchmarkReportSum
         },
         coach: {
             passed: coachPassed,
+            total: totalClips,
+        },
+        truth: {
+            passed: truthPassed,
             total: totalClips,
         },
         score,
@@ -939,6 +1258,7 @@ export function createBenchmarkRegressionBaseline(report: BenchmarkReport): Benc
             trackingMeanShotAlignmentErrorMs: report.summary.tracking.meanShotAlignmentErrorMs,
             diagnosticsPassRate: toFixedNumber(passRate(report.summary.diagnostics.passed, report.summary.diagnostics.total)),
             coachPassRate: toFixedNumber(passRate(report.summary.coach.passed, report.summary.coach.total)),
+            truthPassRate: toFixedNumber(passRate(report.summary.truth.passed, report.summary.truth.total)),
         },
     };
 }
@@ -949,6 +1269,7 @@ function compareAgainstBaseline(
 ): BenchmarkRegressionResult {
     const diagnosticsPassRate = toFixedNumber(passRate(summary.diagnostics.passed, summary.diagnostics.total));
     const coachPassRate = toFixedNumber(passRate(summary.coach.passed, summary.coach.total));
+    const truthPassRate = toFixedNumber(passRate(summary.truth.passed, summary.truth.total));
     const deltas = {
         failedClips: summary.failedClips - baseline.summary.failedClips,
         score: toFixedNumber(summary.score - baseline.summary.score, 2),
@@ -957,6 +1278,9 @@ function compareAgainstBaseline(
         trackingMeanShotAlignmentErrorMs: toFixedNumber(summary.tracking.meanShotAlignmentErrorMs - baseline.summary.trackingMeanShotAlignmentErrorMs),
         diagnosticsPassRate: toFixedNumber(diagnosticsPassRate - baseline.summary.diagnosticsPassRate),
         coachPassRate: toFixedNumber(coachPassRate - baseline.summary.coachPassRate),
+        ...(baseline.summary.truthPassRate !== undefined
+            ? { truthPassRate: toFixedNumber(truthPassRate - baseline.summary.truthPassRate) }
+            : {}),
     };
 
     const isRegression = (
@@ -966,7 +1290,8 @@ function compareAgainstBaseline(
         deltas.trackingMeanErrorPx > 0 ||
         deltas.trackingMeanShotAlignmentErrorMs > 0 ||
         deltas.diagnosticsPassRate < 0 ||
-        deltas.coachPassRate < 0
+        deltas.coachPassRate < 0 ||
+        (deltas.truthPassRate ?? 0) < 0
     );
 
     return {
