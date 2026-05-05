@@ -6,6 +6,8 @@ import {
     communityPostAnalysisSnapshots,
     communityPosts,
     communityProfiles,
+    precisionCheckpoints,
+    precisionEvolutionLines,
     weaponPatchProfiles,
     weaponProfiles,
     weaponRegistry,
@@ -55,6 +57,102 @@ describe('analysisSessions schema', () => {
     it('defines a dedicated patch_version column for patch-aware queries', () => {
         expect(analysisSessions.patchVersion).toBeDefined();
         expect(analysisSessions.patchVersion.name).toBe('patch_version');
+    });
+});
+
+describe('precision evolution schema', () => {
+    it('defines active precision lines keyed by user and strict compatibility context', () => {
+        expect(precisionEvolutionLines).toBeDefined();
+
+        const id = getColumn(precisionEvolutionLines, 'id');
+        const userId = getColumn(precisionEvolutionLines, 'user_id');
+        const compatibilityKey = getColumn(precisionEvolutionLines, 'compatibility_key');
+        const status = getColumn(precisionEvolutionLines, 'status');
+        const variableInTest = getColumn(precisionEvolutionLines, 'variable_in_test');
+        const baselineSessionId = getColumn(precisionEvolutionLines, 'baseline_session_id');
+        const currentSessionId = getColumn(precisionEvolutionLines, 'current_session_id');
+        const validClipCount = getColumn(precisionEvolutionLines, 'valid_clip_count');
+        const blockedClipCount = getColumn(precisionEvolutionLines, 'blocked_clip_count');
+        const payload = getColumn(precisionEvolutionLines, 'payload');
+        const updatedAt = getColumn(precisionEvolutionLines, 'updated_at');
+
+        expect(id.primary).toBe(true);
+        expect(userId.notNull).toBe(true);
+        expect(compatibilityKey.notNull).toBe(true);
+        expect(status.notNull).toBe(true);
+        expect(variableInTest.notNull).toBe(true);
+        expect(baselineSessionId.notNull).toBe(false);
+        expect(currentSessionId.notNull).toBe(false);
+        expect(validClipCount.notNull).toBe(true);
+        expect(validClipCount.default).toBe(0);
+        expect(blockedClipCount.notNull).toBe(true);
+        expect(blockedClipCount.default).toBe(0);
+        expect(payload.notNull).toBe(true);
+        expect(payload.default).toBe('{}');
+        expect(updatedAt.notNull).toBe(true);
+
+        const userForeignKey = getForeignKey(
+            precisionEvolutionLines,
+            'precision_evolution_lines_user_id_users_id_fk',
+        );
+        const baselineForeignKey = getForeignKey(
+            precisionEvolutionLines,
+            'precision_evolution_lines_baseline_session_id_analysis_sessions_id_fk',
+        );
+        const currentForeignKey = getForeignKey(
+            precisionEvolutionLines,
+            'precision_evolution_lines_current_session_id_analysis_sessions_id_fk',
+        );
+        const activeLineIndex = getIndex(
+            precisionEvolutionLines,
+            'precision_evolution_lines_user_key_uidx',
+        );
+
+        expect(userForeignKey.onDelete).toBe('cascade');
+        expect(baselineForeignKey.onDelete).toBe('set null');
+        expect(currentForeignKey.onDelete).toBe('set null');
+        expect(activeLineIndex.config.unique).toBe(true);
+        expect(activeLineIndex.config.columns.map((column) => column.name)).toEqual([
+            'user_id',
+            'compatibility_key',
+        ]);
+    });
+
+    it('defines precision checkpoints with line and analysis-session indexes', () => {
+        expect(precisionCheckpoints).toBeDefined();
+
+        const id = getColumn(precisionCheckpoints, 'id');
+        const lineId = getColumn(precisionCheckpoints, 'line_id');
+        const analysisSessionId = getColumn(precisionCheckpoints, 'analysis_session_id');
+        const state = getColumn(precisionCheckpoints, 'state');
+        const variableInTest = getColumn(precisionCheckpoints, 'variable_in_test');
+        const payload = getColumn(precisionCheckpoints, 'payload');
+        const createdAt = getColumn(precisionCheckpoints, 'created_at');
+
+        expect(id.primary).toBe(true);
+        expect(lineId.notNull).toBe(true);
+        expect(analysisSessionId.notNull).toBe(false);
+        expect(state.notNull).toBe(true);
+        expect(variableInTest.notNull).toBe(true);
+        expect(payload.notNull).toBe(true);
+        expect(payload.default).toBe('{}');
+        expect(createdAt.notNull).toBe(true);
+
+        const lineForeignKey = getForeignKey(
+            precisionCheckpoints,
+            'precision_checkpoints_line_id_precision_evolution_lines_id_fk',
+        );
+        const sessionForeignKey = getForeignKey(
+            precisionCheckpoints,
+            'precision_checkpoints_analysis_session_id_analysis_sessions_id_fk',
+        );
+        const lineIndex = getIndex(precisionCheckpoints, 'precision_checkpoints_line_created_idx');
+        const sessionIndex = getIndex(precisionCheckpoints, 'precision_checkpoints_session_idx');
+
+        expect(lineForeignKey.onDelete).toBe('cascade');
+        expect(sessionForeignKey.onDelete).toBe('set null');
+        expect(lineIndex.config.columns.map((column) => column.name)).toEqual(['line_id', 'created_at']);
+        expect(sessionIndex.config.columns.map((column) => column.name)).toEqual(['analysis_session_id']);
     });
 });
 

@@ -20,6 +20,11 @@ import { relations } from 'drizzle-orm';
 import type { AdapterAccount } from '@auth/core/adapters';
 import type { CommunityPostAnalysisSnapshot } from '@/core/community-post-snapshot';
 import type {
+    PrecisionCheckpointState,
+    PrecisionTrendSummary,
+    PrecisionVariableInTest,
+} from '@/types/engine';
+import type {
     CommunityEntitlementKey,
     CommunityMissionCadence,
     CommunityMissionStatus,
@@ -135,6 +140,21 @@ export interface CommunityRewardPublicPayload {
     readonly description?: string;
     readonly factualContext?: string;
     readonly iconKey?: string;
+}
+
+export interface PrecisionEvolutionLinePayload {
+    readonly trend?: PrecisionTrendSummary;
+    readonly nextValidationHint?: string;
+    readonly blockedClips?: readonly unknown[];
+    readonly validResultIds?: readonly string[];
+    readonly metadata?: Record<string, unknown>;
+}
+
+export interface PrecisionCheckpointPayload {
+    readonly trend: PrecisionTrendSummary;
+    readonly nextValidationHint: string;
+    readonly blockerReasons?: readonly unknown[];
+    readonly metadata?: Record<string, unknown>;
 }
 
 // ═══════════════════════════════════════════
@@ -342,12 +362,58 @@ export const analysisSessions = pgTable('analysis_sessions', {
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
 });
 
+export const precisionEvolutionLines = pgTable('precision_evolution_lines', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    compatibilityKey: text('compatibility_key').notNull(),
+    status: text('status').$type<PrecisionCheckpointState>().notNull(),
+    variableInTest: text('variable_in_test').$type<PrecisionVariableInTest>().notNull(),
+    baselineSessionId: uuid('baseline_session_id')
+        .references(() => analysisSessions.id, { onDelete: 'set null' }),
+    currentSessionId: uuid('current_session_id')
+        .references(() => analysisSessions.id, { onDelete: 'set null' }),
+    validClipCount: integer('valid_clip_count').default(0).notNull(),
+    blockedClipCount: integer('blocked_clip_count').default(0).notNull(),
+    payload: jsonb('payload').default('{}').notNull().$type<PrecisionEvolutionLinePayload>(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => [
+    uniqueIndex('precision_evolution_lines_user_key_uidx').on(table.userId, table.compatibilityKey),
+    index('precision_evolution_lines_user_status_idx').on(table.userId, table.status),
+    index('precision_evolution_lines_current_session_idx').on(table.currentSessionId),
+]);
+
+export const precisionCheckpoints = pgTable('precision_checkpoints', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    lineId: uuid('line_id')
+        .notNull()
+        .references(() => precisionEvolutionLines.id, { onDelete: 'cascade' }),
+    analysisSessionId: uuid('analysis_session_id')
+        .references(() => analysisSessions.id, { onDelete: 'set null' }),
+    state: text('state').$type<PrecisionCheckpointState>().notNull(),
+    variableInTest: text('variable_in_test').$type<PrecisionVariableInTest>().notNull(),
+    payload: jsonb('payload').default('{}').notNull().$type<PrecisionCheckpointPayload>(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => [
+    index('precision_checkpoints_line_created_idx').on(table.lineId, table.createdAt),
+    index('precision_checkpoints_session_idx').on(table.analysisSessionId),
+]);
+
 export const analysisSessionsRelations = relations(analysisSessions, ({ one, many }) => ({
     user: one(users, {
         fields: [analysisSessions.userId],
         references: [users.id],
     }),
     sensitivityHistory: many(sensitivityHistory),
+    precisionBaselineLines: many(precisionEvolutionLines, {
+        relationName: 'precision_evolution_lines_baseline_session',
+    }),
+    precisionCurrentLines: many(precisionEvolutionLines, {
+        relationName: 'precision_evolution_lines_current_session',
+    }),
+    precisionCheckpoints: many(precisionCheckpoints),
     communitySourcePosts: many(communityPosts),
     communityPostAnalysisSnapshots: many(communityPostAnalysisSnapshots),
 }));
@@ -1315,6 +1381,35 @@ export const userEntitlementsRelations = relations(userEntitlements, ({ one }) =
     }),
 }));
 
+export const precisionEvolutionLinesRelations = relations(precisionEvolutionLines, ({ one, many }) => ({
+    user: one(users, {
+        fields: [precisionEvolutionLines.userId],
+        references: [users.id],
+    }),
+    baselineSession: one(analysisSessions, {
+        relationName: 'precision_evolution_lines_baseline_session',
+        fields: [precisionEvolutionLines.baselineSessionId],
+        references: [analysisSessions.id],
+    }),
+    currentSession: one(analysisSessions, {
+        relationName: 'precision_evolution_lines_current_session',
+        fields: [precisionEvolutionLines.currentSessionId],
+        references: [analysisSessions.id],
+    }),
+    checkpoints: many(precisionCheckpoints),
+}));
+
+export const precisionCheckpointsRelations = relations(precisionCheckpoints, ({ one }) => ({
+    line: one(precisionEvolutionLines, {
+        fields: [precisionCheckpoints.lineId],
+        references: [precisionEvolutionLines.id],
+    }),
+    analysisSession: one(analysisSessions, {
+        fields: [precisionCheckpoints.analysisSessionId],
+        references: [analysisSessions.id],
+    }),
+}));
+
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // System / Bot Status
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -1362,6 +1457,10 @@ export type PlayerProfile = typeof playerProfiles.$inferSelect;
 export type NewPlayerProfile = typeof playerProfiles.$inferInsert;
 export type AnalysisSessionRow = typeof analysisSessions.$inferSelect;
 export type NewAnalysisSession = typeof analysisSessions.$inferInsert;
+export type PrecisionEvolutionLineRow = typeof precisionEvolutionLines.$inferSelect;
+export type NewPrecisionEvolutionLine = typeof precisionEvolutionLines.$inferInsert;
+export type PrecisionCheckpointRow = typeof precisionCheckpoints.$inferSelect;
+export type NewPrecisionCheckpoint = typeof precisionCheckpoints.$inferInsert;
 export type SensitivityHistoryRow = typeof sensitivityHistory.$inferSelect;
 export type NewSensitivityHistory = typeof sensitivityHistory.$inferInsert;
 export type WeaponProfile = typeof weaponProfiles.$inferSelect;
