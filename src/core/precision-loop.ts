@@ -1,6 +1,7 @@
 import type {
     AnalysisResult,
     PrecisionBlockerSummary,
+    PrecisionBlockedClipSummary,
     PrecisionCompatibilityBlocker,
     PrecisionCompatibilityBlockerCode,
     PrecisionCompatibilityKey,
@@ -17,6 +18,11 @@ export const PRECISION_STRONG_COVERAGE = 0.78;
 export const PRECISION_STRONG_CONFIDENCE = 0.78;
 export const PRECISION_STRONG_QUALITY_SCORE = 70;
 export const PRECISION_MIN_SAMPLE_SIZE = 20;
+export const PRECISION_CAPTURE_QUALITY_MISMATCH_POINTS = 20;
+export const PRECISION_EVIDENCE_MISMATCH_RATIO = 0.2;
+export const PRECISION_DURATION_TOLERANCE_MS = 300;
+export const PRECISION_SPRAY_WINDOW_TOLERANCE_MS = 300;
+export const PRECISION_CADENCE_TOLERANCE_EVENTS = 2;
 
 export interface PrecisionCompatibilityOptions {
     readonly distanceToleranceMeters?: number;
@@ -46,6 +52,14 @@ function blocker(
     };
 }
 
+interface PrecisionEvidenceSnapshot {
+    readonly coverage: number;
+    readonly confidence: number;
+    readonly qualityScore: number;
+    readonly sampleSize: number;
+    readonly usableForAnalysis: boolean;
+}
+
 export function buildPrecisionCompatibilityKey(result: AnalysisResult): PrecisionCompatibilityResult {
     const blockers: PrecisionCompatibilityBlocker[] = [];
     const context = result.analysisContext;
@@ -56,6 +70,12 @@ export function buildPrecisionCompatibilityKey(result: AnalysisResult): Precisio
     const distanceMeters = context?.targetDistanceMeters;
     const durationMs = finiteNumber(result.trajectory?.durationMs);
     const sprayWindow = result.videoQualityReport?.diagnostic?.preprocessing.sprayWindow;
+    const loadout = result.loadout as Partial<AnalysisResult['loadout']> | undefined;
+    const stance = normalizeString(loadout?.stance);
+    const muzzle = normalizeString(loadout?.muzzle);
+    const grip = normalizeString(loadout?.grip);
+    const stock = normalizeString(loadout?.stock);
+    const evidence = readEvidenceSnapshot(result);
 
     if (!patchVersion) {
         blockers.push(blocker('missing_metadata', 'patchVersion', 'Patch ausente bloqueia trend preciso.'));
@@ -67,6 +87,22 @@ export function buildPrecisionCompatibilityKey(result: AnalysisResult): Precisio
 
     if (!scopeId) {
         blockers.push(blocker('missing_metadata', 'scopeId', 'Scope/optic ausente bloqueia trend preciso.'));
+    }
+
+    if (!stance) {
+        blockers.push(blocker('missing_metadata', 'stance', 'Stance ausente bloqueia trend preciso.'));
+    }
+
+    if (!muzzle) {
+        blockers.push(blocker('missing_metadata', 'muzzle', 'Muzzle ausente bloqueia trend preciso.'));
+    }
+
+    if (!grip) {
+        blockers.push(blocker('missing_metadata', 'grip', 'Grip ausente bloqueia trend preciso.'));
+    }
+
+    if (!stock) {
+        blockers.push(blocker('missing_metadata', 'stock', 'Stock ausente bloqueia trend preciso.'));
     }
 
     if (typeof distanceMeters !== 'number' || !Number.isFinite(distanceMeters)) {
@@ -85,7 +121,33 @@ export function buildPrecisionCompatibilityKey(result: AnalysisResult): Precisio
         blockers.push(blocker('spray_type_missing', 'durationMs', 'Duracao do spray ausente bloqueia protocolo de comparacao.'));
     }
 
-    if (blockers.length > 0 || !patchVersion || !weaponId || !scopeId || typeof distanceMeters !== 'number' || !durationMs) {
+    if (!evidence.usableForAnalysis) {
+        blockers.push(blocker('capture_quality_unusable', 'usableForAnalysis', 'Qualidade de captura inutilizavel bloqueia trend preciso.', {
+            currentValue: false,
+        }));
+    }
+
+    if (
+        evidence.coverage < PRECISION_STRONG_COVERAGE
+        || evidence.confidence < PRECISION_STRONG_CONFIDENCE
+        || evidence.qualityScore < PRECISION_STRONG_QUALITY_SCORE
+        || evidence.sampleSize < PRECISION_MIN_SAMPLE_SIZE
+    ) {
+        blockers.push(blocker('capture_quality_weak', 'mastery.evidence', 'Cobertura, confianca, qualidade ou amostra fraca bloqueia comparacao precisa.'));
+    }
+
+    if (
+        blockers.length > 0
+        || !patchVersion
+        || !weaponId
+        || !scopeId
+        || !stance
+        || !muzzle
+        || !grip
+        || !stock
+        || typeof distanceMeters !== 'number'
+        || !durationMs
+    ) {
         return {
             compatible: false,
             blockers,
@@ -101,10 +163,10 @@ export function buildPrecisionCompatibilityKey(result: AnalysisResult): Precisio
         weaponId,
         scopeId,
         ...(optic?.opticStateId ? { opticStateId: optic.opticStateId } : {}),
-        stance: result.loadout.stance,
-        muzzle: result.loadout.muzzle,
-        grip: result.loadout.grip,
-        stock: result.loadout.stock,
+        stance: stance as AnalysisResult['loadout']['stance'],
+        muzzle: muzzle as AnalysisResult['loadout']['muzzle'],
+        grip: grip as AnalysisResult['loadout']['grip'],
+        stock: stock as AnalysisResult['loadout']['stock'],
         distanceMeters,
         sprayProtocolKey,
         durationMs,
@@ -147,6 +209,9 @@ export function comparePrecisionCompatibility(
         compareStringField(blockers, 'muzzle_mismatch', 'muzzle', currentKey.muzzle, candidateKey.muzzle);
         compareStringField(blockers, 'grip_mismatch', 'grip', currentKey.grip, candidateKey.grip);
         compareStringField(blockers, 'stock_mismatch', 'stock', currentKey.stock, candidateKey.stock);
+        compareSprayProtocol(blockers, currentKey, candidateKey);
+        compareCaptureEvidence(blockers, current, candidate);
+        compareSensitivity(blockers, currentKey, candidateKey);
 
         const distanceTolerance = options.distanceToleranceMeters ?? STRICT_DISTANCE_TOLERANCE_METERS;
         if (Math.abs(currentKey.distanceMeters - candidateKey.distanceMeters) > distanceTolerance) {
@@ -169,10 +234,38 @@ export function resolvePrecisionTrend(input: ResolvePrecisionTrendInput): Precis
     const compatibility = buildPrecisionCompatibilityKey(input.current);
 
     if (!compatibility.compatible) {
-        return emptyTrendSummary('not_comparable', 'blocked', summarizePrecisionBlockers(compatibility.blockers), 'Grave um clip com metadados completos antes de comparar tendencia.');
+        return emptyTrendSummary({
+            label: 'not_comparable',
+            evidenceLevel: 'blocked',
+            blockerSummaries: summarizePrecisionBlockers(compatibility.blockers),
+            blockedClips: [{
+                resultId: input.current.id,
+                blockers: compatibility.blockers,
+            }],
+            nextValidationHint: 'Grave um clip com metadados completos antes de comparar tendencia.',
+        });
     }
 
-    return emptyTrendSummary('baseline', 'baseline', [], 'Baseline precisa criada. Grave outra validacao com o mesmo contexto.');
+    const blockedClips: PrecisionBlockedClipSummary[] = [];
+
+    for (const candidate of input.history) {
+        const candidateCompatibility = comparePrecisionCompatibility(input.current, candidate, input.options);
+
+        if (!candidateCompatibility.compatible) {
+            blockedClips.push({
+                resultId: candidate.id,
+                blockers: candidateCompatibility.blockers,
+            });
+        }
+    }
+
+    return emptyTrendSummary({
+        label: 'baseline',
+        evidenceLevel: 'baseline',
+        blockerSummaries: buildBlockerSummariesFromBlockedClips(blockedClips),
+        blockedClips,
+        nextValidationHint: 'Baseline precisa criada. Grave outra validacao com o mesmo contexto.',
+    });
 }
 
 export function formatPrecisionTrendLabel(label: PrecisionTrendLabel): string {
@@ -232,6 +325,118 @@ function compareStringField(
     }
 }
 
+function compareSprayProtocol(
+    blockers: PrecisionCompatibilityBlocker[],
+    currentKey: PrecisionCompatibilityKey,
+    candidateKey: PrecisionCompatibilityKey,
+): void {
+    const currentHasWindow = typeof currentKey.sprayWindowStartMs === 'number' && typeof currentKey.sprayWindowEndMs === 'number';
+    const candidateHasWindow = typeof candidateKey.sprayWindowStartMs === 'number' && typeof candidateKey.sprayWindowEndMs === 'number';
+
+    if (currentHasWindow !== candidateHasWindow) {
+        blockers.push(blocker('spray_type_missing', 'sprayWindow', 'Janela de spray ausente em um clip bloqueia comparacao precisa.', {
+            currentValue: currentHasWindow,
+            candidateValue: candidateHasWindow,
+        }));
+        return;
+    }
+
+    if (currentHasWindow && candidateHasWindow) {
+        const startDelta = Math.abs(currentKey.sprayWindowStartMs! - candidateKey.sprayWindowStartMs!);
+        const endDelta = Math.abs(currentKey.sprayWindowEndMs! - candidateKey.sprayWindowEndMs!);
+
+        if (startDelta > PRECISION_SPRAY_WINDOW_TOLERANCE_MS || endDelta > PRECISION_SPRAY_WINDOW_TOLERANCE_MS) {
+            blockers.push(blocker('spray_window_mismatch', 'sprayWindow', 'Janelas de spray diferentes bloqueiam trend preciso.', {
+                currentValue: currentKey.sprayProtocolKey,
+                candidateValue: candidateKey.sprayProtocolKey,
+            }));
+        }
+    }
+
+    if (Math.abs((currentKey.durationMs ?? 0) - (candidateKey.durationMs ?? 0)) > PRECISION_DURATION_TOLERANCE_MS) {
+        blockers.push(blocker('duration_mismatch', 'durationMs', 'Duracao do spray diferente bloqueia trend preciso.', {
+            currentValue: currentKey.durationMs ?? null,
+            candidateValue: candidateKey.durationMs ?? null,
+        }));
+    }
+
+    if (
+        typeof currentKey.shotLikeEvents === 'number'
+        && typeof candidateKey.shotLikeEvents === 'number'
+        && Math.abs(currentKey.shotLikeEvents - candidateKey.shotLikeEvents) > PRECISION_CADENCE_TOLERANCE_EVENTS
+    ) {
+        blockers.push(blocker('cadence_mismatch', 'shotLikeEvents', 'Cadencia/quantidade de eventos do spray diferente bloqueia trend preciso.', {
+            currentValue: currentKey.shotLikeEvents,
+            candidateValue: candidateKey.shotLikeEvents,
+        }));
+    }
+}
+
+function compareCaptureEvidence(
+    blockers: PrecisionCompatibilityBlocker[],
+    current: AnalysisResult,
+    candidate: AnalysisResult,
+): void {
+    const currentEvidence = readEvidenceSnapshot(current);
+    const candidateEvidence = readEvidenceSnapshot(candidate);
+
+    if (Math.abs(currentEvidence.qualityScore - candidateEvidence.qualityScore) > PRECISION_CAPTURE_QUALITY_MISMATCH_POINTS) {
+        blockers.push(blocker('capture_quality_mismatch', 'qualityScore', 'Qualidade de captura muito diferente bloqueia trend preciso.', {
+            currentValue: currentEvidence.qualityScore,
+            candidateValue: candidateEvidence.qualityScore,
+        }));
+    }
+
+    if (
+        Math.abs(currentEvidence.coverage - candidateEvidence.coverage) > PRECISION_EVIDENCE_MISMATCH_RATIO
+        || Math.abs(currentEvidence.confidence - candidateEvidence.confidence) > PRECISION_EVIDENCE_MISMATCH_RATIO
+        || Math.min(currentEvidence.sampleSize, candidateEvidence.sampleSize) / Math.max(currentEvidence.sampleSize, candidateEvidence.sampleSize, 1) < 0.6
+    ) {
+        blockers.push(blocker('evidence_mismatch', 'mastery.evidence', 'Evidencia de cobertura, confianca ou amostra nao e comparavel.'));
+    }
+}
+
+function compareSensitivity(
+    blockers: PrecisionCompatibilityBlocker[],
+    currentKey: PrecisionCompatibilityKey,
+    candidateKey: PrecisionCompatibilityKey,
+): void {
+    if (
+        currentKey.sensitivityProfile !== candidateKey.sensitivityProfile
+        || currentKey.sensitivitySignature !== candidateKey.sensitivitySignature
+    ) {
+        blockers.push(blocker('sensitivity_change', 'sensitivity', 'Mudanca forte de sensibilidade reinicia a linha precisa.', {
+            currentValue: currentKey.sensitivitySignature ?? currentKey.sensitivityProfile ?? null,
+            candidateValue: candidateKey.sensitivitySignature ?? candidateKey.sensitivityProfile ?? null,
+        }));
+    }
+}
+
+function readEvidenceSnapshot(result: AnalysisResult): PrecisionEvidenceSnapshot {
+    const metricQuality = result.metrics.metricQuality?.sprayScore
+        ?? result.metrics.metricQuality?.shotResiduals
+        ?? result.metrics.metricQuality?.verticalControlIndex;
+    const framesProcessed = finiteNumber(metricQuality?.framesProcessed)
+        ?? finiteNumber(result.trajectory.framesProcessed)
+        ?? finiteNumber(result.trajectory.totalFrames)
+        ?? 0;
+    const visibleFrames = finiteNumber(metricQuality?.framesTracked)
+        ?? finiteNumber(result.trajectory.visibleFrames)
+        ?? finiteNumber(result.trajectory.framesTracked)
+        ?? 0;
+    const fallbackCoverage = framesProcessed > 0
+        ? visibleFrames / framesProcessed
+        : 0;
+
+    return {
+        coverage: clamp01(result.mastery?.evidence.coverage ?? metricQuality?.coverage ?? fallbackCoverage),
+        confidence: clamp01(result.mastery?.evidence.confidence ?? metricQuality?.confidence ?? result.trajectory.trackingQuality ?? 0),
+        qualityScore: clampScore(result.mastery?.evidence.qualityScore ?? result.videoQualityReport?.overallScore ?? 65),
+        sampleSize: Math.max(0, finiteNumber(result.mastery?.evidence.sampleSize ?? metricQuality?.sampleSize ?? result.trajectory.displacements.length) ?? 0),
+        usableForAnalysis: result.mastery?.evidence.usableForAnalysis ?? result.videoQualityReport?.usableForAnalysis ?? true,
+    };
+}
+
 function buildSensitivitySignature(result: AnalysisResult): string | undefined {
     const appliedProfile = result.sensitivity.profiles.find((profile) => profile.type === result.sensitivity.recommended);
 
@@ -247,15 +452,36 @@ function buildSensitivitySignature(result: AnalysisResult): string | undefined {
     ].join(':');
 }
 
-function emptyTrendSummary(
-    label: PrecisionTrendLabel,
-    evidenceLevel: PrecisionEvidenceLevel,
-    blockerSummaries: readonly PrecisionBlockerSummary[],
-    nextValidationHint: string,
-): PrecisionTrendSummary {
+function buildBlockerSummariesFromBlockedClips(
+    blockedClips: readonly PrecisionBlockedClipSummary[],
+): readonly PrecisionBlockerSummary[] {
+    const summaries = new Map<PrecisionCompatibilityBlockerCode, PrecisionBlockerSummary>();
+
+    for (const clip of blockedClips) {
+        for (const currentBlocker of clip.blockers) {
+            const existing = summaries.get(currentBlocker.code);
+            summaries.set(currentBlocker.code, {
+                code: currentBlocker.code,
+                count: (existing?.count ?? 0) + 1,
+                message: existing?.message ?? currentBlocker.message,
+                resultIds: Array.from(new Set([...(existing?.resultIds ?? []), clip.resultId])),
+            });
+        }
+    }
+
+    return Array.from(summaries.values());
+}
+
+function emptyTrendSummary(input: {
+    readonly label: PrecisionTrendLabel;
+    readonly evidenceLevel: PrecisionEvidenceLevel;
+    readonly blockerSummaries: readonly PrecisionBlockerSummary[];
+    readonly blockedClips: readonly PrecisionBlockedClipSummary[];
+    readonly nextValidationHint: string;
+}): PrecisionTrendSummary {
     return {
-        label,
-        evidenceLevel,
+        label: input.label,
+        evidenceLevel: input.evidenceLevel,
         compatibleCount: 0,
         baseline: null,
         current: null,
@@ -264,11 +490,11 @@ function emptyTrendSummary(
         mechanicalDelta: null,
         pillarDeltas: [],
         recurringDiagnoses: [],
-        blockerSummaries,
-        blockedClips: [],
+        blockerSummaries: input.blockerSummaries,
+        blockedClips: input.blockedClips,
         confidence: 0,
         coverage: 0,
-        nextValidationHint,
+        nextValidationHint: input.nextValidationHint,
     };
 }
 
@@ -282,4 +508,16 @@ function finiteNumber(value: unknown): number | undefined {
     return typeof value === 'number' && Number.isFinite(value)
         ? value
         : undefined;
+}
+
+function clampScore(value: unknown): number {
+    return clamp(finiteNumber(value) ?? 0, 0, 100);
+}
+
+function clamp01(value: unknown): number {
+    return clamp(finiteNumber(value) ?? 0, 0, 1);
+}
+
+function clamp(value: number, min: number, max: number): number {
+    return Math.max(min, Math.min(max, value));
 }
