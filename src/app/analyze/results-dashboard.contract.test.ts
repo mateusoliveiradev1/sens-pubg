@@ -44,6 +44,59 @@ describe('results dashboard visualization contract', () => {
         expect(source).toMatch(/Proximo bloco/);
     });
 
+    it('renders a verdict-first mastery report before the detailed audit sections', () => {
+        const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/buildResultVerdictModel/);
+        expect(source).toMatch(/activeSession\.mastery/);
+        expect(source).toMatch(/verdictModel\.actionLabel/);
+        expect(source).toMatch(/verdictModel\.actionableScore/);
+        expect(source).toMatch(/verdictModel\.mechanicalLevelLabel/);
+        expect(source).toMatch(/Leitura de mastery/);
+
+        const verdictIndex = source.indexOf('styles.verdictReport');
+        const trackingIndex = source.indexOf('Leitura tecnica do tracking');
+        const metricsIndex = source.indexOf('Métricas');
+
+        expect(verdictIndex).toBeGreaterThan(-1);
+        expect(trackingIndex).toBeGreaterThan(verdictIndex);
+        expect(metricsIndex).toBeGreaterThan(verdictIndex);
+    });
+
+    it('shows the next block, evidence badges, mastery pillars, and spray proof in the report', () => {
+        const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/buildEvidenceBadges/);
+        expect(source).toMatch(/buildMasteryPillarCards/);
+        expect(source).toMatch(/verdictModel\.nextBlock\.steps/);
+        expect(source).toMatch(/Evidencia do resultado/);
+        expect(source).toMatch(/Pilares de mastery/);
+        expect(source).toMatch(/Prova visual/);
+
+        const verdictIndex = source.indexOf('styles.verdictReport');
+        const sprayIndex = source.indexOf('<SprayVisualization', verdictIndex);
+        const sensitivityIndex = source.indexOf('Calibração de Sensibilidade');
+
+        expect(sprayIndex).toBeGreaterThan(verdictIndex);
+        expect(sensitivityIndex).toBeGreaterThan(sprayIndex);
+    });
+
+    it('uses user-facing diagnosis truth labels instead of uppercase engine labels', () => {
+        const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/formatDiagnosisTruthLabel/);
+        expect(source).not.toMatch(/OVERPULL|UNDERPULL|JITTER|H\. DRIFT|INCONSISTENCY|LATE RESPONSE/);
+    });
+
+    it('keeps report copy away from perfect, guaranteed, or final-skill claims', () => {
+        const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase();
+
+        expect(source).not.toMatch(/perfeito|garantid|definitiv|verdade final|veredito final|sentenca final/);
+    });
+
     it('keeps the legacy coach cards as detailed evidence below the session summary', () => {
         const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
 

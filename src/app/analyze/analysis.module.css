@@ -322,6 +322,250 @@
     --result-tone-border: rgba(0, 240, 255, 0.24);
 }
 
+.verdictReport {
+    display: grid;
+    gap: var(--space-xl);
+    margin-bottom: var(--space-3xl);
+    padding: var(--space-xl);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 8px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018));
+}
+
+.verdictHeader {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 360px);
+    gap: var(--space-xl);
+    align-items: stretch;
+}
+
+.verdictHeaderMain {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-sm);
+    min-width: 0;
+}
+
+.reportEyebrow {
+    color: var(--color-accent-cyan);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: uppercase;
+}
+
+.verdictTitle {
+    margin: 0;
+    font-size: clamp(2rem, 6vw, 4.5rem);
+    line-height: 0.95;
+}
+
+.verdictText {
+    max-width: 760px;
+    color: var(--color-text-secondary);
+    font-size: var(--text-base);
+    line-height: 1.65;
+}
+
+.verdictScoreGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-md);
+}
+
+.verdictScore {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 160px;
+    padding: var(--space-lg);
+    border: 1px solid var(--result-tone-border, rgba(255, 255, 255, 0.08));
+    border-radius: 8px;
+    background: var(--result-tone-soft, rgba(255, 255, 255, 0.035));
+}
+
+.verdictScore span,
+.evidenceBadge span,
+.pillarHeader span {
+    color: var(--color-text-muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: uppercase;
+}
+
+.verdictScore strong {
+    color: var(--result-tone, var(--color-text-primary));
+    font-family: var(--font-mono);
+    font-size: clamp(1.75rem, 4vw, 3rem);
+    line-height: 1;
+}
+
+.verdictScore small,
+.evidenceBadge small {
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+    line-height: 1.45;
+}
+
+.verdictContentGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+    gap: var(--space-lg);
+    align-items: stretch;
+}
+
+.nextBlockPanel,
+.evidenceBadge,
+.pillarCard,
+.proofPanel {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.16);
+}
+
+.nextBlockPanel {
+    padding: var(--space-lg);
+}
+
+.nextBlockHeader,
+.pillarHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.nextBlockTitle {
+    margin: var(--space-sm) 0;
+    font-size: var(--text-lg);
+    line-height: 1.35;
+}
+
+.nextBlockSteps {
+    margin: var(--space-md) 0;
+    padding-left: 1.2rem;
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+    line-height: 1.65;
+}
+
+.nextBlockValidation {
+    margin-top: var(--space-md);
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    line-height: 1.6;
+}
+
+.nextBlockValidation strong {
+    color: var(--color-text-secondary);
+}
+
+.evidenceBadgeGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-sm);
+}
+
+.evidenceBadge {
+    display: grid;
+    gap: 6px;
+    min-height: 118px;
+    padding: var(--space-md);
+    border-color: var(--result-tone-border, rgba(255, 255, 255, 0.08));
+    background: var(--result-tone-soft, rgba(0, 0, 0, 0.16));
+}
+
+.evidenceBadge strong {
+    color: var(--result-tone, var(--color-text-primary));
+    font-family: var(--font-mono);
+    font-size: var(--text-xl);
+}
+
+.verdictCautions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+}
+
+.verdictCautions span {
+    max-width: 100%;
+    padding: 8px 10px;
+    border: 1px solid rgba(245, 158, 11, 0.28);
+    border-radius: 8px;
+    background: rgba(245, 158, 11, 0.08);
+    color: var(--color-text-secondary);
+    font-size: var(--text-xs);
+    line-height: 1.45;
+}
+
+.pillarGrid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-md);
+}
+
+.pillarCard {
+    display: grid;
+    gap: var(--space-sm);
+    padding: var(--space-md);
+    border-color: var(--result-tone-border, rgba(255, 255, 255, 0.08));
+    background: var(--result-tone-soft, rgba(0, 0, 0, 0.16));
+}
+
+.pillarHeader strong {
+    color: var(--result-tone, var(--color-text-primary));
+    font-family: var(--font-mono);
+    font-size: var(--text-xl);
+}
+
+.pillarMeter {
+    height: 8px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.pillarMeter span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--result-tone, var(--color-accent-primary));
+}
+
+.pillarCard p,
+.proofIntro p {
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+    line-height: 1.55;
+}
+
+.proofPanel {
+    display: grid;
+    gap: var(--space-md);
+    padding: var(--space-lg);
+}
+
+.proofIntro {
+    display: grid;
+    gap: 6px;
+}
+
+.proofCanvas {
+    min-height: 320px;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: #030712;
+}
+
+.metricsReportGrid {
+    display: grid;
+}
+
 .radialGauge {
     display: flex;
     flex-direction: column;
@@ -1222,6 +1466,15 @@
 /* ═══ Responsive ═══ */
 
 @media (max-width: 1024px) {
+    .verdictHeader,
+    .verdictContentGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .pillarGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .metricsGrid {
         grid-template-columns: repeat(2, 1fr);
     }
@@ -1265,6 +1518,20 @@
 }
 
 @media (max-width: 767px) {
+    .verdictReport {
+        padding: var(--space-lg);
+    }
+
+    .verdictScoreGrid,
+    .evidenceBadgeGrid,
+    .pillarGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .proofCanvas {
+        min-height: 260px;
+    }
+
     .profilesGrid {
         grid-template-columns: 1fr;
     }

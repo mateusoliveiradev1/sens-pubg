@@ -20,12 +20,16 @@ import type {
     VideoQualityFrameTimeline,
     VideoQualityTier,
 } from '@/types/engine';
+import { formatDiagnosisTruthLabel } from '@/core/measurement-truth';
 import { formatAnalysisDistancePresentation } from './analysis-distance-presentation';
 import { SprayVisualization } from './spray-visualization';
 import { summarizeAnalysisTracking } from './tracking-summary';
 import { createTrackingTimeline } from './tracking-timeline';
 import {
+    buildEvidenceBadges,
+    buildMasteryPillarCards,
     buildResultMetricCards,
+    buildResultVerdictModel,
     groupCoachFeedbackByDiagnosis,
     splitDiagnosesBySeverity,
     type ResultMetricTone,
@@ -84,14 +88,24 @@ interface Props {
 }
 
 // ═══ Diagnosis Icons & Labels ═══
-const DIAG_META: Record<string, { icon: string; label: string; color: string }> = {
-    overpull: { icon: '⬇️', label: 'OVERPULL', color: '#ff3d3d' },
-    underpull: { icon: '⬆️', label: 'UNDERPULL', color: '#f59e0b' },
-    late_compensation: { icon: '⏱️', label: 'LATE RESPONSE', color: '#f97316' },
-    excessive_jitter: { icon: '〰️', label: 'JITTER', color: '#ef4444' },
-    horizontal_drift: { icon: '↔️', label: 'H. DRIFT', color: '#a855f7' },
-    inconsistency: { icon: '🎲', label: 'INCONSISTENCY', color: '#eab308' },
+const DIAG_META: Record<DiagnosisType, { icon: string; color: string }> = {
+    overpull: { icon: '⬇️', color: '#ff3d3d' },
+    underpull: { icon: '⬆️', color: '#f59e0b' },
+    late_compensation: { icon: '⏱️', color: '#f97316' },
+    excessive_jitter: { icon: '〰️', color: '#ef4444' },
+    horizontal_drift: { icon: '↔️', color: '#a855f7' },
+    inconsistency: { icon: '🎲', color: '#eab308' },
+    inconclusive: { icon: '⚠️', color: '#f59e0b' },
 };
+
+function getDiagnosisMeta(type: DiagnosisType): { icon: string; label: string; color: string } {
+    const meta = DIAG_META[type];
+
+    return {
+        ...meta,
+        label: formatDiagnosisTruthLabel(type),
+    };
+}
 
 // ═══ Profile Icons ═══
 const PROFILE_META: Record<string, { subtitle: string }> = {
@@ -178,7 +192,7 @@ function MetricTooltip({ text }: { text: string }) {
 
 const METRIC_TOOLTIPS: Record<string, string> = {
     'Estabilidade': 'Score geral do spray (0-100). Mede quanto seu spray ficou concentrado.',
-    'Controle Vertical': 'Razão entre pulldown real vs ideal. 1.0 = perfeito. >1 = overpull. <1 = underpull.',
+    'Controle Vertical': 'Razão entre pulldown real vs ideal. 1.0 = ideal. >1 = desce demais. <1 = sobe demais.',
     'Ruído Horizontal': 'Variação lateral angular do spray em graus. Menor = mais estável.',
     'Ruido Horizontal': 'Variacao lateral angular do spray em graus. Menor = mais estavel.',
     'Erro Linear': 'Erro projetado no alvo considerando a distância da análise.',
@@ -432,7 +446,7 @@ function buildSensitivityTierExplanation(
     }
 
     if (tier === 'apply_ready') {
-        return `A recomendacao ja ganhou consistencia suficiente para aplicacao controlada. Ainda assim, valide em mais um bloco curto de ${sampleCount} sprays antes de fechar como sens definitiva.`;
+        return `A recomendacao ja ganhou consistencia suficiente para aplicacao controlada. Ainda assim, valide em mais um bloco curto de ${sampleCount} sprays antes de tratar como ajuste permanente.`;
     }
 
     return `A direcao da leitura faz sentido, mas ainda esta em modo de teste. Use os perfis como experimento guiado e confirme a convergencia antes de consolidar a troca.`;
@@ -467,11 +481,11 @@ function buildSensitivitySummary(
     parts.push(`A evidencia especifica da sens esta ${formatSensitivityEvidenceTier(evidenceTier)} (${Math.round(confidenceScore * 100)}% de confianca interna).`);
 
     if (sampleCount < 3 && tier !== 'capture_again') {
-        parts.push(`Como esta analise usa ${sampleCount} spray${sampleCount === 1 ? '' : 's'}, ainda nao vale tratar o ajuste como definitivo.`);
+        parts.push(`Como esta analise usa ${sampleCount} spray${sampleCount === 1 ? '' : 's'}, ainda nao vale tratar o ajuste como permanente.`);
     }
 
     if (confidence < 0.8 || coverage < 0.8) {
-        parts.push('O tracking geral ainda pode ficar melhor, entao trate a recomendacao como orientacao calibrada, nao como verdade final.');
+        parts.push('O tracking geral ainda pode ficar melhor, entao trate a recomendacao como orientacao calibrada, nao como leitura unica.');
     }
 
     return parts.join(' ');
@@ -501,7 +515,7 @@ function buildSensitivityDecisionInsight(
 
         return {
             title: 'Por que ficou Balanceada de novo?',
-            body: `Porque a amostra ainda pede ajuste conservador. Com ${sampleCount} spray${sampleCount === 1 ? '' : 's'} validados, a direção existe, mas a evidência ainda não sustenta um salto definitivo para um extremo.`,
+            body: `Porque a amostra ainda pede ajuste conservador. Com ${sampleCount} spray${sampleCount === 1 ? '' : 's'} validados, a direção existe, mas a evidência ainda não sustenta um salto permanente para um extremo.`,
         };
     }
 
@@ -691,7 +705,7 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
         minorDiagnoses: minorDiags,
     } = splitDiagnosesBySeverity(diagnoses);
     const topDiagnosisType = sortedDiagnoses[0]?.type ?? null;
-    const topDiagnosisMeta = sortedDiagnoses[0] ? DIAG_META[sortedDiagnoses[0].type] : null;
+    const topDiagnosisMeta = sortedDiagnoses[0] ? getDiagnosisMeta(sortedDiagnoses[0].type) : null;
     const recommendedProfile = sensitivity.profiles.find((profile) => profile.type === sensitivity.recommended);
     const sensitivitySummary = buildSensitivitySummary(
         recommendedProfile?.label ?? 'Balanceada',
@@ -732,6 +746,20 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
     );
 
     const groupedCoaching = groupCoachFeedbackByDiagnosis(coaching);
+    const verdictModel = buildResultVerdictModel({
+        mastery: activeSession.mastery,
+        coachPlan,
+        trackingOverview,
+        sensitivity,
+        diagnoses,
+    });
+    const masteryPillars = activeSession.mastery
+        ? buildMasteryPillarCards(activeSession.mastery)
+        : [];
+    const evidenceBadges = buildEvidenceBadges({
+        mastery: activeSession.mastery,
+        trackingOverview,
+    });
 
     return (
         <div className={styles.dashboard}>
@@ -819,6 +847,116 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                     </div>
                 </section>
             )}
+
+            <section className={styles.verdictReport} aria-labelledby="measurement-truth-title">
+                <div className={styles.verdictHeader}>
+                    <div className={styles.verdictHeaderMain}>
+                        <span className={styles.reportEyebrow}>Leitura de mastery</span>
+                        <h3 id="measurement-truth-title" className={styles.verdictTitle}>
+                            {verdictModel.actionLabel}
+                        </h3>
+                        <p className={styles.verdictText}>{verdictModel.primaryExplanation}</p>
+                        {verdictModel.diagnosisLabel ? (
+                            <span className="badge badge-info">
+                                Sinal principal: {verdictModel.diagnosisLabel}
+                            </span>
+                        ) : null}
+                    </div>
+                    <div className={styles.verdictScoreGrid}>
+                        <div className={`${styles.verdictScore} ${resultToneClass(verdictModel.scoreTone)}`}>
+                            <span>Acao</span>
+                            <strong>{Math.round(verdictModel.actionableScore)}</strong>
+                            <small>score acionavel</small>
+                        </div>
+                        <div className={`${styles.verdictScore} ${resultToneClass('info')}`}>
+                            <span>Mecanica</span>
+                            <strong>{verdictModel.mechanicalLevelLabel}</strong>
+                            <small>{Math.round(verdictModel.mechanicalScore)}/100</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div className={styles.verdictContentGrid}>
+                    {verdictModel.nextBlock ? (
+                        <div className={styles.nextBlockPanel}>
+                            <div className={styles.nextBlockHeader}>
+                                <span className={styles.reportEyebrow}>Proximo bloco</span>
+                                <span className="badge badge-info">{verdictModel.nextBlock.durationLabel}</span>
+                            </div>
+                            <h4 className={styles.nextBlockTitle}>{verdictModel.nextBlock.title}</h4>
+                            <ol className={styles.nextBlockSteps}>
+                                {verdictModel.nextBlock.steps.map((step) => (
+                                    <li key={step}>{step}</li>
+                                ))}
+                            </ol>
+                            {verdictModel.nextBlock.validationSuccess ? (
+                                <p className={styles.nextBlockValidation}>
+                                    <strong>{verdictModel.nextBlock.validationLabel}</strong>
+                                    {verdictModel.nextBlock.validationTarget ? `: ${verdictModel.nextBlock.validationTarget}. ` : '. '}
+                                    {verdictModel.nextBlock.validationSuccess}
+                                </p>
+                            ) : null}
+                        </div>
+                    ) : null}
+
+                    <div className={styles.evidenceBadgeGrid} aria-label="Evidencia do resultado">
+                        {evidenceBadges.map((badge) => (
+                            <div key={badge.key} className={`${styles.evidenceBadge} ${resultToneClass(badge.tone)}`}>
+                                <span>{badge.label}</span>
+                                <strong>{badge.value}</strong>
+                                <small>{badge.detail}</small>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {verdictModel.blockedReasons.length > 0 ? (
+                    <div className={styles.verdictCautions}>
+                        {verdictModel.blockedReasons.slice(0, 3).map((reason) => (
+                            <span key={reason}>{reason}</span>
+                        ))}
+                    </div>
+                ) : null}
+
+                {masteryPillars.length > 0 ? (
+                    <div className={styles.pillarGrid} aria-label="Pilares de mastery">
+                        {masteryPillars.map((pillar) => (
+                            <div key={pillar.key} className={`${styles.pillarCard} ${resultToneClass(pillar.tone)}`}>
+                                <div className={styles.pillarHeader}>
+                                    <span>{pillar.label}</span>
+                                    <strong>{Math.round(pillar.value)}</strong>
+                                </div>
+                                <div className={styles.pillarMeter} aria-hidden="true">
+                                    <span style={{ width: `${Math.max(0, Math.min(100, Math.round(pillar.value)))}%` }} />
+                                </div>
+                                <p>{pillar.summary}</p>
+                            </div>
+                        ))}
+                    </div>
+                ) : null}
+
+                <div className={styles.proofPanel}>
+                    <div className={styles.proofIntro}>
+                        <span className={styles.reportEyebrow}>Prova visual</span>
+                        <p>
+                            A trilha abaixo mostra o movimento real do spray antes dos detalhes de qualidade, tracking, metricas, sensibilidade e coach.
+                        </p>
+                    </div>
+                    <div className={styles.proofCanvas}>
+                        <SprayVisualization
+                            trajectory={activeSession.trajectory}
+                            shotResiduals={activeSession.metrics.shotResiduals}
+                        />
+                    </div>
+                    <div className={styles.vizLegend} aria-label="Legenda da trajetoria">
+                        {hasIdealPattern ? (
+                            <span><span className={`${styles.legendSwatch} ${styles.legendIdeal}`} />Padrao ideal patch-aware</span>
+                        ) : null}
+                        <span><span className={`${styles.legendSwatch} ${styles.legendReal}`} />Movimento real</span>
+                        <span><span className={`${styles.legendSwatch} ${styles.legendTarget}`} />Centro inicial</span>
+                    </div>
+                </div>
+            </section>
 
             {videoQualityReport ? (
                 <section className={styles.section}>
@@ -987,7 +1125,7 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
             </section>
 
             {/* ═══ Metrics & Visualization ═══ */}
-            <div className={styles.vizGrid}>
+            <div className={styles.metricsReportGrid}>
                 <section className={styles.section}>
                     <h3 className={styles.sectionTitle}>📊 Métricas {isAggregated ? '(Médias)' : ''}</h3>
 
@@ -1043,24 +1181,6 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                     </div>
                 </section>
 
-                <section className={styles.section}>
-                    <h3 className={styles.sectionTitle}>🎯 Trajetória do Recuo</h3>
-                    <div className={`${styles.vizCard} glass-card`}>
-                        <div className={styles.canvasContainer}>
-                            <SprayVisualization
-                                trajectory={activeSession.trajectory}
-                                shotResiduals={activeSession.metrics.shotResiduals}
-                            />
-                        </div>
-                        <div className={styles.vizLegend} aria-label="Legenda da trajetoria">
-                            {hasIdealPattern ? (
-                                <span><span className={`${styles.legendSwatch} ${styles.legendIdeal}`} />Padrao ideal patch-aware</span>
-                            ) : null}
-                            <span><span className={`${styles.legendSwatch} ${styles.legendReal}`} />Movimento real</span>
-                            <span><span className={`${styles.legendSwatch} ${styles.legendTarget}`} />Centro inicial</span>
-                        </div>
-                    </div>
-                </section>
             </div>
 
             {/* ═══ Diagnoses — Improved ═══ */}
@@ -1068,12 +1188,12 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                 <section className={styles.section}>
                     <h3 className={styles.sectionTitle}>🩺 Leituras da Análise</h3>
                     <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-md)', lineHeight: 1.6 }}>
-                        A análise destaca primeiro o que mais está derrubando o spray agora. Use os blocos abaixo como priorização prática, não como sentença final.
+                        A análise destaca primeiro o que mais está derrubando o spray agora. Use os blocos abaixo como priorização prática, não como rótulo fechado.
                     </p>
                     <div className={styles.diagnosisList}>
                         {/* Major diagnoses (severity >= 3) — always visible */}
                         {majorDiags.map((d, i) => {
-                            const meta = DIAG_META[d.type] || { icon: '⚠️', label: d.type.toUpperCase(), color: '#f59e0b' };
+                            const meta = getDiagnosisMeta(d.type);
                             const matchingCoach = coaching.find(c => c.diagnosis.type === d.type);
                             const isExpanded = expandedDiag === i;
                             const diagnosisTone = resultToneClass(d.severity >= 4 ? 'error' : d.severity >= 3 ? 'warning' : 'success');
@@ -1157,7 +1277,7 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                                 </button>
 
                                 {showMinorDiags && minorDiags.map((d, i) => {
-                                    const meta = DIAG_META[d.type] || { icon: '⚠️', label: d.type.toUpperCase(), color: '#f59e0b' };
+                                    const meta = getDiagnosisMeta(d.type);
                                     const idx = majorDiags.length + i;
                                     return (
                                         <div
@@ -1255,7 +1375,7 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                                 }}
                             >
                                 {isRecommended && (
-                                    <span className={`badge badge-success ${styles.recommendedBadge}`}>⭐ Match Ideal</span>
+                                    <span className={`badge badge-success ${styles.recommendedBadge}`}>⭐ Match sugerido</span>
                                 )}
 
                                 {/* Icon + Title */}
@@ -1341,7 +1461,7 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                         </div>
                         <div className={styles.selectedProfileMeta}>
                             <span className={selectedProfile.type === sensitivity.recommended ? 'badge badge-success' : 'badge badge-info'}>
-                                {selectedProfile.type === sensitivity.recommended ? 'Match ideal' : 'Perfil alternativo'}
+                                {selectedProfile.type === sensitivity.recommended ? 'Match sugerido' : 'Perfil alternativo'}
                             </span>
                             <span className="badge badge-info">Geral {selectedProfile.general}</span>
                             <span className="badge badge-info">ADS {selectedProfile.ads}</span>
@@ -1380,7 +1500,7 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                 <section className={styles.section}>
                     <h3 className={styles.sectionTitle}>🏆 Plano do Coach</h3>
                     <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-md)', lineHeight: 1.6 }}>
-                        O coach abaixo prioriza o que mexe mais no resultado agora. Quando a amostra ainda está curta, a orientação vira plano de teste, não veredito final.
+                        O coach abaixo prioriza o que mexe mais no resultado agora. Quando a amostra ainda está curta, a orientação vira plano de teste, não resultado fechado.
                     </p>
                     {coachPlan ? (
                         <div className={styles.coachPlanSummary}>
@@ -1438,7 +1558,7 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                         {groupedCoaching.map((group, gi) => {
                             const c = group.items[0];
                             if (!c) return null;
-                            const meta = DIAG_META[c.diagnosis.type] || { icon: '⚠️', label: '', color: '#f59e0b' };
+                            const meta = getDiagnosisMeta(c.diagnosis.type);
                             const maxSeverity = group.maxSeverity;
                             const priorityToneClass = resultToneClass(group.priorityTone);
                             const isOpen = expandedCoach === gi;

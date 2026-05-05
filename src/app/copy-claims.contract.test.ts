@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const PRODUCT_COPY_FILES = [
+    'src/app/analyze/results-dashboard.tsx',
     'src/app/analyze/analysis-guide.tsx',
     'src/app/page.tsx',
     'src/app/history/page.tsx',
