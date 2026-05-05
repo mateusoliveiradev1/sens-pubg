@@ -7,10 +7,10 @@
 
 ### Precision
 
-- [ ] **PREC-01**: User can see a practical "spray mastery" score based on measured control, consistency, confidence, and clip quality.
-- [ ] **PREC-02**: User can see confidence, coverage, visible frames, lost frames, and inconclusive states for every analysis result.
+- [x] **PREC-01**: User can see a practical "spray mastery" score based on measured control, consistency, confidence, and clip quality.
+- [x] **PREC-02**: User can see confidence, coverage, visible frames, lost frames, and inconclusive states for every analysis result.
 - [ ] **PREC-03**: User can compare a current clip against prior clips using stable metrics instead of only one-off diagnosis text.
-- [ ] **PREC-04**: System can block or downgrade recommendations when clip evidence is too weak.
+- [x] **PREC-04**: System can block or downgrade recommendations when clip evidence is too weak.
 
 ### Benchmark
 
@@ -73,10 +73,10 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PREC-01 | Phase 1 | Pending |
-| PREC-02 | Phase 1 | Pending |
+| PREC-01 | Phase 1 | Complete |
+| PREC-02 | Phase 1 | Complete |
 | PREC-03 | Phase 3 | Pending |
-| PREC-04 | Phase 1 | Pending |
+| PREC-04 | Phase 1 | Complete |
 | BENCH-01 | Phase 2 | Pending |
 | BENCH-02 | Phase 2 | Pending |
 | BENCH-03 | Phase 2 | Pending |
