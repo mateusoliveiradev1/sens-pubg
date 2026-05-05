@@ -62,6 +62,22 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **UI hint:** no
 
+**Plans:**
+
+**Wave 1**
+- `02-01` - Truth-Aware Benchmark Contract. Extends benchmark schema and runner checks for mastery action, evidence tier, weak-evidence downgrade, focus priorities, and next-block protocol structure.
+
+**Wave 2 *(blocked on Wave 1 completion)***
+- `02-02` - Strict Release Benchmark Gate. Adds `benchmark:release`, versioned synthetic/captured baselines, markdown regression reports, and explicit baseline update workflow.
+- `02-03` - Guided Captured Clip Promotion. Upgrades captured clip promotion into an internal maintainer workflow with strict metadata/label/provenance checks and promotion reports.
+
+**Cross-cutting constraints:**
+- Keep `benchmark:gate` as the fast day-to-day gate.
+- Keep the strict commercial/release gate separate from normal local iteration.
+- Benchmark truth uses stable internal enums, not translated UI copy.
+- Synthetic, captured, reviewed, and golden evidence must be reported separately.
+- Any baseline update requires a reason, affected clips, and why the new behavior is more honest.
+
 ## Phase 3: Multi-Clip Precision Loop
 
 **Goal:** Make improvement measurable across repeated sprays instead of isolated one-off reports.
