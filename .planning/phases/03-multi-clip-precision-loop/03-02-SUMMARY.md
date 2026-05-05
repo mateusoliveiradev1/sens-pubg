@@ -129,6 +129,7 @@ completed: 2026-05-05
 
 - `npx vitest run src/db/schema.test.ts` - passed, 20 tests
 - `npx vitest run src/actions/history.test.ts src/app/history/analysis-result-hydration.test.ts src/core/coach-memory.test.ts src/core/coach-plan-builder.test.ts` - passed, 43 tests
+- `npx drizzle-kit push` - applied precision evolution line/checkpoint schema to the configured database during phase completion
 - `npm run typecheck` - passed
 - `npx vitest run` - passed, 122 files / 619 tests
 - `npm run benchmark:gate` - passed, synthetic and captured benchmarks score 100, coverage gate PASS
