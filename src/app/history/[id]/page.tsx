@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { db } from '@/db';
-import { analysisSessions, weaponProfiles } from '@/db/schema';
+import { analysisSessions, precisionCheckpoints, precisionEvolutionLines, weaponProfiles } from '@/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { auth } from '@/auth';
 import Link from 'next/link';
@@ -10,7 +10,7 @@ import { ResultsDashboard } from '@/app/analyze/results-dashboard';
 import { hydrateAnalysisResultFromHistory } from '../analysis-result-hydration';
 import { PublishAnalysisButton } from './publish-analysis-button';
 import { SensitivityAcceptancePanel } from './sensitivity-acceptance-panel';
-import type { CoachDecisionTier } from '@/types/engine';
+import type { CoachDecisionTier, PrecisionCheckpointState, PrecisionTrendSummary, PrecisionVariableInTest } from '@/types/engine';
 
 interface Props {
     params: Promise<{ id: string }>;
@@ -22,6 +22,57 @@ const HISTORY_COACH_TIER_LABELS: Record<CoachDecisionTier, string> = {
     stabilize_block: 'Estabilizar bloco',
     apply_protocol: 'Aplicar protocolo',
 };
+
+function precisionCheckpointStateLabel(state: PrecisionCheckpointState): string {
+    switch (state) {
+        case 'baseline_created':
+            return 'Baseline criado';
+        case 'initial_signal':
+            return 'Sinal inicial';
+        case 'in_validation':
+            return 'Em validacao';
+        case 'validated_progress':
+            return 'Progresso validado';
+        case 'validated_regression':
+            return 'Regressao validada';
+        case 'oscillation':
+            return 'Oscilacao';
+        case 'consolidated':
+            return 'Consolidado';
+        case 'not_comparable':
+            return 'Nao comparavel';
+    }
+}
+
+function precisionVariableLabel(variable: PrecisionVariableInTest): string {
+    switch (variable) {
+        case 'sensitivity':
+            return 'sensibilidade';
+        case 'vertical_control':
+            return 'controle vertical';
+        case 'horizontal_noise':
+            return 'ruido horizontal';
+        case 'consistency':
+            return 'consistencia';
+        case 'capture_quality':
+            return 'qualidade da captura';
+        case 'loadout':
+            return 'loadout';
+        case 'validation':
+            return 'validacao';
+    }
+}
+
+function precisionBlockerReasons(trend: PrecisionTrendSummary | null): readonly string[] {
+    if (!trend) {
+        return [];
+    }
+
+    return Array.from(new Set([
+        ...trend.blockerSummaries.map((summary) => summary.message),
+        ...trend.blockedClips.flatMap((clip) => clip.blockers.map((blocker) => blocker.message)),
+    ].filter((message) => message.trim().length > 0)));
+}
 
 export default async function HistoryDetailRoute({ params }: Props) {
     const session = await auth();
@@ -63,6 +114,30 @@ export default async function HistoryDetailRoute({ params }: Props) {
         notFound();
     }
 
+    const [precisionCheckpoint] = await db
+        .select({
+            id: precisionCheckpoints.id,
+            lineId: precisionCheckpoints.lineId,
+            state: precisionCheckpoints.state,
+            variableInTest: precisionCheckpoints.variableInTest,
+            payload: precisionCheckpoints.payload,
+            createdAt: precisionCheckpoints.createdAt,
+            lineStatus: precisionEvolutionLines.status,
+            lineCurrentSessionId: precisionEvolutionLines.currentSessionId,
+        })
+        .from(precisionCheckpoints)
+        .leftJoin(
+            precisionEvolutionLines,
+            eq(precisionCheckpoints.lineId, precisionEvolutionLines.id),
+        )
+        .where(
+            and(
+                eq(precisionCheckpoints.analysisSessionId, id),
+                eq(precisionEvolutionLines.userId, session.user.id),
+            ),
+        )
+        .limit(1);
+
     const scope = SCOPE_LIST.find((item) => item.id === record.scopeId);
     const fullResult = (record.fullResult ?? {}) as Record<string, unknown>;
     const analysisResult = hydrateAnalysisResultFromHistory({
@@ -92,6 +167,11 @@ export default async function HistoryDetailRoute({ params }: Props) {
         distanceMode: analysisResult.analysisContext?.distanceMode,
         distanceNote: analysisResult.analysisContext?.distanceNote,
     });
+    const checkpointTrend = precisionCheckpoint?.payload.trend ?? analysisResult.precisionTrend ?? null;
+    const checkpointBlockers = precisionBlockerReasons(checkpointTrend);
+    const checkpointNextValidation = precisionCheckpoint?.payload.nextValidationHint
+        ?? checkpointTrend?.nextValidationHint
+        ?? 'Gravar validacao compativel mantendo as variaveis fixas.';
 
     return (
         <>
@@ -199,6 +279,100 @@ export default async function HistoryDetailRoute({ params }: Props) {
                                     </div>
                                 </div>
                             </div>
+                        </section>
+                    ) : null}
+
+                    {precisionCheckpoint || checkpointTrend ? (
+                        <section
+                            className="glass-card"
+                            style={{
+                                padding: 'var(--space-lg)',
+                                border: '1px solid rgba(251, 191, 36, 0.2)',
+                                background: 'linear-gradient(145deg, rgba(18, 12, 4, 0.72), rgba(8, 8, 12, 0.92))',
+                            }}
+                        >
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    flexWrap: 'wrap',
+                                    justifyContent: 'space-between',
+                                    gap: 'var(--space-lg)',
+                                    alignItems: 'flex-start',
+                                }}
+                            >
+                                <div style={{ maxWidth: 540 }}>
+                                    <p
+                                        style={{
+                                            margin: '0 0 var(--space-xs) 0',
+                                            fontSize: '11px',
+                                            letterSpacing: '0.18em',
+                                            textTransform: 'uppercase',
+                                            color: '#fbbf24',
+                                            fontWeight: 700,
+                                        }}
+                                    >
+                                        Checkpoint de precisao
+                                    </p>
+                                    <h2 style={{ margin: 0, fontSize: 'var(--text-2xl)', lineHeight: 1.15 }}>
+                                        {precisionCheckpoint
+                                            ? precisionCheckpointStateLabel(precisionCheckpoint.state)
+                                            : checkpointTrend?.label ?? 'Trend salvo'}
+                                    </h2>
+                                    <p style={{ margin: 'var(--space-sm) 0 0 0', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+                                        Esta sessao {precisionCheckpoint?.lineCurrentSessionId === record.id ? 'atualizou' : 'registrou'} a linha de precisao. Proxima validacao: {checkpointNextValidation}
+                                    </p>
+                                </div>
+
+                                <div style={{ display: 'grid', gap: '8px', minWidth: 220 }}>
+                                    {precisionCheckpoint ? (
+                                        <span className="badge badge-info">
+                                            variavel em teste: {precisionVariableLabel(precisionCheckpoint.variableInTest)}
+                                        </span>
+                                    ) : null}
+                                    {checkpointTrend ? (
+                                        <>
+                                            <span className="badge badge-info">
+                                                {checkpointTrend.compatibleCount} clip(s) compativel(is)
+                                            </span>
+                                            <span className="badge badge-info">
+                                                Cobertura {Math.round(checkpointTrend.coverage * 100)}% | Confianca {Math.round(checkpointTrend.confidence * 100)}%
+                                            </span>
+                                        </>
+                                    ) : null}
+                                </div>
+                            </div>
+
+                            {checkpointBlockers.length > 0 ? (
+                                <div style={{ display: 'grid', gap: '8px', marginTop: 'var(--space-md)' }}>
+                                    {checkpointBlockers.map((reason) => (
+                                        <p
+                                            key={reason}
+                                            style={{
+                                                margin: 0,
+                                                padding: '8px 10px',
+                                                borderRadius: '8px',
+                                                border: '1px solid rgba(239, 68, 68, 0.24)',
+                                                background: 'rgba(239, 68, 68, 0.08)',
+                                                color: 'var(--color-text-secondary)',
+                                                fontSize: 'var(--text-sm)',
+                                                lineHeight: 1.5,
+                                            }}
+                                        >
+                                            Bloqueio: {reason}
+                                        </p>
+                                    ))}
+                                </div>
+                            ) : null}
+
+                            {precisionCheckpoint ? (
+                                <Link
+                                    href={`/history?line=${precisionCheckpoint.lineId}`}
+                                    className="btn btn-outline"
+                                    style={{ marginTop: 'var(--space-md)' }}
+                                >
+                                    Abrir auditoria da linha
+                                </Link>
+                            ) : null}
                         </section>
                     ) : null}
 

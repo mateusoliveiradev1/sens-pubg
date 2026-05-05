@@ -9,8 +9,22 @@ describe('history page field evolution contract', () => {
         expect(source).toMatch(/acceptanceFeedback/);
         expect(source).toMatch(/Leitura de campo/);
         expect(source).toMatch(/Aguardando teste real/);
-        expect(source).not.toMatch(/🔫|🎯/);
+        expect(source).not.toMatch(/\uD83D\uDD2B|\uD83C\uDFAF/);
     });
+
+    it('renders compatible precision groups, blocker reasons, and checkpoint timelines', () => {
+        const source = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/getPrecisionHistoryLines/);
+        expect(source).toMatch(/Evolucao de precisao/);
+        expect(source).toMatch(/Linhas compativeis e checkpoints/);
+        expect(source).toMatch(/Gravar validacao compativel/);
+        expect(source).toMatch(/formatVariableInTest/);
+        expect(source).toMatch(/line\.blockerReasons/);
+        expect(source).toMatch(/selectedLine\.checkpoints\.map/);
+        expect(source).toMatch(/href=\{`\/history\?line=\$\{line\.id\}`\}/);
+    });
+
     it('exposes a minimal coach plan summary on the history detail page when hydrated', () => {
         const source = readFileSync(new URL('./[id]/page.tsx', import.meta.url), 'utf8');
 
@@ -20,5 +34,16 @@ describe('history page field evolution contract', () => {
         expect(source).toMatch(/analysisResult\.coachPlan\.primaryFocus\.title/);
         expect(source).toMatch(/analysisResult\.coachPlan\.nextBlock\.title/);
         expect(source).toMatch(/<ResultsDashboard result=\{analysisResult\} \/>/);
+    });
+
+    it('shows precision checkpoint context on the history detail page', () => {
+        const source = readFileSync(new URL('./[id]/page.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/precisionCheckpoints/);
+        expect(source).toMatch(/Checkpoint de precisao/);
+        expect(source).toMatch(/precisionVariableLabel/);
+        expect(source).toMatch(/checkpointNextValidation/);
+        expect(source).toMatch(/checkpointBlockers/);
+        expect(source).toMatch(/Abrir auditoria da linha/);
     });
 });

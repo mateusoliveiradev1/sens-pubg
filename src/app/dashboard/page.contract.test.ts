@@ -36,6 +36,9 @@ describe('dashboard arsenal icon contract', () => {
         expect(source).toMatch(/truthView\.evidenceLabel/);
         expect(source).toMatch(/truthView\.evidenceSummary/);
         expect(source).toMatch(/truthView\.trendBody/);
+        expect(source).toMatch(/truthView\.precisionTrendLabel/);
+        expect(source).toMatch(/truthView\.precisionTrendSummary/);
+        expect(source).toMatch(/Trend principal/);
     });
 
     it('avoids perfect, guaranteed, or final improvement claims in dashboard copy', () => {

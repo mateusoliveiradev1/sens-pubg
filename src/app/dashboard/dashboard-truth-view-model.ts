@@ -1,4 +1,4 @@
-import type { DashboardStats, DashboardTrendEvidenceState } from '@/actions/dashboard';
+import type { DashboardPrincipalPrecisionTrend, DashboardStats, DashboardTrendEvidenceState } from '@/actions/dashboard';
 
 export interface DashboardTruthNextBlock {
     readonly title: string;
@@ -22,6 +22,8 @@ export interface DashboardTruthViewModel {
     readonly evidenceState: DashboardTrendEvidenceState;
     readonly evidenceLabel: string;
     readonly evidenceSummary: string;
+    readonly precisionTrendLabel: string | null;
+    readonly precisionTrendSummary: string | null;
     readonly nextBlock: DashboardTruthNextBlock | null;
     readonly arsenalFocus: DashboardTruthArsenalFocus | null;
 }
@@ -84,7 +86,79 @@ function buildNextBlock(stats: DashboardStats): DashboardTruthNextBlock | null {
     };
 }
 
+function precisionTrendLabel(trend: DashboardPrincipalPrecisionTrend): string {
+    switch (trend.label) {
+        case 'baseline':
+            return 'Baseline criado';
+        case 'initial_signal':
+            return 'Sinal inicial';
+        case 'in_validation':
+            return 'Em validacao';
+        case 'validated_progress':
+            return 'Progresso validado';
+        case 'validated_regression':
+            return 'Regressao validada';
+        case 'oscillation':
+            return 'Oscilacao';
+        case 'not_comparable':
+            return 'Nao comparavel';
+        case 'consolidated':
+            return 'Consolidado';
+    }
+}
+
+function buildPrecisionNextAction(
+    trend: DashboardPrincipalPrecisionTrend | null,
+): Pick<DashboardTruthViewModel, 'nextActionTitle' | 'nextActionBody' | 'truthBadgeLabel'> | null {
+    if (!trend) {
+        return null;
+    }
+
+    switch (trend.label) {
+        case 'baseline':
+        case 'initial_signal':
+            return {
+                nextActionTitle: 'Gravar validacao compativel',
+                nextActionBody: `${precisionTrendLabel(trend)} com ${trend.compatibleCount} clip(s). Mantenha a variavel em teste fixa e registre outro clip antes de consolidar mudanca.`,
+                truthBadgeLabel: precisionTrendLabel(trend),
+            };
+        case 'in_validation':
+        case 'oscillation':
+            return {
+                nextActionTitle: 'Manter variavel fixa e validar',
+                nextActionBody: `${precisionTrendLabel(trend)} na linha principal. Use o proximo bloco para confirmar o sinal sem trocar sensibilidade, loadout ou contexto.`,
+                truthBadgeLabel: precisionTrendLabel(trend),
+            };
+        case 'validated_progress':
+        case 'consolidated':
+            return {
+                nextActionTitle: 'Consolidar antes de mudar variavel',
+                nextActionBody: `${precisionTrendLabel(trend)} com ${trend.compatibleCount} clips compativeis. Consolide o bloco atual antes de testar outra variavel.`,
+                truthBadgeLabel: precisionTrendLabel(trend),
+            };
+        case 'validated_regression':
+            return {
+                nextActionTitle: 'Voltar ao baseline confiavel',
+                nextActionBody: 'A linha principal validou regressao. Retorne ao ultimo baseline confiavel e grave uma nova validacao compativel.',
+                truthBadgeLabel: precisionTrendLabel(trend),
+            };
+        case 'not_comparable':
+            return {
+                nextActionTitle: 'Alinhar contexto antes de comparar',
+                nextActionBody: trend.blockerReasons[0]
+                    ? `Trend nao comparavel: ${trend.blockerReasons[0]} Corrija o contexto e grave validacao compativel.`
+                    : 'Trend nao comparavel. Corrija captura, metadados ou contexto antes de comparar evolucao.',
+                truthBadgeLabel: precisionTrendLabel(trend),
+            };
+    }
+}
+
 function buildNextAction(stats: DashboardStats): Pick<DashboardTruthViewModel, 'nextActionTitle' | 'nextActionBody' | 'truthBadgeLabel'> {
+    const precisionAction = buildPrecisionNextAction(stats.principalPrecisionTrend);
+    if (precisionAction) {
+        return precisionAction;
+    }
+
     const mastery = stats.latestMastery;
     const nextBlock = stats.latestCoachNextBlock;
 
@@ -129,7 +203,69 @@ function buildNextAction(stats: DashboardStats): Pick<DashboardTruthViewModel, '
     };
 }
 
+function buildPrecisionTrendCopy(
+    trend: DashboardPrincipalPrecisionTrend | null,
+): Pick<DashboardTruthViewModel, 'trendTitle' | 'trendBody'> | null {
+    if (!trend) {
+        return null;
+    }
+
+    const deltaText = trend.actionableDelta === null
+        ? null
+        : formatSignedPoints(Math.round(trend.actionableDelta));
+
+    switch (trend.label) {
+        case 'baseline':
+            return {
+                trendTitle: 'Baseline em aberto',
+                trendBody: 'A linha principal tem baseline, mas ainda precisa de validacao compativel antes de qualquer leitura de evolucao.',
+            };
+        case 'initial_signal':
+            return {
+                trendTitle: 'Sinal inicial',
+                trendBody: 'Dois clips compativeis mostram direcao. Grave a terceira validacao antes de consolidar progresso ou regressao.',
+            };
+        case 'in_validation':
+            return {
+                trendTitle: 'Em validacao',
+                trendBody: `A linha ainda pede evidencia mais forte. ${deltaText ? `Delta atual: ${deltaText}. ` : ''}Mantenha a variavel em teste fixa.`,
+            };
+        case 'validated_progress':
+            return {
+                trendTitle: 'Progresso validado',
+                trendBody: `A linha compativel validou progresso${deltaText ? ` (${deltaText})` : ''}. Consolide antes de mudar outra variavel.`,
+            };
+        case 'validated_regression':
+            return {
+                trendTitle: 'Regressao validada',
+                trendBody: `A linha compativel validou regressao${deltaText ? ` (${deltaText})` : ''}. Volte ao baseline confiavel e valide de novo.`,
+            };
+        case 'oscillation':
+            return {
+                trendTitle: 'Oscilacao controlada',
+                trendBody: `A linha oscilou dentro da margem de decisao${deltaText ? `, mesmo com delta ${deltaText}` : ''}. Nao trate delta bruto como progresso.`,
+            };
+        case 'not_comparable':
+            return {
+                trendTitle: 'Nao comparavel',
+                trendBody: trend.blockerReasons[0]
+                    ? `Controle de precisao bloqueou comparacao: ${trend.blockerReasons[0]}`
+                    : 'Controle de precisao bloqueou comparacao. Grave outro clip com contexto alinhado.',
+            };
+        case 'consolidated':
+            return {
+                trendTitle: 'Linha consolidada',
+                trendBody: 'A linha principal esta consolidada. Escolha a proxima variavel com base em evidencia, nao em pico isolado.',
+            };
+    }
+}
+
 function buildTrendCopy(stats: DashboardStats): Pick<DashboardTruthViewModel, 'trendTitle' | 'trendBody'> {
+    const precisionCopy = buildPrecisionTrendCopy(stats.principalPrecisionTrend);
+    if (precisionCopy) {
+        return precisionCopy;
+    }
+
     const evidence = stats.trendEvidence;
     const delta = evidence.delta || stats.lastSessionDelta;
     const deltaText = formatSignedPoints(delta);
@@ -205,6 +341,12 @@ export function buildDashboardTruthViewModel(stats: DashboardStats): DashboardTr
         evidenceState: stats.trendEvidence.evidenceState,
         evidenceLabel: evidenceLabel(stats.trendEvidence.evidenceState),
         evidenceSummary: buildEvidenceSummary(stats),
+        precisionTrendLabel: stats.principalPrecisionTrend
+            ? precisionTrendLabel(stats.principalPrecisionTrend)
+            : null,
+        precisionTrendSummary: stats.principalPrecisionTrend
+            ? `${stats.principalPrecisionTrend.compatibleCount} clip(s), ${formatPercent(stats.principalPrecisionTrend.coverage)} cobertura, ${formatPercent(stats.principalPrecisionTrend.confidence)} confianca.`
+            : null,
         nextBlock: buildNextBlock(stats),
         arsenalFocus: buildArsenalFocus(stats),
     };

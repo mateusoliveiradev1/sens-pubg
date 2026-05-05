@@ -306,6 +306,9 @@ export default async function DashboardPage() {
                                     <span className="badge badge-info">Painel tatico</span>
                                     <span className="badge badge-info">Janela 30 dias</span>
                                     <span className="badge badge-info">Ultimo checkpoint {lastCheckpointLabel}</span>
+                                    {truthView.precisionTrendLabel ? (
+                                        <span className="badge badge-info">Trend principal: {truthView.precisionTrendLabel}</span>
+                                    ) : null}
                                 </div>
 
                                 <p className="mb-3 text-[10px] font-mono uppercase tracking-[0.35em] text-cyan-400">
@@ -398,6 +401,14 @@ export default async function DashboardPage() {
                                             {latestMastery ? formatPercent(latestMastery.evidence.coverage) : 'aguardando'}
                                         </span>
                                     </div>
+                                    {truthView.precisionTrendLabel ? (
+                                        <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/6 bg-zinc-950/60 px-4 py-3">
+                                            <span>Trend principal</span>
+                                            <span className="text-amber-300">
+                                                {truthView.precisionTrendLabel}
+                                            </span>
+                                        </div>
+                                    ) : null}
                                 </div>
                             </div>
 
@@ -490,6 +501,9 @@ export default async function DashboardPage() {
                                     <span className="badge badge-info">30 dias</span>
                                     <span className="badge badge-info">Ultima leitura {lastCheckpointLabel}</span>
                                     <span className="badge badge-info">{truthView.evidenceLabel}</span>
+                                    {truthView.precisionTrendSummary ? (
+                                        <span className="badge badge-info">{truthView.precisionTrendSummary}</span>
+                                    ) : null}
                                     <span className={trendDelta >= 0 ? 'badge badge-success' : 'badge badge-warning'}>
                                         {formatSignedPoints(trendDelta)} na media
                                     </span>

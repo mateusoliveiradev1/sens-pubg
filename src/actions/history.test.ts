@@ -8,7 +8,7 @@ import {
 } from '@/db/schema';
 import { createAnalysisContext } from '@/app/analyze/analysis-context';
 import { CURRENT_PUBG_PATCH_VERSION } from '@/game/pubg/patch';
-import type { AnalysisResult } from '@/types/engine';
+import type { AnalysisResult, PrecisionTrendSummary } from '@/types/engine';
 
 const mocks = vi.hoisted(() => {
     const auth = vi.fn();
@@ -82,7 +82,7 @@ vi.mock('@/server/coach/groq-coach-client', () => ({
     createGroqCoachClient: mocks.createGroqCoachClient,
 }));
 
-import { getHistorySessions, recordSensitivityAcceptance, saveAnalysisResult } from './history';
+import { getHistorySessions, getPrecisionHistoryLines, recordSensitivityAcceptance, saveAnalysisResult } from './history';
 
 function createAnalysisResult(): AnalysisResult {
     return {
@@ -250,6 +250,63 @@ function createPrecisionReadyAnalysisResult(input: {
                 },
             } as never,
         },
+    };
+}
+
+function createStoredPrecisionTrend(overrides: Partial<PrecisionTrendSummary> = {}): PrecisionTrendSummary {
+    return {
+        label: 'validated_progress',
+        evidenceLevel: 'strong',
+        compatibleCount: 3,
+        baseline: {
+            resultId: 'baseline-result',
+            timestamp: '2026-04-18T12:00:00.000Z',
+            actionableScore: 62,
+            mechanicalScore: 66,
+            coverage: 0.9,
+            confidence: 0.88,
+            clipQuality: 84,
+        },
+        current: {
+            resultId: 'current-result',
+            timestamp: '2026-04-20T12:00:00.000Z',
+            actionableScore: 82,
+            mechanicalScore: 80,
+            coverage: 0.92,
+            confidence: 0.9,
+            clipQuality: 86,
+        },
+        recentWindow: {
+            count: 3,
+            resultIds: ['baseline-result', 'prior-result', 'current-result'],
+            actionableAverage: 72,
+            mechanicalAverage: 73,
+            coverageAverage: 0.9,
+            confidenceAverage: 0.88,
+            clipQualityAverage: 84,
+        },
+        actionableDelta: {
+            baseline: 62,
+            current: 82,
+            delta: 20,
+            recentWindowAverage: 72,
+            recentWindowDelta: 10,
+        },
+        mechanicalDelta: {
+            baseline: 66,
+            current: 80,
+            delta: 14,
+            recentWindowAverage: 73,
+            recentWindowDelta: 7,
+        },
+        pillarDeltas: [],
+        recurringDiagnoses: [],
+        blockerSummaries: [],
+        blockedClips: [],
+        confidence: 0.9,
+        coverage: 0.92,
+        nextValidationHint: 'Consolidar antes de mudar outra variavel.',
+        ...overrides,
     };
 }
 
@@ -794,5 +851,150 @@ describe('getHistorySessions', () => {
             recommendedProfile: 'balanced',
         });
         expect(session).not.toHaveProperty('acceptanceFeedback');
+    });
+});
+
+describe('getPrecisionHistoryLines', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+
+        mocks.auth.mockResolvedValue({
+            user: { id: 'user-1' },
+        });
+
+        mocks.select.mockReturnValue({
+            from: mocks.from,
+        });
+        mocks.from.mockReturnValue({
+            where: mocks.where,
+            leftJoin: mocks.leftJoin,
+        });
+        mocks.where.mockReturnValue({
+            orderBy: mocks.orderBy,
+        });
+    });
+
+    it('returns compatible precision groups with checkpoint timeline summaries', async () => {
+        const trend = createStoredPrecisionTrend();
+
+        mocks.orderBy
+            .mockResolvedValueOnce([
+                {
+                    id: 'line-1',
+                    compatibilityKey: JSON.stringify({
+                        patchVersion: CURRENT_PUBG_PATCH_VERSION,
+                        weaponId: 'beryl-m762',
+                        scopeId: 'red-dot',
+                        stance: 'standing',
+                        muzzle: 'compensator',
+                        grip: 'vertical',
+                        stock: 'none',
+                        distanceMeters: 30,
+                        sprayProtocolKey: 'window:2700:30',
+                    }),
+                    status: 'validated_progress',
+                    variableInTest: 'vertical_control',
+                    baselineSessionId: 'session-baseline',
+                    currentSessionId: 'session-current',
+                    validClipCount: 3,
+                    blockedClipCount: 0,
+                    payload: {
+                        trend,
+                        nextValidationHint: 'Consolidar antes de mudar outra variavel.',
+                    },
+                    createdAt: new Date('2026-04-18T12:00:00.000Z'),
+                    updatedAt: new Date('2026-04-20T12:00:00.000Z'),
+                },
+            ])
+            .mockResolvedValueOnce([
+                {
+                    id: 'checkpoint-1',
+                    lineId: 'line-1',
+                    analysisSessionId: 'session-current',
+                    state: 'validated_progress',
+                    variableInTest: 'vertical_control',
+                    payload: {
+                        trend,
+                        nextValidationHint: 'Consolidar antes de mudar outra variavel.',
+                    },
+                    createdAt: new Date('2026-04-20T12:00:00.000Z'),
+                },
+            ]);
+
+        const lines = await getPrecisionHistoryLines();
+
+        expect(lines).toEqual([
+            expect.objectContaining({
+                id: 'line-1',
+                contextLabel: expect.stringContaining('beryl-m762'),
+                statusLabel: 'Progresso validado',
+                latestTrendLabel: 'validated_progress',
+                variableInTest: 'vertical_control',
+                validClipCount: 3,
+                blockedClipCount: 0,
+                nextValidation: 'Consolidar antes de mudar outra variavel.',
+                checkpoints: [
+                    expect.objectContaining({
+                        id: 'checkpoint-1',
+                        stateLabel: 'Progresso validado',
+                        analysisSessionId: 'session-current',
+                    }),
+                ],
+            }),
+        ]);
+    });
+
+    it('keeps blocked precision reasons visible for history audit cards', async () => {
+        const trend = createStoredPrecisionTrend({
+            label: 'not_comparable',
+            evidenceLevel: 'blocked',
+            compatibleCount: 0,
+            blockerSummaries: [{
+                code: 'capture_quality_weak',
+                count: 1,
+                message: 'Qualidade fraca bloqueia trend preciso.',
+                resultIds: ['blocked-result'],
+            }],
+            blockedClips: [{
+                resultId: 'blocked-result',
+                blockers: [{
+                    code: 'capture_quality_weak',
+                    field: 'mastery.evidence',
+                    message: 'Qualidade fraca bloqueia trend preciso.',
+                }],
+            }],
+        });
+
+        mocks.orderBy
+            .mockResolvedValueOnce([
+                {
+                    id: 'blocked-line',
+                    compatibilityKey: 'blocked:session-blocked',
+                    status: 'not_comparable',
+                    variableInTest: 'capture_quality',
+                    baselineSessionId: null,
+                    currentSessionId: 'session-blocked',
+                    validClipCount: 0,
+                    blockedClipCount: 1,
+                    payload: {
+                        trend,
+                        nextValidationHint: 'Grave outro clip com captura limpa.',
+                    },
+                    createdAt: new Date('2026-04-18T12:00:00.000Z'),
+                    updatedAt: new Date('2026-04-18T12:00:00.000Z'),
+                },
+            ])
+            .mockResolvedValueOnce([]);
+
+        const [line] = await getPrecisionHistoryLines();
+
+        expect(line).toMatchObject({
+            id: 'blocked-line',
+            contextLabel: 'Clip bloqueado sem linha compativel',
+            statusLabel: 'Nao comparavel',
+            validClipCount: 0,
+            blockedClipCount: 1,
+            blockerReasons: ['Qualidade fraca bloqueia trend preciso.'],
+        });
     });
 });

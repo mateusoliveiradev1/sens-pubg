@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
-import { getHistorySessions } from '@/actions/history';
+import { getHistorySessions, getPrecisionHistoryLines } from '@/actions/history';
 import { getWeapon, SCOPE_LIST } from '@/game/pubg';
 import type { ProfileType, SensitivityAcceptanceFeedback } from '@/types/engine';
 import { Header } from '@/ui/components/header';
@@ -13,6 +13,7 @@ export const metadata: Metadata = {
 };
 
 type HistorySession = Awaited<ReturnType<typeof getHistorySessions>>[number];
+type PrecisionLine = Awaited<ReturnType<typeof getPrecisionHistoryLines>>[number];
 type FieldTrendState = 'rising' | 'mixed' | 'review';
 
 const PROFILE_LABELS: Record<ProfileType, string> = {
@@ -182,8 +183,38 @@ function buildFieldTrendSummaries(sessions: readonly HistorySession[]) {
         });
 }
 
-export default async function HistoryPage() {
-    const sessions = await getHistorySessions();
+function formatVariableInTest(variable: PrecisionLine['variableInTest']): string {
+    switch (variable) {
+        case 'sensitivity':
+            return 'sensibilidade';
+        case 'vertical_control':
+            return 'controle vertical';
+        case 'horizontal_noise':
+            return 'ruido horizontal';
+        case 'consistency':
+            return 'consistencia';
+        case 'capture_quality':
+            return 'qualidade da captura';
+        case 'loadout':
+            return 'loadout';
+        case 'validation':
+            return 'validacao';
+    }
+}
+
+export default async function HistoryPage({
+    searchParams,
+}: {
+    readonly searchParams?: Promise<{ readonly line?: string }>;
+}) {
+    const [sessions, precisionLines] = await Promise.all([
+        getHistorySessions(),
+        getPrecisionHistoryLines(),
+    ]);
+    const resolvedSearchParams = await searchParams;
+    const selectedLine = precisionLines.find((line) => line.id === resolvedSearchParams?.line)
+        ?? precisionLines[0]
+        ?? null;
     const sortedSessions = sessions.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     const fieldTrendSummaries = buildFieldTrendSummaries(sortedSessions).slice(0, 6);
 
@@ -216,6 +247,176 @@ export default async function HistoryPage() {
                         </div>
                     ) : (
                         <>
+                            {precisionLines.length > 0 ? (
+                                <section
+                                    className="glass-card"
+                                    style={{
+                                        padding: 'var(--space-xl)',
+                                        marginBottom: 'var(--space-xl)',
+                                        background: 'linear-gradient(145deg, rgba(10, 16, 24, 0.96), rgba(8, 8, 12, 0.92))',
+                                        border: '1px solid rgba(255, 193, 7, 0.16)',
+                                    }}
+                                >
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            flexWrap: 'wrap',
+                                            justifyContent: 'space-between',
+                                            gap: 'var(--space-lg)',
+                                            marginBottom: 'var(--space-lg)',
+                                        }}
+                                    >
+                                        <div style={{ maxWidth: '560px' }}>
+                                            <p
+                                                style={{
+                                                    margin: '0 0 var(--space-xs) 0',
+                                                    fontSize: '11px',
+                                                    letterSpacing: '0.18em',
+                                                    textTransform: 'uppercase',
+                                                    color: '#fbbf24',
+                                                    fontWeight: 700,
+                                                }}
+                                            >
+                                                Evolucao de precisao
+                                            </p>
+                                            <h2 style={{ margin: 0, fontSize: 'var(--text-2xl)', lineHeight: 1.1 }}>
+                                                Linhas compativeis e checkpoints
+                                            </h2>
+                                        </div>
+                                        <Link href="/analyze" className="btn btn-primary">
+                                            Gravar validacao compativel
+                                        </Link>
+                                    </div>
+
+                                    <div
+                                        style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                                            gap: 'var(--space-md)',
+                                            marginBottom: selectedLine ? 'var(--space-lg)' : 0,
+                                        }}
+                                    >
+                                        {precisionLines.map((line) => (
+                                            <Link
+                                                href={`/history?line=${line.id}`}
+                                                key={line.id}
+                                                style={{ color: 'inherit', textDecoration: 'none' }}
+                                            >
+                                                <div
+                                                    style={{
+                                                        height: '100%',
+                                                        padding: 'var(--space-lg)',
+                                                        borderRadius: 'var(--radius-lg)',
+                                                        border: line.id === selectedLine?.id
+                                                            ? '1px solid rgba(251, 191, 36, 0.42)'
+                                                            : '1px solid rgba(255, 255, 255, 0.08)',
+                                                        background: line.id === selectedLine?.id
+                                                            ? 'rgba(251, 191, 36, 0.08)'
+                                                            : 'rgba(255, 255, 255, 0.02)',
+                                                        display: 'grid',
+                                                        gap: 'var(--space-sm)',
+                                                    }}
+                                                >
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                                        <span className="badge badge-info">{line.statusLabel}</span>
+                                                        <span className="badge badge-info">
+                                                            variavel em teste: {formatVariableInTest(line.variableInTest)}
+                                                        </span>
+                                                    </div>
+                                                    <h3 style={{ margin: 0, fontSize: 'var(--text-base)', lineHeight: 1.35 }}>
+                                                        {line.contextLabel}
+                                                    </h3>
+                                                    <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+                                                        {line.validClipCount} clip(s) validos, {line.blockedClipCount} bloqueado(s). Proxima validacao: {line.nextValidation}
+                                                    </p>
+                                                    {line.blockerReasons.length > 0 ? (
+                                                        <div style={{ display: 'grid', gap: '6px' }}>
+                                                            {line.blockerReasons.slice(0, 2).map((reason) => (
+                                                                <span
+                                                                    key={reason}
+                                                                    style={{
+                                                                        padding: '7px 9px',
+                                                                        borderRadius: '8px',
+                                                                        border: '1px solid rgba(239, 68, 68, 0.22)',
+                                                                        background: 'rgba(239, 68, 68, 0.08)',
+                                                                        color: 'var(--color-text-secondary)',
+                                                                        fontSize: '12px',
+                                                                        lineHeight: 1.45,
+                                                                    }}
+                                                                >
+                                                                    {reason}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    ) : null}
+                                                </div>
+                                            </Link>
+                                        ))}
+                                    </div>
+
+                                    {selectedLine ? (
+                                        <div
+                                            style={{
+                                                padding: 'var(--space-lg)',
+                                                borderRadius: 'var(--radius-lg)',
+                                                border: '1px solid rgba(255, 255, 255, 0.08)',
+                                                background: 'rgba(0, 0, 0, 0.18)',
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 'var(--space-md)', marginBottom: 'var(--space-md)' }}>
+                                                <div>
+                                                    <span style={{ color: 'var(--color-text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+                                                        Linha selecionada
+                                                    </span>
+                                                    <h3 style={{ margin: '6px 0 0 0', fontSize: 'var(--text-xl)' }}>
+                                                        {selectedLine.latestTrendText}
+                                                    </h3>
+                                                </div>
+                                                <span className="badge badge-info">
+                                                    {selectedLine.checkpoints.length} checkpoint(s)
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'grid', gap: 'var(--space-sm)' }}>
+                                                {selectedLine.checkpoints.map((checkpoint) => (
+                                                    <Link
+                                                        href={checkpoint.analysisSessionId ? `/history/${checkpoint.analysisSessionId}` : '/history'}
+                                                        key={checkpoint.id}
+                                                        style={{ color: 'inherit', textDecoration: 'none' }}
+                                                    >
+                                                        <div
+                                                            style={{
+                                                                padding: 'var(--space-md)',
+                                                                borderRadius: '10px',
+                                                                border: '1px solid rgba(255, 255, 255, 0.07)',
+                                                                background: 'rgba(255, 255, 255, 0.025)',
+                                                            }}
+                                                        >
+                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                                                                <span className="badge badge-info">{checkpoint.stateLabel}</span>
+                                                                <span className="badge badge-info">
+                                                                    variavel em teste: {formatVariableInTest(checkpoint.variableInTest)}
+                                                                </span>
+                                                                <span className="badge badge-info">
+                                                                    {checkpoint.createdAt.toLocaleDateString('pt-BR')}
+                                                                </span>
+                                                            </div>
+                                                            <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+                                                                Proxima validacao: {checkpoint.nextValidation}
+                                                            </p>
+                                                            {checkpoint.blockerReasons.length > 0 ? (
+                                                                <p style={{ margin: '6px 0 0 0', color: 'var(--color-error)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+                                                                    Bloqueio: {checkpoint.blockerReasons.join(' | ')}
+                                                                </p>
+                                                            ) : null}
+                                                        </div>
+                                                    </Link>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : null}
+                                </section>
+                            ) : null}
+
                             <div
                                 className="glass-card"
                                 style={{

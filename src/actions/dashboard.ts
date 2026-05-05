@@ -1,11 +1,18 @@
 'use server';
 
 import { db } from '@/db';
-import { analysisSessions, weaponProfiles, weaponRegistry } from '@/db/schema';
+import { analysisSessions, precisionEvolutionLines, weaponProfiles, weaponRegistry } from '@/db/schema';
 import { auth } from '@/auth';
 import { eq, sql, gte, and, desc } from 'drizzle-orm';
 import { hydrateAnalysisResultFromHistory } from '@/app/history/analysis-result-hydration';
-import type { AnalysisResult, CoachDecisionTier, SprayActionState, SprayMastery } from '@/types/engine';
+import type {
+    AnalysisResult,
+    CoachDecisionTier,
+    PrecisionTrendLabel,
+    PrecisionTrendSummary,
+    SprayActionState,
+    SprayMastery,
+} from '@/types/engine';
 
 export type DashboardTrendEvidenceState = 'strong' | 'moderate' | 'weak' | 'missing';
 
@@ -43,6 +50,18 @@ export interface DashboardTrendEvidence {
     readonly canClaimProgress: boolean;
 }
 
+export interface DashboardPrincipalPrecisionTrend {
+    readonly label: PrecisionTrendLabel;
+    readonly compatibleCount: number;
+    readonly evidenceLevel: PrecisionTrendSummary['evidenceLevel'];
+    readonly coverage: number;
+    readonly confidence: number;
+    readonly actionableDelta: number | null;
+    readonly nextValidationHint: string;
+    readonly blockerReasons: readonly string[];
+    readonly updatedAt: string;
+}
+
 export interface DashboardStats {
     totalSessions: number;
     avgStabilityScore: number;
@@ -55,6 +74,7 @@ export interface DashboardStats {
     latestMastery: DashboardLatestMastery | null;
     latestCoachNextBlock: DashboardLatestCoachNextBlock | null;
     trendEvidence: DashboardTrendEvidence;
+    principalPrecisionTrend: DashboardPrincipalPrecisionTrend | null;
 }
 
 interface RecentTruthSession {
@@ -196,6 +216,39 @@ function buildTrendEvidence(
     };
 }
 
+function isPrecisionTrendSummary(value: unknown): value is PrecisionTrendSummary {
+    return isRecord(value)
+        && typeof value.label === 'string'
+        && typeof value.compatibleCount === 'number'
+        && typeof value.nextValidationHint === 'string';
+}
+
+function buildPrincipalPrecisionTrend(
+    trend: PrecisionTrendSummary | null,
+    updatedAt: Date | string | null,
+): DashboardPrincipalPrecisionTrend | null {
+    if (!trend) {
+        return null;
+    }
+
+    return {
+        label: trend.label,
+        compatibleCount: trend.compatibleCount,
+        evidenceLevel: trend.evidenceLevel,
+        coverage: trend.coverage,
+        confidence: trend.confidence,
+        actionableDelta: trend.actionableDelta?.delta ?? null,
+        nextValidationHint: trend.nextValidationHint,
+        blockerReasons: Array.from(new Set([
+            ...trend.blockerSummaries.map((summary) => summary.message),
+            ...trend.blockedClips.flatMap((clip) => clip.blockers.map((blocker) => blocker.message)),
+        ].filter((message) => message.trim().length > 0))),
+        updatedAt: updatedAt instanceof Date
+            ? updatedAt.toISOString()
+            : updatedAt ?? new Date().toISOString(),
+    };
+}
+
 export async function getDashboardStats(): Promise<DashboardStats | null> {
     const session = await auth();
     if (!session?.user?.id) return null;
@@ -299,6 +352,22 @@ export async function getDashboardStats(): Promise<DashboardStats | null> {
         const latestTruthIndex = hydratedRecentResults.findIndex((result) => Boolean(result?.mastery));
         const latestTruthResult = latestTruthIndex >= 0 ? hydratedRecentResults[latestTruthIndex]! : null;
         const latestTruthRow = latestTruthIndex >= 0 ? recentTruthSessions[latestTruthIndex]! : null;
+        const precisionLineRows = await db
+            .select({
+                payload: precisionEvolutionLines.payload,
+                updatedAt: precisionEvolutionLines.updatedAt,
+            })
+            .from(precisionEvolutionLines)
+            .where(eq(precisionEvolutionLines.userId, userId))
+            .orderBy(desc(precisionEvolutionLines.updatedAt))
+            .limit(6);
+        const persistedPrecisionLine = precisionLineRows.find((line) => isPrecisionTrendSummary(line.payload.trend));
+        const principalPrecisionTrend = buildPrincipalPrecisionTrend(
+            isPrecisionTrendSummary(persistedPrecisionLine?.payload.trend)
+                ? persistedPrecisionLine.payload.trend
+                : latestTruthResult?.precisionTrend ?? null,
+            persistedPrecisionLine?.updatedAt ?? latestTruthRow?.createdAt ?? null,
+        );
 
         return {
             totalSessions: Number(basicStats[0]?.count || 0),
@@ -324,6 +393,7 @@ export async function getDashboardStats(): Promise<DashboardStats | null> {
                 : null,
             latestCoachNextBlock: buildLatestCoachNextBlock(latestTruthResult),
             trendEvidence: buildTrendEvidence(recentTruthSessions, hydratedRecentResults, delta),
+            principalPrecisionTrend,
         };
     } catch (err) {
         console.error('[getDashboardStats] Error:', err);

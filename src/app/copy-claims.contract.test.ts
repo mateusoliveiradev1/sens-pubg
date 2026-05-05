@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest';
 const PRODUCT_COPY_FILES = [
     'src/app/analyze/results-dashboard.tsx',
     'src/app/analyze/results-dashboard-view-model.ts',
+    'src/app/dashboard/page.tsx',
+    'src/app/dashboard/dashboard-truth-view-model.ts',
     'src/app/analyze/analysis-guide.tsx',
     'src/app/page.tsx',
     'src/app/history/page.tsx',

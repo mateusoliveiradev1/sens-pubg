@@ -1,6 +1,6 @@
 'use server';
 
-import { and, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 
 import { createAnalysisContext } from '@/app/analyze/analysis-context';
@@ -10,7 +10,7 @@ import { enrichAnalysisResultCoaching } from '@/core/analysis-result-coach-enric
 import { buildCoachMemorySnapshot, type CoachMemoryHistorySession } from '@/core/coach-memory';
 import { buildCoachPlan } from '@/core/coach-plan-builder';
 import { resolveMeasurementTruth } from '@/core/measurement-truth';
-import { buildPrecisionCompatibilityKey, resolvePrecisionTrend } from '@/core/precision-loop';
+import { buildPrecisionCompatibilityKey, formatPrecisionTrendLabel, resolvePrecisionTrend } from '@/core/precision-loop';
 import {
     applySensitivityHistoryConvergence,
     type HistoricalSensitivitySignal,
@@ -58,6 +58,38 @@ interface StoredSensitivityHistorySession {
     readonly stance: string;
     readonly attachments: StoredHistoryAttachments;
     readonly fullResult: Record<string, unknown> | null;
+}
+
+export interface PrecisionHistoryCheckpointSummary {
+    readonly id: string;
+    readonly lineId: string;
+    readonly analysisSessionId: string | null;
+    readonly state: PrecisionCheckpointState;
+    readonly stateLabel: string;
+    readonly variableInTest: PrecisionVariableInTest;
+    readonly nextValidation: string;
+    readonly blockerReasons: readonly string[];
+    readonly createdAt: Date;
+}
+
+export interface PrecisionHistoryLineSummary {
+    readonly id: string;
+    readonly compatibilityKey: string;
+    readonly contextLabel: string;
+    readonly status: PrecisionCheckpointState;
+    readonly statusLabel: string;
+    readonly variableInTest: PrecisionVariableInTest;
+    readonly nextValidation: string;
+    readonly validClipCount: number;
+    readonly blockedClipCount: number;
+    readonly latestTrendLabel: PrecisionTrendLabel | null;
+    readonly latestTrendText: string;
+    readonly blockerReasons: readonly string[];
+    readonly baselineSessionId: string | null;
+    readonly currentSessionId: string | null;
+    readonly createdAt: Date;
+    readonly updatedAt: Date;
+    readonly checkpoints: readonly PrecisionHistoryCheckpointSummary[];
 }
 
 function normalizeStoredAttachments(
@@ -492,6 +524,76 @@ async function persistPrecisionEvolution(input: {
     });
 }
 
+function checkpointStateLabel(state: PrecisionCheckpointState): string {
+    switch (state) {
+        case 'baseline_created':
+            return 'Baseline criado';
+        case 'initial_signal':
+            return 'Sinal inicial';
+        case 'in_validation':
+            return 'Em validacao';
+        case 'validated_progress':
+            return 'Progresso validado';
+        case 'validated_regression':
+            return 'Regressao validada';
+        case 'oscillation':
+            return 'Oscilacao';
+        case 'consolidated':
+            return 'Consolidado';
+        case 'not_comparable':
+            return 'Nao comparavel';
+    }
+}
+
+function extractPrecisionTrendFromPayload(payload: { readonly trend?: PrecisionTrendSummary } | null | undefined): PrecisionTrendSummary | null {
+    return payload?.trend && typeof payload.trend.label === 'string'
+        ? payload.trend
+        : null;
+}
+
+function extractPrecisionBlockerReasons(trend: PrecisionTrendSummary | null): readonly string[] {
+    if (!trend) {
+        return [];
+    }
+
+    return Array.from(new Set([
+        ...trend.blockerSummaries.map((summary) => summary.message),
+        ...trend.blockedClips.flatMap((clip) => clip.blockers.map((blocker) => blocker.message)),
+    ].filter((message) => message.trim().length > 0)));
+}
+
+function formatPrecisionContextLabel(compatibilityKey: string): string {
+    if (compatibilityKey.startsWith('blocked:')) {
+        return 'Clip bloqueado sem linha compativel';
+    }
+
+    try {
+        const key = JSON.parse(compatibilityKey) as Partial<PrecisionCompatibilityKey>;
+        const loadout = [
+            key.stance,
+            key.muzzle,
+            key.grip,
+            key.stock,
+        ].filter(Boolean).join('/');
+
+        return [
+            key.weaponId,
+            key.scopeId,
+            key.patchVersion ? `patch ${key.patchVersion}` : null,
+            typeof key.distanceMeters === 'number' ? `${key.distanceMeters}m` : null,
+            loadout || null,
+        ].filter(Boolean).join(' | ') || 'Contexto de precisao';
+    } catch {
+        return 'Contexto de precisao';
+    }
+}
+
+function precisionNextValidation(payload: { readonly nextValidationHint?: string } | null | undefined, trend: PrecisionTrendSummary | null): string {
+    return payload?.nextValidationHint
+        ?? trend?.nextValidationHint
+        ?? 'Gravar validacao compativel mantendo as variaveis fixas.';
+}
+
 export async function saveAnalysisResult(
     result: AnalysisResult,
     weaponId: string,
@@ -828,6 +930,100 @@ export async function getHistorySessions() {
         });
     } catch (err) {
         console.error('[getHistorySessions] Error:', err);
+        return [];
+    }
+}
+
+export async function getPrecisionHistoryLines(): Promise<readonly PrecisionHistoryLineSummary[]> {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return [];
+    }
+
+    try {
+        const lineRows = await db
+            .select({
+                id: precisionEvolutionLines.id,
+                compatibilityKey: precisionEvolutionLines.compatibilityKey,
+                status: precisionEvolutionLines.status,
+                variableInTest: precisionEvolutionLines.variableInTest,
+                baselineSessionId: precisionEvolutionLines.baselineSessionId,
+                currentSessionId: precisionEvolutionLines.currentSessionId,
+                validClipCount: precisionEvolutionLines.validClipCount,
+                blockedClipCount: precisionEvolutionLines.blockedClipCount,
+                payload: precisionEvolutionLines.payload,
+                createdAt: precisionEvolutionLines.createdAt,
+                updatedAt: precisionEvolutionLines.updatedAt,
+            })
+            .from(precisionEvolutionLines)
+            .where(eq(precisionEvolutionLines.userId, session.user.id))
+            .orderBy(desc(precisionEvolutionLines.updatedAt));
+
+        const lineIds = lineRows.map((line) => line.id);
+        const checkpointRows = lineIds.length === 0
+            ? []
+            : await db
+                .select({
+                    id: precisionCheckpoints.id,
+                    lineId: precisionCheckpoints.lineId,
+                    analysisSessionId: precisionCheckpoints.analysisSessionId,
+                    state: precisionCheckpoints.state,
+                    variableInTest: precisionCheckpoints.variableInTest,
+                    payload: precisionCheckpoints.payload,
+                    createdAt: precisionCheckpoints.createdAt,
+                })
+                .from(precisionCheckpoints)
+                .where(inArray(precisionCheckpoints.lineId, lineIds))
+                .orderBy(precisionCheckpoints.createdAt);
+
+        const checkpointsByLine = new Map<string, PrecisionHistoryCheckpointSummary[]>();
+
+        for (const checkpoint of checkpointRows) {
+            const trend = extractPrecisionTrendFromPayload(checkpoint.payload);
+            const summary: PrecisionHistoryCheckpointSummary = {
+                id: checkpoint.id,
+                lineId: checkpoint.lineId,
+                analysisSessionId: checkpoint.analysisSessionId,
+                state: checkpoint.state,
+                stateLabel: checkpointStateLabel(checkpoint.state),
+                variableInTest: checkpoint.variableInTest,
+                nextValidation: precisionNextValidation(checkpoint.payload, trend),
+                blockerReasons: extractPrecisionBlockerReasons(trend),
+                createdAt: checkpoint.createdAt,
+            };
+
+            checkpointsByLine.set(checkpoint.lineId, [
+                ...(checkpointsByLine.get(checkpoint.lineId) ?? []),
+                summary,
+            ]);
+        }
+
+        return lineRows.map((line): PrecisionHistoryLineSummary => {
+            const trend = extractPrecisionTrendFromPayload(line.payload);
+            const blockerReasons = extractPrecisionBlockerReasons(trend);
+
+            return {
+                id: line.id,
+                compatibilityKey: line.compatibilityKey,
+                contextLabel: formatPrecisionContextLabel(line.compatibilityKey),
+                status: line.status,
+                statusLabel: trend ? formatPrecisionTrendLabel(trend.label) : checkpointStateLabel(line.status),
+                variableInTest: line.variableInTest,
+                nextValidation: precisionNextValidation(line.payload, trend),
+                validClipCount: line.validClipCount,
+                blockedClipCount: line.blockedClipCount,
+                latestTrendLabel: trend?.label ?? null,
+                latestTrendText: trend ? formatPrecisionTrendLabel(trend.label) : checkpointStateLabel(line.status),
+                blockerReasons,
+                baselineSessionId: line.baselineSessionId,
+                currentSessionId: line.currentSessionId,
+                createdAt: line.createdAt,
+                updatedAt: line.updatedAt,
+                checkpoints: checkpointsByLine.get(line.id) ?? [],
+            };
+        });
+    } catch (err) {
+        console.error('[getPrecisionHistoryLines] Error:', err);
         return [];
     }
 }

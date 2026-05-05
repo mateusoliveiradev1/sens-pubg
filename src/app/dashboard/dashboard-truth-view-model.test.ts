@@ -67,6 +67,7 @@ function createStats(overrides: Partial<DashboardStats> = {}): DashboardStats {
             delta: 4,
             canClaimProgress: true,
         },
+        principalPrecisionTrend: null,
         ...overrides,
     };
 }
@@ -168,5 +169,67 @@ describe('dashboard truth view model', () => {
         expect(model.trendTitle).toBe('Progresso validado');
         expect(model.trendBody).toContain('A media subiu +8 pts');
         expect(model.evidenceSummary).toContain('88% de cobertura');
+    });
+
+    it('lets precision oscillation override positive raw dashboard deltas', () => {
+        const model = buildDashboardTruthViewModel(createStats({
+            lastSessionDelta: 14,
+            trendEvidence: {
+                evidenceState: 'strong',
+                coverage: 0.9,
+                confidence: 0.9,
+                sampleSize: 60,
+                sessionCount: 3,
+                delta: 14,
+                canClaimProgress: true,
+            },
+            principalPrecisionTrend: {
+                label: 'oscillation',
+                compatibleCount: 4,
+                evidenceLevel: 'strong',
+                coverage: 0.9,
+                confidence: 0.9,
+                actionableDelta: 2,
+                nextValidationHint: 'Mantenha variavel fixa.',
+                blockerReasons: [],
+                updatedAt: '2026-05-05T12:00:00.000Z',
+            },
+        }));
+
+        expect(model.nextActionTitle).toBe('Manter variavel fixa e validar');
+        expect(model.trendTitle).toBe('Oscilacao controlada');
+        expect(model.trendBody).toContain('Nao trate delta bruto como progresso');
+        expect(model.trendTitle).not.toBe('Progresso validado');
+    });
+
+    it('lets precision not-comparable override positive raw dashboard deltas', () => {
+        const model = buildDashboardTruthViewModel(createStats({
+            lastSessionDelta: 20,
+            trendEvidence: {
+                evidenceState: 'strong',
+                coverage: 0.9,
+                confidence: 0.9,
+                sampleSize: 60,
+                sessionCount: 3,
+                delta: 20,
+                canClaimProgress: true,
+            },
+            principalPrecisionTrend: {
+                label: 'not_comparable',
+                compatibleCount: 0,
+                evidenceLevel: 'blocked',
+                coverage: 0,
+                confidence: 0,
+                actionableDelta: null,
+                nextValidationHint: 'Grave outro clip compativel.',
+                blockerReasons: ['Distancia estimada bloqueia trend preciso.'],
+                updatedAt: '2026-05-05T12:00:00.000Z',
+            },
+        }));
+
+        expect(model.nextActionTitle).toBe('Alinhar contexto antes de comparar');
+        expect(model.trendTitle).toBe('Nao comparavel');
+        expect(model.trendBody).toContain('Distancia estimada bloqueia trend preciso.');
+        expect(model.trendTitle).not.toBe('Progresso validado');
     });
 });
