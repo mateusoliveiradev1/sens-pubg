@@ -7,10 +7,17 @@ import Link from 'next/link';
 import { SCOPE_LIST } from '@/game/pubg';
 import { formatAnalysisDistancePresentation } from '@/app/analyze/analysis-distance-presentation';
 import { ResultsDashboard } from '@/app/analyze/results-dashboard';
+import { formatPrecisionTrendLabel } from '@/core/precision-loop';
 import { hydrateAnalysisResultFromHistory } from '../analysis-result-hydration';
 import { PublishAnalysisButton } from './publish-analysis-button';
 import { SensitivityAcceptancePanel } from './sensitivity-acceptance-panel';
-import type { CoachDecisionTier, PrecisionCheckpointState, PrecisionTrendSummary, PrecisionVariableInTest } from '@/types/engine';
+import type {
+    CoachDecisionTier,
+    PrecisionCheckpointState,
+    PrecisionCompatibilityKey,
+    PrecisionTrendSummary,
+    PrecisionVariableInTest,
+} from '@/types/engine';
 
 interface Props {
     params: Promise<{ id: string }>;
@@ -74,6 +81,32 @@ function precisionBlockerReasons(trend: PrecisionTrendSummary | null): readonly 
     ].filter((message) => message.trim().length > 0)));
 }
 
+function precisionLineContextLabel(compatibilityKey: string | null | undefined): string | null {
+    if (!compatibilityKey || compatibilityKey.startsWith('blocked:')) {
+        return null;
+    }
+
+    try {
+        const key = JSON.parse(compatibilityKey) as Partial<PrecisionCompatibilityKey>;
+        const loadout = [
+            key.stance,
+            key.muzzle,
+            key.grip,
+            key.stock,
+        ].filter(Boolean).join('/');
+
+        return [
+            key.weaponId,
+            key.scopeId,
+            key.patchVersion ? `patch ${key.patchVersion}` : null,
+            typeof key.distanceMeters === 'number' ? `${key.distanceMeters}m` : null,
+            loadout || null,
+        ].filter(Boolean).join(' | ') || null;
+    } catch {
+        return null;
+    }
+}
+
 export default async function HistoryDetailRoute({ params }: Props) {
     const session = await auth();
     if (!session?.user?.id) {
@@ -122,6 +155,7 @@ export default async function HistoryDetailRoute({ params }: Props) {
             variableInTest: precisionCheckpoints.variableInTest,
             payload: precisionCheckpoints.payload,
             createdAt: precisionCheckpoints.createdAt,
+            lineCompatibilityKey: precisionEvolutionLines.compatibilityKey,
             lineStatus: precisionEvolutionLines.status,
             lineCurrentSessionId: precisionEvolutionLines.currentSessionId,
         })
@@ -172,6 +206,7 @@ export default async function HistoryDetailRoute({ params }: Props) {
     const checkpointNextValidation = precisionCheckpoint?.payload.nextValidationHint
         ?? checkpointTrend?.nextValidationHint
         ?? 'Gravar validacao compativel mantendo as variaveis fixas.';
+    const checkpointLineContext = precisionLineContextLabel(precisionCheckpoint?.lineCompatibilityKey);
 
     return (
         <>
@@ -316,8 +351,15 @@ export default async function HistoryDetailRoute({ params }: Props) {
                                     <h2 style={{ margin: 0, fontSize: 'var(--text-2xl)', lineHeight: 1.15 }}>
                                         {precisionCheckpoint
                                             ? precisionCheckpointStateLabel(precisionCheckpoint.state)
-                                            : checkpointTrend?.label ?? 'Trend salvo'}
+                                            : checkpointTrend
+                                                ? formatPrecisionTrendLabel(checkpointTrend.label)
+                                                : 'Trend salvo'}
                                     </h2>
+                                    {checkpointLineContext ? (
+                                        <p style={{ margin: 'var(--space-xs) 0 0 0', color: 'var(--color-text-secondary)', fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
+                                            Linha: {checkpointLineContext}
+                                        </p>
+                                    ) : null}
                                     <p style={{ margin: 'var(--space-sm) 0 0 0', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
                                         Esta sessao {precisionCheckpoint?.lineCurrentSessionId === record.id ? 'atualizou' : 'registrou'} a linha de precisao. Proxima validacao: {checkpointNextValidation}
                                     </p>

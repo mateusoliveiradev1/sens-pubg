@@ -41,6 +41,7 @@ describe('history page field evolution contract', () => {
 
         expect(source).toMatch(/precisionCheckpoints/);
         expect(source).toMatch(/Checkpoint de precisao/);
+        expect(source).toMatch(/precisionLineContextLabel/);
         expect(source).toMatch(/precisionVariableLabel/);
         expect(source).toMatch(/checkpointNextValidation/);
         expect(source).toMatch(/checkpointBlockers/);
