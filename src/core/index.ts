@@ -129,6 +129,22 @@ export {
     resolveMeasurementTruth,
     type ResolveMeasurementTruthInput,
 } from './measurement-truth';
+export {
+    buildPrecisionCompatibilityKey,
+    comparePrecisionCompatibility,
+    formatPrecisionTrendLabel,
+    resolvePrecisionTrend,
+    summarizePrecisionBlockers,
+    STRICT_DISTANCE_TOLERANCE_METERS,
+    PRECISION_ACTIONABLE_DEAD_ZONE_POINTS,
+    PRECISION_VALIDATION_MIN_TOTAL_CLIPS,
+    PRECISION_STRONG_COVERAGE,
+    PRECISION_STRONG_CONFIDENCE,
+    PRECISION_STRONG_QUALITY_SCORE,
+    PRECISION_MIN_SAMPLE_SIZE,
+    type PrecisionCompatibilityOptions,
+    type ResolvePrecisionTrendInput,
+} from './precision-loop';
 export { generateCoaching } from './coach-engine';
 export {
     adaptCoachResultWithOptionalLlm,

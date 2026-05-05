@@ -620,6 +620,210 @@ export interface SprayMastery {
     readonly blockedRecommendations: readonly string[];
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Precision Loop Contract
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export type PrecisionTrendLabel =
+    | 'baseline'
+    | 'initial_signal'
+    | 'in_validation'
+    | 'validated_progress'
+    | 'validated_regression'
+    | 'oscillation'
+    | 'not_comparable'
+    | 'consolidated';
+
+export type PrecisionEvidenceLevel =
+    | 'blocked'
+    | 'baseline'
+    | 'initial'
+    | 'weak'
+    | 'sufficient'
+    | 'strong';
+
+export type PrecisionCompatibilityBlockerCode =
+    | 'patch_mismatch'
+    | 'weapon_mismatch'
+    | 'scope_mismatch'
+    | 'optic_state_mismatch'
+    | 'optic_state_missing'
+    | 'stance_mismatch'
+    | 'muzzle_mismatch'
+    | 'grip_mismatch'
+    | 'stock_mismatch'
+    | 'distance_missing'
+    | 'distance_ambiguous'
+    | 'distance_out_of_tolerance'
+    | 'missing_metadata'
+    | 'capture_quality_unusable'
+    | 'capture_quality_weak'
+    | 'capture_quality_mismatch'
+    | 'spray_type_missing'
+    | 'spray_window_mismatch'
+    | 'duration_mismatch'
+    | 'cadence_mismatch'
+    | 'sensitivity_change'
+    | 'evidence_mismatch';
+
+export interface PrecisionCompatibilityBlocker {
+    readonly code: PrecisionCompatibilityBlockerCode;
+    readonly field: string;
+    readonly message: string;
+    readonly currentValue?: string | number | boolean | null;
+    readonly candidateValue?: string | number | boolean | null;
+}
+
+export interface PrecisionCompatibilityKey {
+    readonly patchVersion: string;
+    readonly weaponId: string;
+    readonly scopeId: string;
+    readonly opticStateId?: string;
+    readonly stance: PlayerStance;
+    readonly muzzle: MuzzleAttachment;
+    readonly grip: GripAttachment;
+    readonly stock: StockAttachment;
+    readonly distanceMeters: number;
+    readonly sprayProtocolKey: string;
+    readonly durationMs?: number;
+    readonly sprayWindowStartMs?: number;
+    readonly sprayWindowEndMs?: number;
+    readonly shotLikeEvents?: number;
+    readonly sensitivityProfile?: ProfileType;
+    readonly sensitivitySignature?: string;
+}
+
+export interface PrecisionCompatibilityResult {
+    readonly compatible: boolean;
+    readonly key?: PrecisionCompatibilityKey;
+    readonly candidateKey?: PrecisionCompatibilityKey;
+    readonly blockers: readonly PrecisionCompatibilityBlocker[];
+}
+
+export type PrecisionPillarKey = 'control' | 'consistency' | 'confidence' | 'clipQuality';
+export type PrecisionPillarDeltaStatus = 'improved' | 'declined' | 'stable';
+
+export interface PrecisionPillarDelta {
+    readonly pillar: PrecisionPillarKey;
+    readonly baseline: number;
+    readonly current: number;
+    readonly delta: number;
+    readonly recentWindowAverage: number;
+    readonly recentWindowDelta: number;
+    readonly status: PrecisionPillarDeltaStatus;
+}
+
+export interface PrecisionScoreDelta {
+    readonly baseline: number;
+    readonly current: number;
+    readonly delta: number;
+    readonly recentWindowAverage: number;
+    readonly recentWindowDelta: number;
+}
+
+export interface PrecisionClipSummary {
+    readonly resultId: string;
+    readonly timestamp: string;
+    readonly actionableScore: number;
+    readonly mechanicalScore: number;
+    readonly coverage: number;
+    readonly confidence: number;
+    readonly clipQuality: number;
+}
+
+export interface PrecisionRecentWindowSummary {
+    readonly count: number;
+    readonly resultIds: readonly string[];
+    readonly actionableAverage: number;
+    readonly mechanicalAverage: number;
+    readonly coverageAverage: number;
+    readonly confidenceAverage: number;
+    readonly clipQualityAverage: number;
+}
+
+export interface PrecisionRecurringDiagnosis {
+    readonly type: DiagnosisType;
+    readonly label: string;
+    readonly count: number;
+    readonly supportRatio: number;
+}
+
+export interface PrecisionBlockerSummary {
+    readonly code: PrecisionCompatibilityBlockerCode;
+    readonly count: number;
+    readonly message: string;
+    readonly resultIds: readonly string[];
+}
+
+export interface PrecisionBlockedClipSummary {
+    readonly resultId: string;
+    readonly blockers: readonly PrecisionCompatibilityBlocker[];
+}
+
+export interface PrecisionTrendSummary {
+    readonly label: PrecisionTrendLabel;
+    readonly evidenceLevel: PrecisionEvidenceLevel;
+    readonly compatibleCount: number;
+    readonly baseline: PrecisionClipSummary | null;
+    readonly current: PrecisionClipSummary | null;
+    readonly recentWindow: PrecisionRecentWindowSummary | null;
+    readonly actionableDelta: PrecisionScoreDelta | null;
+    readonly mechanicalDelta: PrecisionScoreDelta | null;
+    readonly pillarDeltas: readonly PrecisionPillarDelta[];
+    readonly recurringDiagnoses: readonly PrecisionRecurringDiagnosis[];
+    readonly blockerSummaries: readonly PrecisionBlockerSummary[];
+    readonly blockedClips: readonly PrecisionBlockedClipSummary[];
+    readonly confidence: number;
+    readonly coverage: number;
+    readonly nextValidationHint: string;
+}
+
+export type PrecisionCheckpointState =
+    | 'baseline_created'
+    | 'initial_signal'
+    | 'in_validation'
+    | 'validated_progress'
+    | 'validated_regression'
+    | 'oscillation'
+    | 'consolidated'
+    | 'not_comparable';
+
+export type PrecisionVariableInTest =
+    | 'sensitivity'
+    | 'vertical_control'
+    | 'horizontal_noise'
+    | 'consistency'
+    | 'capture_quality'
+    | 'loadout'
+    | 'validation';
+
+export interface PrecisionCheckpoint {
+    readonly id: string;
+    readonly lineId: string;
+    readonly resultId: string;
+    readonly createdAt: string;
+    readonly state: PrecisionCheckpointState;
+    readonly trend: PrecisionTrendSummary;
+    readonly variableInTest: PrecisionVariableInTest;
+    readonly nextValidationHint: string;
+}
+
+export interface PrecisionEvolutionLine {
+    readonly id: string;
+    readonly compatibilityKey: PrecisionCompatibilityKey;
+    readonly state: PrecisionCheckpointState;
+    readonly active: boolean;
+    readonly baselineResultId: string;
+    readonly currentResultId: string;
+    readonly variableInTest: PrecisionVariableInTest;
+    readonly priority: CoachFocusArea | null;
+    readonly lastBlock: string | null;
+    readonly nextValidationHint: string;
+    readonly validResultIds: readonly string[];
+    readonly blockedClips: readonly PrecisionBlockedClipSummary[];
+    readonly checkpoints: readonly PrecisionCheckpoint[];
+}
+
 export interface AnalysisResult {
     readonly id: string;
     readonly timestamp: Date;
@@ -634,6 +838,7 @@ export interface AnalysisResult {
     readonly coaching: readonly CoachFeedback[];
     readonly coachPlan?: CoachPlan;
     readonly mastery?: SprayMastery;
+    readonly precisionTrend?: PrecisionTrendSummary;
     readonly subSessions?: readonly AnalysisResult[];
 }
 
