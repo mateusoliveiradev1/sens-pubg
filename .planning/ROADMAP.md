@@ -32,6 +32,21 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **UI hint:** yes
 
+**Plans:**
+
+**Wave 1**
+- `01-01` - Core Measurement Truth Contract. Defines shared mastery/action/evidence contracts, attaches them to analysis/history, and protects weak-evidence downgrades.
+
+**Wave 2 *(blocked on Wave 1 completion)***
+- `01-02` - Premium Analysis Report Surface. Reworks the clip result around verdict, next block, pillars, visualization, and audit evidence.
+- `01-03` - Dashboard Truth Cockpit. Makes `/dashboard` consume latest mastery, coach next block, and evidence-gated trend language.
+
+**Cross-cutting constraints:**
+- Preserve the browser-first analysis path.
+- Do not claim perfect sensitivity, guaranteed improvement, or final player skill.
+- Weak evidence must block or downgrade strong sensitivity/coach recommendations.
+- Confidence, coverage, visible/lost frames, and inconclusive behavior must stay user-visible.
+
 ## Phase 2: Benchmark Expansion
 
 **Goal:** Expand benchmark coverage so commercial claims are protected by data.
