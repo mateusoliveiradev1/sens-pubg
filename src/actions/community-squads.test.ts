@@ -57,9 +57,11 @@ import {
     setCommunitySquadMembershipVisibility,
 } from './community-squads';
 
+const futureInviteExpiry = (): Date => new Date(Date.now() + (7 * 24 * 60 * 60 * 1000));
+
 describe('community squad actions', () => {
     beforeEach(() => {
-        vi.clearAllMocks();
+        vi.resetAllMocks();
 
         mocks.auth.mockResolvedValue({
             user: { id: 'user-1' },
@@ -194,7 +196,7 @@ describe('community squad actions', () => {
                     squadId: 'squad-1',
                     invitedUserId: null,
                     status: 'pending',
-                    expiresAt: new Date('2026-04-24T12:00:00.000Z'),
+                    expiresAt: futureInviteExpiry(),
                     inviteCode: 'invite-code-1',
                 },
             ])
@@ -232,7 +234,7 @@ describe('community squad actions', () => {
                     squadId: 'squad-1',
                     invitedUserId: null,
                     status: 'pending',
-                    expiresAt: new Date('2026-04-24T12:00:00.000Z'),
+                    expiresAt: futureInviteExpiry(),
                     inviteCode: 'invite-code-1',
                 },
             ])
