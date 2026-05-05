@@ -93,6 +93,28 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **UI hint:** yes
 
+**Plans:**
+
+**Wave 1**
+- `03-01` - Strict Precision Trend Contract. Adds strict compatibility, conservative trend labels, actionable mastery deltas, pillar deltas, and active-line/checkpoint payload contracts.
+
+**Wave 2 *(blocked on Wave 1 completion)***
+- `03-02` - Active Evolution Line Persistence And Coach Handoff. Persists strict active lines/checkpoints, attaches precision trend summaries to saved analysis results, and feeds compatible trend evidence into coach memory.
+
+**Wave 3 *(blocked on Wave 2 completion)***
+- `03-03` - Post-Analysis Trend Experience. Adds the compact trend block after the clip verdict with essential deltas, blocker reasons, and `Gravar validacao compativel`.
+- `03-04` - History And Dashboard Precision Surfaces. Makes history the compatible-group/checkpoint audit surface and dashboard the concise principal-trend next-action surface.
+
+**Cross-cutting constraints:**
+- Precise trend comparison only uses strict compatible clips.
+- Missing metadata, patch mismatch, loadout mismatch, distance ambiguity, weak capture quality, or spray-protocol mismatch must block trend math with visible reasons.
+- Actionable mastery score is the primary trend metric; mechanical score is secondary context.
+- One compatible clip is baseline only, two clips are initial signal, and validated progress/regression requires at least three compatible clips plus evidence gates.
+- Active evolution lines are per strict context and important variable changes restart the line instead of mixing evidence.
+- Analysis shows a compact trend summary, history shows the full audit timeline, and dashboard shows only the principal next action.
+- Multi-clip evidence is a structured handoff for Phase 4 coach behavior, but Phase 3 does not become the full coach overhaul.
+- Product copy must avoid perfect sensitivity, guaranteed improvement, or final skill claims.
+
 ## Phase 4: Adaptive Coach Loop
 
 **Goal:** Turn Coach Extremo into a feedback loop with outcomes, memory, and better priority decisions.
