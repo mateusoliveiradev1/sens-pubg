@@ -74,12 +74,14 @@ completed: 2026-05-05
 - Added a history detail checkpoint card for the saved session, including state, variable in test, coverage/confidence, blocker reasons, and a link back to the line audit.
 - Added dashboard principal precision trend data and view-model copy that routes each strict label to conservative next action language.
 - Extended copy and page contract tests so dashboard/history precision language stays validation-first and raw positive deltas cannot override oscillation or not-comparable labels.
+- Tightened the history detail checkpoint card after review so fallback trend labels render as human-readable copy and checkpoint cards show the strict line context.
 
 ## Task Commits
 
 1. **Task 1: Expose precision lines and checkpoint summaries to history** - `7e15a4e` (feat)
 2. **Task 2: Add checkpoint context to history detail** - `7e15a4e` (feat)
 3. **Task 3: Promote principal trend to dashboard next action** - `7e15a4e` (feat)
+4. **Review follow-up: Human-readable checkpoint label/context** - `982715b` (fix)
 
 ## Files Created/Modified
 
@@ -113,9 +115,10 @@ None.
 ## Verification
 
 - `npx vitest run src/actions/history.test.ts src/app/history/page.contract.test.ts src/app/dashboard/dashboard-truth-view-model.test.ts src/app/dashboard/page.contract.test.ts src/app/copy-claims.contract.test.ts` - passed, 31 tests
-- `npm run typecheck` - passed
-- `npx vitest run` - passed, 122 files / 633 tests
-- `npm run benchmark:gate` - passed, synthetic and captured benchmarks score 100, coverage gate PASS
+- `npx vitest run src/app/history/page.contract.test.ts` - passed after review follow-up, 4 tests
+- `npm run typecheck` - passed after review follow-up
+- `npx vitest run` - passed after review follow-up, 122 files / 633 tests
+- `npm run benchmark:gate` - passed after review follow-up, synthetic and captured benchmarks score 100, coverage gate PASS
 
 ## User Setup Required
 
