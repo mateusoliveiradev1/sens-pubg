@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { hydrateAnalysisResultFromHistory } from './analysis-result-hydration';
 import { resolveMeasurementTruth } from '@/core/measurement-truth';
+import { resolvePrecisionTrend } from '@/core/precision-loop';
 import {
     analysisResultBase,
     analysisResultWithWeakCapture,
@@ -403,5 +404,44 @@ describe('hydrateAnalysisResultFromHistory', () => {
             actionState: 'capture_again',
             actionLabel: 'Capturar de novo',
         }));
+    });
+
+    it('preserves a valid stored precision trend summary', () => {
+        const precisionTrend = resolvePrecisionTrend({
+            current: {
+                ...analysisResultBase,
+                mastery: resolveMeasurementTruth(analysisResultBase),
+            },
+            history: [],
+        });
+
+        const result = hydrateAnalysisResultFromHistory({
+            fullResult: {
+                ...analysisResultBase,
+                precisionTrend,
+            } as unknown as Record<string, unknown>,
+            recordPatchVersion: '41.1',
+            scopeId: 'red-dot',
+            distanceMeters: 30,
+        });
+
+        expect(result.precisionTrend).toEqual(precisionTrend);
+    });
+
+    it('drops malformed precision trends instead of inventing legacy progress', () => {
+        const result = hydrateAnalysisResultFromHistory({
+            fullResult: {
+                ...analysisResultBase,
+                precisionTrend: {
+                    label: 'validated_progress',
+                    compatibleCount: 1,
+                },
+            } as unknown as Record<string, unknown>,
+            recordPatchVersion: '41.1',
+            scopeId: 'red-dot',
+            distanceMeters: 30,
+        });
+
+        expect(result.precisionTrend).toBeUndefined();
     });
 });

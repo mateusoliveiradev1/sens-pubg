@@ -5,6 +5,11 @@ import { normalizePatchVersion } from '@/game/pubg';
 import type {
     AnalysisResult,
     ProfileType,
+    PrecisionEvidenceLevel,
+    PrecisionPillarDeltaStatus,
+    PrecisionPillarKey,
+    PrecisionTrendLabel,
+    PrecisionTrendSummary,
     SensitivityAcceptanceFeedback,
     SensitivityAcceptanceOutcome,
     SprayActionLabel,
@@ -254,6 +259,134 @@ function normalizeCoachPlan(value: unknown): HistoryCoachPlan | undefined {
     return isCoachPlan(value) ? localizeStoredCoachPlanPtBr(value) : undefined;
 }
 
+function isPrecisionTrendLabel(value: unknown): value is PrecisionTrendLabel {
+    return value === 'baseline'
+        || value === 'initial_signal'
+        || value === 'in_validation'
+        || value === 'validated_progress'
+        || value === 'validated_regression'
+        || value === 'oscillation'
+        || value === 'not_comparable'
+        || value === 'consolidated';
+}
+
+function isPrecisionEvidenceLevel(value: unknown): value is PrecisionEvidenceLevel {
+    return value === 'blocked'
+        || value === 'baseline'
+        || value === 'initial'
+        || value === 'weak'
+        || value === 'sufficient'
+        || value === 'strong';
+}
+
+function isPrecisionPillarKey(value: unknown): value is PrecisionPillarKey {
+    return value === 'control'
+        || value === 'consistency'
+        || value === 'confidence'
+        || value === 'clipQuality';
+}
+
+function isPrecisionPillarDeltaStatus(value: unknown): value is PrecisionPillarDeltaStatus {
+    return value === 'improved' || value === 'declined' || value === 'stable';
+}
+
+function isPrecisionClipSummary(value: unknown): boolean {
+    return value === null || (
+        isRecord(value)
+        && typeof value.resultId === 'string'
+        && typeof value.timestamp === 'string'
+        && isFiniteNumber(value.actionableScore)
+        && isFiniteNumber(value.mechanicalScore)
+        && isFiniteNumber(value.coverage)
+        && isFiniteNumber(value.confidence)
+        && isFiniteNumber(value.clipQuality)
+    );
+}
+
+function isPrecisionRecentWindow(value: unknown): boolean {
+    return value === null || (
+        isRecord(value)
+        && isFiniteNumber(value.count)
+        && isStringArray(value.resultIds)
+        && isFiniteNumber(value.actionableAverage)
+        && isFiniteNumber(value.mechanicalAverage)
+        && isFiniteNumber(value.coverageAverage)
+        && isFiniteNumber(value.confidenceAverage)
+        && isFiniteNumber(value.clipQualityAverage)
+    );
+}
+
+function isPrecisionScoreDelta(value: unknown): boolean {
+    return value === null || (
+        isRecord(value)
+        && isFiniteNumber(value.baseline)
+        && isFiniteNumber(value.current)
+        && isFiniteNumber(value.delta)
+        && isFiniteNumber(value.recentWindowAverage)
+        && isFiniteNumber(value.recentWindowDelta)
+    );
+}
+
+function isPrecisionPillarDelta(value: unknown): boolean {
+    return isRecord(value)
+        && isPrecisionPillarKey(value.pillar)
+        && isFiniteNumber(value.baseline)
+        && isFiniteNumber(value.current)
+        && isFiniteNumber(value.delta)
+        && isFiniteNumber(value.recentWindowAverage)
+        && isFiniteNumber(value.recentWindowDelta)
+        && isPrecisionPillarDeltaStatus(value.status);
+}
+
+function isPrecisionRecurringDiagnosis(value: unknown): boolean {
+    return isRecord(value)
+        && typeof value.type === 'string'
+        && typeof value.label === 'string'
+        && isFiniteNumber(value.count)
+        && isFiniteNumber(value.supportRatio);
+}
+
+function isPrecisionBlockerSummary(value: unknown): boolean {
+    return isRecord(value)
+        && typeof value.code === 'string'
+        && isFiniteNumber(value.count)
+        && typeof value.message === 'string'
+        && isStringArray(value.resultIds);
+}
+
+function isPrecisionBlockedClip(value: unknown): boolean {
+    return isRecord(value)
+        && typeof value.resultId === 'string'
+        && Array.isArray(value.blockers);
+}
+
+function isPrecisionTrendSummary(value: unknown): value is PrecisionTrendSummary {
+    return isRecord(value)
+        && isPrecisionTrendLabel(value.label)
+        && isPrecisionEvidenceLevel(value.evidenceLevel)
+        && isFiniteNumber(value.compatibleCount)
+        && isPrecisionClipSummary(value.baseline)
+        && isPrecisionClipSummary(value.current)
+        && isPrecisionRecentWindow(value.recentWindow)
+        && isPrecisionScoreDelta(value.actionableDelta)
+        && isPrecisionScoreDelta(value.mechanicalDelta)
+        && Array.isArray(value.pillarDeltas)
+        && value.pillarDeltas.every(isPrecisionPillarDelta)
+        && Array.isArray(value.recurringDiagnoses)
+        && value.recurringDiagnoses.every(isPrecisionRecurringDiagnosis)
+        && Array.isArray(value.blockerSummaries)
+        && value.blockerSummaries.every(isPrecisionBlockerSummary)
+        && Array.isArray(value.blockedClips)
+        && value.blockedClips.every(isPrecisionBlockedClip)
+        && isFiniteNumber(value.confidence)
+        && isFiniteNumber(value.coverage)
+        && typeof value.nextValidationHint === 'string';
+}
+
+function normalizePrecisionTrend(value: unknown): PrecisionTrendSummary | undefined {
+    return isPrecisionTrendSummary(value) ? value : undefined;
+}
+
 function isSprayActionState(value: unknown): value is SprayActionState {
     return value === 'capture_again'
         || value === 'inconclusive'
@@ -331,9 +464,11 @@ function normalizeHistoryAnalysisResult(result: AnalysisResult): AnalysisResult 
     const trajectory = result.trajectory as AnalysisResult['trajectory'] | undefined;
     const normalizedSubSessions = result.subSessions?.map(normalizeHistoryAnalysisResult);
     const normalizedCoachPlan = normalizeCoachPlan(result.coachPlan);
+    const normalizedPrecisionTrend = normalizePrecisionTrend(result.precisionTrend);
     const resultWithoutCoachPlan = { ...result };
     delete resultWithoutCoachPlan.coachPlan;
     delete resultWithoutCoachPlan.mastery;
+    delete resultWithoutCoachPlan.precisionTrend;
     const normalizedSensitivity = result.sensitivity
         ? normalizeSensitivityRecommendation(result)!
         : undefined;
@@ -341,6 +476,7 @@ function normalizeHistoryAnalysisResult(result: AnalysisResult): AnalysisResult 
         ...resultWithoutCoachPlan,
         ...(normalizedSensitivity ? { sensitivity: normalizedSensitivity } : {}),
         ...(normalizedCoachPlan ? { coachPlan: normalizedCoachPlan } : {}),
+        ...(normalizedPrecisionTrend ? { precisionTrend: normalizedPrecisionTrend } : {}),
         ...(normalizedSubSessions ? { subSessions: normalizedSubSessions } : {}),
     } as AnalysisResult;
 

@@ -3,21 +3,37 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 
+import { createAnalysisContext } from '@/app/analyze/analysis-context';
+import { hydrateAnalysisResultFromHistory } from '@/app/history/analysis-result-hydration';
 import { auth } from '@/auth';
 import { enrichAnalysisResultCoaching } from '@/core/analysis-result-coach-enrichment';
 import { buildCoachMemorySnapshot, type CoachMemoryHistorySession } from '@/core/coach-memory';
 import { buildCoachPlan } from '@/core/coach-plan-builder';
 import { resolveMeasurementTruth } from '@/core/measurement-truth';
+import { buildPrecisionCompatibilityKey, resolvePrecisionTrend } from '@/core/precision-loop';
 import {
     applySensitivityHistoryConvergence,
     type HistoricalSensitivitySignal,
 } from '@/core/sensitivity-history-convergence';
 import { db } from '@/db';
-import { analysisSessions, playerProfiles, sensitivityHistory, weaponProfiles } from '@/db/schema';
+import {
+    analysisSessions,
+    playerProfiles,
+    precisionCheckpoints,
+    precisionEvolutionLines,
+    sensitivityHistory,
+    weaponProfiles,
+} from '@/db/schema';
 import { normalizePatchVersion } from '@/game/pubg';
 import { createGroqCoachClient } from '@/server/coach/groq-coach-client';
 import type {
     AnalysisResult,
+    CoachFocusArea,
+    PrecisionCheckpointState,
+    PrecisionCompatibilityKey,
+    PrecisionTrendLabel,
+    PrecisionTrendSummary,
+    PrecisionVariableInTest,
     ProfileType,
     RecommendationEvidenceTier,
     SensitivityAcceptanceFeedback,
@@ -241,6 +257,241 @@ function toCoachMemoryHistorySession(
     };
 }
 
+function withSaveAnalysisContext(
+    result: AnalysisResult,
+    input: {
+        readonly patchVersion: string;
+        readonly scopeId: string;
+        readonly distance: number;
+    },
+): AnalysisResult {
+    return {
+        ...result,
+        patchVersion: input.patchVersion,
+        analysisContext: result.analysisContext ?? createAnalysisContext({
+            patchVersion: input.patchVersion,
+            scopeId: input.scopeId,
+            distanceMeters: input.distance,
+            distanceMode: 'exact',
+        }),
+    };
+}
+
+function toPrecisionHistoryResult(
+    session: StoredSensitivityHistorySession,
+): AnalysisResult | null {
+    if (!session.fullResult) {
+        return null;
+    }
+
+    try {
+        return hydrateAnalysisResultFromHistory({
+            fullResult: session.fullResult,
+            recordPatchVersion: session.patchVersion,
+            scopeId: session.scopeId,
+            distanceMeters: session.distance,
+        });
+    } catch {
+        return null;
+    }
+}
+
+function serializePrecisionCompatibilityKey(key: PrecisionCompatibilityKey): string {
+    return JSON.stringify({
+        patchVersion: key.patchVersion,
+        weaponId: key.weaponId,
+        scopeId: key.scopeId,
+        opticStateId: key.opticStateId ?? null,
+        stance: key.stance,
+        muzzle: key.muzzle,
+        grip: key.grip,
+        stock: key.stock,
+        distanceMeters: key.distanceMeters,
+        sprayProtocolKey: key.sprayProtocolKey,
+        sensitivityProfile: key.sensitivityProfile ?? null,
+        sensitivitySignature: key.sensitivitySignature ?? null,
+    });
+}
+
+function checkpointStateForTrend(label: PrecisionTrendLabel): PrecisionCheckpointState {
+    switch (label) {
+        case 'baseline':
+            return 'baseline_created';
+        case 'initial_signal':
+            return 'initial_signal';
+        case 'in_validation':
+            return 'in_validation';
+        case 'validated_progress':
+            return 'validated_progress';
+        case 'validated_regression':
+            return 'validated_regression';
+        case 'oscillation':
+            return 'oscillation';
+        case 'not_comparable':
+            return 'not_comparable';
+        case 'consolidated':
+            return 'consolidated';
+    }
+}
+
+function variableForFocus(area: CoachFocusArea | undefined): PrecisionVariableInTest {
+    switch (area) {
+        case 'sensitivity':
+            return 'sensitivity';
+        case 'vertical_control':
+            return 'vertical_control';
+        case 'horizontal_control':
+            return 'horizontal_noise';
+        case 'consistency':
+            return 'consistency';
+        case 'capture_quality':
+            return 'capture_quality';
+        case 'loadout':
+            return 'loadout';
+        case 'timing':
+        case 'validation':
+        case undefined:
+            return 'validation';
+    }
+}
+
+function resolvePrecisionVariableInTest(result: AnalysisResult, trend: PrecisionTrendSummary): PrecisionVariableInTest {
+    const blockerCodes = new Set(trend.blockerSummaries.map((summary) => summary.code));
+
+    if (blockerCodes.has('capture_quality_unusable') || blockerCodes.has('capture_quality_weak')) {
+        return 'capture_quality';
+    }
+
+    if (blockerCodes.has('sensitivity_change')) {
+        return 'sensitivity';
+    }
+
+    if (
+        blockerCodes.has('stance_mismatch')
+        || blockerCodes.has('muzzle_mismatch')
+        || blockerCodes.has('grip_mismatch')
+        || blockerCodes.has('stock_mismatch')
+    ) {
+        return 'loadout';
+    }
+
+    if (trend.label === 'baseline' || trend.label === 'initial_signal' || trend.label === 'not_comparable') {
+        return 'validation';
+    }
+
+    return variableForFocus(result.coachPlan?.primaryFocus.area);
+}
+
+function buildResultIdToSessionIdMap(
+    priorSessions: readonly StoredSensitivityHistorySession[],
+    current: {
+        readonly resultId: string;
+        readonly sessionId: string;
+    },
+): Map<string, string> {
+    const map = new Map<string, string>([[current.resultId, current.sessionId]]);
+
+    for (const session of priorSessions) {
+        map.set(session.id, session.id);
+
+        const fullResultId = session.fullResult?.id;
+        if (typeof fullResultId === 'string') {
+            map.set(fullResultId, session.id);
+        }
+    }
+
+    return map;
+}
+
+async function persistPrecisionEvolution(input: {
+    readonly userId: string;
+    readonly sessionId: string;
+    readonly result: AnalysisResult;
+    readonly trend: PrecisionTrendSummary;
+    readonly priorSessions: readonly StoredSensitivityHistorySession[];
+}): Promise<void> {
+    const compatibility = buildPrecisionCompatibilityKey(input.result);
+    const state = checkpointStateForTrend(input.trend.label);
+    const variableInTest = resolvePrecisionVariableInTest(input.result, input.trend);
+    const resultIdToSessionId = buildResultIdToSessionIdMap(input.priorSessions, {
+        resultId: input.result.id,
+        sessionId: input.sessionId,
+    });
+    const compatibilityKey = compatibility.key
+        ? serializePrecisionCompatibilityKey(compatibility.key)
+        : `blocked:${input.sessionId}`;
+    const baselineSessionId = input.trend.baseline
+        ? resultIdToSessionId.get(input.trend.baseline.resultId) ?? null
+        : null;
+    const blockedClipCount = Math.max(
+        input.trend.blockedClips.length,
+        input.trend.label === 'not_comparable' ? 1 : 0,
+    );
+    const payload = {
+        trend: input.trend,
+        nextValidationHint: input.trend.nextValidationHint,
+        blockedClips: input.trend.blockedClips,
+        validResultIds: [
+            ...(input.trend.recentWindow?.resultIds ?? []),
+            input.trend.current?.resultId,
+        ].filter((value): value is string => typeof value === 'string'),
+        metadata: {
+            compatibilityBlocked: !compatibility.compatible,
+        },
+    };
+
+    const lineRows = await db
+        .insert(precisionEvolutionLines)
+        .values({
+            userId: input.userId,
+            compatibilityKey,
+            status: state,
+            variableInTest,
+            baselineSessionId,
+            currentSessionId: input.sessionId,
+            validClipCount: input.trend.label === 'not_comparable' ? 0 : input.trend.compatibleCount,
+            blockedClipCount,
+            payload,
+        })
+        .onConflictDoUpdate({
+            target: [
+                precisionEvolutionLines.userId,
+                precisionEvolutionLines.compatibilityKey,
+            ],
+            set: {
+                status: state,
+                variableInTest,
+                baselineSessionId,
+                currentSessionId: input.sessionId,
+                validClipCount: input.trend.label === 'not_comparable' ? 0 : input.trend.compatibleCount,
+                blockedClipCount,
+                payload,
+                updatedAt: new Date(),
+            },
+        })
+        .returning({ id: precisionEvolutionLines.id });
+
+    const lineId = lineRows[0]?.id;
+    if (!lineId) {
+        return;
+    }
+
+    await db.insert(precisionCheckpoints).values({
+        lineId,
+        analysisSessionId: input.sessionId,
+        state,
+        variableInTest,
+        payload: {
+            trend: input.trend,
+            nextValidationHint: input.trend.nextValidationHint,
+            blockerReasons: input.trend.blockerSummaries,
+            metadata: {
+                compatibilityKey,
+            },
+        },
+    });
+}
+
 export async function saveAnalysisResult(
     result: AnalysisResult,
     weaponId: string,
@@ -290,31 +541,60 @@ export async function saveAnalysisResult(
         ));
 
         const resultWithHistory = enrichResultWithSensitivityHistory(
-            {
-                ...result,
+            withSaveAnalysisContext(result, {
                 patchVersion,
-            },
+                scopeId,
+                distance,
+            }),
             distance,
             compatiblePriorSessions,
         );
-        const coachMemorySnapshot = buildCoachMemorySnapshot({
-            currentResult: resultWithHistory,
-            historySessions: compatiblePriorSessions.map(toCoachMemoryHistorySession),
-        });
+        const coachMemoryHistorySessions = priorSessions.map(toCoachMemoryHistorySession);
+        const precisionHistoryResults = priorSessions
+            .map(toPrecisionHistoryResult)
+            .filter((historyResult): historyResult is AnalysisResult => historyResult !== null);
 
         const resultWithCoaching = await enrichAnalysisResultCoaching(
             resultWithHistory,
             createGroqCoachClient()
         );
-        const coachPlan = buildCoachPlan({
-            analysisResult: resultWithCoaching,
-            memorySnapshot: coachMemorySnapshot,
+        const initialCoachMemorySnapshot = buildCoachMemorySnapshot({
+            currentResult: resultWithCoaching,
+            historySessions: coachMemoryHistorySessions,
         });
-        enrichedResult = {
+        const initialCoachPlan = buildCoachPlan({
+            analysisResult: resultWithCoaching,
+            memorySnapshot: initialCoachMemorySnapshot,
+        });
+        const resultWithTruth = {
             ...resultWithCoaching,
-            coachPlan,
+            coachPlan: initialCoachPlan,
             mastery: resolveMeasurementTruth({
                 ...resultWithCoaching,
+                coachPlan: initialCoachPlan,
+            }),
+        };
+        const precisionTrend = resolvePrecisionTrend({
+            current: resultWithTruth,
+            history: precisionHistoryResults,
+        });
+        const resultWithPrecision = {
+            ...resultWithTruth,
+            precisionTrend,
+        };
+        const precisionCoachMemorySnapshot = buildCoachMemorySnapshot({
+            currentResult: resultWithPrecision,
+            historySessions: coachMemoryHistorySessions,
+        });
+        const coachPlan = buildCoachPlan({
+            analysisResult: resultWithPrecision,
+            memorySnapshot: precisionCoachMemorySnapshot,
+        });
+        enrichedResult = {
+            ...resultWithPrecision,
+            coachPlan,
+            mastery: resolveMeasurementTruth({
+                ...resultWithPrecision,
                 coachPlan,
             }),
         };
@@ -351,6 +631,14 @@ export async function saveAnalysisResult(
         }).returning({ id: analysisSessions.id });
 
         const sessionId = insertedSession[0]!.id;
+
+        await persistPrecisionEvolution({
+            userId: session.user.id,
+            sessionId,
+            result: enrichedResult,
+            trend: enrichedResult.precisionTrend!,
+            priorSessions,
+        });
 
         const historyRows = enrichedResult.sensitivity.profiles.map((profileItem) => ({
             userId: session.user.id,

@@ -2,6 +2,7 @@ import type {
     AnalysisResult,
     CoachFocusArea,
     CoachSignal,
+    PrecisionTrendSummary,
     ProfileType,
     SensitivityAcceptanceOutcome,
     WeaponLoadout,
@@ -25,11 +26,21 @@ export interface CoachMemoryFocusRecurrence {
 
 export interface CoachMemorySnapshot {
     readonly compatibleSessionCount: number;
+    readonly precisionTrend?: CoachMemoryPrecisionTrend;
     readonly recurrentFocuses: readonly CoachMemoryFocusRecurrence[];
     readonly alignedFocusAreas: readonly CoachFocusArea[];
     readonly conflictingFocusAreas: readonly CoachFocusArea[];
     readonly signals: readonly CoachSignal[];
     readonly summary: string;
+}
+
+export interface CoachMemoryPrecisionTrend {
+    readonly label: PrecisionTrendSummary['label'];
+    readonly evidenceLevel: PrecisionTrendSummary['evidenceLevel'];
+    readonly compatibleCount: number;
+    readonly actionableDelta: number | null;
+    readonly blockerReasons: readonly string[];
+    readonly nextValidationHint: string;
 }
 
 export interface BuildCoachMemorySnapshotInput {
@@ -51,20 +62,27 @@ export function buildCoachMemorySnapshot(
     ));
     const recurrentFocuses = buildRecurrentFocuses(compatibleSessions);
     const sensitivitySignals = buildSensitivityOutcomeSignals(input.currentResult, compatibleSessions);
-    const alignedFocusAreas = collectAlignedFocusAreas(recurrentFocuses, sensitivitySignals);
-    const conflictingFocusAreas = sensitivitySignals.hasConflict ? ['sensitivity' as const] : [];
+    const precisionTrend = buildPrecisionTrendMemory(input.currentResult.precisionTrend);
+    const precisionSignals = buildPrecisionTrendSignals(precisionTrend);
+    const alignedFocusAreas = collectAlignedFocusAreas(recurrentFocuses, sensitivitySignals, precisionTrend);
+    const conflictingFocusAreas = Array.from(new Set<CoachFocusArea>([
+        ...(sensitivitySignals.hasConflict ? ['sensitivity' as const] : []),
+        ...conflictingAreasFromPrecisionTrend(precisionTrend),
+    ]));
     const signals = [
         ...recurrentFocuses.map(toRecurrentFocusSignal),
         ...sensitivitySignals.signals,
+        ...precisionSignals,
     ];
 
     return {
         compatibleSessionCount: compatibleSessions.length,
+        ...(precisionTrend ? { precisionTrend } : {}),
         recurrentFocuses,
         alignedFocusAreas,
         conflictingFocusAreas,
         signals,
-        summary: summarizeMemory(compatibleSessions.length, recurrentFocuses, conflictingFocusAreas),
+        summary: summarizeMemory(compatibleSessions.length, recurrentFocuses, conflictingFocusAreas, precisionTrend),
     };
 }
 
@@ -190,6 +208,7 @@ function buildSensitivityOutcomeSignals(
 function collectAlignedFocusAreas(
     recurrentFocuses: readonly CoachMemoryFocusRecurrence[],
     sensitivitySignals: { readonly signals: readonly CoachSignal[] },
+    precisionTrend: CoachMemoryPrecisionTrend | undefined,
 ): readonly CoachFocusArea[] {
     const areas = new Set<CoachFocusArea>();
 
@@ -201,7 +220,138 @@ function collectAlignedFocusAreas(
         areas.add('sensitivity');
     }
 
+    if (precisionTrend?.label === 'validated_progress') {
+        areas.add('validation');
+    }
+
     return Array.from(areas);
+}
+
+function buildPrecisionTrendMemory(
+    trend: PrecisionTrendSummary | undefined,
+): CoachMemoryPrecisionTrend | undefined {
+    if (!trend) {
+        return undefined;
+    }
+
+    return {
+        label: trend.label,
+        evidenceLevel: trend.evidenceLevel,
+        compatibleCount: trend.compatibleCount,
+        actionableDelta: trend.actionableDelta?.delta ?? null,
+        blockerReasons: trend.blockerSummaries.map((summary) => summary.message),
+        nextValidationHint: trend.nextValidationHint,
+    };
+}
+
+function buildPrecisionTrendSignals(
+    precisionTrend: CoachMemoryPrecisionTrend | undefined,
+): readonly CoachSignal[] {
+    if (!precisionTrend) {
+        return [];
+    }
+
+    switch (precisionTrend.label) {
+        case 'baseline':
+        case 'initial_signal':
+            return [precisionSignal({
+                key: `precision.${precisionTrend.label}`,
+                area: 'validation',
+                summary: `Strict precision line has ${precisionTrend.compatibleCount} compatible clip(s); keep validating before consolidation.`,
+                confidence: 0.72,
+                coverage: Math.min(1, precisionTrend.compatibleCount / 3),
+                weight: 0.28,
+            })];
+        case 'validated_progress':
+            return [precisionSignal({
+                key: 'precision.validated_progress',
+                area: 'validation',
+                summary: 'Strict precision trend validated progress; consolidate this context before changing another variable.',
+                confidence: 0.9,
+                coverage: 1,
+                weight: 0.4,
+            })];
+        case 'validated_regression':
+            return [precisionSignal({
+                key: 'precision.validated_regression',
+                area: 'validation',
+                summary: 'Strict precision trend validated regression; return to the last reliable baseline and validate again.',
+                confidence: 0.92,
+                coverage: 1,
+                weight: 0.55,
+            })];
+        case 'oscillation':
+            return [precisionSignal({
+                key: 'precision.oscillation',
+                area: 'validation',
+                summary: 'Strict precision trend is oscillating inside the decision band; avoid aggressive changes until another compatible clip confirms direction.',
+                confidence: 0.82,
+                coverage: Math.min(1, precisionTrend.compatibleCount / 3),
+                weight: 0.45,
+            })];
+        case 'not_comparable':
+            return [precisionSignal({
+                key: 'precision.not_comparable',
+                area: precisionTrend.blockerReasons.some((reason) => reason.toLowerCase().includes('captura'))
+                    ? 'capture_quality'
+                    : 'validation',
+                summary: `Strict precision trend is blocked: ${precisionTrend.blockerReasons[0] ?? precisionTrend.nextValidationHint}`,
+                confidence: 0.8,
+                coverage: 0.4,
+                weight: 0.5,
+            })];
+        case 'in_validation':
+            return [precisionSignal({
+                key: 'precision.in_validation',
+                area: 'validation',
+                summary: 'Strict precision evidence is not strong enough for validated progress; complete another compatible validation.',
+                confidence: 0.78,
+                coverage: Math.min(1, precisionTrend.compatibleCount / 3),
+                weight: 0.38,
+            })];
+        case 'consolidated':
+            return [precisionSignal({
+                key: 'precision.consolidated',
+                area: 'validation',
+                summary: 'Strict precision line is consolidated; choose the next variable from measured evidence.',
+                confidence: 0.88,
+                coverage: 1,
+                weight: 0.35,
+            })];
+    }
+}
+
+function precisionSignal(input: {
+    readonly key: string;
+    readonly area: CoachFocusArea;
+    readonly summary: string;
+    readonly confidence: number;
+    readonly coverage: number;
+    readonly weight: number;
+}): CoachSignal {
+    return {
+        source: 'history',
+        area: input.area,
+        key: input.key,
+        summary: input.summary,
+        confidence: input.confidence,
+        coverage: input.coverage,
+        weight: input.weight,
+    };
+}
+
+function conflictingAreasFromPrecisionTrend(
+    precisionTrend: CoachMemoryPrecisionTrend | undefined,
+): readonly CoachFocusArea[] {
+    if (
+        precisionTrend?.label === 'validated_regression'
+        || precisionTrend?.label === 'oscillation'
+        || precisionTrend?.label === 'not_comparable'
+    ) {
+        return ['sensitivity'];
+    }
+
+    return [];
 }
 
 function toRecurrentFocusSignal(focus: CoachMemoryFocusRecurrence): CoachSignal {
@@ -220,7 +370,12 @@ function summarizeMemory(
     compatibleSessionCount: number,
     recurrentFocuses: readonly CoachMemoryFocusRecurrence[],
     conflictingFocusAreas: readonly CoachFocusArea[],
+    precisionTrend: CoachMemoryPrecisionTrend | undefined,
 ): string {
+    if (precisionTrend) {
+        return `Precision trend ${precisionTrend.label} with ${precisionTrend.compatibleCount} compatible clip(s): ${precisionTrend.nextValidationHint}`;
+    }
+
     if (compatibleSessionCount === 0) {
         return 'No compatible coach memory available.';
     }

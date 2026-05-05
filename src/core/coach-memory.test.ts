@@ -4,6 +4,8 @@ import {
     analysisResultBase,
     analysisResultWithStrongSensitivity,
 } from './coach-test-fixtures';
+import { resolveMeasurementTruth } from './measurement-truth';
+import { resolvePrecisionTrend } from './precision-loop';
 import {
     buildCoachMemorySnapshot,
     type CoachMemoryHistorySession,
@@ -118,5 +120,73 @@ describe('buildCoachMemorySnapshot', () => {
 
         expect(snapshot.compatibleSessionCount).toBe(0);
         expect(snapshot.signals).toEqual([]);
+    });
+
+    it('adds conservative validation signals for baseline precision trends', () => {
+        const precisionTrend = resolvePrecisionTrend({
+            current: {
+                ...analysisResultBase,
+                mastery: resolveMeasurementTruth(analysisResultBase),
+            },
+            history: [],
+        });
+        const snapshot = buildCoachMemorySnapshot({
+            currentResult: {
+                ...analysisResultBase,
+                precisionTrend,
+            },
+            historySessions: [],
+        });
+
+        expect(snapshot.precisionTrend).toEqual(expect.objectContaining({
+            label: 'baseline',
+            compatibleCount: 1,
+        }));
+        expect(snapshot.signals).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                source: 'history',
+                area: 'validation',
+                key: 'precision.baseline',
+            }),
+        ]));
+    });
+
+    it('marks precision regression as a conservative history conflict', () => {
+        const precisionTrend = {
+            ...resolvePrecisionTrend({
+                current: {
+                    ...analysisResultBase,
+                    mastery: resolveMeasurementTruth(analysisResultBase),
+                },
+                history: [],
+            }),
+            label: 'validated_regression' as const,
+            compatibleCount: 3,
+            evidenceLevel: 'strong' as const,
+            actionableDelta: {
+                baseline: 84,
+                current: 70,
+                delta: -14,
+                recentWindowAverage: 80,
+                recentWindowDelta: -10,
+            },
+            nextValidationHint: 'Regressao validada. Volte ao ultimo baseline confiavel.',
+        };
+
+        const snapshot = buildCoachMemorySnapshot({
+            currentResult: {
+                ...analysisResultBase,
+                precisionTrend,
+            },
+            historySessions: [],
+        });
+
+        expect(snapshot.conflictingFocusAreas).toEqual(['sensitivity']);
+        expect(snapshot.signals).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                key: 'precision.validated_regression',
+                summary: expect.stringContaining('regression'),
+            }),
+        ]));
     });
 });

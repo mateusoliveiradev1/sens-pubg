@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { analysisSessions, sensitivityHistory } from '@/db/schema';
+import {
+    analysisSessions,
+    precisionCheckpoints,
+    precisionEvolutionLines,
+    sensitivityHistory,
+} from '@/db/schema';
+import { createAnalysisContext } from '@/app/analyze/analysis-context';
 import { CURRENT_PUBG_PATCH_VERSION } from '@/game/pubg/patch';
 import type { AnalysisResult } from '@/types/engine';
 
@@ -15,6 +21,10 @@ const mocks = vi.hoisted(() => {
     const insert = vi.fn();
     const sessionValues = vi.fn();
     const returning = vi.fn();
+    const lineValues = vi.fn();
+    const onConflictDoUpdate = vi.fn();
+    const lineReturning = vi.fn();
+    const checkpointValues = vi.fn();
     const historyValues = vi.fn();
     const update = vi.fn();
     const updateSet = vi.fn();
@@ -34,6 +44,10 @@ const mocks = vi.hoisted(() => {
         insert,
         sessionValues,
         returning,
+        lineValues,
+        onConflictDoUpdate,
+        lineReturning,
+        checkpointValues,
         historyValues,
         update,
         updateSet,
@@ -161,6 +175,84 @@ function createAnalysisResult(): AnalysisResult {
     };
 }
 
+function createPrecisionReadyAnalysisResult(input: {
+    readonly id: string;
+    readonly timestamp: string;
+    readonly sprayScore: number;
+    readonly consistencyScore?: number;
+    readonly confidence?: number;
+    readonly qualityScore?: number;
+}): AnalysisResult {
+    const confidence = input.confidence ?? 0.9;
+    const qualityScore = input.qualityScore ?? 86;
+    const base = createAnalysisResult();
+
+    return {
+        ...base,
+        id: input.id,
+        timestamp: new Date(input.timestamp),
+        analysisContext: createAnalysisContext({
+            patchVersion: CURRENT_PUBG_PATCH_VERSION,
+            scopeId: 'red-dot',
+            distanceMeters: 30,
+            distanceMode: 'exact',
+        }),
+        videoQualityReport: {
+            overallScore: qualityScore as never,
+            sharpness: 82 as never,
+            compressionBurden: 15 as never,
+            reticleContrast: 84 as never,
+            roiStability: 88 as never,
+            fpsStability: 90 as never,
+            usableForAnalysis: true,
+            blockingReasons: [],
+            diagnostic: {
+                tier: 'analysis_ready',
+                summary: 'Clip bom para validar linha precisa.',
+                recommendations: [],
+                preprocessing: {
+                    normalizationApplied: true,
+                    sampledFrames: 32,
+                    selectedFrames: 30,
+                    sprayWindow: {
+                        startMs: 120 as never,
+                        endMs: 2800 as never,
+                        confidence: 0.9,
+                        shotLikeEvents: 30,
+                        rejectedLeadingMs: 80 as never,
+                        rejectedTrailingMs: 100 as never,
+                    },
+                },
+            },
+        },
+        trajectory: {
+            ...base.trajectory,
+            durationMs: 2800 as never,
+            displacements: Array.from({ length: 30 }, (_, index) => ({
+                dx: 0,
+                dy: 1,
+                timestamp: (index * 90) as never,
+                shotIndex: index,
+            })),
+        },
+        metrics: {
+            ...base.metrics,
+            sprayScore: input.sprayScore,
+            consistencyScore: (input.consistencyScore ?? input.sprayScore) as never,
+            metricQuality: {
+                sprayScore: {
+                    coverage: 0.92,
+                    confidence,
+                    sampleSize: 30,
+                    framesTracked: 30,
+                    framesLost: 2,
+                    framesProcessed: 32,
+                },
+            } as never,
+        },
+    };
+}
+
 describe('saveAnalysisResult', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -193,6 +285,18 @@ describe('saveAnalysisResult', () => {
                 };
             }
 
+            if (table === precisionEvolutionLines) {
+                return {
+                    values: mocks.lineValues,
+                };
+            }
+
+            if (table === precisionCheckpoints) {
+                return {
+                    values: mocks.checkpointValues,
+                };
+            }
+
             if (table === sensitivityHistory) {
                 return {
                     values: mocks.historyValues,
@@ -206,6 +310,14 @@ describe('saveAnalysisResult', () => {
             returning: mocks.returning,
         });
         mocks.returning.mockResolvedValue([{ id: 'session-1' }]);
+        mocks.lineValues.mockReturnValue({
+            onConflictDoUpdate: mocks.onConflictDoUpdate,
+        });
+        mocks.onConflictDoUpdate.mockReturnValue({
+            returning: mocks.lineReturning,
+        });
+        mocks.lineReturning.mockResolvedValue([{ id: 'precision-line-1' }]);
+        mocks.checkpointValues.mockResolvedValue(undefined);
         mocks.limit.mockResolvedValueOnce([{ id: 'profile-1' }]).mockResolvedValue([]);
         mocks.historyValues.mockResolvedValue(undefined);
         mocks.update.mockReturnValue({
@@ -246,7 +358,13 @@ describe('saveAnalysisResult', () => {
         const saved = await saveAnalysisResult(result, 'beryl-m762', 'red-dot', 30);
 
         expect(mocks.createGroqCoachClient).toHaveBeenCalledTimes(1);
-        expect(mocks.enrichAnalysisResultCoaching).toHaveBeenCalledWith(result, undefined);
+        expect(mocks.enrichAnalysisResultCoaching).toHaveBeenCalledWith(expect.objectContaining({
+            id: result.id,
+            analysisContext: expect.objectContaining({
+                targetDistanceMeters: 30,
+                distanceMode: 'exact',
+            }),
+        }), undefined);
         expect(saved).toMatchObject({
             success: true,
             result: enrichedResult,
@@ -349,6 +467,194 @@ describe('saveAnalysisResult', () => {
                     }),
                 }),
             }),
+        }));
+    });
+
+    it('persists a baseline precision trend and checkpoint for the first compatible clip', async () => {
+        const result = createPrecisionReadyAnalysisResult({
+            id: 'precision-current-1',
+            timestamp: '2026-04-18T12:00:00.000Z',
+            sprayScore: 72,
+        });
+
+        await saveAnalysisResult(result, 'beryl-m762', 'red-dot', 30);
+
+        expect(mocks.sessionValues).toHaveBeenCalledWith(expect.objectContaining({
+            fullResult: expect.objectContaining({
+                precisionTrend: expect.objectContaining({
+                    label: 'baseline',
+                    compatibleCount: 1,
+                }),
+            }),
+        }));
+        expect(mocks.lineValues).toHaveBeenCalledWith(expect.objectContaining({
+            status: 'baseline_created',
+            variableInTest: 'validation',
+            validClipCount: 1,
+            blockedClipCount: 0,
+            payload: expect.objectContaining({
+                trend: expect.objectContaining({ label: 'baseline' }),
+            }),
+        }));
+        expect(mocks.checkpointValues).toHaveBeenCalledWith(expect.objectContaining({
+            lineId: 'precision-line-1',
+            analysisSessionId: 'session-1',
+            state: 'baseline_created',
+        }));
+    });
+
+    it('persists an initial precision signal for the second strict compatible clip', async () => {
+        const prior = createPrecisionReadyAnalysisResult({
+            id: 'precision-prior-1',
+            timestamp: '2026-04-18T12:00:00.000Z',
+            sprayScore: 70,
+        });
+        const current = createPrecisionReadyAnalysisResult({
+            id: 'precision-current-2',
+            timestamp: '2026-04-19T12:00:00.000Z',
+            sprayScore: 78,
+        });
+
+        mocks.limit.mockReset();
+        mocks.limit
+            .mockResolvedValueOnce([{ id: 'profile-1' }])
+            .mockResolvedValueOnce([{
+                id: 'session-prior-1',
+                createdAt: prior.timestamp,
+                weaponId: 'beryl-m762',
+                scopeId: 'red-dot',
+                patchVersion: CURRENT_PUBG_PATCH_VERSION,
+                distance: 30,
+                stance: 'standing',
+                attachments: {
+                    muzzle: 'compensator',
+                    grip: 'vertical',
+                    stock: 'none',
+                },
+                fullResult: prior as unknown as Record<string, unknown>,
+            }]);
+
+        await saveAnalysisResult(current, 'beryl-m762', 'red-dot', 30);
+
+        expect(mocks.sessionValues).toHaveBeenCalledWith(expect.objectContaining({
+            fullResult: expect.objectContaining({
+                precisionTrend: expect.objectContaining({
+                    label: 'initial_signal',
+                    compatibleCount: 2,
+                    actionableDelta: expect.objectContaining({
+                        delta: expect.any(Number),
+                    }),
+                }),
+            }),
+        }));
+        expect(mocks.lineValues).toHaveBeenCalledWith(expect.objectContaining({
+            status: 'initial_signal',
+            validClipCount: 2,
+            baselineSessionId: 'session-prior-1',
+        }));
+    });
+
+    it('persists validated progress only after three strong compatible clips', async () => {
+        const baseline = createPrecisionReadyAnalysisResult({
+            id: 'precision-baseline',
+            timestamp: '2026-04-18T12:00:00.000Z',
+            sprayScore: 62,
+        });
+        const prior = createPrecisionReadyAnalysisResult({
+            id: 'precision-prior-progress',
+            timestamp: '2026-04-19T12:00:00.000Z',
+            sprayScore: 70,
+        });
+        const current = createPrecisionReadyAnalysisResult({
+            id: 'precision-current-progress',
+            timestamp: '2026-04-20T12:00:00.000Z',
+            sprayScore: 82,
+        });
+
+        mocks.limit.mockReset();
+        mocks.limit
+            .mockResolvedValueOnce([{ id: 'profile-1' }])
+            .mockResolvedValueOnce([
+                {
+                    id: 'session-prior-progress',
+                    createdAt: prior.timestamp,
+                    weaponId: 'beryl-m762',
+                    scopeId: 'red-dot',
+                    patchVersion: CURRENT_PUBG_PATCH_VERSION,
+                    distance: 30,
+                    stance: 'standing',
+                    attachments: {
+                        muzzle: 'compensator',
+                        grip: 'vertical',
+                        stock: 'none',
+                    },
+                    fullResult: prior as unknown as Record<string, unknown>,
+                },
+                {
+                    id: 'session-baseline',
+                    createdAt: baseline.timestamp,
+                    weaponId: 'beryl-m762',
+                    scopeId: 'red-dot',
+                    patchVersion: CURRENT_PUBG_PATCH_VERSION,
+                    distance: 30,
+                    stance: 'standing',
+                    attachments: {
+                        muzzle: 'compensator',
+                        grip: 'vertical',
+                        stock: 'none',
+                    },
+                    fullResult: baseline as unknown as Record<string, unknown>,
+                },
+            ]);
+
+        await saveAnalysisResult(current, 'beryl-m762', 'red-dot', 30);
+
+        expect(mocks.sessionValues).toHaveBeenCalledWith(expect.objectContaining({
+            fullResult: expect.objectContaining({
+                precisionTrend: expect.objectContaining({
+                    label: 'validated_progress',
+                    compatibleCount: 3,
+                }),
+            }),
+        }));
+        expect(mocks.lineValues).toHaveBeenCalledWith(expect.objectContaining({
+            status: 'validated_progress',
+            validClipCount: 3,
+            baselineSessionId: 'session-baseline',
+        }));
+    });
+
+    it('records non-comparable clips as blocked checkpoints without incrementing valid count', async () => {
+        const result = createPrecisionReadyAnalysisResult({
+            id: 'precision-blocked',
+            timestamp: '2026-04-18T12:00:00.000Z',
+            sprayScore: 72,
+            qualityScore: 40,
+        });
+
+        await saveAnalysisResult({
+            ...result,
+            videoQualityReport: {
+                ...result.videoQualityReport!,
+                usableForAnalysis: false,
+            },
+        }, 'beryl-m762', 'red-dot', 30);
+
+        expect(mocks.sessionValues).toHaveBeenCalledWith(expect.objectContaining({
+            fullResult: expect.objectContaining({
+                precisionTrend: expect.objectContaining({
+                    label: 'not_comparable',
+                    evidenceLevel: 'blocked',
+                }),
+            }),
+        }));
+        expect(mocks.lineValues).toHaveBeenCalledWith(expect.objectContaining({
+            status: 'not_comparable',
+            validClipCount: 0,
+            blockedClipCount: expect.any(Number),
+        }));
+        expect(mocks.checkpointValues).toHaveBeenCalledWith(expect.objectContaining({
+            state: 'not_comparable',
         }));
     });
 
