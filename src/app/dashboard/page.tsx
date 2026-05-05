@@ -4,6 +4,7 @@ import { getDashboardStats } from '@/actions/dashboard';
 import { Header } from '@/ui/components/header';
 import { WeaponIcon } from '@/ui/components/weapon-icon';
 
+import { buildDashboardTruthViewModel } from './dashboard-truth-view-model';
 import { TrendChart } from './trend-chart';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -155,6 +156,10 @@ function getMomentumTone(delta: number): {
     };
 }
 
+function formatPercent(value: number): string {
+    return `${Math.round(value * 100)}%`;
+}
+
 function getPositiveStreak(data: { avgScore: number }[]): number {
     if (data.length <= 1) {
         return data.length;
@@ -277,17 +282,14 @@ export default async function DashboardPage() {
     const weakestWeapon = rankedWeapons.length > 0
         ? [...rankedWeapons].sort((left, right) => left.avgScore - right.avgScore)[0]!
         : null;
-
-    const nextActionTitle = weakestWeapon && bestWeapon && weakestWeapon.weaponId !== bestWeapon.weaponId
-        ? `Corrigir ${weakestWeapon.displayName}`
-        : 'Subir novo checkpoint';
-    const nextActionBody = weakestWeapon && bestWeapon && weakestWeapon.weaponId !== bestWeapon.weaponId
-        ? `${weakestWeapon.displayName} esta puxando sua media para baixo. Feche tres sprays limpos com ela antes de buscar novo pico em ${bestWeapon.displayName}.`
-        : 'Seu painel esta com pouca distancia entre media e topo. O proximo ganho vem de uma nova sessao curta para confirmar se o ritmo atual se sustenta.';
+    const truthView = buildDashboardTruthViewModel(stats);
+    const latestMastery = stats.latestMastery;
+    const nextActionTitle = truthView.nextActionTitle;
+    const nextActionBody = truthView.nextActionBody;
 
     const heroSummary = bestWeapon
-        ? `Sua media operacional fechou em ${latestAverage}% na ultima leitura, com pico recente de ${latestPeak}%. ${bestWeapon.displayName} e hoje a arma que melhor converte suas sessoes em resultado, enquanto o painel ainda guarda ${consistencyGap} pts de folga ate o melhor teto historico.`
-        : `Sua media operacional fechou em ${latestAverage}% na ultima leitura, com pico recente de ${latestPeak}%. A curva esta ${momentum.title.toLowerCase()} e ainda ha ${consistencyGap} pts de folga ate seu topo historico.`;
+        ? `Sua media operacional fechou em ${latestAverage}% na ultima leitura, com pico recente de ${latestPeak}%. ${bestWeapon.displayName} e hoje a arma que melhor converte suas sessoes em resultado; a tendencia atual e ${truthView.trendTitle.toLowerCase()}.`
+        : `Sua media operacional fechou em ${latestAverage}% na ultima leitura, com pico recente de ${latestPeak}%. A tendencia atual e ${truthView.trendTitle.toLowerCase()} e ainda ha ${consistencyGap} pts de folga ate seu topo historico.`;
 
     return (
         <div className="min-h-screen bg-[#08080c] text-white">
@@ -321,8 +323,8 @@ export default async function DashboardPage() {
                                         <span className="mb-2 block text-[10px] font-mono uppercase tracking-[0.28em] text-zinc-500">
                                             Momento
                                         </span>
-                                        <strong className={`block text-2xl font-black ${momentum.textClass}`}>{momentum.title}</strong>
-                                        <p className="mt-2 text-xs leading-relaxed text-zinc-500">{momentum.description}</p>
+                                        <strong className={`block text-2xl font-black ${momentum.textClass}`}>{truthView.trendTitle}</strong>
+                                        <p className="mt-2 text-xs leading-relaxed text-zinc-500">{truthView.trendBody}</p>
                                     </div>
 
                                     <div className="rounded-[22px] border border-white/8 bg-black/25 p-4">
@@ -366,27 +368,35 @@ export default async function DashboardPage() {
                                 </span>
                                 <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
                                     <div>
-                                        <strong className={`block text-5xl font-black leading-none ${getScoreTone(latestAverage).textClass}`}>
-                                            {latestAverage}%
+                                        <strong className={`block text-4xl font-black leading-none ${getScoreTone(latestMastery?.actionableScore ?? latestAverage).textClass}`}>
+                                            {truthView.scoreLabel}
                                         </strong>
-                                        <p className="mt-2 text-sm text-zinc-500">score medio do ultimo checkpoint</p>
+                                        <p className="mt-2 text-sm text-zinc-500">
+                                            {latestMastery
+                                                ? `${latestMastery.mechanicalLevelLabel} mecanico, ${latestMastery.mechanicalScore}/100 mecanica`
+                                                : 'score medio do ultimo checkpoint'}
+                                        </p>
                                     </div>
-                                    <span className={momentum.badgeClass}>{momentum.title}</span>
+                                    <span className={momentum.badgeClass}>{truthView.truthBadgeLabel}</span>
                                 </div>
                                 <div className="grid gap-3 text-sm text-zinc-400">
                                     <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/6 bg-zinc-950/60 px-4 py-3">
-                                        <span>Delta vs sessao anterior</span>
-                                        <span className={stats.lastSessionDelta >= 0 ? 'text-emerald-400' : 'text-orange-400'}>
-                                            {formatSignedPoints(stats.lastSessionDelta)}
+                                        <span>Acao atual</span>
+                                        <span className="text-cyan-400">
+                                            {latestMastery?.actionLabel ?? 'Gravar clip'}
                                         </span>
                                     </div>
                                     <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/6 bg-zinc-950/60 px-4 py-3">
-                                        <span>Pico recente</span>
-                                        <span className="text-orange-400">{latestPeak}%</span>
+                                        <span>Confianca</span>
+                                        <span className="text-orange-400">
+                                            {latestMastery ? formatPercent(latestMastery.evidence.confidence) : truthView.evidenceLabel}
+                                        </span>
                                     </div>
                                     <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/6 bg-zinc-950/60 px-4 py-3">
-                                        <span>Sequencia positiva</span>
-                                        <span className="text-cyan-400">{streak} checkpoints</span>
+                                        <span>Cobertura</span>
+                                        <span className="text-cyan-400">
+                                            {latestMastery ? formatPercent(latestMastery.evidence.coverage) : 'aguardando'}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -399,6 +409,24 @@ export default async function DashboardPage() {
                                 <p className="mt-3 text-sm leading-relaxed text-zinc-400">
                                     {nextActionBody}
                                 </p>
+                                {truthView.nextBlock ? (
+                                    <div className="mt-5 rounded-[18px] border border-white/8 bg-zinc-950/60 p-4">
+                                        <div className="mb-3 flex flex-wrap items-center gap-2">
+                                            <span className="badge badge-info">{truthView.nextBlock.durationLabel}</span>
+                                            <span className="badge badge-info">{truthView.evidenceLabel}</span>
+                                        </div>
+                                        <ol className="space-y-2 pl-4 text-sm leading-relaxed text-zinc-400">
+                                            {truthView.nextBlock.steps.map((step) => (
+                                                <li key={step}>{step}</li>
+                                            ))}
+                                        </ol>
+                                        {truthView.nextBlock.validation ? (
+                                            <p className="mt-3 text-xs leading-relaxed text-zinc-500">
+                                                Validacao: {truthView.nextBlock.validation}
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                ) : null}
                                 <div className="mt-5 flex flex-wrap gap-3">
                                     <Link href="/analyze" className="btn btn-primary">
                                         Rodar nova analise
@@ -455,12 +483,13 @@ export default async function DashboardPage() {
                                     </p>
                                     <h2 className="text-3xl font-black uppercase tracking-tight">Ritmo recente</h2>
                                     <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400">
-                                        A curva abaixo responde se voce esta evoluindo de forma replicavel ou apenas colecionando um pico bonito perdido no meio da semana.
+                                        {truthView.trendBody}
                                     </p>
                                 </div>
                                 <div className="flex flex-wrap gap-2">
                                     <span className="badge badge-info">30 dias</span>
                                     <span className="badge badge-info">Ultima leitura {lastCheckpointLabel}</span>
+                                    <span className="badge badge-info">{truthView.evidenceLabel}</span>
                                     <span className={trendDelta >= 0 ? 'badge badge-success' : 'badge badge-warning'}>
                                         {formatSignedPoints(trendDelta)} na media
                                     </span>
@@ -509,7 +538,7 @@ export default async function DashboardPage() {
                                         Tracao
                                     </span>
                                     <p className="text-sm leading-relaxed text-zinc-400">
-                                        Sua media {trendDelta >= 0 ? 'subiu' : 'recuou'} {Math.abs(trendDelta)} pts ao longo da janela.
+                                        {truthView.trendTitle}: {truthView.evidenceSummary}
                                     </p>
                                 </div>
                                 <div className="rounded-[20px] border border-white/6 bg-zinc-950/60 p-4">
@@ -517,7 +546,7 @@ export default async function DashboardPage() {
                                         Pico da janela
                                     </span>
                                     <p className="text-sm leading-relaxed text-zinc-400">
-                                        O pico recente {peakDelta >= 0 ? 'ganhou' : 'perdeu'} {Math.abs(peakDelta)} pts frente ao inicio do periodo.
+                                        O pico recente variou {formatSignedPoints(peakDelta)} frente ao inicio do periodo; use junto da evidencia antes de tratar como progresso.
                                     </p>
                                 </div>
                                 <div className="rounded-[20px] border border-white/6 bg-zinc-950/60 p-4">
@@ -539,7 +568,7 @@ export default async function DashboardPage() {
                                     </p>
                                     <h2 className="text-3xl font-black uppercase tracking-tight">Arsenal</h2>
                                     <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-                                        Aqui fica claro qual arma sustenta sua curva e qual arma ainda esta cobrando caro da sua media.
+                                        {truthView.arsenalFocus?.body ?? 'Aqui fica claro qual arma sustenta sua curva e qual arma ainda esta cobrando caro da sua media.'}
                                     </p>
                                 </div>
                                 <Link href="/history" className="btn btn-ghost">
