@@ -3,11 +3,17 @@ import type {
     CoachFeedback,
     CoachPlan,
     Diagnosis,
+    PrecisionEvidenceLevel,
+    PrecisionPillarDeltaStatus,
+    PrecisionPillarKey,
+    PrecisionTrendLabel,
+    PrecisionTrendSummary,
     SensitivityRecommendation,
     SprayMastery,
     SprayMetrics,
 } from '@/types/engine';
 import { formatDiagnosisTruthLabel } from '@/core/measurement-truth';
+import { formatPrecisionTrendLabel } from '@/core/precision-loop';
 
 export type ResultMetricTone = 'success' | 'warning' | 'error' | 'info';
 
@@ -70,6 +76,36 @@ export interface EvidenceBadgeModel {
     readonly value: string;
     readonly tone: ResultMetricTone;
     readonly detail: string;
+}
+
+export interface PrecisionTrendDeltaModel {
+    readonly key: 'actionable' | 'mechanical';
+    readonly label: string;
+    readonly value: string;
+    readonly tone: ResultMetricTone;
+    readonly detail: string;
+}
+
+export interface PrecisionTrendPillarChipModel {
+    readonly key: PrecisionPillarKey;
+    readonly label: string;
+    readonly value: string;
+    readonly tone: ResultMetricTone;
+    readonly detail: string;
+}
+
+export interface PrecisionTrendBlockModel {
+    readonly label: string;
+    readonly tone: ResultMetricTone;
+    readonly body: string;
+    readonly compatibleCountLabel: string;
+    readonly evidenceSummary: string;
+    readonly deltaItems: readonly PrecisionTrendDeltaModel[];
+    readonly pillarChips: readonly PrecisionTrendPillarChipModel[];
+    readonly blockerReasons: readonly string[];
+    readonly conservativeReason: string | null;
+    readonly nextValidationHint: string;
+    readonly ctaLabel: 'Gravar validacao compativel';
 }
 
 interface BuildResultMetricCardsInput {
@@ -241,6 +277,188 @@ export function buildResultMetricCards(input: BuildResultMetricCardsInput): read
             meterPercent: clampPercent(Math.abs((suggestedVSM ?? 1) - 1) * 200),
         },
     ];
+}
+
+export function buildPrecisionTrendBlockModel(
+    trend: PrecisionTrendSummary | undefined
+): PrecisionTrendBlockModel | null {
+    if (!trend) {
+        return null;
+    }
+
+    return {
+        label: formatPrecisionTrendLabel(trend.label),
+        tone: toneFromPrecisionTrendLabel(trend.label),
+        body: buildPrecisionTrendBody(trend),
+        compatibleCountLabel: formatCompatibleClipCount(trend.compatibleCount),
+        evidenceSummary: `${formatPrecisionEvidenceLevel(trend.evidenceLevel)}: ${formatPercent(trend.coverage)} de cobertura e ${formatPercent(trend.confidence)} de confianca.`,
+        deltaItems: buildPrecisionTrendDeltas(trend),
+        pillarChips: buildPrecisionPillarChips(trend),
+        blockerReasons: buildPrecisionBlockerReasons(trend),
+        conservativeReason: buildPrecisionConservativeReason(trend.label),
+        nextValidationHint: trend.nextValidationHint,
+        ctaLabel: 'Gravar validacao compativel',
+    };
+}
+
+function buildPrecisionTrendBody(trend: PrecisionTrendSummary): string {
+    switch (trend.label) {
+        case 'baseline':
+            return 'Baseline criado para este contexto. A leitura ainda precisa de outro clip compativel antes de comparar evolucao.';
+        case 'initial_signal':
+            return 'Sinal inicial registrado. Mantenha arma, mira, distancia, postura, loadout e sensibilidade fixos para validar no proximo clip.';
+        case 'in_validation':
+            return 'A linha ja tem clips compativeis, mas a evidencia ainda pede validacao antes de consolidar mudanca.';
+        case 'validated_progress':
+            return 'Progresso validado pela linha compativel. Consolide este bloco antes de testar outra variavel.';
+        case 'validated_regression':
+            return 'Regressao validada pela linha compativel. Volte para o baseline confiavel e grave nova validacao controlada.';
+        case 'oscillation':
+            return 'A linha oscilou dentro da margem de decisao. Nao mude outra variavel ate o proximo clip compativel.';
+        case 'not_comparable':
+            return 'Controle de precisao bloqueou a comparacao. O clip entra como evidencia auditavel, mas nao mistura no trend.';
+        case 'consolidated':
+            return 'Linha consolidada. Mantenha o contexto ao registrar a proxima validacao ou escolha a proxima variavel com evidencia.';
+    }
+}
+
+function formatCompatibleClipCount(count: number): string {
+    return `${count} clip${count === 1 ? '' : 's'} ${count === 1 ? 'compativel' : 'compativeis'}`;
+}
+
+function buildPrecisionConservativeReason(label: PrecisionTrendLabel): string | null {
+    switch (label) {
+        case 'baseline':
+            return 'Ainda existe so um baseline, entao o coach deve pedir validacao compativel.';
+        case 'initial_signal':
+            return 'Dois clips mostram direcao, nao consolidacao.';
+        case 'in_validation':
+            return 'A janela ainda nao atingiu evidencia forte para uma mudanca agressiva.';
+        case 'validated_regression':
+            return 'Regressao validada pede retorno ao baseline confiavel.';
+        case 'oscillation':
+            return 'Oscilacao bloqueia leitura agressiva mesmo se algum delta bruto parecer positivo.';
+        case 'not_comparable':
+            return 'Sem compatibilidade estrita, o coach deve corrigir contexto ou captura antes de decidir.';
+        case 'validated_progress':
+        case 'consolidated':
+            return null;
+    }
+}
+
+function buildPrecisionTrendDeltas(trend: PrecisionTrendSummary): readonly PrecisionTrendDeltaModel[] {
+    const items: PrecisionTrendDeltaModel[] = [];
+
+    if (trend.actionableDelta) {
+        items.push({
+            key: 'actionable',
+            label: 'Score acionavel',
+            value: formatSignedPoints(trend.actionableDelta.delta),
+            tone: toneFromSignedDelta(trend.actionableDelta.delta),
+            detail: `Baseline ${Math.round(trend.actionableDelta.baseline)} -> atual ${Math.round(trend.actionableDelta.current)}.`,
+        });
+    }
+
+    if (trend.mechanicalDelta) {
+        items.push({
+            key: 'mechanical',
+            label: 'Score mecanico',
+            value: formatSignedPoints(trend.mechanicalDelta.delta),
+            tone: toneFromSignedDelta(trend.mechanicalDelta.delta),
+            detail: `Janela recente ${Math.round(trend.mechanicalDelta.recentWindowAverage)}; delta ${formatSignedPoints(trend.mechanicalDelta.recentWindowDelta)}.`,
+        });
+    }
+
+    return items;
+}
+
+function buildPrecisionPillarChips(trend: PrecisionTrendSummary): readonly PrecisionTrendPillarChipModel[] {
+    return trend.pillarDeltas.map((delta) => ({
+        key: delta.pillar,
+        label: formatPrecisionPillarLabel(delta.pillar),
+        value: formatSignedPoints(delta.delta),
+        tone: toneFromPillarStatus(delta.status),
+        detail: `Atual ${Math.round(delta.current)}; janela ${Math.round(delta.recentWindowAverage)}.`,
+    }));
+}
+
+function buildPrecisionBlockerReasons(trend: PrecisionTrendSummary): readonly string[] {
+    const messages = [
+        ...trend.blockerSummaries.map((summary) => summary.message),
+        ...trend.blockedClips.flatMap((clip) => clip.blockers.map((blocker) => blocker.message)),
+    ];
+    const unique = Array.from(new Set(messages.filter((message) => message.trim().length > 0)));
+
+    if (unique.length > 0) {
+        return unique;
+    }
+
+    return trend.label === 'not_comparable'
+        ? ['Metadados ou qualidade impediram comparacao precisa deste clip.']
+        : [];
+}
+
+function toneFromPrecisionTrendLabel(label: PrecisionTrendLabel): ResultMetricTone {
+    switch (label) {
+        case 'validated_progress':
+        case 'consolidated':
+            return 'success';
+        case 'validated_regression':
+        case 'not_comparable':
+            return 'error';
+        case 'baseline':
+        case 'initial_signal':
+        case 'in_validation':
+        case 'oscillation':
+            return 'warning';
+    }
+}
+
+function toneFromSignedDelta(delta: number): ResultMetricTone {
+    if (delta > 3) return 'success';
+    if (delta < -3) return 'error';
+    return 'warning';
+}
+
+function toneFromPillarStatus(status: PrecisionPillarDeltaStatus): ResultMetricTone {
+    if (status === 'improved') return 'success';
+    if (status === 'declined') return 'error';
+    return 'warning';
+}
+
+function formatPrecisionEvidenceLevel(level: PrecisionEvidenceLevel): string {
+    switch (level) {
+        case 'blocked':
+            return 'Bloqueada';
+        case 'baseline':
+            return 'Baseline';
+        case 'initial':
+            return 'Inicial';
+        case 'weak':
+            return 'Em validacao';
+        case 'sufficient':
+            return 'Suficiente';
+        case 'strong':
+            return 'Forte';
+    }
+}
+
+function formatPrecisionPillarLabel(pillar: PrecisionPillarKey): string {
+    switch (pillar) {
+        case 'control':
+            return 'Controle';
+        case 'consistency':
+            return 'Consistencia';
+        case 'confidence':
+            return 'Confianca';
+        case 'clipQuality':
+            return 'Qualidade';
+    }
+}
+
+function formatSignedPoints(value: number): string {
+    const rounded = Math.round(value);
+    return `${rounded > 0 ? '+' : ''}${rounded} pts`;
 }
 
 export function buildMasteryPillarCards(mastery: SprayMastery): readonly MasteryPillarCardModel[] {

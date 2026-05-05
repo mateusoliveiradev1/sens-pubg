@@ -28,6 +28,7 @@ import { createTrackingTimeline } from './tracking-timeline';
 import {
     buildEvidenceBadges,
     buildMasteryPillarCards,
+    buildPrecisionTrendBlockModel,
     buildResultMetricCards,
     buildResultVerdictModel,
     groupCoachFeedbackByDiagnosis,
@@ -760,6 +761,7 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
         mastery: activeSession.mastery,
         trackingOverview,
     });
+    const precisionTrendBlock = buildPrecisionTrendBlockModel(activeSession.precisionTrend);
 
     return (
         <div className={styles.dashboard}>
@@ -957,6 +959,70 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                     </div>
                 </div>
             </section>
+
+            {precisionTrendBlock ? (
+                <section
+                    className={`${styles.precisionTrendBlock} ${resultToneClass(precisionTrendBlock.tone)}`}
+                    aria-labelledby="precision-trend-title"
+                >
+                    <div className={styles.precisionTrendHeader}>
+                        <div className={styles.precisionTrendIntro}>
+                            <span className={styles.reportEyebrow}>Controle de precisao</span>
+                            <h3 id="precision-trend-title" className={styles.precisionTrendTitle}>
+                                {precisionTrendBlock.label}
+                            </h3>
+                            <p className={styles.precisionTrendBody}>{precisionTrendBlock.body}</p>
+                        </div>
+                        <div className={styles.precisionTrendBadges}>
+                            <span className="badge badge-info">{precisionTrendBlock.compatibleCountLabel}</span>
+                            <span className="badge badge-info">{precisionTrendBlock.evidenceSummary}</span>
+                        </div>
+                    </div>
+
+                    <div className={styles.precisionTrendGrid}>
+                        <div className={styles.precisionTrendMain}>
+                            <span className={styles.reportEyebrow}>Proxima validacao</span>
+                            <p>{precisionTrendBlock.nextValidationHint}</p>
+                            {precisionTrendBlock.conservativeReason ? (
+                                <p className={styles.precisionTrendReason}>{precisionTrendBlock.conservativeReason}</p>
+                            ) : null}
+                            <a href="/analyze" className={styles.precisionTrendCta}>
+                                {precisionTrendBlock.ctaLabel}
+                            </a>
+                        </div>
+
+                        {precisionTrendBlock.deltaItems.length > 0 ? (
+                            <div className={styles.precisionTrendDeltas} aria-label="Deltas essenciais">
+                                {precisionTrendBlock.deltaItems.map((item) => (
+                                    <div key={item.key} className={`${styles.precisionTrendDelta} ${resultToneClass(item.tone)}`}>
+                                        <span>{item.label}</span>
+                                        <strong>{item.value}</strong>
+                                        <small>{item.detail}</small>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : null}
+                    </div>
+
+                    {precisionTrendBlock.pillarChips.length > 0 ? (
+                        <div className={styles.precisionTrendPillars} aria-label="Deltas por pilar">
+                            {precisionTrendBlock.pillarChips.map((chip) => (
+                                <span key={chip.key} className={`${styles.precisionTrendPillar} ${resultToneClass(chip.tone)}`} title={chip.detail}>
+                                    {chip.label} {chip.value}
+                                </span>
+                            ))}
+                        </div>
+                    ) : null}
+
+                    {precisionTrendBlock.blockerReasons.length > 0 ? (
+                        <div className={styles.precisionTrendBlockers} aria-label="Motivos de bloqueio do trend">
+                            {precisionTrendBlock.blockerReasons.map((reason) => (
+                                <span key={reason}>{reason}</span>
+                            ))}
+                        </div>
+                    ) : null}
+                </section>
+            ) : null}
 
             {videoQualityReport ? (
                 <section className={styles.section}>

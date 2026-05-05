@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { CoachFeedback, CoachPlan, Diagnosis, SensitivityRecommendation, SprayMastery, SprayMetrics } from '@/types/engine';
+import type { CoachFeedback, CoachPlan, Diagnosis, PrecisionTrendSummary, SensitivityRecommendation, SprayMastery, SprayMetrics } from '@/types/engine';
 import {
     buildEvidenceBadges,
     buildMasteryPillarCards,
+    buildPrecisionTrendBlockModel,
     buildResultMetricCards,
     buildResultVerdictModel,
     groupCoachFeedbackByDiagnosis,
@@ -100,6 +101,43 @@ function createCoachPlan(overrides: Partial<CoachPlan> = {}): CoachPlan {
         stopConditions: [],
         adaptationWindowDays: 2,
         llmRewriteAllowed: false,
+        ...overrides,
+    };
+}
+
+function createPrecisionTrend(overrides: Partial<PrecisionTrendSummary> = {}): PrecisionTrendSummary {
+    return {
+        label: 'baseline',
+        evidenceLevel: 'baseline',
+        compatibleCount: 1,
+        baseline: {
+            resultId: 'clip-1',
+            timestamp: '2026-04-18T12:00:00.000Z',
+            actionableScore: 72,
+            mechanicalScore: 75,
+            coverage: 0.9,
+            confidence: 0.88,
+            clipQuality: 84,
+        },
+        current: {
+            resultId: 'clip-1',
+            timestamp: '2026-04-18T12:00:00.000Z',
+            actionableScore: 72,
+            mechanicalScore: 75,
+            coverage: 0.9,
+            confidence: 0.88,
+            clipQuality: 84,
+        },
+        recentWindow: null,
+        actionableDelta: null,
+        mechanicalDelta: null,
+        pillarDeltas: [],
+        recurringDiagnoses: [],
+        blockerSummaries: [],
+        blockedClips: [],
+        confidence: 0.88,
+        coverage: 0.9,
+        nextValidationHint: 'Grave outro clip compativel.',
         ...overrides,
     };
 }
@@ -270,5 +308,150 @@ describe('results dashboard view model', () => {
             'Estado da leitura',
             'Qualidade do clip',
         ]);
+    });
+
+    it('builds baseline precision trend copy as validation instead of progress', () => {
+        const model = buildPrecisionTrendBlockModel(createPrecisionTrend());
+
+        expect(model).toMatchObject({
+            label: 'Baseline',
+            tone: 'warning',
+            compatibleCountLabel: '1 clip compativel',
+            ctaLabel: 'Gravar validacao compativel',
+        });
+        expect(model?.body).toContain('precisa de outro clip compativel');
+        expect(`${model?.body} ${model?.conservativeReason}`.toLowerCase()).not.toContain('progresso validado');
+    });
+
+    it('builds initial precision signal copy as controlled validation', () => {
+        const model = buildPrecisionTrendBlockModel(createPrecisionTrend({
+            label: 'initial_signal',
+            evidenceLevel: 'initial',
+            compatibleCount: 2,
+            actionableDelta: {
+                baseline: 70,
+                current: 76,
+                delta: 6,
+                recentWindowAverage: 70,
+                recentWindowDelta: 6,
+            },
+        }));
+
+        expect(model?.label).toBe('Sinal inicial');
+        expect(model?.compatibleCountLabel).toBe('2 clips compativeis');
+        expect(model?.body).toContain('validar no proximo clip');
+        expect(model?.deltaItems[0]).toMatchObject({
+            label: 'Score acionavel',
+            value: '+6 pts',
+            tone: 'success',
+        });
+        expect(`${model?.body} ${model?.conservativeReason}`.toLowerCase()).not.toContain('progresso validado');
+    });
+
+    it('shows validated progress only when the trend label says progress', () => {
+        const model = buildPrecisionTrendBlockModel(createPrecisionTrend({
+            label: 'validated_progress',
+            evidenceLevel: 'strong',
+            compatibleCount: 3,
+            actionableDelta: {
+                baseline: 68,
+                current: 80,
+                delta: 12,
+                recentWindowAverage: 74,
+                recentWindowDelta: 6,
+            },
+            mechanicalDelta: {
+                baseline: 70,
+                current: 78,
+                delta: 8,
+                recentWindowAverage: 74,
+                recentWindowDelta: 4,
+            },
+            pillarDeltas: [{
+                pillar: 'control',
+                baseline: 70,
+                current: 82,
+                delta: 12,
+                recentWindowAverage: 76,
+                recentWindowDelta: 6,
+                status: 'improved',
+            }],
+        }));
+
+        expect(model?.label).toBe('Progresso validado');
+        expect(model?.tone).toBe('success');
+        expect(model?.body).toContain('Progresso validado');
+        expect(model?.conservativeReason).toBeNull();
+        expect(model?.pillarChips[0]).toMatchObject({
+            label: 'Controle',
+            value: '+12 pts',
+            tone: 'success',
+        });
+    });
+
+    it('turns validated regression into return-to-baseline copy', () => {
+        const model = buildPrecisionTrendBlockModel(createPrecisionTrend({
+            label: 'validated_regression',
+            evidenceLevel: 'strong',
+            compatibleCount: 3,
+            actionableDelta: {
+                baseline: 80,
+                current: 68,
+                delta: -12,
+                recentWindowAverage: 76,
+                recentWindowDelta: -8,
+            },
+        }));
+
+        expect(model?.tone).toBe('error');
+        expect(model?.body).toContain('Volte para o baseline confiavel');
+        expect(model?.conservativeReason).toContain('Regressao validada');
+    });
+
+    it('keeps oscillation conservative even with compatible clips', () => {
+        const model = buildPrecisionTrendBlockModel(createPrecisionTrend({
+            label: 'oscillation',
+            evidenceLevel: 'strong',
+            compatibleCount: 4,
+            actionableDelta: {
+                baseline: 74,
+                current: 76,
+                delta: 2,
+                recentWindowAverage: 75,
+                recentWindowDelta: 1,
+            },
+        }));
+
+        expect(model?.tone).toBe('warning');
+        expect(model?.body).toContain('oscilou dentro da margem');
+        expect(model?.conservativeReason).toContain('bloqueia leitura agressiva');
+    });
+
+    it('frames not comparable as precision control with blocker reasons', () => {
+        const model = buildPrecisionTrendBlockModel(createPrecisionTrend({
+            label: 'not_comparable',
+            evidenceLevel: 'blocked',
+            compatibleCount: 0,
+            blockerSummaries: [{
+                code: 'distance_ambiguous',
+                count: 1,
+                message: 'Distancia estimada bloqueia trend preciso.',
+                resultIds: ['clip-1'],
+            }],
+            blockedClips: [{
+                resultId: 'clip-1',
+                blockers: [{
+                    code: 'distance_ambiguous',
+                    field: 'distanceMode',
+                    message: 'Distancia estimada bloqueia trend preciso.',
+                    currentValue: 'estimated',
+                }],
+            }],
+        }));
+
+        expect(model?.label).toBe('Nao comparavel');
+        expect(model?.body).toContain('Controle de precisao bloqueou a comparacao');
+        expect(model?.blockerReasons).toEqual(['Distancia estimada bloqueia trend preciso.']);
+        expect(model?.ctaLabel).toBe('Gravar validacao compativel');
     });
 });

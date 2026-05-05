@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const PRODUCT_COPY_FILES = [
     'src/app/analyze/results-dashboard.tsx',
+    'src/app/analyze/results-dashboard-view-model.ts',
     'src/app/analyze/analysis-guide.tsx',
     'src/app/page.tsx',
     'src/app/history/page.tsx',
@@ -70,5 +71,16 @@ describe('product copy claim contract', () => {
         expect(landingCopy).toContain('patch');
         expect(landingCopy).toContain('confianca');
         expect(landingCopy).toContain('cobertura');
+    });
+
+    it('keeps precision trend copy validation-first and blocker-aware', () => {
+        const trendCopy = normalizeCopy(readProductCopy('src/app/analyze/results-dashboard-view-model.ts'));
+
+        expect(trendCopy).toContain('gravar validacao compativel');
+        expect(trendCopy).toContain('controle de precisao bloqueou a comparacao');
+        expect(trendCopy).toContain('dois clips mostram direcao, nao consolidacao');
+        expect(trendCopy).not.toContain('baseline criado como progresso');
+        expect(trendCopy).not.toContain('sinal inicial validado');
+        expect(trendCopy).not.toContain('falha do produto');
     });
 });

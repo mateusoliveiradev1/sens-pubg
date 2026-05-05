@@ -562,6 +562,138 @@
     background: #030712;
 }
 
+.precisionTrendBlock {
+    display: grid;
+    gap: var(--space-lg);
+    margin-bottom: var(--space-3xl);
+    padding: var(--space-xl);
+    border: 1px solid var(--result-tone-border, rgba(255, 255, 255, 0.09));
+    border-radius: 8px;
+    background: linear-gradient(180deg, var(--result-tone-soft, rgba(255, 255, 255, 0.045)), rgba(0, 0, 0, 0.16));
+}
+
+.precisionTrendHeader {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-lg);
+    align-items: flex-start;
+}
+
+.precisionTrendIntro {
+    display: grid;
+    gap: var(--space-sm);
+    min-width: 0;
+}
+
+.precisionTrendTitle {
+    margin: 0;
+    color: var(--result-tone, var(--color-text-primary));
+    font-size: var(--text-2xl);
+    line-height: 1.1;
+}
+
+.precisionTrendBody,
+.precisionTrendMain p {
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+    line-height: 1.65;
+}
+
+.precisionTrendBadges,
+.precisionTrendPillars,
+.precisionTrendBlockers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+}
+
+.precisionTrendBadges {
+    justify-content: flex-end;
+    max-width: 420px;
+}
+
+.precisionTrendGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 0.7fr);
+    gap: var(--space-lg);
+}
+
+.precisionTrendMain,
+.precisionTrendDelta {
+    padding: var(--space-lg);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.16);
+}
+
+.precisionTrendMain {
+    display: grid;
+    gap: var(--space-sm);
+}
+
+.precisionTrendReason {
+    color: var(--result-tone, var(--color-warning));
+}
+
+.precisionTrendCta {
+    display: inline-flex;
+    width: fit-content;
+    min-height: 40px;
+    align-items: center;
+    justify-content: center;
+    padding: 0 var(--space-md);
+    border: 1px solid var(--result-tone-border, rgba(255, 255, 255, 0.18));
+    border-radius: 8px;
+    background: var(--result-tone-soft, rgba(255, 255, 255, 0.08));
+    color: var(--color-text-primary);
+    font-size: var(--text-sm);
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.precisionTrendDeltas {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-sm);
+}
+
+.precisionTrendDelta {
+    display: grid;
+    gap: 6px;
+    border-color: var(--result-tone-border, rgba(255, 255, 255, 0.08));
+    background: var(--result-tone-soft, rgba(0, 0, 0, 0.16));
+}
+
+.precisionTrendDelta span,
+.precisionTrendDelta small {
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+    line-height: 1.45;
+}
+
+.precisionTrendDelta strong {
+    color: var(--result-tone, var(--color-text-primary));
+    font-family: var(--font-mono);
+    font-size: var(--text-xl);
+}
+
+.precisionTrendPillar,
+.precisionTrendBlockers span {
+    max-width: 100%;
+    padding: 7px 10px;
+    border: 1px solid var(--result-tone-border, rgba(255, 255, 255, 0.12));
+    border-radius: 8px;
+    background: var(--result-tone-soft, rgba(255, 255, 255, 0.05));
+    color: var(--color-text-secondary);
+    font-size: var(--text-xs);
+    line-height: 1.45;
+}
+
+.precisionTrendPillar {
+    color: var(--result-tone, var(--color-text-secondary));
+    font-weight: 700;
+}
+
 .metricsReportGrid {
     display: grid;
 }
@@ -1467,8 +1599,18 @@
 
 @media (max-width: 1024px) {
     .verdictHeader,
-    .verdictContentGrid {
+    .verdictContentGrid,
+    .precisionTrendGrid {
         grid-template-columns: 1fr;
+    }
+
+    .precisionTrendHeader {
+        flex-direction: column;
+    }
+
+    .precisionTrendBadges {
+        justify-content: flex-start;
+        max-width: none;
     }
 
     .pillarGrid {
@@ -1518,13 +1660,15 @@
 }
 
 @media (max-width: 767px) {
-    .verdictReport {
+    .verdictReport,
+    .precisionTrendBlock {
         padding: var(--space-lg);
     }
 
     .verdictScoreGrid,
     .evidenceBadgeGrid,
-    .pillarGrid {
+    .pillarGrid,
+    .precisionTrendDeltas {
         grid-template-columns: 1fr;
     }
 

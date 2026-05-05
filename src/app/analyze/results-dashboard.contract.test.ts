@@ -63,6 +63,26 @@ describe('results dashboard visualization contract', () => {
         expect(metricsIndex).toBeGreaterThan(verdictIndex);
     });
 
+    it('renders the precision trend block after verdict and before technical details', () => {
+        const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/buildPrecisionTrendBlockModel/);
+        expect(source).toMatch(/activeSession\.precisionTrend/);
+        expect(source).toMatch(/styles\.precisionTrendBlock/);
+        expect(source).toMatch(/precisionTrendBlock\.ctaLabel/);
+        expect(source).toMatch(/precisionTrendBlock\.blockerReasons/);
+
+        const verdictIndex = source.indexOf('styles.verdictReport');
+        const trendIndex = source.indexOf('styles.precisionTrendBlock');
+        const videoQualityIndex = source.indexOf('Qualidade do clip', trendIndex);
+        const trackingIndex = source.indexOf('Leitura tecnica do tracking', trendIndex);
+
+        expect(verdictIndex).toBeGreaterThan(-1);
+        expect(trendIndex).toBeGreaterThan(verdictIndex);
+        expect(videoQualityIndex).toBeGreaterThan(trendIndex);
+        expect(trackingIndex).toBeGreaterThan(trendIndex);
+    });
+
     it('shows the next block, evidence badges, mastery pillars, and spray proof in the report', () => {
         const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
 
