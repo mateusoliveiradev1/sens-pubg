@@ -20,6 +20,7 @@ Players pay only if the product helps them improve spray control through evidenc
 - The codebase already includes golden/benchmark fixtures for tracking, diagnostics, coach, and captured clips.
 - Community publishing, profiles, moderation, admin, and entitlement scaffolding already exist.
 - The project is linked to Vercel and has release/readiness scripts for local, deployed, and backend checks.
+- Phase 3 adds strict compatible precision trends, persisted evolution lines/checkpoints, visible blocker reasons, history audit timelines, and dashboard principal trend actions for repeat-clip improvement evidence.
 
 ### Active
 
@@ -95,4 +96,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state.
 
 ---
-*Last updated: 2026-05-05 after brownfield product research initialization*
+*Last updated: 2026-05-05 after Phase 3 multi-clip precision loop*
