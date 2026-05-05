@@ -4,6 +4,7 @@ import {
     buildPrecisionCompatibilityKey,
     comparePrecisionCompatibility,
     formatPrecisionTrendLabel,
+    PRECISION_ACTIONABLE_DEAD_ZONE_POINTS,
     resolvePrecisionTrend,
     STRICT_DISTANCE_TOLERANCE_METERS,
 } from './precision-loop';
@@ -56,6 +57,59 @@ function withSprayWindow(overrides: Partial<{
     });
 }
 
+function trendFixture(input: {
+    readonly id: string;
+    readonly timestamp: string;
+    readonly actionableScore: number;
+    readonly mechanicalScore?: number;
+    readonly control?: number;
+    readonly consistency?: number;
+    readonly confidence?: number;
+    readonly clipQuality?: number;
+    readonly coverage?: number;
+    readonly sampleSize?: number;
+}): AnalysisResult {
+    const confidence = input.confidence ?? 86;
+    const clipQuality = input.clipQuality ?? 82;
+    const coverage = input.coverage ?? 0.88;
+    const sampleSize = input.sampleSize ?? 30;
+
+    return createAnalysisResultFixture({
+        id: input.id,
+        timestamp: new Date(input.timestamp),
+        metrics: {
+            sprayScore: input.actionableScore,
+            consistencyScore: asScore(input.consistency ?? input.actionableScore),
+        },
+        mastery: {
+            actionState: 'ready',
+            actionLabel: 'Pronto',
+            mechanicalLevel: 'advanced',
+            mechanicalLevelLabel: 'Avancado',
+            actionableScore: input.actionableScore,
+            mechanicalScore: input.mechanicalScore ?? input.actionableScore,
+            pillars: {
+                control: input.control ?? input.actionableScore,
+                consistency: input.consistency ?? input.actionableScore,
+                confidence,
+                clipQuality,
+            },
+            evidence: {
+                coverage,
+                confidence: confidence / 100,
+                visibleFrames: 30,
+                lostFrames: 2,
+                framesProcessed: 32,
+                sampleSize,
+                qualityScore: clipQuality,
+                usableForAnalysis: true,
+            },
+            reasons: ['Fixture com mastery para trend preciso.'],
+            blockedRecommendations: [],
+        },
+    });
+}
+
 describe('precision loop contract', () => {
     it('builds a strict compatibility key from analysis metadata', () => {
         const result = buildPrecisionCompatibilityKey(analysisResultBase);
@@ -90,6 +144,9 @@ describe('precision loop contract', () => {
 
         expect(trend.label).toBe('baseline');
         expect(trend.evidenceLevel).toBe('baseline');
+        expect(trend.compatibleCount).toBe(1);
+        expect(trend.current?.resultId).toBe(analysisResultBase.id);
+        expect(trend.actionableDelta).toBeNull();
     });
 
     it('blocks patch, weapon, scope, optic state, and loadout mismatches', () => {
@@ -249,5 +306,192 @@ describe('precision loop contract', () => {
         expect(trend.actionableDelta).toBeNull();
         expect(trend.blockedClips).toHaveLength(1);
         expect(trend.blockerSummaries.map((summary) => summary.code)).toContain('patch_mismatch');
+    });
+
+    it('treats two compatible clips as initial signal only', () => {
+        const prior = trendFixture({
+            id: 'prior-baseline',
+            timestamp: '2026-04-18T12:00:00.000Z',
+            actionableScore: 70,
+        });
+        const current = trendFixture({
+            id: 'current-initial',
+            timestamp: '2026-04-19T12:00:00.000Z',
+            actionableScore: 78,
+        });
+
+        const trend = resolvePrecisionTrend({
+            current,
+            history: [prior],
+        });
+
+        expect(trend.label).toBe('initial_signal');
+        expect(trend.compatibleCount).toBe(2);
+        expect(trend.actionableDelta?.delta).toBe(8);
+        expect(trend.pillarDeltas).toHaveLength(4);
+    });
+
+    it('validates progress only with enough compatible evidence and no critical pillar deterioration', () => {
+        const baseline = trendFixture({
+            id: 'baseline-progress',
+            timestamp: '2026-04-18T12:00:00.000Z',
+            actionableScore: 62,
+            control: 61,
+        });
+        const prior = trendFixture({
+            id: 'prior-progress',
+            timestamp: '2026-04-19T12:00:00.000Z',
+            actionableScore: 70,
+            control: 69,
+        });
+        const current = trendFixture({
+            id: 'current-progress',
+            timestamp: '2026-04-20T12:00:00.000Z',
+            actionableScore: 80,
+            control: 80,
+        });
+
+        const trend = resolvePrecisionTrend({
+            current,
+            history: [prior, baseline],
+        });
+
+        expect(trend.label).toBe('validated_progress');
+        expect(trend.evidenceLevel).toBe('strong');
+        expect(trend.baseline?.resultId).toBe('baseline-progress');
+        expect(trend.actionableDelta).toEqual(expect.objectContaining({
+            baseline: 62,
+            current: 80,
+            delta: 18,
+        }));
+        expect(trend.recurringDiagnoses[0]).toEqual(expect.objectContaining({
+            type: 'underpull',
+            count: 3,
+        }));
+    });
+
+    it('validates regression with the same evidence bar as progress', () => {
+        const baseline = trendFixture({
+            id: 'baseline-regression',
+            timestamp: '2026-04-18T12:00:00.000Z',
+            actionableScore: 84,
+        });
+        const prior = trendFixture({
+            id: 'prior-regression',
+            timestamp: '2026-04-19T12:00:00.000Z',
+            actionableScore: 80,
+        });
+        const current = trendFixture({
+            id: 'current-regression',
+            timestamp: '2026-04-20T12:00:00.000Z',
+            actionableScore: 70,
+        });
+
+        const trend = resolvePrecisionTrend({
+            current,
+            history: [prior, baseline],
+        });
+
+        expect(trend.label).toBe('validated_regression');
+        expect(trend.actionableDelta?.delta).toBe(-14);
+        expect(trend.nextValidationHint).toContain('Regressao validada');
+    });
+
+    it('keeps small deltas inside oscillation dead zone', () => {
+        const baseline = trendFixture({
+            id: 'baseline-oscillation',
+            timestamp: '2026-04-18T12:00:00.000Z',
+            actionableScore: 72,
+        });
+        const prior = trendFixture({
+            id: 'prior-oscillation',
+            timestamp: '2026-04-19T12:00:00.000Z',
+            actionableScore: 73,
+        });
+        const current = trendFixture({
+            id: 'current-oscillation',
+            timestamp: '2026-04-20T12:00:00.000Z',
+            actionableScore: 72 + PRECISION_ACTIONABLE_DEAD_ZONE_POINTS - 1,
+        });
+
+        const trend = resolvePrecisionTrend({
+            current,
+            history: [baseline, prior],
+        });
+
+        expect(trend.label).toBe('oscillation');
+        expect(trend.actionableDelta?.delta).toBe(3);
+    });
+
+    it('keeps strong positive deltas in validation when evidence is not strong enough', () => {
+        const baseline = trendFixture({
+            id: 'baseline-weak-evidence',
+            timestamp: '2026-04-18T12:00:00.000Z',
+            actionableScore: 60,
+            confidence: 79,
+            clipQuality: 72,
+            coverage: 0.79,
+        });
+        const prior = trendFixture({
+            id: 'prior-weak-evidence',
+            timestamp: '2026-04-19T12:00:00.000Z',
+            actionableScore: 68,
+            confidence: 79,
+            clipQuality: 72,
+            coverage: 0.79,
+        });
+        const current = trendFixture({
+            id: 'current-weak-evidence',
+            timestamp: '2026-04-20T12:00:00.000Z',
+            actionableScore: 82,
+            confidence: 79,
+            clipQuality: 72,
+            coverage: 0.79,
+        });
+
+        const trend = resolvePrecisionTrend({
+            current,
+            history: [baseline, prior],
+        });
+
+        expect(trend.label).toBe('in_validation');
+        expect(trend.evidenceLevel).toBe('weak');
+        expect(trend.actionableDelta?.delta).toBe(22);
+    });
+
+    it('does not validate progress when confidence or clip quality deteriorates hard', () => {
+        const baseline = trendFixture({
+            id: 'baseline-critical-deterioration',
+            timestamp: '2026-04-18T12:00:00.000Z',
+            actionableScore: 62,
+            confidence: 92,
+            clipQuality: 92,
+        });
+        const prior = trendFixture({
+            id: 'prior-critical-deterioration',
+            timestamp: '2026-04-19T12:00:00.000Z',
+            actionableScore: 70,
+            confidence: 90,
+            clipQuality: 90,
+        });
+        const current = trendFixture({
+            id: 'current-critical-deterioration',
+            timestamp: '2026-04-20T12:00:00.000Z',
+            actionableScore: 84,
+            confidence: 84,
+            clipQuality: 84,
+        });
+
+        const trend = resolvePrecisionTrend({
+            current,
+            history: [baseline, prior],
+        });
+
+        expect(trend.label).toBe('oscillation');
+        expect(trend.actionableDelta?.delta).toBe(22);
+        expect(trend.pillarDeltas.filter((delta) => delta.status === 'declined').map((delta) => delta.pillar)).toEqual(expect.arrayContaining([
+            'confidence',
+            'clipQuality',
+        ]));
     });
 });

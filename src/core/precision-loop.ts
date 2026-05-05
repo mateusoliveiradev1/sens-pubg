@@ -2,11 +2,17 @@ import type {
     AnalysisResult,
     PrecisionBlockerSummary,
     PrecisionBlockedClipSummary,
+    PrecisionClipSummary,
     PrecisionCompatibilityBlocker,
     PrecisionCompatibilityBlockerCode,
     PrecisionCompatibilityKey,
     PrecisionCompatibilityResult,
     PrecisionEvidenceLevel,
+    PrecisionPillarDelta,
+    PrecisionPillarKey,
+    PrecisionRecentWindowSummary,
+    PrecisionRecurringDiagnosis,
+    PrecisionScoreDelta,
     PrecisionTrendLabel,
     PrecisionTrendSummary,
 } from '@/types/engine';
@@ -18,11 +24,17 @@ export const PRECISION_STRONG_COVERAGE = 0.78;
 export const PRECISION_STRONG_CONFIDENCE = 0.78;
 export const PRECISION_STRONG_QUALITY_SCORE = 70;
 export const PRECISION_MIN_SAMPLE_SIZE = 20;
+export const PRECISION_VALIDATED_COVERAGE = 0.86;
+export const PRECISION_VALIDATED_CONFIDENCE = 0.82;
+export const PRECISION_VALIDATED_QUALITY_SCORE = 78;
+export const PRECISION_VALIDATED_MIN_SAMPLE_SIZE = 25;
 export const PRECISION_CAPTURE_QUALITY_MISMATCH_POINTS = 20;
 export const PRECISION_EVIDENCE_MISMATCH_RATIO = 0.2;
 export const PRECISION_DURATION_TOLERANCE_MS = 300;
 export const PRECISION_SPRAY_WINDOW_TOLERANCE_MS = 300;
 export const PRECISION_CADENCE_TOLERANCE_EVENTS = 2;
+export const PRECISION_CRITICAL_PILLAR_TOLERANCE_POINTS = 6;
+export const PRECISION_RECENT_WINDOW_SIZE = 3;
 
 export interface PrecisionCompatibilityOptions {
     readonly distanceToleranceMeters?: number;
@@ -58,6 +70,13 @@ interface PrecisionEvidenceSnapshot {
     readonly qualityScore: number;
     readonly sampleSize: number;
     readonly usableForAnalysis: boolean;
+}
+
+interface PrecisionComparableClip {
+    readonly result: AnalysisResult;
+    readonly summary: PrecisionClipSummary;
+    readonly evidence: PrecisionEvidenceSnapshot;
+    readonly pillars: Record<PrecisionPillarKey, number>;
 }
 
 export function buildPrecisionCompatibilityKey(result: AnalysisResult): PrecisionCompatibilityResult {
@@ -247,6 +266,7 @@ export function resolvePrecisionTrend(input: ResolvePrecisionTrendInput): Precis
     }
 
     const blockedClips: PrecisionBlockedClipSummary[] = [];
+    const compatibleHistory: PrecisionComparableClip[] = [];
 
     for (const candidate of input.history) {
         const candidateCompatibility = comparePrecisionCompatibility(input.current, candidate, input.options);
@@ -256,16 +276,325 @@ export function resolvePrecisionTrend(input: ResolvePrecisionTrendInput): Precis
                 resultId: candidate.id,
                 blockers: candidateCompatibility.blockers,
             });
+            continue;
+        }
+
+        compatibleHistory.push(toComparableClip(candidate));
+    }
+
+    compatibleHistory.sort((a, b) => a.result.timestamp.getTime() - b.result.timestamp.getTime());
+
+    const currentClip = toComparableClip(input.current);
+    const totalCompatibleCount = compatibleHistory.length + 1;
+    const blockerSummaries = buildBlockerSummariesFromBlockedClips(blockedClips);
+
+    if (totalCompatibleCount === 1) {
+        return buildTrendSummary({
+            label: 'baseline',
+            evidenceLevel: 'baseline',
+            clips: [currentClip],
+            baseline: currentClip,
+            current: currentClip,
+            recentWindow: null,
+            actionableDelta: null,
+            mechanicalDelta: null,
+            pillarDeltas: [],
+            blockerSummaries,
+            blockedClips,
+            nextValidationHint: 'Baseline precisa criada. Grave outra validacao com o mesmo contexto.',
+        });
+    }
+
+    const baseline = compatibleHistory[0] ?? currentClip;
+    const priorWindow = compatibleHistory.slice(-PRECISION_RECENT_WINDOW_SIZE);
+    const recentWindow = buildRecentWindowSummary(priorWindow);
+    const timeline = [...compatibleHistory, currentClip];
+    const actionableDelta = buildScoreDelta('actionableScore', baseline.summary, currentClip.summary, recentWindow);
+    const mechanicalDelta = buildScoreDelta('mechanicalScore', baseline.summary, currentClip.summary, recentWindow);
+    const pillarDeltas = buildPillarDeltas(baseline, currentClip, priorWindow);
+    const evidenceLevel = resolveEvidenceLevel(timeline);
+    const hasSufficientEvidence = evidenceLevel === 'strong';
+    const criticalPillarDeteriorated = pillarDeltas.some((delta) => (
+        (delta.pillar === 'confidence' || delta.pillar === 'clipQuality')
+        && delta.delta < -PRECISION_CRITICAL_PILLAR_TOLERANCE_POINTS
+    ));
+
+    if (totalCompatibleCount === 2) {
+        return buildTrendSummary({
+            label: 'initial_signal',
+            evidenceLevel: 'initial',
+            clips: timeline,
+            baseline,
+            current: currentClip,
+            recentWindow,
+            actionableDelta,
+            mechanicalDelta,
+            pillarDeltas,
+            blockerSummaries,
+            blockedClips,
+            nextValidationHint: 'Sinal inicial registrado. Grave uma terceira validacao compativel antes de consolidar mudanca.',
+        });
+    }
+
+    const label = resolveTrendLabel({
+        actionableDelta,
+        hasSufficientEvidence,
+        criticalPillarDeteriorated,
+    });
+
+    return buildTrendSummary({
+        label,
+        evidenceLevel: hasSufficientEvidence ? 'strong' : 'weak',
+        clips: timeline,
+        baseline,
+        current: currentClip,
+        recentWindow,
+        actionableDelta,
+        mechanicalDelta,
+        pillarDeltas,
+        blockerSummaries,
+        blockedClips,
+        nextValidationHint: buildNextValidationHint(label, hasSufficientEvidence, criticalPillarDeteriorated),
+    });
+}
+
+function resolveTrendLabel(input: {
+    readonly actionableDelta: PrecisionScoreDelta;
+    readonly hasSufficientEvidence: boolean;
+    readonly criticalPillarDeteriorated: boolean;
+}): PrecisionTrendLabel {
+    if (Math.abs(input.actionableDelta.delta) <= PRECISION_ACTIONABLE_DEAD_ZONE_POINTS) {
+        return 'oscillation';
+    }
+
+    if (!input.hasSufficientEvidence) {
+        return 'in_validation';
+    }
+
+    if (input.actionableDelta.delta > PRECISION_ACTIONABLE_DEAD_ZONE_POINTS) {
+        return input.criticalPillarDeteriorated ? 'oscillation' : 'validated_progress';
+    }
+
+    return 'validated_regression';
+}
+
+function buildNextValidationHint(
+    label: PrecisionTrendLabel,
+    hasSufficientEvidence: boolean,
+    criticalPillarDeteriorated: boolean,
+): string {
+    if (!hasSufficientEvidence) {
+        return 'Evidencia ainda fraca. Grave outra validacao compativel com cobertura e confianca altas.';
+    }
+
+    if (criticalPillarDeteriorated) {
+        return 'Score subiu, mas confianca ou qualidade caiu. Repita a validacao antes de consolidar.';
+    }
+
+    switch (label) {
+        case 'validated_progress':
+            return 'Progresso validado. Consolide o mesmo contexto antes de trocar variavel.';
+        case 'validated_regression':
+            return 'Regressao validada. Volte ao ultimo baseline confiavel e grave nova validacao compativel.';
+        case 'oscillation':
+            return 'Oscilacao dentro da zona morta. Mantenha a variavel em teste e grave mais uma validacao.';
+        case 'in_validation':
+            return 'Linha em validacao. Complete mais evidencia compativel antes de decidir.';
+        case 'baseline':
+            return 'Baseline precisa criada. Grave outra validacao com o mesmo contexto.';
+        case 'initial_signal':
+            return 'Sinal inicial registrado. Grave uma terceira validacao compativel.';
+        case 'not_comparable':
+            return 'Clip nao comparavel. Corrija os bloqueios antes de medir tendencia.';
+        case 'consolidated':
+            return 'Linha consolidada. Escolha a proxima variavel com base na evidencia.';
+    }
+}
+
+function toComparableClip(result: AnalysisResult): PrecisionComparableClip {
+    const evidence = readEvidenceSnapshot(result);
+
+    return {
+        result,
+        evidence,
+        pillars: {
+            control: readPillarValue(result, 'control'),
+            consistency: readPillarValue(result, 'consistency'),
+            confidence: readPillarValue(result, 'confidence'),
+            clipQuality: readPillarValue(result, 'clipQuality'),
+        },
+        summary: {
+            resultId: result.id,
+            timestamp: result.timestamp.toISOString(),
+            actionableScore: readActionableScore(result),
+            mechanicalScore: readMechanicalScore(result),
+            coverage: evidence.coverage,
+            confidence: evidence.confidence,
+            clipQuality: evidence.qualityScore,
+        },
+    };
+}
+
+function buildTrendSummary(input: {
+    readonly label: PrecisionTrendLabel;
+    readonly evidenceLevel: PrecisionEvidenceLevel;
+    readonly clips: readonly PrecisionComparableClip[];
+    readonly baseline: PrecisionComparableClip;
+    readonly current: PrecisionComparableClip;
+    readonly recentWindow: PrecisionRecentWindowSummary | null;
+    readonly actionableDelta: PrecisionScoreDelta | null;
+    readonly mechanicalDelta: PrecisionScoreDelta | null;
+    readonly pillarDeltas: readonly PrecisionPillarDelta[];
+    readonly blockerSummaries: readonly PrecisionBlockerSummary[];
+    readonly blockedClips: readonly PrecisionBlockedClipSummary[];
+    readonly nextValidationHint: string;
+}): PrecisionTrendSummary {
+    return {
+        label: input.label,
+        evidenceLevel: input.evidenceLevel,
+        compatibleCount: input.clips.length,
+        baseline: input.baseline.summary,
+        current: input.current.summary,
+        recentWindow: input.recentWindow,
+        actionableDelta: input.actionableDelta,
+        mechanicalDelta: input.mechanicalDelta,
+        pillarDeltas: input.pillarDeltas,
+        recurringDiagnoses: buildRecurringDiagnoses(input.clips),
+        blockerSummaries: input.blockerSummaries,
+        blockedClips: input.blockedClips,
+        confidence: average(input.clips.map((clip) => clip.evidence.confidence)),
+        coverage: average(input.clips.map((clip) => clip.evidence.coverage)),
+        nextValidationHint: input.nextValidationHint,
+    };
+}
+
+function buildRecentWindowSummary(clips: readonly PrecisionComparableClip[]): PrecisionRecentWindowSummary | null {
+    if (clips.length === 0) {
+        return null;
+    }
+
+    return {
+        count: clips.length,
+        resultIds: clips.map((clip) => clip.result.id),
+        actionableAverage: average(clips.map((clip) => clip.summary.actionableScore)),
+        mechanicalAverage: average(clips.map((clip) => clip.summary.mechanicalScore)),
+        coverageAverage: average(clips.map((clip) => clip.summary.coverage)),
+        confidenceAverage: average(clips.map((clip) => clip.summary.confidence)),
+        clipQualityAverage: average(clips.map((clip) => clip.summary.clipQuality)),
+    };
+}
+
+function buildScoreDelta(
+    key: 'actionableScore' | 'mechanicalScore',
+    baseline: PrecisionClipSummary,
+    current: PrecisionClipSummary,
+    recentWindow: PrecisionRecentWindowSummary | null,
+): PrecisionScoreDelta {
+    const recentWindowAverage = key === 'actionableScore'
+        ? recentWindow?.actionableAverage
+        : recentWindow?.mechanicalAverage;
+
+    return {
+        baseline: baseline[key],
+        current: current[key],
+        delta: roundDelta(current[key] - baseline[key]),
+        recentWindowAverage: recentWindowAverage ?? baseline[key],
+        recentWindowDelta: roundDelta(current[key] - (recentWindowAverage ?? baseline[key])),
+    };
+}
+
+function buildPillarDeltas(
+    baseline: PrecisionComparableClip,
+    current: PrecisionComparableClip,
+    recentWindow: readonly PrecisionComparableClip[],
+): readonly PrecisionPillarDelta[] {
+    return (['control', 'consistency', 'confidence', 'clipQuality'] as const).map((pillar) => {
+        const baselineValue = baseline.pillars[pillar];
+        const currentValue = current.pillars[pillar];
+        const recentWindowAverage = recentWindow.length > 0
+            ? average(recentWindow.map((clip) => clip.pillars[pillar]))
+            : baselineValue;
+        const delta = roundDelta(currentValue - baselineValue);
+
+        return {
+            pillar,
+            baseline: roundDelta(baselineValue),
+            current: roundDelta(currentValue),
+            delta,
+            recentWindowAverage: roundDelta(recentWindowAverage),
+            recentWindowDelta: roundDelta(currentValue - recentWindowAverage),
+            status: Math.abs(delta) <= PRECISION_ACTIONABLE_DEAD_ZONE_POINTS
+                ? 'stable'
+                : delta > 0
+                    ? 'improved'
+                    : 'declined',
+        };
+    });
+}
+
+function readPillarValue(result: AnalysisResult, pillar: PrecisionPillarKey): number {
+    const evidence = readEvidenceSnapshot(result);
+
+    switch (pillar) {
+        case 'control':
+            return clampScore(result.mastery?.pillars.control ?? result.metrics.sprayScore);
+        case 'consistency':
+            return clampScore(result.mastery?.pillars.consistency ?? result.metrics.consistencyScore);
+        case 'confidence':
+            return clampScore(result.mastery?.pillars.confidence ?? evidence.confidence * 100);
+        case 'clipQuality':
+            return clampScore(result.mastery?.pillars.clipQuality ?? evidence.qualityScore);
+    }
+}
+
+function resolveEvidenceLevel(clips: readonly PrecisionComparableClip[]): PrecisionEvidenceLevel {
+    if (clips.length < PRECISION_VALIDATION_MIN_TOTAL_CLIPS) {
+        return clips.length === 1 ? 'baseline' : 'initial';
+    }
+
+    const coverage = average(clips.map((clip) => clip.evidence.coverage));
+    const confidence = average(clips.map((clip) => clip.evidence.confidence));
+    const quality = average(clips.map((clip) => clip.evidence.qualityScore));
+    const sampleSize = Math.min(...clips.map((clip) => clip.evidence.sampleSize));
+
+    return coverage >= PRECISION_VALIDATED_COVERAGE
+        && confidence >= PRECISION_VALIDATED_CONFIDENCE
+        && quality >= PRECISION_VALIDATED_QUALITY_SCORE
+        && sampleSize >= PRECISION_VALIDATED_MIN_SAMPLE_SIZE
+        ? 'strong'
+        : 'weak';
+}
+
+function buildRecurringDiagnoses(clips: readonly PrecisionComparableClip[]): readonly PrecisionRecurringDiagnosis[] {
+    const counts = new Map<string, { label: string; count: number }>();
+
+    for (const clip of clips) {
+        for (const diagnosis of clip.result.diagnoses) {
+            const existing = counts.get(diagnosis.type);
+            counts.set(diagnosis.type, {
+                label: existing?.label ?? diagnosis.description,
+                count: (existing?.count ?? 0) + 1,
+            });
         }
     }
 
-    return emptyTrendSummary({
-        label: 'baseline',
-        evidenceLevel: 'baseline',
-        blockerSummaries: buildBlockerSummariesFromBlockedClips(blockedClips),
-        blockedClips,
-        nextValidationHint: 'Baseline precisa criada. Grave outra validacao com o mesmo contexto.',
-    });
+    return Array.from(counts.entries())
+        .filter(([, value]) => value.count > 1)
+        .map(([type, value]) => ({
+            type: type as PrecisionRecurringDiagnosis['type'],
+            label: value.label,
+            count: value.count,
+            supportRatio: roundDelta(value.count / Math.max(clips.length, 1)),
+        }))
+        .sort((a, b) => b.count - a.count);
+}
+
+function readActionableScore(result: AnalysisResult): number {
+    return clampScore(result.mastery?.actionableScore ?? result.metrics.sprayScore);
+}
+
+function readMechanicalScore(result: AnalysisResult): number {
+    return clampScore(result.mastery?.mechanicalScore ?? result.metrics.stabilityScore ?? result.metrics.sprayScore);
 }
 
 export function formatPrecisionTrendLabel(label: PrecisionTrendLabel): string {
@@ -508,6 +837,20 @@ function finiteNumber(value: unknown): number | undefined {
     return typeof value === 'number' && Number.isFinite(value)
         ? value
         : undefined;
+}
+
+function average(values: readonly number[]): number {
+    const finiteValues = values.filter((value) => Number.isFinite(value));
+
+    if (finiteValues.length === 0) {
+        return 0;
+    }
+
+    return roundDelta(finiteValues.reduce((sum, value) => sum + value, 0) / finiteValues.length);
+}
+
+function roundDelta(value: number): number {
+    return Math.round(value * 100) / 100;
 }
 
 function clampScore(value: unknown): number {
