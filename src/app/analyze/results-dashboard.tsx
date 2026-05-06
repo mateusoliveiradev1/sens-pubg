@@ -27,6 +27,7 @@ import { summarizeAnalysisTracking } from './tracking-summary';
 import { createTrackingTimeline } from './tracking-timeline';
 import {
     buildAdaptiveCoachLoopModel,
+    buildAnalysisQuotaNoticeModel,
     buildEvidenceBadges,
     buildMasteryPillarCards,
     buildPrecisionTrendBlockModel,
@@ -764,6 +765,7 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
     });
     const adaptiveCoachLoop = buildAdaptiveCoachLoopModel(activeSession);
     const precisionTrendBlock = buildPrecisionTrendBlockModel(activeSession.precisionTrend);
+    const quotaNotice = buildAnalysisQuotaNoticeModel({ quota: activeSession.quota ?? null });
 
     return (
         <div className={styles.dashboard}>
@@ -816,6 +818,22 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                     </span>
                 ) : null}
             </div>
+            {quotaNotice ? (
+                <section className={styles.quotaNotice} data-tone={quotaNotice.tone} aria-label="Estado da quota de saves">
+                    <div>
+                        <strong>{quotaNotice.label}</strong>
+                        <p>{quotaNotice.body}</p>
+                    </div>
+                    <div className={styles.quotaNoticeAction}>
+                        <span>{quotaNotice.usageLabel}</span>
+                        {quotaNotice.href && quotaNotice.ctaLabel ? (
+                            <a className="btn btn-ghost btn-sm" href={quotaNotice.href}>
+                                {quotaNotice.ctaLabel}
+                            </a>
+                        ) : null}
+                    </div>
+                </section>
+            ) : null}
             {/* ═══ Sub-Sessions Selector ═══ */}
             {result.subSessions && result.subSessions.length > 0 && (
                 <section className={styles.section}>

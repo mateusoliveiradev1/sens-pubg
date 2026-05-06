@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { AnalysisResult, CoachFeedback, CoachPlan, Diagnosis, PrecisionTrendSummary, SensitivityRecommendation, SprayMastery, SprayMetrics } from '@/types/engine';
 import {
     buildAdaptiveCoachLoopModel,
+    buildAnalysisQuotaNoticeModel,
     buildEvidenceBadges,
     buildMasteryPillarCards,
     buildPrecisionTrendBlockModel,
@@ -205,6 +206,71 @@ describe('results dashboard view model', () => {
             reference: 'Limite 0.18 deg',
             meterPercent: 100,
         });
+    });
+
+    it('builds preflight quota blockers without making the client authoritative', () => {
+        const model = buildAnalysisQuotaNoticeModel({
+            saveAccess: {
+                authenticated: true,
+                canSave: false,
+                accessState: 'free_limit_reached',
+                billingStatus: 'none',
+                quota: {
+                    tier: 'free',
+                    limit: 3,
+                    used: 3,
+                    remaining: 0,
+                    state: 'limit_reached',
+                    periodStart: new Date('2026-05-01T00:00:00.000Z'),
+                    periodEnd: new Date('2026-06-01T00:00:00.000Z'),
+                    warningAt: 2,
+                    reason: 'limit_blocked',
+                },
+                blocker: 'limit_blocked',
+                message: 'Limite Free atingido (3/3).',
+                ctaHref: '/pricing',
+            },
+        });
+
+        expect(model).toEqual({
+            label: 'Salvar vai bater no limite',
+            body: 'Limite Free atingido (3/3).',
+            usageLabel: '3/3 saves',
+            tone: 'error',
+            ctaLabel: 'Ver Pro',
+            href: '/pricing',
+        });
+    });
+
+    it('frames non-billable weak capture as guidance instead of blame or quota loss', () => {
+        const model = buildAnalysisQuotaNoticeModel({
+            quota: {
+                status: 'non_billable',
+                analysisSaveAttemptId: 'attempt-1',
+                quota: {
+                    tier: 'free',
+                    limit: 3,
+                    used: 0,
+                    remaining: 3,
+                    state: 'available',
+                    periodStart: new Date('2026-05-01T00:00:00.000Z'),
+                    periodEnd: new Date('2026-06-01T00:00:00.000Z'),
+                    warningAt: 2,
+                    reason: 'non_billable_weak_capture',
+                },
+                message: 'Este resultado foi salvo como evidencia de captura, sem consumir quota.',
+                ctaHref: null,
+            },
+        });
+
+        expect(model).toMatchObject({
+            label: 'Salvo sem consumir quota',
+            usageLabel: '0/3 saves',
+            tone: 'info',
+            href: null,
+        });
+        expect(model?.body).toContain('captura mais limpa');
+        expect(model?.body.toLowerCase()).not.toMatch(/culpa|ruim demais|inutil/);
     });
 
     it('splits diagnoses by severity while preserving priority order', () => {

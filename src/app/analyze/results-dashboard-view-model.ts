@@ -15,6 +15,10 @@ import type {
 } from '@/types/engine';
 import { formatDiagnosisTruthLabel } from '@/core/measurement-truth';
 import { formatPrecisionTrendLabel } from '@/core/precision-loop';
+import type {
+    AnalysisSaveAccessState,
+    AnalysisSaveQuotaNotice,
+} from '@/types/monetization';
 
 export type ResultMetricTone = 'success' | 'warning' | 'error' | 'info';
 
@@ -107,6 +111,15 @@ export interface PrecisionTrendBlockModel {
     readonly conservativeReason: string | null;
     readonly nextValidationHint: string;
     readonly ctaLabel: 'Gravar validacao compativel';
+}
+
+export interface AnalysisQuotaNoticeModel {
+    readonly label: string;
+    readonly body: string;
+    readonly usageLabel: string;
+    readonly tone: ResultMetricTone;
+    readonly ctaLabel: 'Ver Pro' | 'Abrir billing' | null;
+    readonly href: '/pricing' | '/billing' | null;
 }
 
 export type AdaptiveCoachLoopState =
@@ -258,6 +271,104 @@ function formatOutcomeEvidenceState(
         case undefined:
             return 'Sem resultado ainda';
     }
+}
+
+function formatQuotaUsage(quota: AnalysisSaveQuotaNotice['quota']): string {
+    return `${quota.used}/${quota.limit} saves`;
+}
+
+export function buildAnalysisQuotaNoticeModel(input: {
+    readonly saveAccess?: AnalysisSaveAccessState | null;
+    readonly quota?: AnalysisSaveQuotaNotice | null;
+}): AnalysisQuotaNoticeModel | null {
+    const quotaNotice = input.quota ?? null;
+
+    if (quotaNotice) {
+        const ctaLabel = quotaNotice.ctaHref === '/pricing'
+            ? 'Ver Pro'
+            : quotaNotice.ctaHref === '/billing'
+                ? 'Abrir billing'
+                : null;
+
+        switch (quotaNotice.status) {
+            case 'limit_reached':
+                return {
+                    label: 'Limite de saves atingido',
+                    body: quotaNotice.message,
+                    usageLabel: formatQuotaUsage(quotaNotice.quota),
+                    tone: 'error',
+                    ctaLabel,
+                    href: quotaNotice.ctaHref,
+                };
+            case 'non_billable':
+                return {
+                    label: 'Salvo sem consumir quota',
+                    body: `${quotaNotice.message} Grave outro clip com captura mais limpa para gerar uma leitura util.`,
+                    usageLabel: formatQuotaUsage(quotaNotice.quota),
+                    tone: 'info',
+                    ctaLabel: null,
+                    href: null,
+                };
+            case 'technical_failure':
+                return {
+                    label: 'Save nao consumiu quota',
+                    body: quotaNotice.message,
+                    usageLabel: formatQuotaUsage(quotaNotice.quota),
+                    tone: 'warning',
+                    ctaLabel: null,
+                    href: null,
+                };
+            case 'warning':
+                return {
+                    label: 'Quota perto do limite',
+                    body: quotaNotice.message,
+                    usageLabel: formatQuotaUsage(quotaNotice.quota),
+                    tone: 'warning',
+                    ctaLabel,
+                    href: quotaNotice.ctaHref,
+                };
+            case 'saved':
+            case 'available':
+                return null;
+        }
+    }
+
+    const saveAccess = input.saveAccess ?? null;
+    if (!saveAccess) {
+        return null;
+    }
+
+    const ctaLabel = saveAccess.ctaHref === '/pricing'
+        ? 'Ver Pro'
+        : saveAccess.ctaHref === '/billing'
+            ? 'Abrir billing'
+            : null;
+
+    if (!saveAccess.canSave) {
+        return {
+            label: saveAccess.blocker === 'limit_blocked'
+                ? 'Salvar vai bater no limite'
+                : 'Save indisponivel',
+            body: saveAccess.message,
+            usageLabel: formatQuotaUsage(saveAccess.quota),
+            tone: 'error',
+            ctaLabel,
+            href: saveAccess.ctaHref,
+        };
+    }
+
+    if (saveAccess.quota.state === 'warning') {
+        return {
+            label: 'Quota perto do limite',
+            body: saveAccess.message,
+            usageLabel: formatQuotaUsage(saveAccess.quota),
+            tone: 'warning',
+            ctaLabel,
+            href: saveAccess.ctaHref,
+        };
+    }
+
+    return null;
 }
 
 function resolveAdaptiveCoachLoopState(result: AnalysisResult): AdaptiveCoachLoopState {

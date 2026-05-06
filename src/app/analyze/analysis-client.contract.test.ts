@@ -98,6 +98,17 @@ describe('analysis worker tracking contract', () => {
         expect(historySource).toMatch(/videoQualityReport:\s*enrichedResult\.videoQualityReport/);
     });
 
+    it('shows server-derived quota preflight but keeps final save enforcement on the server action', () => {
+        const source = readFileSync(new URL('./analysis-client.tsx', import.meta.url), 'utf8');
+        const historySource = readFileSync(new URL('../../actions/history.ts', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/getAnalysisSaveAccess\(\)/);
+        expect(source).toMatch(/buildAnalysisQuotaNoticeModel\(\{\s*saveAccess\s*\}\)/);
+        expect(source).toMatch(/saveAnalysisResult\(/);
+        expect(historySource).toMatch(/reserveAnalysisQuota\(/);
+        expect(historySource).toMatch(/if\s*\(reservationResult\.status === 'blocked'\)/);
+    });
+
     it('treats heuristic low-quality uploads as warnings instead of blocking the setup flow', () => {
         const source = readFileSync(new URL('./analysis-client.tsx', import.meta.url), 'utf8');
         const lowQualityBranch = source.match(

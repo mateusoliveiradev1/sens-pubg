@@ -82,6 +82,82 @@
     color: #fbbf24;
 }
 
+.quotaNotice {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
+    padding: var(--space-md) var(--space-lg);
+    margin-bottom: var(--space-lg);
+    border: 1px solid var(--result-tone-border, rgba(255, 255, 255, 0.1));
+    border-radius: var(--radius-md);
+    background: var(--result-tone-soft, rgba(255, 255, 255, 0.05));
+}
+
+.quotaNotice[data-tone="success"] {
+    --result-tone: var(--color-success);
+    --result-tone-soft: rgba(0, 230, 118, 0.12);
+    --result-tone-border: rgba(0, 230, 118, 0.28);
+}
+
+.quotaNotice[data-tone="warning"] {
+    --result-tone: var(--color-warning);
+    --result-tone-soft: rgba(255, 193, 7, 0.12);
+    --result-tone-border: rgba(255, 193, 7, 0.28);
+}
+
+.quotaNotice[data-tone="error"] {
+    --result-tone: var(--color-error);
+    --result-tone-soft: rgba(255, 61, 61, 0.12);
+    --result-tone-border: rgba(255, 61, 61, 0.28);
+}
+
+.quotaNotice[data-tone="info"] {
+    --result-tone: var(--color-accent-cyan);
+    --result-tone-soft: rgba(0, 240, 255, 0.10);
+    --result-tone-border: rgba(0, 240, 255, 0.24);
+}
+
+.quotaNotice strong {
+    display: block;
+    color: var(--result-tone, var(--color-text-primary));
+    font-size: var(--text-sm);
+    margin-bottom: 4px;
+}
+
+.quotaNotice p {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+    line-height: 1.5;
+}
+
+.quotaNoticeAction {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    flex-shrink: 0;
+}
+
+.quotaNoticeAction span {
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+}
+
+@media (max-width: 640px) {
+    .quotaNotice {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .quotaNoticeAction {
+        width: 100%;
+        justify-content: space-between;
+        flex-wrap: wrap;
+    }
+}
+
 @keyframes slideInDown {
     from {
         transform: translateY(-10px);

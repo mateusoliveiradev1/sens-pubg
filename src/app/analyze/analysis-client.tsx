@@ -37,7 +37,7 @@ import type {
 } from '@/types/engine';
 import type { WeaponCategory } from '@/game/pubg/weapon-data';
 import { CURRENT_PUBG_PATCH_VERSION, SCOPE_LIST } from '@/game/pubg';
-import { saveAnalysisResult } from '@/actions/history';
+import { getAnalysisSaveAccess, saveAnalysisResult } from '@/actions/history';
 import type { PlayerProfile, weaponProfiles } from '@/db/schema';
 import { ResultsDashboard } from './results-dashboard';
 import { AnalysisGuide } from './analysis-guide';
@@ -57,7 +57,9 @@ import {
 import { formatSprayClipDurationLabel } from '@/core';
 import { mapWorkerTrackingResultToEngine } from './tracking-result-mapper';
 import { runWorkerTrackingAnalysis } from './analysis-worker-runner';
+import { buildAnalysisQuotaNoticeModel } from './results-dashboard-view-model';
 import styles from './analysis.module.css';
+import type { AnalysisSaveAccessState } from '@/types/monetization';
 
 const clipDurationLabel = formatSprayClipDurationLabel('pt-BR');
 
@@ -204,6 +206,7 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
     const [dragActive, setDragActive] = useState(false);
     const [isGuideOpen, setIsGuideOpen] = useState(false);
     const [worker, setWorker] = useState<Worker | null>(null);
+    const [saveAccess, setSaveAccess] = useState<AnalysisSaveAccessState | null>(null);
 
     const videoRef = useRef<HTMLVideoElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -213,6 +216,24 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
         setWorker(nextWorker);
 
         return () => nextWorker.terminate();
+    }, []);
+
+    useEffect(() => {
+        let active = true;
+
+        getAnalysisSaveAccess()
+            .then((access) => {
+                if (active) {
+                    setSaveAccess(access);
+                }
+            })
+            .catch((accessError) => {
+                console.error('[getAnalysisSaveAccess]', accessError);
+            });
+
+        return () => {
+            active = false;
+        };
     }, []);
 
     const weaponSupport = useMemo(() => summarizeAnalysisWeaponSupport(dbWeapons), [dbWeapons]);
@@ -558,6 +579,7 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
     };
     const uploadedQualityDiagnostic = video?.qualityReport.diagnostic;
     const uploadedQualityTimeline = uploadedQualityDiagnostic?.timeline;
+    const saveAccessNotice = buildAnalysisQuotaNoticeModel({ saveAccess });
 
     if (step === 'upload') {
         return (
@@ -623,6 +645,23 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                         <span className={styles.warningIcon}>!</span>
                         <div className={styles.warningText}>
                             <strong>Aviso de Qualidade:</strong> {qualityWarning}
+                        </div>
+                    </div>
+                ) : null}
+
+                {saveAccessNotice ? (
+                    <div className={styles.quotaNotice} data-tone={saveAccessNotice.tone}>
+                        <div>
+                            <strong>{saveAccessNotice.label}</strong>
+                            <p>{saveAccessNotice.body}</p>
+                        </div>
+                        <div className={styles.quotaNoticeAction}>
+                            <span>{saveAccessNotice.usageLabel}</span>
+                            {saveAccessNotice.href && saveAccessNotice.ctaLabel ? (
+                                <a className="btn btn-ghost btn-sm" href={saveAccessNotice.href}>
+                                    {saveAccessNotice.ctaLabel}
+                                </a>
+                            ) : null}
                         </div>
                     </div>
                 ) : null}
