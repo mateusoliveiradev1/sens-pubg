@@ -20,11 +20,11 @@
 
 ### Coach
 
-- [ ] **COACH-01**: User receives one primary focus, up to two secondary focuses, and one next-block protocol after each usable analysis.
-- [ ] **COACH-02**: Coach plan uses diagnostics, sensitivity, clip quality, context, and history before choosing a recommendation.
-- [ ] **COACH-03**: User can record whether a coach protocol was accepted, completed, improved, failed, or inconclusive.
-- [ ] **COACH-04**: Coach memory can use prior compatible clips and outcomes to adjust priority and confidence.
-- [ ] **COACH-05**: Optional LLM rewrite cannot alter tier, priority order, scores, attachments, thresholds, or technical facts.
+- [x] **COACH-01**: User receives one primary focus, up to two secondary focuses, and one next-block protocol after each usable analysis.
+- [x] **COACH-02**: Coach plan uses diagnostics, sensitivity, clip quality, context, and history before choosing a recommendation.
+- [x] **COACH-03**: User can record whether a coach protocol was accepted, completed, improved, failed, or inconclusive.
+- [x] **COACH-04**: Coach memory can use prior compatible clips and outcomes to adjust priority and confidence.
+- [x] **COACH-05**: Optional LLM rewrite cannot alter tier, priority order, scores, attachments, thresholds, or technical facts.
 
 ### Product Analytics
 
@@ -80,11 +80,11 @@
 | BENCH-01 | Phase 2 | Complete |
 | BENCH-02 | Phase 2 | Complete |
 | BENCH-03 | Phase 2 | Complete |
-| COACH-01 | Phase 4 | Pending |
-| COACH-02 | Phase 4 | Pending |
-| COACH-03 | Phase 4 | Pending |
-| COACH-04 | Phase 4 | Pending |
-| COACH-05 | Phase 4 | Pending |
+| COACH-01 | Phase 4 | Complete |
+| COACH-02 | Phase 4 | Complete |
+| COACH-03 | Phase 4 | Complete |
+| COACH-04 | Phase 4 | Complete |
+| COACH-05 | Phase 4 | Complete |
 | ANALYT-01 | Phase 5 | Pending |
 | ANALYT-02 | Phase 5 | Pending |
 | ANALYT-03 | Phase 7 | Pending |
