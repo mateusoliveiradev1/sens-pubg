@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildBenchmarkReleaseReport } from './benchmark-release-report';
+import { buildAnalysisCalibrationReport } from './analysis-calibration-report';
 import type { BenchmarkCoverageSummary } from './benchmark-coverage';
 import type { BenchmarkClipResult, BenchmarkReport } from '../../scripts/run-benchmark';
 
@@ -188,6 +189,48 @@ function coverage(passed = true): BenchmarkCoverageSummary {
     };
 }
 
+function calibration(
+    mode: 'passed' | 'partial' | 'blocked' = 'passed'
+): ReturnType<typeof buildAnalysisCalibrationReport> {
+    if (mode === 'partial') {
+        return buildAnalysisCalibrationReport({
+            records: [
+                {
+                    clipId: 'captured-clip1',
+                    reviewStatus: 'reviewed',
+                    permissioned: true,
+                    commercialEligible: false,
+                    expectedDecisionLevel: 'usable_analysis',
+                    actualDecisionLevel: 'usable_analysis',
+                    predictedConfidence: 0.7,
+                    reviewerCorrect: true,
+                    sensitivityTier: 'test_profiles',
+                    coachTier: 'test_protocol',
+                },
+            ],
+        });
+    }
+
+    return buildAnalysisCalibrationReport({
+        records: [
+            {
+                clipId: 'captured-clip1',
+                reviewStatus: 'reviewed',
+                permissioned: true,
+                commercialEligible: true,
+                expectedDecisionLevel: mode === 'blocked' ? 'inconclusive_recapture' : 'usable_analysis',
+                actualDecisionLevel: 'usable_analysis',
+                predictedConfidence: mode === 'blocked' ? 0.92 : 0.7,
+                reviewerCorrect: mode !== 'blocked',
+                expectedBlockerReasons: mode === 'blocked' ? ['low_confidence'] : [],
+                actualBlockerReasons: [],
+                sensitivityTier: 'test_profiles',
+                coachTier: 'test_protocol',
+            },
+        ],
+    });
+}
+
 describe('buildBenchmarkReleaseReport', () => {
     it('renders synthetic, captured, reviewed, golden, and coverage sections', () => {
         const release = buildBenchmarkReleaseReport({
@@ -195,15 +238,20 @@ describe('buildBenchmarkReleaseReport', () => {
             syntheticReport: report({ datasetId: 'synthetic', clips: [{ ...baseClip, sourceType: 'synthetic', reviewStatus: 'golden' }] }),
             capturedReport: report({ datasetId: 'captured', clips: [baseClip, { ...baseClip, clipId: 'golden-clip', reviewStatus: 'golden' }] }),
             coverageSummary: coverage(),
+            calibrationReport: calibration(),
         });
 
         expect(release.passed).toBe(true);
+        expect(release.status).toBe('passed');
         expect(release.consoleLines.join('\n')).toContain('benchmark:release PASS');
+        expect(release.consoleLines.join('\n')).toContain('calibration: PASS');
         expect(release.markdown).toContain('| Synthetic | 1 | 0 | 0 |');
         expect(release.markdown).toContain('| Captured | 2 | 0 | 0 |');
         expect(release.markdown).toContain('| Reviewed | 1 | 0 | 0 |');
         expect(release.markdown).toContain('| Golden | 1 | 0 | 0 |');
         expect(release.markdown).toContain('SDD coverage');
+        expect(release.markdown).toContain('## Calibration');
+        expect(release.markdown.toLowerCase()).not.toMatch(/perfect sensitivity|guaranteed improvement/);
         expect(release.datedReportPath).toBe('docs/benchmark-reports/2026-05-05.md');
     });
 
@@ -213,9 +261,11 @@ describe('buildBenchmarkReleaseReport', () => {
             syntheticReport: report({ datasetId: 'synthetic', clips: [{ ...baseClip, sourceType: 'synthetic' }] }),
             capturedReport: report({ datasetId: 'captured', clips: [baseClip] }),
             coverageSummary: coverage(false),
+            calibrationReport: calibration(),
         });
 
         expect(release.passed).toBe(false);
+        expect(release.status).toBe('blocked');
         expect(release.coverageGaps).toEqual(['Adicionar pelo menos 1 clip capturado no patch atual 41.1.']);
         expect(release.consoleLines.join('\n')).toContain('sdd coverage: FAIL');
     });
@@ -230,9 +280,11 @@ describe('buildBenchmarkReleaseReport', () => {
                 regression: true,
             }),
             coverageSummary: coverage(),
+            calibrationReport: calibration(),
         });
 
         expect(release.passed).toBe(false);
+        expect(release.status).toBe('blocked');
         expect(release.regressions).toContain('captured.reviewed: reviewed clips regressed while golden clips were unaffected');
     });
 
@@ -251,10 +303,41 @@ describe('buildBenchmarkReleaseReport', () => {
             syntheticReport: report({ datasetId: 'synthetic', clips: [{ ...baseClip, sourceType: 'synthetic' }] }),
             capturedReport: report({ datasetId: 'captured', clips: [failedTruthClip] }),
             coverageSummary: coverage(),
+            calibrationReport: calibration(),
         });
 
         expect(release.passed).toBe(false);
+        expect(release.status).toBe('blocked');
         expect(release.markdown).toContain('actionState');
         expect(release.markdown).toContain('| captured | captured-clip1 | reviewed | truth |');
+    });
+
+    it('reports partial release status when calibration lacks commercial corpus readiness', () => {
+        const release = buildBenchmarkReleaseReport({
+            generatedAt: '2026-05-05T15:00:00.000Z',
+            syntheticReport: report({ datasetId: 'synthetic', clips: [{ ...baseClip, sourceType: 'synthetic' }] }),
+            capturedReport: report({ datasetId: 'captured', clips: [baseClip] }),
+            coverageSummary: coverage(),
+            calibrationReport: calibration('partial'),
+        });
+
+        expect(release.passed).toBe(false);
+        expect(release.status).toBe('partial');
+        expect(release.consoleLines.join('\n')).toContain('benchmark:release PARTIAL');
+        expect(release.markdown).toContain('commercial readiness is not complete');
+    });
+
+    it('blocks release when calibration detects confidence or safety failures', () => {
+        const release = buildBenchmarkReleaseReport({
+            generatedAt: '2026-05-05T15:00:00.000Z',
+            syntheticReport: report({ datasetId: 'synthetic', clips: [{ ...baseClip, sourceType: 'synthetic' }] }),
+            capturedReport: report({ datasetId: 'captured', clips: [baseClip] }),
+            coverageSummary: coverage(),
+            calibrationReport: calibration('blocked'),
+        });
+
+        expect(release.passed).toBe(false);
+        expect(release.status).toBe('blocked');
+        expect(release.calibrationGaps.some((gap) => gap.startsWith('Overconfidence rate'))).toBe(true);
     });
 });

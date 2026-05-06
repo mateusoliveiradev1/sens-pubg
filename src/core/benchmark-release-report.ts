@@ -1,15 +1,20 @@
 import type { BenchmarkCoverageSummary } from './benchmark-coverage';
+import type { AnalysisCalibrationReport } from './analysis-calibration-report';
 import type { BenchmarkClipResult, BenchmarkRegressionResult, BenchmarkReport } from '../../scripts/run-benchmark';
+
+export type BenchmarkReleaseStatus = 'passed' | 'partial' | 'blocked';
 
 export interface BenchmarkReleaseReportInput {
     readonly generatedAt: string;
     readonly syntheticReport: BenchmarkReport;
     readonly capturedReport: BenchmarkReport;
     readonly coverageSummary: BenchmarkCoverageSummary;
+    readonly calibrationReport: AnalysisCalibrationReport;
 }
 
 export interface BenchmarkReleaseReport {
     readonly passed: boolean;
+    readonly status: BenchmarkReleaseStatus;
     readonly generatedAt: string;
     readonly datedReportPath: string;
     readonly latestReportPath: string;
@@ -17,10 +22,22 @@ export interface BenchmarkReleaseReport {
     readonly markdown: string;
     readonly regressions: readonly string[];
     readonly coverageGaps: readonly string[];
+    readonly calibrationGaps: readonly string[];
 }
 
 function statusLabel(passed: boolean): 'PASS' | 'FAIL' {
     return passed ? 'PASS' : 'FAIL';
+}
+
+function releaseStatusLabel(status: BenchmarkReleaseStatus): 'PASS' | 'PARTIAL' | 'BLOCKED' {
+    switch (status) {
+        case 'passed':
+            return 'PASS';
+        case 'partial':
+            return 'PARTIAL';
+        case 'blocked':
+            return 'BLOCKED';
+    }
 }
 
 function hasRegression(report: BenchmarkReport): boolean {
@@ -105,21 +122,37 @@ export function buildBenchmarkReleaseReport(input: BenchmarkReleaseReportInput):
     const coveragePassed = input.coverageSummary.sddGate.passed;
     const regressions = buildRegressionWarnings(input);
     const coverageGaps = input.coverageSummary.sddGaps;
-    const passed = input.syntheticReport.passed
+    const calibrationGaps = input.calibrationReport.gaps;
+    const hardBlocked = !input.syntheticReport.passed
+        || !input.capturedReport.passed
+        || syntheticRegression
+        || capturedRegression
+        || !coveragePassed
+        || input.calibrationReport.status === 'blocked';
+    const status: BenchmarkReleaseStatus = hardBlocked
+        ? 'blocked'
+        : input.calibrationReport.status === 'partial'
+            ? 'partial'
+            : 'passed';
+    const passed = status === 'passed'
+        && input.syntheticReport.passed
         && input.capturedReport.passed
         && !syntheticRegression
         && !capturedRegression
-        && coveragePassed;
+        && coveragePassed
+        && input.calibrationReport.passed;
     const dateKey = input.generatedAt.slice(0, 10);
     const datedReportPath = `docs/benchmark-reports/${dateKey}.md`;
     const latestReportPath = 'docs/benchmark-reports/latest.md';
     const consoleLines = [
-        `benchmark:release ${statusLabel(passed)}`,
+        `benchmark:release ${releaseStatusLabel(status)}`,
         `synthetic: ${statusLabel(input.syntheticReport.passed && !syntheticRegression)} (${input.syntheticReport.summary.failedClips} failed, score ${input.syntheticReport.summary.score})`,
         `captured: ${statusLabel(input.capturedReport.passed && !capturedRegression)} (${input.capturedReport.summary.failedClips} failed, score ${input.capturedReport.summary.score})`,
         `sdd coverage: ${statusLabel(coveragePassed)} (${input.coverageSummary.sddGate.checks.filter((check) => check.passed).length}/${input.coverageSummary.sddGate.checks.length})`,
+        `calibration: ${releaseStatusLabel(input.calibrationReport.status)} (${input.calibrationReport.summary.reviewedCommercialEligibleRecords} commercial eligible clips)`,
         ...(regressions.length > 0 ? regressions.map((line) => `regression: ${line}`) : []),
         ...(coverageGaps.length > 0 ? coverageGaps.map((gap) => `coverage gap: ${gap}`) : []),
+        ...(calibrationGaps.length > 0 ? calibrationGaps.map((gap) => `calibration gap: ${gap}`) : []),
     ];
     const failedRows = [
         ...failedClipRows('synthetic', input.syntheticReport),
@@ -130,7 +163,13 @@ export function buildBenchmarkReleaseReport(input: BenchmarkReleaseReportInput):
         '',
         `Generated: ${input.generatedAt}`,
         '',
-        `Status: **${statusLabel(passed)}**`,
+        `Status: **${releaseStatusLabel(status)}**`,
+        ...(status === 'partial'
+            ? [
+                '',
+                'commercial readiness is not complete because calibration lacks reviewed permissioned commercial benchmark clips.',
+            ]
+            : []),
         '',
         '## Gate Summary',
         '',
@@ -139,6 +178,7 @@ export function buildBenchmarkReleaseReport(input: BenchmarkReleaseReportInput):
         `| Synthetic benchmark | ${statusLabel(input.syntheticReport.passed && !syntheticRegression)} | ${input.syntheticReport.summary.failedClips} failed, score ${input.syntheticReport.summary.score} |`,
         `| Captured benchmark | ${statusLabel(input.capturedReport.passed && !capturedRegression)} | ${input.capturedReport.summary.failedClips} failed, score ${input.capturedReport.summary.score} |`,
         `| SDD coverage | ${statusLabel(coveragePassed)} | ${input.coverageSummary.sddGate.checks.filter((check) => check.passed).length}/${input.coverageSummary.sddGate.checks.length} checks passed |`,
+        `| Calibration | ${releaseStatusLabel(input.calibrationReport.status)} | ${input.calibrationReport.summary.reviewedCommercialEligibleRecords} reviewed permissioned commercial benchmark clips |`,
         '',
         '## Evidence Buckets',
         '',
@@ -154,6 +194,8 @@ export function buildBenchmarkReleaseReport(input: BenchmarkReleaseReportInput):
         '',
         ...(coverageGaps.length > 0 ? coverageGaps.map((gap) => `- ${gap}`) : ['- None']),
         '',
+        input.calibrationReport.markdown,
+        '',
         '## Failed Clips And Truth Mismatches',
         '',
         ...(failedRows.length > 0
@@ -168,6 +210,7 @@ export function buildBenchmarkReleaseReport(input: BenchmarkReleaseReportInput):
 
     return {
         passed,
+        status,
         generatedAt: input.generatedAt,
         datedReportPath,
         latestReportPath,
@@ -175,5 +218,6 @@ export function buildBenchmarkReleaseReport(input: BenchmarkReleaseReportInput):
         markdown,
         regressions,
         coverageGaps,
+        calibrationGaps,
     };
 }

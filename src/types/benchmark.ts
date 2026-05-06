@@ -38,6 +38,25 @@ const occlusionLevelSchema = z.enum(['none', 'light', 'moderate', 'heavy']);
 const compressionLevelSchema = z.enum(['lossless', 'light', 'medium', 'heavy']);
 const visibilityTierSchema = z.enum(['clean', 'degraded', 'rejected']);
 const actionStateSchema = z.enum(['capture_again', 'inconclusive', 'testable', 'ready']);
+const analysisDecisionLevelSchema = z.enum([
+    'blocked_invalid_clip',
+    'inconclusive_recapture',
+    'partial_safe_read',
+    'usable_analysis',
+    'strong_analysis',
+]);
+const analysisBlockerReasonCodeSchema = z.enum([
+    'too_short',
+    'hard_cut',
+    'flick',
+    'target_swap',
+    'camera_motion',
+    'crosshair_not_visible',
+    'not_spray_protocol',
+    'low_coverage',
+    'low_confidence',
+    'low_clip_quality',
+]);
 const mechanicalLevelSchema = z.enum(['initial', 'intermediate', 'advanced', 'elite']);
 const evidenceTierSchema = z.enum(['weak', 'moderate', 'strong']);
 const precisionTrendLabelSchema = z.enum([
@@ -165,6 +184,15 @@ export const benchmarkAdaptiveCoachExpectationSchema = z.object({
     nextBlockKey: z.string().min(1),
 });
 
+export const benchmarkCalibrationExpectationSchema = z.object({
+    expectedDecisionLevel: analysisDecisionLevelSchema,
+    expectedBlockerReasons: z.array(analysisBlockerReasonCodeSchema).optional(),
+    reviewerCorrect: z.boolean().optional(),
+    predictedConfidence: z.number().min(0).max(1).optional(),
+    permissioned: z.boolean().optional(),
+    commercialBenchmarkEligible: z.boolean().optional(),
+});
+
 export const benchmarkTrackingExpectationSchema = z.object({
     contaminatedFrameCountMax: z.number().int().nonnegative().optional(),
     cameraMotionPenaltyMax: z.number().min(0).max(1).optional(),
@@ -180,6 +208,7 @@ export const benchmarkClipLabelsSchema = z.object({
     expectedTrackingTier: trackingTierSchema,
     expectedTracking: benchmarkTrackingExpectationSchema.optional(),
     expectedTruth: benchmarkTruthExpectationSchema,
+    expectedCalibration: benchmarkCalibrationExpectationSchema.optional(),
     adaptiveCoachContext: benchmarkAdaptiveCoachContextSchema.optional(),
     expectedAdaptiveCoach: benchmarkAdaptiveCoachExpectationSchema.optional(),
     notes: z.string().min(1).optional(),
@@ -343,6 +372,7 @@ export type BenchmarkTruthNextBlockExpectation = z.infer<typeof benchmarkTruthNe
 export type BenchmarkTruthExpectation = z.infer<typeof benchmarkTruthExpectationSchema>;
 export type BenchmarkAdaptiveCoachContext = z.infer<typeof benchmarkAdaptiveCoachContextSchema>;
 export type BenchmarkAdaptiveCoachExpectation = z.infer<typeof benchmarkAdaptiveCoachExpectationSchema>;
+export type BenchmarkCalibrationExpectation = z.infer<typeof benchmarkCalibrationExpectationSchema>;
 export type BenchmarkTrackingExpectation = z.infer<typeof benchmarkTrackingExpectationSchema>;
 export type BenchmarkClipLabels = z.infer<typeof benchmarkClipLabelsSchema>;
 export type BenchmarkClipReviewProvenance = z.infer<typeof benchmarkClipReviewProvenanceSchema>;

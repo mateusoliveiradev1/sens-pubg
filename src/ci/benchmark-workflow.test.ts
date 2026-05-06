@@ -21,6 +21,7 @@ describe('CI benchmark workflow', () => {
         expect(packageJson.scripts?.['benchmark:release']).toBe('tsx scripts/run-benchmark-release.ts');
         expect(workflow).toContain('Benchmark regression + coverage gate');
         expect(workflow).toContain('npm run benchmark:gate');
+        expect(packageJson.scripts?.['benchmark:gate']).not.toContain('benchmark:release');
     });
 
     it('runs Playwright as an explicit E2E gate in CI', () => {
@@ -56,10 +57,26 @@ describe('CI benchmark workflow', () => {
         expect(packageJson.scripts?.['validate:sdd-coverage']).toContain('scripts/validate-benchmark-coverage.ts --sdd');
         expect(packageJson.scripts?.['benchmark:release']).toContain('scripts/run-benchmark-release.ts');
         expect(readWorkspaceFile('scripts/run-benchmark-release.ts')).toContain('buildBenchmarkCoverageSummary');
+        expect(readWorkspaceFile('scripts/run-benchmark-release.ts')).toContain('buildAnalysisCalibrationReport');
+        expect(readWorkspaceFile('scripts/run-benchmark-release.ts')).toContain("releaseReport.status === 'blocked' ? 1 : 0");
         expect(packageJson.scripts?.['benchmark:gate']).not.toContain('validate:sdd-coverage');
         expect(packageJson.scripts?.['verify:release']).not.toContain('validate:sdd-coverage');
         expect(packageJson.scripts?.['benchmark:gate']).not.toContain('benchmark:release');
         expect(packageJson.scripts?.['verify:release']).not.toContain('benchmark:release');
+    });
+
+    it('requires calibration in the strict release report while keeping the fast gate unchanged', () => {
+        const releaseReportSource = readWorkspaceFile('src/core/benchmark-release-report.ts');
+        const runnerDocs = readWorkspaceFile('docs/benchmark-runner.md');
+        const packageJson = JSON.parse(readWorkspaceFile('package.json')) as {
+            scripts?: Record<string, string>;
+        };
+
+        expect(packageJson.scripts?.['benchmark:gate']).toBe('npm run benchmark:all && npm run validate:benchmark-coverage');
+        expect(packageJson.scripts?.['benchmark:release']).toBe('tsx scripts/run-benchmark-release.ts');
+        expect(releaseReportSource).toContain('calibrationReport');
+        expect(readWorkspaceFile('src/core/analysis-calibration-report.ts')).toContain('## Calibration');
+        expect(runnerDocs).toContain('strict commercial truth gate');
     });
 
     it('exposes an explicit baseline update workflow', () => {

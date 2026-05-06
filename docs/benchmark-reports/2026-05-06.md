@@ -1,8 +1,10 @@
 # Benchmark Release Report
 
-Generated: 2026-05-06T20:10:53.346Z
+Generated: 2026-05-06T20:41:26.520Z
 
-Status: **PASS**
+Status: **PARTIAL**
+
+commercial readiness is not complete because calibration lacks reviewed permissioned commercial benchmark clips.
 
 ## Gate Summary
 
@@ -11,6 +13,7 @@ Status: **PASS**
 | Synthetic benchmark | PASS | 0 failed, score 100 |
 | Captured benchmark | PASS | 0 failed, score 100 |
 | SDD coverage | PASS | 5/5 checks passed |
+| Calibration | PARTIAL | 0 reviewed permissioned commercial benchmark clips |
 
 ## Evidence Buckets
 
@@ -28,6 +31,55 @@ Status: **PASS**
 ## Coverage Gaps
 
 - None
+
+## Calibration
+
+Status: **PARTIAL**
+
+### Reviewed/golden corpus coverage
+
+- Total records: 5
+- Reviewed/golden records: 5
+- Reviewed permissioned records: 5
+- Reviewed permissioned commercial benchmark records: 0
+
+### Overconfidence
+
+- Rate: 0 (0/0)
+- Threshold: <= 0.15
+
+### Underconfidence
+
+- Rate: 0 (0/0)
+
+### Inconclusive correctness
+
+- Correct low-evidence decisions: 0/0 (0)
+
+### Blocker accuracy
+
+- False-negative rate: 0 (0/0)
+- False-positive count: 0
+- Threshold: <= 0.1
+
+### Sensitivity safety
+
+- Unsafe handoffs: 0
+- Clips: none
+
+### Coach handoff safety
+
+- Unsafe handoffs: 0
+- Clips: none
+
+### Baseline regression
+
+- None
+
+### Calibration gaps
+
+- No reviewed permissioned commercial benchmark clips are available for full commercial calibration.
+
 
 ## Failed Clips And Truth Mismatches
 

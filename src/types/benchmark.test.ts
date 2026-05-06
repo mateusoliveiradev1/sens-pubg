@@ -434,4 +434,58 @@ describe('benchmark dataset schema', () => {
         expect(JSON.stringify(result.data.clips[0]?.labels.expectedTruth)).not.toContain('Pronto');
         expect(JSON.stringify(result.data.clips[0]?.labels.expectedTruth)).not.toContain('Capturar de novo');
     });
+
+    it('accepts calibration expectations for decision level, confidence, blockers, and corpus eligibility', () => {
+        const result = benchmarkDatasetSchema.safeParse({
+            schemaVersion: 1,
+            datasetId: 'calibration-dataset',
+            createdAt: '2026-04-14T12:00:00.000Z',
+            clips: [
+                {
+                    clipId: 'calibration-clip',
+                    media: {
+                        videoPath: 'tests/goldens/tracking/clean-centered-red.json',
+                    },
+                    capture: {
+                        patchVersion: '41.1',
+                        weaponId: 'ace32',
+                        distanceMeters: 25,
+                        stance: 'standing',
+                        optic: {
+                            opticId: 'red-dot-sight',
+                            stateId: '1x',
+                        },
+                        attachments: {
+                            muzzle: 'compensator',
+                            grip: 'vertical',
+                            stock: 'none',
+                        },
+                    },
+                    labels: {
+                        expectedDiagnoses: [],
+                        expectedTrackingTier: 'clean',
+                        expectedTruth: expectedTruth(),
+                        expectedCalibration: {
+                            expectedDecisionLevel: 'usable_analysis',
+                            expectedBlockerReasons: ['low_confidence'],
+                            reviewerCorrect: true,
+                            predictedConfidence: 0.74,
+                            permissioned: true,
+                            commercialBenchmarkEligible: true,
+                        },
+                    },
+                    quality: {
+                        sourceType: 'captured',
+                        reviewStatus: 'reviewed',
+                        occlusionLevel: 'none',
+                        compressionLevel: 'lossless',
+                        visibilityTier: 'clean',
+                    },
+                },
+            ],
+        });
+
+        expect(result.success).toBe(true);
+        expect(result.data.clips[0]?.labels.expectedCalibration?.expectedDecisionLevel).toBe('usable_analysis');
+    });
 });
