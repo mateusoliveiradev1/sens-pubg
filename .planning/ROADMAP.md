@@ -176,6 +176,36 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **UI hint:** yes
 
+**Plans:**
+
+**Wave 1**
+- `05-01` - Product Monetization Contract, Schema, And Resolver Foundation. Defines product entitlement taxonomy, price catalog, billing/quota/event schema, flags, audit hooks, and env contracts.
+
+**Wave 2 *(blocked on Wave 1 completion)***
+- `05-02` - Stripe Checkout And Webhook Truth. Adds server-created Checkout, signed/idempotent webhook fulfillment, subscription lifecycle sync, and Billing Portal.
+- `05-03` - Quota Ledger And Analysis Save Enforcement. Adds transactional quota reservations/finalization/voids and enforces free/Pro save limits in `saveAnalysisResult`.
+
+**Wave 3 *(blocked on Wave 2 completion)***
+- `05-04` - Free/Pro Projection And Premium Enforcement. Gates full coach/history/trends/metrics/outcomes server-side while keeping Free truthful/useful and community open.
+- `05-05` - Privacy-Minimal Product Analytics. Records activation, upgrade intent, quota, checkout, lifecycle, and Pro feature events without private clip/payment data.
+
+**Wave 4 *(blocked on Wave 3 completion)***
+- `05-06` - Founder Pricing, Paywall, Billing UX, And Capture Guidance. Builds state-aware pricing, billing/success/cancel flows, quota warnings, locked-state copy, and beta capture guidance.
+- `05-07` - Admin Support, Beta Cohorts, And Runbooks. Adds admin entitlement/support operations, cohort/creator controls, audited flags, and incident runbooks.
+
+**Wave 5 *(blocked on Wave 4 completion)***
+- `05-08` - Monetization Verification And No False Done Gate. Adds focused monetization tests, copy-safety coverage, manual Stripe checklist, and requirement evidence tables.
+
+**Cross-cutting constraints:**
+- Preserve browser-first analysis; the server controls saves, access, billing, and quota.
+- Success URL, query params, localStorage, and client state never grant Pro.
+- Client never sends trusted Stripe Price IDs, amount, currency, entitlement, quota period, or billing status.
+- Quota is an audited server ledger: 3 useful saved analyses/month for Free and 100 useful saved analyses/Stripe cycle for Pro.
+- Free remains useful; Pro gates the full coach/history/trend/advanced-metric loop rather than evidence truth itself.
+- Do not make PUBG API-derived data an exclusive paid feature.
+- Pricing, lock, billing, and founder copy must avoid perfect sensitivity, guaranteed improvement/rank, and PUBG/KRAFTON affiliation claims.
+- Phase 5 is not Delivered unless `npm run typecheck`, `npx vitest run`, `npm run benchmark:gate`, `npm run build`, `npm run test:monetization`, and the manual Stripe test-mode checklist are accounted for.
+
 ## Phase 6: Core Accuracy And Pro Validation Hardening
 
 **Goal:** Make the clip spray analysis engine commercially trustworthy before strong public launch claims.

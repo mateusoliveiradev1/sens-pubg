@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready_to_plan
-last_updated: "2026-05-06T04:05:24.364Z"
+status: ready_to_execute
+last_updated: "2026-05-06T05:55:53.535Z"
 progress:
   total_phases: 13
   completed_phases: 4
-  total_plans: 14
+  total_plans: 22
   completed_plans: 14
-  percent: 31
+  percent: 64
 ---
 
 # State: Sens PUBG
@@ -35,20 +35,18 @@ Phase 5: Freemium Pro MVP
 - Phase 3 execution is complete with strict compatible precision trends, persisted evolution lines/checkpoints, post-analysis trend copy, history audit timelines, and dashboard principal trend actions.
 - Phase 4 UI design contract is approved at `.planning/phases/04-adaptive-coach-loop/04-UI-SPEC.md`.
 - Phase 4 execution is complete with protocol outcome persistence, adaptive memory/aggressiveness, coach-loop UI surfaces, LLM fact preservation, and adaptive benchmark/copy gates.
-- Phase 5 is ready for continued discussion and planning before monetization implementation starts.
+- Phase 5 planning is complete with 8 executable plans across 5 waves, backed by `05-RESEARCH.md` and full decision coverage from `05-CONTEXT.md`.
 - Roadmap has been expanded to 13 launch-perfect phases to preserve core validation, premium UI/UX, complete training, PUBG Spray Lab, guided Pro programs, social Pro/community value, revenue operations, and team/coach expansion.
 
 ## Next Recommended Command
 
-`$gsd-discuss-phase 5`
+`$gsd-execute-phase 5`
 
-Discuss Phase 5 before planning the Freemium Pro MVP so pricing, limits, payment provider, entitlement scope, and safe paywall copy are decided before implementation.
+Execute Phase 5 from the planned Wave 1 foundation through Stripe, quota, premium enforcement, analytics, UX, admin ops, and No False Done verification.
 
 ## Open Questions
 
-- First Pro price test in BRL and USD.
-- Exact Pro monthly quota/cap.
-- Exact Phase 5 paywall surfaces and pricing/billing UX.
+- Stripe test-mode Product/Price IDs, webhook secret, and public webhook endpoint must be available before the manual paid-flow checklist can pass.
 - Exact scope and acceptance gates for the future Core Accuracy And Pro Validation Hardening phase.
 - Which permissioned real/pro clips should become the first commercial validation corpus.
 
@@ -60,3 +58,4 @@ Discuss Phase 5 before planning the Freemium Pro MVP so pricing, limits, payment
 ### Roadmap Evolution
 
 - Phase 5 edited: Expanded roadmap to 13 launch-perfect phases after Phase 5 discussion: core validation, premium UI/UX, complete training, Spray Lab, guided programs, social Pro, revenue ops, and team/coach expansion
+- Phase 5 planned: 8 executable Freemium Pro MVP plans across 5 waves, covering monetization schema/resolver, Stripe truth, quota ledger, premium projection, analytics/privacy, paid UX, admin/beta ops, and No False Done verification
