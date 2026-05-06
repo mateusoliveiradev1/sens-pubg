@@ -291,6 +291,33 @@ export interface ProductQuotaSummary {
     readonly reason: QuotaReasonCode | null;
 }
 
+export type AnalysisSaveQuotaNoticeStatus =
+    | 'available'
+    | 'saved'
+    | 'warning'
+    | 'limit_reached'
+    | 'non_billable'
+    | 'technical_failure';
+
+export interface AnalysisSaveAccessState {
+    readonly authenticated: boolean;
+    readonly canSave: boolean;
+    readonly accessState: ProductAccessState;
+    readonly billingStatus: BillingStatus;
+    readonly quota: ProductQuotaSummary;
+    readonly blocker: QuotaReasonCode | null;
+    readonly message: string;
+    readonly ctaHref: '/pricing' | '/billing' | null;
+}
+
+export interface AnalysisSaveQuotaNotice {
+    readonly status: AnalysisSaveQuotaNoticeStatus;
+    readonly analysisSaveAttemptId: string | null;
+    readonly quota: ProductQuotaSummary;
+    readonly message: string;
+    readonly ctaHref: '/pricing' | '/billing' | null;
+}
+
 export interface NoFalseDoneEvidenceItem {
     readonly requirementId: string;
     readonly evidenceType: NoFalseDoneEvidenceType;
