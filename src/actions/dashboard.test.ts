@@ -11,7 +11,7 @@ vi.mock('@/db', () => ({
     },
 }));
 
-import { buildDashboardActiveCoachLoop } from './dashboard';
+import { buildDashboardActiveCoachLoop } from './dashboard-active-coach-loop';
 
 function createCoachPlan(overrides: Partial<CoachPlan> = {}): CoachPlan {
     return {
