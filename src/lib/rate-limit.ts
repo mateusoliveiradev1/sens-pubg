@@ -100,6 +100,10 @@ export type CommunityRateLimitAction =
     | 'community.profile.follow'
     | 'community.report.create';
 
+export type BillingRateLimitAction =
+    | 'billing.checkout.start'
+    | 'billing.portal.open';
+
 const COMMUNITY_RATE_LIMITS: Record<CommunityRateLimitAction, RateLimitConfig> = {
     'community.post.publish': {
         maxTokens: 3,
@@ -138,6 +142,19 @@ const COMMUNITY_RATE_LIMITS: Record<CommunityRateLimitAction, RateLimitConfig> =
     },
 };
 
+const BILLING_RATE_LIMITS: Record<BillingRateLimitAction, RateLimitConfig> = {
+    'billing.checkout.start': {
+        maxTokens: 5,
+        refillRate: 1 / 60,
+        windowMs: 900_000,
+    },
+    'billing.portal.open': {
+        maxTokens: 10,
+        refillRate: 1 / 30,
+        windowMs: 600_000,
+    },
+};
+
 export interface CheckCommunityActionRateLimitInput {
     readonly action: CommunityRateLimitAction;
     readonly userId?: string | null;
@@ -165,4 +182,41 @@ export function checkCommunityActionRateLimit(
 ): RateLimitResult {
     const identifier = normalizeCommunityRateLimitIdentifier(input);
     return checkRateLimit(`community:${input.action}:${identifier}`, COMMUNITY_RATE_LIMITS[input.action]);
+}
+
+export interface CheckBillingActionRateLimitInput {
+    readonly action: BillingRateLimitAction;
+    readonly userId?: string | null;
+    readonly clientId?: string | null;
+}
+
+function normalizeBillingRateLimitIdentifier(
+    input: Pick<CheckBillingActionRateLimitInput, 'userId' | 'clientId'>,
+): string {
+    const normalizedUserId = input.userId?.trim();
+    if (normalizedUserId) {
+        return `user:${normalizedUserId}`;
+    }
+
+    const normalizedClientId = input.clientId?.trim();
+    if (normalizedClientId) {
+        return `client:${normalizedClientId}`;
+    }
+
+    return 'anonymous';
+}
+
+export function checkBillingActionRateLimit(
+    input: CheckBillingActionRateLimitInput,
+): RateLimitResult {
+    const identifier = normalizeBillingRateLimitIdentifier(input);
+    return checkRateLimit(`billing:${input.action}:${identifier}`, BILLING_RATE_LIMITS[input.action]);
+}
+
+export function resetRateLimitStoreForTests(): void {
+    if (process.env.NODE_ENV === 'production') {
+        return;
+    }
+
+    store.clear();
 }
