@@ -4,6 +4,7 @@
  */
 
 import type { Score, Milliseconds, DPI, Sensitivity, Centimeters, Pixels } from './branded';
+import type { AnalysisSaveQuotaNotice } from './monetization';
 export type { Score, Milliseconds, DPI, Sensitivity, Centimeters, Pixels };
 
 // ═══════════════════════════════════════════
@@ -944,6 +945,7 @@ export interface PrecisionEvolutionLine {
 export interface AnalysisResult {
     readonly id: string;
     readonly historySessionId?: string;
+    readonly quota?: AnalysisSaveQuotaNotice;
     readonly timestamp: Date;
     readonly patchVersion: string;
     readonly analysisContext?: AnalysisContextDetails;

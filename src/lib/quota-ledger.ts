@@ -109,6 +109,7 @@ export interface VoidAnalysisQuotaInput {
     readonly repository: AnalysisQuotaLedgerRepository;
     readonly reservation: AnalysisQuotaReservation;
     readonly reasonCode: Extract<QuotaReasonCode, 'non_billable_weak_capture' | 'technical_failure'>;
+    readonly analysisSessionId?: string | null | undefined;
     readonly metadata?: Record<string, unknown>;
     readonly now?: Date;
 }
@@ -129,6 +130,11 @@ export interface ResolveAnalysisSaveAccessInput {
     readonly now?: Date;
 }
 
+export interface ResolvedAnalysisSaveAccess {
+    readonly state: AnalysisSaveAccessState;
+    readonly access: ProductAccessResolution;
+}
+
 export interface AnalysisQuotaLedgerRepository {
     readonly listLedgerEntries: (input: {
         readonly userId: string;
@@ -145,6 +151,7 @@ export interface AnalysisQuotaLedgerRepository {
     }) => Promise<AnalysisQuotaLedgerEntry | null>;
     readonly voidLedgerEntry: (input: {
         readonly ledgerEntryId: string;
+        readonly analysisSessionId?: string | null | undefined;
         readonly reasonCode: Extract<QuotaReasonCode, 'non_billable_weak_capture' | 'technical_failure'>;
         readonly metadata: Record<string, unknown>;
         readonly voidedAt: Date;
@@ -497,6 +504,7 @@ export async function finalizeAnalysisQuota(input: FinalizeAnalysisQuotaInput): 
 export async function voidAnalysisQuota(input: VoidAnalysisQuotaInput): Promise<AnalysisQuotaLedgerEntry | null> {
     return input.repository.voidLedgerEntry({
         ledgerEntryId: input.reservation.ledgerEntryId,
+        analysisSessionId: input.analysisSessionId,
         reasonCode: input.reasonCode,
         metadata: {
             ...input.metadata,
@@ -627,9 +635,9 @@ function createSaveAccessState(access: ProductAccessResolution): AnalysisSaveAcc
     };
 }
 
-export async function resolveAnalysisSaveAccess(
+export async function resolveAnalysisSaveAccessWithResolution(
     input: ResolveAnalysisSaveAccessInput,
-): Promise<AnalysisSaveAccessState> {
+): Promise<ResolvedAnalysisSaveAccess> {
     const now = input.now ?? new Date();
     const [subscriptionRow, grantRows, flagRows] = await Promise.all([
         input.repository.loadLatestSubscription(input.userId),
@@ -668,7 +676,16 @@ export async function resolveAnalysisSaveAccess(
         quota,
     });
 
-    return createSaveAccessState(access);
+    return {
+        state: createSaveAccessState(access),
+        access,
+    };
+}
+
+export async function resolveAnalysisSaveAccess(
+    input: ResolveAnalysisSaveAccessInput,
+): Promise<AnalysisSaveAccessState> {
+    return (await resolveAnalysisSaveAccessWithResolution(input)).state;
 }
 
 export function createDrizzleQuotaLedgerRepository(database: Database): AnalysisQuotaLedgerRepository {
@@ -730,6 +747,7 @@ export function createDrizzleQuotaLedgerRepository(database: Database): Analysis
         async voidLedgerEntry(input) {
             const [row] = await quotaDatabase.update(productQuotaLedger)
                 .set({
+                    analysisSessionId: input.analysisSessionId ?? null,
                     amount: 0,
                     state: 'not_applicable',
                     reasonCode: input.reasonCode,

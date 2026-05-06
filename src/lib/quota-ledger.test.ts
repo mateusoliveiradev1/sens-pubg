@@ -58,6 +58,7 @@ function createMemoryQuotaRepository(seed: readonly AnalysisQuotaLedgerEntry[] =
             if (index < 0) return null;
             entries[index] = {
                 ...entries[index]!,
+                analysisSessionId: input.analysisSessionId ?? null,
                 amount: 0,
                 state: 'not_applicable',
                 reasonCode: input.reasonCode,

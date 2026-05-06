@@ -34,6 +34,11 @@ const mocks = vi.hoisted(() => {
     const revalidatePath = vi.fn();
     const enrichAnalysisResultCoaching = vi.fn();
     const createGroqCoachClient = vi.fn();
+    const createDrizzleQuotaLedgerRepository = vi.fn();
+    const resolveAnalysisSaveAccessWithResolution = vi.fn();
+    const reserveAnalysisQuota = vi.fn();
+    const finalizeAnalysisQuota = vi.fn();
+    const voidAnalysisQuota = vi.fn();
 
     return {
         auth,
@@ -58,6 +63,11 @@ const mocks = vi.hoisted(() => {
         revalidatePath,
         enrichAnalysisResultCoaching,
         createGroqCoachClient,
+        createDrizzleQuotaLedgerRepository,
+        resolveAnalysisSaveAccessWithResolution,
+        reserveAnalysisQuota,
+        finalizeAnalysisQuota,
+        voidAnalysisQuota,
     };
 });
 
@@ -85,14 +95,117 @@ vi.mock('@/server/coach/groq-coach-client', () => ({
     createGroqCoachClient: mocks.createGroqCoachClient,
 }));
 
+vi.mock('@/lib/quota-ledger', () => ({
+    createAnalysisSaveAttemptId: (input: { readonly userId: string; readonly analysisResultId?: string | null }) => (
+        `analysis-save:${input.userId}:${input.analysisResultId ?? 'generated'}`
+    ),
+    createDrizzleQuotaLedgerRepository: mocks.createDrizzleQuotaLedgerRepository,
+    resolveAnalysisSaveAccessWithResolution: mocks.resolveAnalysisSaveAccessWithResolution,
+    reserveAnalysisQuota: mocks.reserveAnalysisQuota,
+    finalizeAnalysisQuota: mocks.finalizeAnalysisQuota,
+    voidAnalysisQuota: mocks.voidAnalysisQuota,
+}));
+
 import {
     getCoachProtocolOutcomesForSession,
+    getAnalysisSaveAccess,
     getHistorySessions,
     getPrecisionHistoryLines,
     recordCoachProtocolOutcome,
     recordSensitivityAcceptance,
     saveAnalysisResult,
 } from './history';
+
+function createQuotaSummary(overrides: Record<string, unknown> = {}) {
+    return {
+        tier: 'free',
+        limit: 3,
+        used: 1,
+        remaining: 2,
+        state: 'available',
+        periodStart: new Date('2026-05-01T00:00:00.000Z'),
+        periodEnd: new Date('2026-06-01T00:00:00.000Z'),
+        warningAt: 2,
+        reason: 'billable',
+        ...overrides,
+    };
+}
+
+function createQuotaReservation(overrides: Record<string, unknown> = {}) {
+    const quota = createQuotaSummary();
+
+    return {
+        ledgerEntryId: 'ledger-1',
+        analysisSaveAttemptId: 'analysis-save:user-1:analysis-1',
+        idempotencyKey: 'analysis-save:user-1:analysis-1:2026-05',
+        period: {
+            tier: quota.tier,
+            source: 'server_utc_month',
+            start: quota.periodStart,
+            end: quota.periodEnd,
+            limit: quota.limit,
+            warningAt: quota.warningAt,
+        },
+        quota,
+        reasonCode: 'billable',
+        ...overrides,
+    };
+}
+
+function createProductAccessResolution(overrides: Record<string, unknown> = {}) {
+    const quota = createQuotaSummary();
+
+    return {
+        userId: 'user-1',
+        effectiveTier: quota.tier,
+        accessState: 'free',
+        source: 'default_free',
+        billingStatus: 'none',
+        quota,
+        features: {},
+        blockers: [],
+        periodStart: null,
+        periodEnd: null,
+        expiresAt: null,
+        auditRefs: [],
+        ...overrides,
+    };
+}
+
+function createSaveAccessState(overrides: Record<string, unknown> = {}) {
+    const quota = createQuotaSummary();
+
+    return {
+        authenticated: true,
+        canSave: true,
+        accessState: 'free',
+        billingStatus: 'none',
+        quota,
+        blocker: null,
+        message: 'Analises salvas usadas neste periodo: 1/3.',
+        ctaHref: null,
+        ...overrides,
+    };
+}
+
+function resetQuotaMocks() {
+    const quota = createQuotaSummary();
+    const reservation = createQuotaReservation({ quota });
+
+    mocks.createDrizzleQuotaLedgerRepository.mockReturnValue({ name: 'quota-repository' });
+    mocks.resolveAnalysisSaveAccessWithResolution.mockResolvedValue({
+        state: createSaveAccessState({ quota }),
+        access: createProductAccessResolution({ quota }),
+    });
+    mocks.reserveAnalysisQuota.mockResolvedValue({
+        status: 'reserved',
+        reservation,
+        quota,
+        reasonCode: 'billable',
+    });
+    mocks.finalizeAnalysisQuota.mockResolvedValue(null);
+    mocks.voidAnalysisQuota.mockResolvedValue(null);
+}
 
 function createAnalysisResult(): AnalysisResult {
     return {
@@ -492,6 +605,7 @@ describe('saveAnalysisResult', () => {
         mocks.updateWhere.mockResolvedValue(undefined);
         mocks.createGroqCoachClient.mockReturnValue(undefined);
         mocks.enrichAnalysisResultCoaching.mockImplementation(async (result) => result);
+        resetQuotaMocks();
     });
 
     it('persists patchVersion with the saved session and full result payload', async () => {
@@ -514,6 +628,150 @@ describe('saveAnalysisResult', () => {
                 historySessionId: 'session-1',
             },
         });
+        expect(mocks.reserveAnalysisQuota).toHaveBeenCalledWith(expect.objectContaining({
+            userId: 'user-1',
+            analysisSaveAttemptId: 'analysis-save:user-1:analysis-1',
+            billable: true,
+        }));
+        expect(mocks.finalizeAnalysisQuota).toHaveBeenCalledWith(expect.objectContaining({
+            analysisSessionId: 'session-1',
+        }));
+    });
+
+    it('returns save access from the server quota resolver', async () => {
+        const access = await getAnalysisSaveAccess();
+
+        expect(access).toMatchObject({
+            authenticated: true,
+            canSave: true,
+            quota: {
+                used: 1,
+                remaining: 2,
+            },
+        });
+        expect(mocks.resolveAnalysisSaveAccessWithResolution).toHaveBeenCalledWith(expect.objectContaining({
+            userId: 'user-1',
+        }));
+    });
+
+    it('returns unauthenticated save access without touching the quota repository', async () => {
+        mocks.auth.mockResolvedValueOnce(null);
+
+        const access = await getAnalysisSaveAccess();
+
+        expect(access).toMatchObject({
+            authenticated: false,
+            canSave: false,
+            blocker: 'entitlement_blocked',
+        });
+        expect(mocks.resolveAnalysisSaveAccessWithResolution).not.toHaveBeenCalled();
+    });
+
+    it('rejects unauthenticated save attempts before reserving quota', async () => {
+        mocks.auth.mockResolvedValueOnce(null);
+
+        await expect(saveAnalysisResult(createAnalysisResult(), 'beryl-m762', 'red-dot', 30))
+            .rejects.toThrow('Nao autenticado.');
+        expect(mocks.reserveAnalysisQuota).not.toHaveBeenCalled();
+    });
+
+    it('blocks exhausted free users before persisting a new billable save', async () => {
+        const exhaustedQuota = createQuotaSummary({
+            used: 3,
+            remaining: 0,
+            state: 'limit_reached',
+            reason: 'limit_blocked',
+        });
+        mocks.resolveAnalysisSaveAccessWithResolution.mockResolvedValueOnce({
+            state: createSaveAccessState({
+                canSave: false,
+                quota: exhaustedQuota,
+                blocker: 'limit_blocked',
+                message: 'Limite Free atingido (3/3).',
+                ctaHref: '/pricing',
+            }),
+            access: createProductAccessResolution({
+                quota: exhaustedQuota,
+                accessState: 'free_limit_reached',
+            }),
+        });
+        mocks.reserveAnalysisQuota.mockResolvedValueOnce({
+            status: 'blocked',
+            reservation: null,
+            quota: exhaustedQuota,
+            reasonCode: 'limit_blocked',
+        });
+
+        const saved = await saveAnalysisResult(createAnalysisResult(), 'beryl-m762', 'red-dot', 30);
+
+        expect(saved).toMatchObject({
+            success: false,
+            code: 'limit_reached',
+            quota: {
+                status: 'limit_reached',
+                ctaHref: '/pricing',
+                quota: {
+                    used: 3,
+                    remaining: 0,
+                },
+            },
+        });
+        expect(mocks.sessionValues).not.toHaveBeenCalled();
+        expect(mocks.finalizeAnalysisQuota).not.toHaveBeenCalled();
+    });
+
+    it('blocks exhausted Pro users against the trusted cycle limit', async () => {
+        const exhaustedQuota = createQuotaSummary({
+            tier: 'pro',
+            limit: 100,
+            used: 100,
+            remaining: 0,
+            warningAt: 80,
+            state: 'limit_reached',
+            reason: 'limit_blocked',
+        });
+        mocks.resolveAnalysisSaveAccessWithResolution.mockResolvedValueOnce({
+            state: createSaveAccessState({
+                accessState: 'pro_active',
+                billingStatus: 'active',
+                canSave: false,
+                quota: exhaustedQuota,
+                blocker: 'limit_blocked',
+                ctaHref: '/billing',
+            }),
+            access: createProductAccessResolution({
+                effectiveTier: 'pro',
+                accessState: 'pro_active',
+                source: 'stripe_subscription',
+                billingStatus: 'active',
+                quota: exhaustedQuota,
+                periodStart: exhaustedQuota.periodStart,
+                periodEnd: exhaustedQuota.periodEnd,
+            }),
+        });
+        mocks.reserveAnalysisQuota.mockResolvedValueOnce({
+            status: 'blocked',
+            reservation: null,
+            quota: exhaustedQuota,
+            reasonCode: 'limit_blocked',
+        });
+
+        const saved = await saveAnalysisResult(createAnalysisResult(), 'beryl-m762', 'red-dot', 30);
+
+        expect(saved).toMatchObject({
+            success: false,
+            code: 'limit_reached',
+            quota: {
+                status: 'limit_reached',
+                ctaHref: '/billing',
+                quota: {
+                    tier: 'pro',
+                    used: 100,
+                    remaining: 0,
+                },
+            },
+        });
+        expect(mocks.sessionValues).not.toHaveBeenCalled();
     });
 
     it('enriches coaching through the server helper and returns the enriched payload', async () => {
@@ -915,6 +1173,61 @@ describe('saveAnalysisResult', () => {
         expect(mocks.checkpointValues).toHaveBeenCalledWith(expect.objectContaining({
             state: 'not_comparable',
         }));
+    });
+
+    it('voids quota as non-billable for unusable weak-capture saves', async () => {
+        const result = createPrecisionReadyAnalysisResult({
+            id: 'precision-weak-capture',
+            timestamp: '2026-04-18T12:00:00.000Z',
+            sprayScore: 72,
+            qualityScore: 40,
+        });
+
+        const saved = await saveAnalysisResult({
+            ...result,
+            videoQualityReport: {
+                ...result.videoQualityReport!,
+                usableForAnalysis: false,
+            },
+        }, 'beryl-m762', 'red-dot', 30);
+
+        expect(saved).toMatchObject({
+            success: true,
+            quota: {
+                status: 'non_billable',
+                quota: {
+                    used: 0,
+                    remaining: 3,
+                },
+            },
+        });
+        expect(mocks.voidAnalysisQuota).toHaveBeenCalledWith(expect.objectContaining({
+            reasonCode: 'non_billable_weak_capture',
+            analysisSessionId: 'session-1',
+        }));
+        expect(mocks.finalizeAnalysisQuota).not.toHaveBeenCalled();
+    });
+
+    it('voids quota as technical failure when persistence fails after reservation', async () => {
+        mocks.returning.mockRejectedValueOnce(new Error('database unavailable'));
+
+        const saved = await saveAnalysisResult(createAnalysisResult(), 'beryl-m762', 'red-dot', 30);
+
+        expect(saved).toMatchObject({
+            success: false,
+            code: 'save_failed',
+            quota: {
+                status: 'technical_failure',
+                quota: {
+                    used: 0,
+                    remaining: 3,
+                },
+            },
+        });
+        expect(mocks.voidAnalysisQuota).toHaveBeenCalledWith(expect.objectContaining({
+            reasonCode: 'technical_failure',
+        }));
+        expect(mocks.finalizeAnalysisQuota).not.toHaveBeenCalled();
     });
 
     it('records real-world acceptance feedback for the recommended profile and syncs applied history', async () => {

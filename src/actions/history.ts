@@ -34,6 +34,20 @@ import {
 } from '@/db/schema';
 import { normalizePatchVersion } from '@/game/pubg';
 import { createGroqCoachClient } from '@/server/coach/groq-coach-client';
+import {
+    createAnalysisSaveAttemptId,
+    createDrizzleQuotaLedgerRepository,
+    finalizeAnalysisQuota,
+    reserveAnalysisQuota,
+    resolveAnalysisSaveAccessWithResolution,
+    voidAnalysisQuota,
+    type AnalysisQuotaReservation,
+} from '@/lib/quota-ledger';
+import type {
+    AnalysisSaveAccessState,
+    AnalysisSaveQuotaNotice,
+    ProductQuotaSummary,
+} from '@/types/monetization';
 import type {
     AnalysisResult,
     CoachDecisionSnapshot,
@@ -116,6 +130,23 @@ export interface RecordCoachProtocolOutcomeInput {
     readonly revisionOfOutcomeId?: string;
 }
 
+type SaveAnalysisResultQuotaCode = 'limit_reached' | 'save_failed';
+
+export type SaveAnalysisResultResult =
+    | {
+        readonly success: true;
+        readonly sessionId: string;
+        readonly result: AnalysisResult;
+        readonly quota: AnalysisSaveQuotaNotice;
+    }
+    | {
+        readonly success: false;
+        readonly error: string;
+        readonly code: SaveAnalysisResultQuotaCode;
+        readonly result: AnalysisResult;
+        readonly quota?: AnalysisSaveQuotaNotice;
+    };
+
 function normalizeStoredAttachments(
     value: unknown,
 ): StoredHistoryAttachments {
@@ -128,6 +159,145 @@ function normalizeStoredAttachments(
         grip: typeof attachments.grip === 'string' ? attachments.grip : 'none',
         stock: typeof attachments.stock === 'string' ? attachments.stock : 'none',
     };
+}
+
+function createUnauthenticatedSaveAccessState(): AnalysisSaveAccessState {
+    const quota: ProductQuotaSummary = {
+        tier: 'free',
+        limit: 3,
+        used: 0,
+        remaining: 0,
+        state: 'blocked',
+        periodStart: null,
+        periodEnd: null,
+        warningAt: 2,
+        reason: 'entitlement_blocked',
+    };
+
+    return {
+        authenticated: false,
+        canSave: false,
+        accessState: 'free',
+        billingStatus: 'none',
+        quota,
+        blocker: 'entitlement_blocked',
+        message: 'Entre na conta para salvar analises no historico.',
+        ctaHref: null,
+    };
+}
+
+function quotaStateAfterUsage(quota: ProductQuotaSummary, used: number): ProductQuotaSummary['state'] {
+    if (quota.limit <= 0) {
+        return 'blocked';
+    }
+
+    if (used >= quota.limit) {
+        return 'limit_reached';
+    }
+
+    if (quota.warningAt !== null && used >= quota.warningAt) {
+        return 'warning';
+    }
+
+    return 'available';
+}
+
+function removeReservedBillableUse(quota: ProductQuotaSummary): ProductQuotaSummary {
+    const used = Math.max(0, quota.used - 1);
+
+    return {
+        ...quota,
+        used,
+        remaining: Math.max(0, quota.limit - used),
+        state: quotaStateAfterUsage(quota, used),
+    };
+}
+
+function createQuotaNotice(input: {
+    readonly status: AnalysisSaveQuotaNotice['status'];
+    readonly analysisSaveAttemptId: string | null;
+    readonly quota: ProductQuotaSummary;
+    readonly ctaHref?: AnalysisSaveQuotaNotice['ctaHref'];
+    readonly message?: string;
+}): AnalysisSaveQuotaNotice {
+    const usedLabel = `${input.quota.used}/${input.quota.limit}`;
+    let message = input.message;
+
+    if (!message) {
+        switch (input.status) {
+            case 'limit_reached':
+                message = input.quota.tier === 'free'
+                    ? `Limite Free atingido (${usedLabel}). A analise local continua, mas salvar outro resultado util pede Pro.`
+                    : `Limite Pro atingido neste ciclo (${usedLabel}). Salvar outro resultado util fica bloqueado ate o proximo ciclo.`;
+                break;
+            case 'non_billable':
+                message = 'Este resultado foi salvo como evidencia de captura, sem consumir quota, porque a qualidade do clip nao sustenta uma leitura util.';
+                break;
+            case 'technical_failure':
+                message = 'A tentativa de salvar falhou tecnicamente e a reserva de quota foi anulada.';
+                break;
+            case 'warning':
+                message = `Analise salva. Voce esta perto do limite deste periodo (${usedLabel}).`;
+                break;
+            case 'saved':
+                message = `Analise salva. Uso do periodo: ${usedLabel}.`;
+                break;
+            case 'available':
+                message = `Voce ainda pode salvar analises uteis neste periodo (${usedLabel}).`;
+                break;
+        }
+    }
+
+    return {
+        status: input.status,
+        analysisSaveAttemptId: input.analysisSaveAttemptId,
+        quota: input.quota,
+        message,
+        ctaHref: input.ctaHref ?? null,
+    };
+}
+
+function withQuotaNotice(result: AnalysisResult, quota: AnalysisSaveQuotaNotice): AnalysisResult {
+    return {
+        ...result,
+        quota,
+    };
+}
+
+function isNonBillableWeakCapture(result: AnalysisResult): boolean {
+    const mastery = result.mastery;
+    const unusableQuality = result.videoQualityReport?.usableForAnalysis === false
+        || mastery?.evidence.usableForAnalysis === false;
+
+    if (!unusableQuality) {
+        return false;
+    }
+
+    return mastery?.actionState === 'capture_again'
+        || mastery?.actionState === 'inconclusive'
+        || result.videoQualityReport?.usableForAnalysis === false;
+}
+
+async function resolveSaveAccessForUser(userId: string) {
+    const repository = createDrizzleQuotaLedgerRepository(db);
+    const resolved = await resolveAnalysisSaveAccessWithResolution({
+        repository,
+        userId,
+    });
+
+    return {
+        repository,
+        ...resolved,
+    };
+}
+
+export async function getAnalysisSaveAccess(): Promise<AnalysisSaveAccessState> {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return createUnauthenticatedSaveAccessState();
+    }
+
+    return (await resolveSaveAccessForUser(session.user.id)).state;
 }
 
 function resolveHistoryDistanceTolerance(distanceMeters: number): number {
@@ -730,13 +900,56 @@ export async function saveAnalysisResult(
     weaponId: string,
     scopeId: string,
     distance: number
-) {
+): Promise<SaveAnalysisResultResult> {
     const session = await auth();
     if (!session?.user?.id) {
         throw new Error('Nao autenticado.');
     }
 
     let enrichedResult = result;
+    let quotaReservation: AnalysisQuotaReservation | null = null;
+    const {
+        repository: quotaRepository,
+        access,
+        state: saveAccess,
+    } = await resolveSaveAccessForUser(session.user.id);
+    const analysisSaveAttemptId = createAnalysisSaveAttemptId({
+        userId: session.user.id,
+        analysisResultId: result.id,
+    });
+    const initialBillable = !isNonBillableWeakCapture(result);
+    const reservationResult = await reserveAnalysisQuota({
+        repository: quotaRepository,
+        userId: session.user.id,
+        access,
+        analysisSaveAttemptId,
+        billable: initialBillable,
+        nonBillableReason: 'non_billable_weak_capture',
+        metadata: {
+            surface: 'saveAnalysisResult',
+            weaponId,
+            scopeId,
+        },
+    });
+
+    if (reservationResult.status === 'blocked') {
+        const quota = createQuotaNotice({
+            status: 'limit_reached',
+            analysisSaveAttemptId,
+            quota: reservationResult.quota,
+            ctaHref: saveAccess.ctaHref,
+        });
+
+        return {
+            success: false,
+            code: 'limit_reached',
+            error: quota.message,
+            quota,
+            result: withQuotaNotice(enrichedResult, quota),
+        };
+    }
+
+    quotaReservation = reservationResult.reservation;
 
     try {
         const patchVersion = normalizePatchVersion(result.patchVersion);
@@ -910,20 +1123,82 @@ export async function saveAnalysisResult(
 
         await db.insert(sensitivityHistory).values(historyRows);
 
+        const finalNonBillableWeakCapture = isNonBillableWeakCapture(enrichedResult);
+        const quota = finalNonBillableWeakCapture
+            ? createQuotaNotice({
+                status: 'non_billable',
+                analysisSaveAttemptId,
+                quota: quotaReservation?.reasonCode === 'billable'
+                    ? removeReservedBillableUse(quotaReservation.quota)
+                    : reservationResult.quota,
+            })
+            : createQuotaNotice({
+                status: reservationResult.quota.state === 'warning' ? 'warning' : 'saved',
+                analysisSaveAttemptId,
+                quota: reservationResult.quota,
+                ctaHref: reservationResult.quota.state === 'warning' ? saveAccess.ctaHref : null,
+            });
+
+        if (quotaReservation) {
+            if (finalNonBillableWeakCapture) {
+                await voidAnalysisQuota({
+                    repository: quotaRepository,
+                    reservation: quotaReservation,
+                    reasonCode: 'non_billable_weak_capture',
+                    analysisSessionId: sessionId,
+                    metadata: {
+                        analysisSessionId: sessionId,
+                        source: 'saveAnalysisResult',
+                    },
+                });
+            } else if (!finalNonBillableWeakCapture && quotaReservation.reasonCode === 'billable') {
+                await finalizeAnalysisQuota({
+                    repository: quotaRepository,
+                    reservation: quotaReservation,
+                    analysisSessionId: sessionId,
+                    metadata: {
+                        source: 'saveAnalysisResult',
+                    },
+                });
+            }
+        }
+
         return {
             success: true as const,
             sessionId,
-            result: {
+            quota,
+            result: withQuotaNotice({
                 ...enrichedResult,
                 historySessionId: sessionId,
-            },
+            }, quota),
         };
     } catch (err) {
+        if (quotaReservation?.reasonCode === 'billable') {
+            await voidAnalysisQuota({
+                repository: quotaRepository,
+                reservation: quotaReservation,
+                reasonCode: 'technical_failure',
+                metadata: {
+                    source: 'saveAnalysisResult',
+                    message: err instanceof Error ? err.message : 'unknown_save_failure',
+                },
+            });
+        }
+        const quota = createQuotaNotice({
+            status: 'technical_failure',
+            analysisSaveAttemptId,
+            quota: quotaReservation?.reasonCode === 'billable'
+                ? removeReservedBillableUse(quotaReservation.quota)
+                : reservationResult.quota,
+        });
+
         console.error('[saveAnalysisResult] Error:', err);
         return {
             success: false as const,
+            code: 'save_failed',
             error: 'Erro ao salvar historico.',
-            result: enrichedResult,
+            quota,
+            result: withQuotaNotice(enrichedResult, quota),
         };
     }
 }
