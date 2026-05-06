@@ -33,10 +33,24 @@ Complete these items before downstream Stripe checkout, webhook, and paid-flow v
     - Public USD monthly: US$9.99
   - Notes: Do not mutate Stripe Prices after subscribers exist. Create new Prices for future price changes.
 
-- [ ] **Create webhook endpoint for downstream plans**
+- [ ] **Create webhook endpoint for checkout and subscription truth**
   - Location: Stripe Dashboard -> Developers -> Webhooks
   - Local dev option: `stripe listen --forward-to localhost:3000/api/stripe/webhook`
-  - Required events will be finalized by the Stripe checkout/webhook plan.
+  - Endpoint path: `/api/stripe/webhook`
+  - Required events:
+    - `checkout.session.completed`
+    - `invoice.paid`
+    - `invoice.payment_failed`
+    - `customer.subscription.updated`
+    - `customer.subscription.deleted`
+    - `charge.dispute.created`
+    - `review.opened`
+  - Copy the endpoint signing secret into `STRIPE_WEBHOOK_SECRET`.
+
+- [ ] **Enable Stripe-hosted customer portal**
+  - Location: Stripe Dashboard -> Settings -> Billing -> Customer portal
+  - Required for card updates, cancellation, and subscription management.
+  - Keep portal branding/product naming aligned with "Sens PUBG Pro" and avoid any PUBG/KRAFTON affiliation claim.
 
 ## Verification
 
@@ -44,11 +58,13 @@ After adding the values, downstream plans should verify with:
 
 ```bash
 npx vitest run src/lib/product-price-catalog.test.ts
+npx vitest run src/lib/stripe.test.ts src/actions/billing.test.ts src/app/api/stripe/webhook/route.test.ts src/server/billing/stripe-fulfillment.test.ts src/server/billing/subscription-state.test.ts
 npx drizzle-kit push
 ```
 
 Expected results:
 - Price catalog resolves only allowlisted server-owned internal keys.
+- Checkout, webhook signature verification, idempotent fulfillment, portal, and subscription lifecycle tests pass without real Stripe secrets.
 - Drizzle push can connect to the intended development database.
 
 ---
