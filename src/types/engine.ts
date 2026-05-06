@@ -581,6 +581,42 @@ export interface CoachProtocolOutcomeSnapshot {
     readonly conflicts: readonly CoachOutcomeConflict[];
 }
 
+export type CoachOutcomeMemoryLayerSource =
+    | 'strict_compatible'
+    | 'global_fallback';
+
+export interface CoachOutcomeMemoryLayerSummary {
+    readonly source: CoachOutcomeMemoryLayerSource;
+    readonly outcomeCount: number;
+    readonly pendingCount: number;
+    readonly neutralCount: number;
+    readonly weakSelfReportCount: number;
+    readonly confirmedCount: number;
+    readonly invalidCount: number;
+    readonly conflictCount: number;
+    readonly repeatedFailureCount: number;
+    readonly staleOutcomeCount: number;
+    readonly technicalEvidenceCount: number;
+    readonly focusAreas: readonly CoachFocusArea[];
+    readonly confidence: number;
+    readonly summary: string;
+}
+
+export interface CoachOutcomeMemorySummary {
+    readonly activeLayer: CoachOutcomeMemoryLayerSource | 'none';
+    readonly strictCompatible: CoachOutcomeMemoryLayerSummary;
+    readonly globalFallback: CoachOutcomeMemoryLayerSummary;
+    readonly pendingCount: number;
+    readonly neutralCount: number;
+    readonly confirmedCount: number;
+    readonly invalidCount: number;
+    readonly conflictCount: number;
+    readonly repeatedFailureCount: number;
+    readonly staleOutcomeCount: number;
+    readonly confidence: number;
+    readonly summary: string;
+}
+
 export interface CoachFeedback {
     readonly diagnosis: Diagnosis;
     readonly mode: CoachMode;

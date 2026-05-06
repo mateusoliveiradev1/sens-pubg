@@ -1,12 +1,25 @@
 import type {
     AnalysisResult,
     CoachFocusArea,
+    CoachOutcomeMemoryLayerSource,
+    CoachOutcomeMemoryLayerSummary,
+    CoachOutcomeMemorySummary,
+    CoachProtocolOutcome,
     CoachSignal,
     PrecisionTrendSummary,
     ProfileType,
     SensitivityAcceptanceOutcome,
     WeaponLoadout,
 } from '../types/engine';
+import {
+    summarizeCoachOutcomeForMemory,
+    type CoachOutcomeMemorySummary as CoachOutcomeRecordSummary,
+} from './coach-outcomes';
+
+export const COACH_OUTCOME_MEMORY_WINDOW_DAYS = 30;
+const COACH_OUTCOME_STRICT_RECENT_SESSION_LIMIT = 6;
+const COACH_OUTCOME_GLOBAL_RECENT_LIMIT = 12;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 export interface CoachMemoryHistorySession {
     readonly id: string;
@@ -27,6 +40,7 @@ export interface CoachMemoryFocusRecurrence {
 export interface CoachMemorySnapshot {
     readonly compatibleSessionCount: number;
     readonly precisionTrend?: CoachMemoryPrecisionTrend;
+    readonly outcomeMemory: CoachOutcomeMemorySummary;
     readonly recurrentFocuses: readonly CoachMemoryFocusRecurrence[];
     readonly alignedFocusAreas: readonly CoachFocusArea[];
     readonly conflictingFocusAreas: readonly CoachFocusArea[];
@@ -46,12 +60,31 @@ export interface CoachMemoryPrecisionTrend {
 export interface BuildCoachMemorySnapshotInput {
     readonly currentResult: AnalysisResult;
     readonly historySessions: readonly CoachMemoryHistorySession[];
+    readonly protocolOutcomes?: readonly CoachProtocolOutcome[];
     readonly distanceToleranceMeters?: number;
 }
 
 interface SensitivityOutcomeSignal {
     readonly outcome: SensitivityAcceptanceOutcome;
     readonly testedProfile: ProfileType;
+}
+
+interface CoachOutcomeMemoryEntry {
+    readonly outcome: CoachProtocolOutcome;
+    readonly summary: CoachOutcomeRecordSummary;
+    readonly sessionId: string;
+    readonly recordedAtMs: number;
+    readonly stale: boolean;
+}
+
+interface CoachOutcomeMemoryLayerDetail extends CoachOutcomeMemoryLayerSummary {
+    readonly entries: readonly CoachOutcomeMemoryEntry[];
+    readonly staleEntries: readonly CoachOutcomeMemoryEntry[];
+}
+
+interface CoachOutcomeMemoryDetails extends CoachOutcomeMemorySummary {
+    readonly strictCompatible: CoachOutcomeMemoryLayerDetail;
+    readonly globalFallback: CoachOutcomeMemoryLayerDetail;
 }
 
 export function buildCoachMemorySnapshot(
@@ -64,25 +97,45 @@ export function buildCoachMemorySnapshot(
     const sensitivitySignals = buildSensitivityOutcomeSignals(input.currentResult, compatibleSessions);
     const precisionTrend = buildPrecisionTrendMemory(input.currentResult.precisionTrend);
     const precisionSignals = buildPrecisionTrendSignals(precisionTrend);
-    const alignedFocusAreas = collectAlignedFocusAreas(recurrentFocuses, sensitivitySignals, precisionTrend);
+    const outcomeMemory = buildOutcomeMemory({
+        currentResult: input.currentResult,
+        compatibleSessions,
+        protocolOutcomes: input.protocolOutcomes ?? [],
+    });
+    const outcomeSignals = buildOutcomeMemorySignals(outcomeMemory);
+    const alignedFocusAreas = collectAlignedFocusAreas(
+        recurrentFocuses,
+        sensitivitySignals,
+        precisionTrend,
+        outcomeSignals,
+    );
     const conflictingFocusAreas = Array.from(new Set<CoachFocusArea>([
         ...(sensitivitySignals.hasConflict ? ['sensitivity' as const] : []),
         ...conflictingAreasFromPrecisionTrend(precisionTrend),
+        ...conflictingAreasFromOutcomeSignals(outcomeSignals),
     ]));
     const signals = [
         ...recurrentFocuses.map(toRecurrentFocusSignal),
         ...sensitivitySignals.signals,
         ...precisionSignals,
+        ...outcomeSignals,
     ];
 
     return {
         compatibleSessionCount: compatibleSessions.length,
         ...(precisionTrend ? { precisionTrend } : {}),
+        outcomeMemory,
         recurrentFocuses,
         alignedFocusAreas,
         conflictingFocusAreas,
         signals,
-        summary: summarizeMemory(compatibleSessions.length, recurrentFocuses, conflictingFocusAreas, precisionTrend),
+        summary: summarizeMemory(
+            compatibleSessions.length,
+            recurrentFocuses,
+            conflictingFocusAreas,
+            precisionTrend,
+            outcomeMemory,
+        ),
     };
 }
 
@@ -90,6 +143,413 @@ export function extractCoachMemorySignals(
     snapshot: CoachMemorySnapshot | undefined,
 ): readonly CoachSignal[] {
     return snapshot?.signals ?? [];
+}
+
+function buildOutcomeMemory(input: {
+    readonly currentResult: AnalysisResult;
+    readonly compatibleSessions: readonly CoachMemoryHistorySession[];
+    readonly protocolOutcomes: readonly CoachProtocolOutcome[];
+}): CoachOutcomeMemoryDetails {
+    const currentTimestampMs = input.currentResult.timestamp.getTime();
+    const compatibleSessionIds = new Set(
+        [...input.compatibleSessions]
+            .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
+            .slice(0, COACH_OUTCOME_STRICT_RECENT_SESSION_LIMIT)
+            .map((session) => session.id),
+    );
+    const effectiveEntries = toEffectiveProtocolOutcomes(input.protocolOutcomes)
+        .map((outcome) => toOutcomeMemoryEntry(outcome, currentTimestampMs))
+        .sort((left, right) => right.recordedAtMs - left.recordedAtMs);
+    const strictCompatible = buildOutcomeMemoryLayer(
+        'strict_compatible',
+        effectiveEntries.filter((entry) => compatibleSessionIds.has(entry.sessionId)),
+    );
+    const globalFallback = buildOutcomeMemoryLayer(
+        'global_fallback',
+        effectiveEntries.slice(0, COACH_OUTCOME_GLOBAL_RECENT_LIMIT),
+    );
+    const activeLayer: CoachOutcomeMemorySummary['activeLayer'] = strictCompatible.outcomeCount > 0
+        ? 'strict_compatible'
+        : globalFallback.outcomeCount > 0
+            ? 'global_fallback'
+            : 'none';
+    const activeSummary = activeLayer === 'strict_compatible'
+        ? strictCompatible
+        : activeLayer === 'global_fallback'
+            ? globalFallback
+            : undefined;
+    const staleOutcomeCount = activeSummary?.staleOutcomeCount
+        ?? Math.max(strictCompatible.staleOutcomeCount, globalFallback.staleOutcomeCount);
+
+    return {
+        activeLayer,
+        strictCompatible,
+        globalFallback,
+        pendingCount: activeSummary?.pendingCount ?? 0,
+        neutralCount: activeSummary?.neutralCount ?? 0,
+        confirmedCount: activeSummary?.confirmedCount ?? 0,
+        invalidCount: activeSummary?.invalidCount ?? 0,
+        conflictCount: activeSummary?.conflictCount ?? 0,
+        repeatedFailureCount: activeSummary?.repeatedFailureCount ?? 0,
+        staleOutcomeCount,
+        confidence: activeSummary?.confidence ?? 0,
+        summary: summarizeOutcomeMemory(activeLayer, activeSummary, staleOutcomeCount),
+    };
+}
+
+function toEffectiveProtocolOutcomes(
+    outcomes: readonly CoachProtocolOutcome[],
+): readonly CoachProtocolOutcome[] {
+    const revisedOutcomeIds = new Set<string>();
+
+    for (const outcome of outcomes) {
+        if (outcome.revisionOfOutcomeId) {
+            revisedOutcomeIds.add(outcome.revisionOfOutcomeId);
+        }
+    }
+
+    return outcomes.filter((outcome) => !revisedOutcomeIds.has(outcome.id));
+}
+
+function toOutcomeMemoryEntry(
+    outcome: CoachProtocolOutcome,
+    currentTimestampMs: number,
+): CoachOutcomeMemoryEntry {
+    const recordedAtMs = Date.parse(outcome.recordedAt);
+    const finiteRecordedAtMs = Number.isFinite(recordedAtMs) ? recordedAtMs : 0;
+    const ageDays = (currentTimestampMs - finiteRecordedAtMs) / MS_PER_DAY;
+
+    return {
+        outcome,
+        summary: summarizeCoachOutcomeForMemory(outcome),
+        sessionId: outcome.sessionId,
+        recordedAtMs: finiteRecordedAtMs,
+        stale: !Number.isFinite(recordedAtMs)
+            || ageDays > COACH_OUTCOME_MEMORY_WINDOW_DAYS,
+    };
+}
+
+function buildOutcomeMemoryLayer(
+    source: CoachOutcomeMemoryLayerSource,
+    entries: readonly CoachOutcomeMemoryEntry[],
+): CoachOutcomeMemoryLayerDetail {
+    const staleEntries = entries.filter((entry) => entry.stale);
+    const activeEntries = entries.filter((entry) => !entry.stale);
+    const summaries = activeEntries.map((entry) => entry.summary);
+    const protocolFailures = summaries.filter((summary) => summary.failureMode === 'protocol');
+    const repeatedFailureCount = countRepeatedFailures(protocolFailures);
+    const conflictCount = summaries.filter((summary) => summary.failureMode === 'conflict' || summary.evidenceStrength === 'conflict').length;
+    const invalidCount = summaries.filter((summary) => (
+        summary.failureMode === 'execution_or_capture'
+        || summary.evidenceStrength === 'invalid'
+    )).length;
+    const pendingCount = summaries.filter((summary) => summary.pendingClosure).length;
+    const neutralCount = summaries.filter((summary) => summary.evidenceStrength === 'neutral').length;
+    const weakSelfReportCount = summaries.filter((summary) => summary.evidenceStrength === 'weak_self_report').length;
+    const confirmedCount = summaries.filter((summary) => summary.evidenceStrength === 'confirmed_by_compatible_clip').length;
+    const technicalEvidenceCount = summaries.filter((summary) => summary.countsAsTechnicalEvidence).length;
+    const focusAreas = uniqueFocusAreas(summaries.map((summary) => summary.focusArea));
+
+    return {
+        source,
+        outcomeCount: activeEntries.length,
+        pendingCount,
+        neutralCount,
+        weakSelfReportCount,
+        confirmedCount,
+        invalidCount,
+        conflictCount,
+        repeatedFailureCount,
+        staleOutcomeCount: staleEntries.length,
+        technicalEvidenceCount,
+        focusAreas,
+        confidence: calculateOutcomeMemoryConfidence({
+            outcomeCount: activeEntries.length,
+            confirmedCount,
+            conflictCount,
+            pendingCount,
+            neutralCount,
+            staleOutcomeCount: staleEntries.length,
+        }),
+        summary: summarizeOutcomeLayer(source, activeEntries.length, staleEntries.length, {
+            confirmedCount,
+            conflictCount,
+            invalidCount,
+            repeatedFailureCount,
+            pendingCount,
+            neutralCount,
+        }),
+        entries: activeEntries,
+        staleEntries,
+    };
+}
+
+function buildOutcomeMemorySignals(
+    outcomeMemory: CoachOutcomeMemoryDetails,
+): readonly CoachSignal[] {
+    const activeLayer = outcomeMemory.activeLayer === 'strict_compatible'
+        ? outcomeMemory.strictCompatible
+        : outcomeMemory.activeLayer === 'global_fallback'
+            ? outcomeMemory.globalFallback
+            : undefined;
+
+    if (!activeLayer) {
+        return outcomeMemory.staleOutcomeCount > 0
+            ? [outcomeLayerSignal({
+                source: 'strict_compatible',
+                area: 'validation',
+                key: 'outcome.strict_compatible.stale',
+                summary: `${outcomeMemory.staleOutcomeCount} older coach outcome(s) were downweighted because they are outside the ${COACH_OUTCOME_MEMORY_WINDOW_DAYS}-day memory window.`,
+                confidence: 0.42,
+                coverage: 0.25,
+                weight: 0.12,
+            })]
+            : [];
+    }
+
+    const signals: CoachSignal[] = [];
+    const layerKey = activeLayer.source;
+    const coverage = Math.min(1, Math.max(0.25, activeLayer.outcomeCount / 3));
+
+    if (activeLayer.pendingCount > 0 || activeLayer.neutralCount > 0) {
+        signals.push(outcomeLayerSignal({
+            source: layerKey,
+            area: 'validation',
+            key: `outcome.${layerKey}.pending`,
+            summary: `${activeLayer.pendingCount || activeLayer.neutralCount} coach outcome(s) are neutral or still need closure; keep the next block in validation mode.`,
+            confidence: Math.max(0.58, activeLayer.confidence),
+            coverage,
+            weight: 0.24,
+        }));
+    }
+
+    for (const [area, entries] of groupOutcomeEntries(activeLayer.entries, (entry) => (
+        entry.summary.status === 'improved'
+        && entry.summary.evidenceStrength === 'weak_self_report'
+    ))) {
+        signals.push(outcomeLayerSignal({
+            source: layerKey,
+            area,
+            key: `outcome.${layerKey}.weak_self_report.${area}`,
+            summary: `${entries.length} improvement report(s) for ${area.replace(/_/g, ' ')} still need strict compatible validation before a stronger coach action.`,
+            confidence: 0.62,
+            coverage,
+            weight: 0.16,
+        }));
+    }
+
+    for (const [area, entries] of groupOutcomeEntries(activeLayer.entries, (entry) => (
+        entry.summary.evidenceStrength === 'confirmed_by_compatible_clip'
+    ))) {
+        signals.push(outcomeLayerSignal({
+            source: layerKey,
+            area,
+            key: `outcome.${layerKey}.confirmed.${area}`,
+            summary: `${entries.length} outcome(s) for ${area.replace(/_/g, ' ')} were confirmed by compatible progress; consolidate before changing another variable.`,
+            confidence: 0.88,
+            coverage,
+            weight: 0.34,
+        }));
+    }
+
+    for (const [area, entries] of groupOutcomeEntries(activeLayer.entries, (entry) => (
+        entry.summary.failureMode === 'conflict'
+        || entry.summary.evidenceStrength === 'conflict'
+    ))) {
+        signals.push(outcomeLayerSignal({
+            source: layerKey,
+            area,
+            key: `outcome.${layerKey}.conflict.${area}`,
+            summary: `${entries.length} coach outcome conflict(s) for ${area.replace(/_/g, ' ')} block aggressive action until a short compatible validation resolves the disagreement.`,
+            confidence: 0.9,
+            coverage,
+            weight: 0.58,
+        }));
+    }
+
+    for (const [area, entries] of groupOutcomeEntries(activeLayer.entries, (entry) => (
+        entry.summary.failureMode === 'protocol'
+    ))) {
+        signals.push(outcomeLayerSignal({
+            source: layerKey,
+            area,
+            key: entries.length >= 2
+                ? `outcome.${layerKey}.repeated_failure.${area}`
+                : `outcome.${layerKey}.failure.${area}`,
+            summary: entries.length >= 2
+                ? `${entries.length} failure reports for ${area.replace(/_/g, ' ')} require a revised hypothesis before repeating the protocol.`
+                : `A worse report for ${area.replace(/_/g, ' ')} keeps the next protocol conservative until compatible validation confirms the cause.`,
+            confidence: entries.length >= 2 ? 0.86 : 0.72,
+            coverage,
+            weight: entries.length >= 2 ? 0.52 : 0.36,
+        }));
+    }
+
+    const invalidEntries = activeLayer.entries.filter((entry) => entry.summary.failureMode === 'execution_or_capture');
+    if (invalidEntries.length > 0) {
+        signals.push(outcomeLayerSignal({
+            source: layerKey,
+            area: 'capture_quality',
+            key: `outcome.${layerKey}.invalid_capture`,
+            summary: `${invalidEntries.length} invalid capture/execution outcome(s) are treated as validation friction, not proof the protocol failed.`,
+            confidence: 0.78,
+            coverage,
+            weight: 0.32,
+        }));
+    }
+
+    if (activeLayer.staleOutcomeCount > 0) {
+        signals.push(outcomeLayerSignal({
+            source: layerKey,
+            area: 'validation',
+            key: `outcome.${layerKey}.stale`,
+            summary: `${activeLayer.staleOutcomeCount} stale outcome(s) were kept out of active coach memory.`,
+            confidence: 0.48,
+            coverage: 0.3,
+            weight: 0.12,
+        }));
+    }
+
+    return signals;
+}
+
+function countRepeatedFailures(
+    summaries: readonly CoachOutcomeRecordSummary[],
+): number {
+    const failuresByFocus = new Map<CoachFocusArea, number>();
+
+    for (const summary of summaries) {
+        failuresByFocus.set(summary.focusArea, (failuresByFocus.get(summary.focusArea) ?? 0) + 1);
+    }
+
+    return Array.from(failuresByFocus.values())
+        .filter((count) => count >= 2)
+        .reduce((total, count) => total + count, 0);
+}
+
+function uniqueFocusAreas(areas: readonly CoachFocusArea[]): readonly CoachFocusArea[] {
+    return Array.from(new Set(areas));
+}
+
+function calculateOutcomeMemoryConfidence(input: {
+    readonly outcomeCount: number;
+    readonly confirmedCount: number;
+    readonly conflictCount: number;
+    readonly pendingCount: number;
+    readonly neutralCount: number;
+    readonly staleOutcomeCount: number;
+}): number {
+    if (input.outcomeCount === 0) {
+        return 0;
+    }
+
+    const base = 0.28 + (0.42 * Math.min(1, input.outcomeCount / 3));
+    const confirmedBoost = input.confirmedCount > 0 ? 0.18 : 0;
+    const conflictPenalty = input.conflictCount > 0 ? 0.18 : 0;
+    const neutralPenalty = Math.min(0.18, (input.pendingCount + input.neutralCount) * 0.04);
+    const stalePenalty = Math.min(0.12, input.staleOutcomeCount * 0.03);
+
+    return roundScore(Math.max(0.15, Math.min(1, base + confirmedBoost - conflictPenalty - neutralPenalty - stalePenalty)));
+}
+
+function summarizeOutcomeMemory(
+    activeLayer: CoachOutcomeMemorySummary['activeLayer'],
+    activeSummary: CoachOutcomeMemoryLayerDetail | undefined,
+    staleOutcomeCount: number,
+): string {
+    if (!activeSummary || activeLayer === 'none') {
+        return staleOutcomeCount > 0
+            ? `Only stale coach outcomes were found; they are outside the ${COACH_OUTCOME_MEMORY_WINDOW_DAYS}-day memory window.`
+            : 'No coach protocol outcome memory available.';
+    }
+
+    const source = activeLayer === 'strict_compatible'
+        ? 'Strict compatible'
+        : 'Global fallback';
+
+    return `${source} outcome memory: ${activeSummary.summary}`;
+}
+
+function summarizeOutcomeLayer(
+    source: CoachOutcomeMemoryLayerSource,
+    outcomeCount: number,
+    staleOutcomeCount: number,
+    counts: {
+        readonly confirmedCount: number;
+        readonly conflictCount: number;
+        readonly invalidCount: number;
+        readonly repeatedFailureCount: number;
+        readonly pendingCount: number;
+        readonly neutralCount: number;
+    },
+): string {
+    if (outcomeCount === 0) {
+        return staleOutcomeCount > 0
+            ? `${staleOutcomeCount} stale outcome(s) ignored for ${source} memory.`
+            : `No ${source} outcome memory.`;
+    }
+
+    if (counts.conflictCount > 0) {
+        return `${counts.conflictCount} conflict outcome(s) require compatible validation before advancing.`;
+    }
+
+    if (counts.repeatedFailureCount > 0) {
+        return `${counts.repeatedFailureCount} repeated failure outcome(s) require a revised hypothesis.`;
+    }
+
+    if (counts.confirmedCount > 0) {
+        return `${counts.confirmedCount} outcome(s) confirmed by compatible progress; consolidate before changing variables.`;
+    }
+
+    if (counts.invalidCount > 0) {
+        return `${counts.invalidCount} invalid capture/execution outcome(s) are validation friction, not protocol proof.`;
+    }
+
+    if (counts.pendingCount > 0 || counts.neutralCount > 0) {
+        return `${counts.pendingCount || counts.neutralCount} neutral/pending outcome(s) need closure before stronger coach memory.`;
+    }
+
+    return `${outcomeCount} outcome(s) available for conservative coach memory.`;
+}
+
+function groupOutcomeEntries(
+    entries: readonly CoachOutcomeMemoryEntry[],
+    predicate: (entry: CoachOutcomeMemoryEntry) => boolean,
+): Map<CoachFocusArea, CoachOutcomeMemoryEntry[]> {
+    const grouped = new Map<CoachFocusArea, CoachOutcomeMemoryEntry[]>();
+
+    for (const entry of entries) {
+        if (!predicate(entry)) {
+            continue;
+        }
+
+        grouped.set(entry.summary.focusArea, [
+            ...(grouped.get(entry.summary.focusArea) ?? []),
+            entry,
+        ]);
+    }
+
+    return grouped;
+}
+
+function outcomeLayerSignal(input: {
+    readonly source: CoachOutcomeMemoryLayerSource;
+    readonly area: CoachFocusArea;
+    readonly key: string;
+    readonly summary: string;
+    readonly confidence: number;
+    readonly coverage: number;
+    readonly weight: number;
+}): CoachSignal {
+    return {
+        source: 'history',
+        area: input.area,
+        key: input.key,
+        summary: input.summary,
+        confidence: input.confidence,
+        coverage: input.coverage,
+        weight: input.weight,
+    };
 }
 
 function isCompatibleHistorySession(
@@ -209,6 +669,7 @@ function collectAlignedFocusAreas(
     recurrentFocuses: readonly CoachMemoryFocusRecurrence[],
     sensitivitySignals: { readonly signals: readonly CoachSignal[] },
     precisionTrend: CoachMemoryPrecisionTrend | undefined,
+    outcomeSignals: readonly CoachSignal[],
 ): readonly CoachFocusArea[] {
     const areas = new Set<CoachFocusArea>();
 
@@ -222,6 +683,12 @@ function collectAlignedFocusAreas(
 
     if (precisionTrend?.label === 'validated_progress') {
         areas.add('validation');
+    }
+
+    for (const signal of outcomeSignals) {
+        if (signal.key.includes('.confirmed.')) {
+            areas.add(signal.area);
+        }
     }
 
     return Array.from(areas);
@@ -354,6 +821,18 @@ function conflictingAreasFromPrecisionTrend(
     return [];
 }
 
+function conflictingAreasFromOutcomeSignals(
+    signals: readonly CoachSignal[],
+): readonly CoachFocusArea[] {
+    return uniqueFocusAreas(signals
+        .filter((signal) => (
+            signal.key.includes('.conflict.')
+            || signal.key.includes('.repeated_failure.')
+            || signal.key.includes('.failure.')
+        ))
+        .map((signal) => signal.area));
+}
+
 function toRecurrentFocusSignal(focus: CoachMemoryFocusRecurrence): CoachSignal {
     return {
         source: 'history',
@@ -371,7 +850,12 @@ function summarizeMemory(
     recurrentFocuses: readonly CoachMemoryFocusRecurrence[],
     conflictingFocusAreas: readonly CoachFocusArea[],
     precisionTrend: CoachMemoryPrecisionTrend | undefined,
+    outcomeMemory: CoachOutcomeMemorySummary,
 ): string {
+    if (outcomeMemory.activeLayer !== 'none') {
+        return outcomeMemory.summary;
+    }
+
     if (precisionTrend) {
         return `Precision trend ${precisionTrend.label} with ${precisionTrend.compatibleCount} compatible clip(s): ${precisionTrend.nextValidationHint}`;
     }

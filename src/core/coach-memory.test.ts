@@ -10,7 +10,13 @@ import {
     buildCoachMemorySnapshot,
     type CoachMemoryHistorySession,
 } from './coach-memory';
-import type { AnalysisResult, CoachFocusArea, ProfileType, SensitivityAcceptanceOutcome } from '../types/engine';
+import type {
+    AnalysisResult,
+    CoachFocusArea,
+    CoachProtocolOutcome,
+    ProfileType,
+    SensitivityAcceptanceOutcome,
+} from '../types/engine';
 
 function compatibleHistorySession(
     currentResult: AnalysisResult,
@@ -52,6 +58,23 @@ function historyWithSensitivityOutcome(
             },
         },
     }, `history-sensitivity-${outcome}`);
+}
+
+function coachProtocolOutcome(
+    overrides: Partial<CoachProtocolOutcome> = {},
+): CoachProtocolOutcome {
+    return {
+        id: 'outcome-1',
+        sessionId: 'history-outcome-1',
+        coachPlanId: 'plan-1',
+        protocolId: 'vertical-control-drill-protocol',
+        focusArea: 'vertical_control',
+        status: 'completed',
+        reasonCodes: [],
+        recordedAt: '2026-04-17T12:30:00.000Z',
+        evidenceStrength: 'neutral',
+        ...overrides,
+    };
 }
 
 describe('buildCoachMemorySnapshot', () => {
@@ -186,6 +209,144 @@ describe('buildCoachMemorySnapshot', () => {
             expect.objectContaining({
                 key: 'precision.validated_regression',
                 summary: expect.stringContaining('regression'),
+            }),
+        ]));
+    });
+
+    it('uses strict compatible outcome memory before global fallback outcomes', () => {
+        const compatibleSession = historyWithPrimaryFocus('vertical_control', 'history-outcome-1');
+        const snapshot = buildCoachMemorySnapshot({
+            currentResult: analysisResultBase,
+            historySessions: [compatibleSession],
+            protocolOutcomes: [
+                coachProtocolOutcome({
+                    id: 'strict-completed',
+                    sessionId: compatibleSession.id,
+                    status: 'completed',
+                    evidenceStrength: 'neutral',
+                }),
+                coachProtocolOutcome({
+                    id: 'global-confirmed',
+                    sessionId: 'different-context-session',
+                    focusArea: 'sensitivity',
+                    status: 'improved',
+                    evidenceStrength: 'confirmed_by_compatible_clip',
+                    coachSnapshot: {
+                        tier: 'test_protocol',
+                        primaryFocusArea: 'sensitivity',
+                        primaryFocusTitle: 'Sensibilidade',
+                        protocolId: 'sensitivity-test-protocol',
+                        validationTarget: 'perfil recomendado melhora com contexto fixo',
+                        precisionTrendLabel: 'validated_progress',
+                    },
+                }),
+            ],
+        });
+
+        expect(snapshot.outcomeMemory.activeLayer).toBe('strict_compatible');
+        expect(snapshot.outcomeMemory.strictCompatible.neutralCount).toBe(1);
+        expect(snapshot.outcomeMemory.globalFallback.confirmedCount).toBe(1);
+        expect(snapshot.signals).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                key: 'outcome.strict_compatible.pending',
+                area: 'validation',
+            }),
+        ]));
+        expect(snapshot.signals).not.toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                key: 'outcome.global_fallback.confirmed.sensitivity',
+            }),
+        ]));
+    });
+
+    it('keeps improved outcomes weak until compatible precision validates progress', () => {
+        const compatibleSession = historyWithPrimaryFocus('vertical_control', 'history-outcome-1');
+        const snapshot = buildCoachMemorySnapshot({
+            currentResult: analysisResultBase,
+            historySessions: [compatibleSession],
+            protocolOutcomes: [
+                coachProtocolOutcome({
+                    id: 'weak-improved',
+                    sessionId: compatibleSession.id,
+                    status: 'improved',
+                    evidenceStrength: 'weak_self_report',
+                }),
+            ],
+        });
+
+        expect(snapshot.outcomeMemory.activeLayer).toBe('strict_compatible');
+        expect(snapshot.outcomeMemory.confirmedCount).toBe(0);
+        expect(snapshot.outcomeMemory.strictCompatible.weakSelfReportCount).toBe(1);
+        expect(snapshot.alignedFocusAreas).not.toContain('vertical_control');
+        expect(snapshot.signals).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                key: 'outcome.strict_compatible.weak_self_report.vertical_control',
+                weight: expect.any(Number),
+            }),
+        ]));
+    });
+
+    it('downweights stale compatible outcomes outside the hybrid memory window', () => {
+        const compatibleSession = {
+            ...historyWithPrimaryFocus('vertical_control', 'history-stale-outcome'),
+            createdAt: new Date('2026-03-01T12:00:00.000Z'),
+        };
+        const snapshot = buildCoachMemorySnapshot({
+            currentResult: analysisResultBase,
+            historySessions: [compatibleSession],
+            protocolOutcomes: [
+                coachProtocolOutcome({
+                    id: 'stale-confirmed',
+                    sessionId: compatibleSession.id,
+                    recordedAt: '2026-03-01T12:30:00.000Z',
+                    status: 'improved',
+                    evidenceStrength: 'confirmed_by_compatible_clip',
+                    coachSnapshot: {
+                        tier: 'test_protocol',
+                        primaryFocusArea: 'vertical_control',
+                        primaryFocusTitle: 'Controle vertical',
+                        protocolId: 'vertical-control-drill-protocol',
+                        validationTarget: 'consolidar o mesmo contexto',
+                        precisionTrendLabel: 'validated_progress',
+                    },
+                }),
+            ],
+        });
+
+        expect(snapshot.outcomeMemory.activeLayer).toBe('none');
+        expect(snapshot.outcomeMemory.strictCompatible.outcomeCount).toBe(0);
+        expect(snapshot.outcomeMemory.strictCompatible.staleOutcomeCount).toBe(1);
+        expect(snapshot.signals).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                key: 'outcome.strict_compatible.stale',
+                area: 'validation',
+            }),
+        ]));
+    });
+
+    it('treats invalid capture outcomes as validation friction instead of protocol failure', () => {
+        const compatibleSession = historyWithPrimaryFocus('vertical_control', 'history-outcome-1');
+        const snapshot = buildCoachMemorySnapshot({
+            currentResult: analysisResultBase,
+            historySessions: [compatibleSession],
+            protocolOutcomes: [
+                coachProtocolOutcome({
+                    id: 'invalid-capture',
+                    sessionId: compatibleSession.id,
+                    status: 'invalid_capture',
+                    reasonCodes: ['capture_quality'],
+                    evidenceStrength: 'invalid',
+                }),
+            ],
+        });
+
+        expect(snapshot.outcomeMemory.invalidCount).toBe(1);
+        expect(snapshot.outcomeMemory.repeatedFailureCount).toBe(0);
+        expect(snapshot.conflictingFocusAreas).not.toContain('vertical_control');
+        expect(snapshot.signals).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                key: 'outcome.strict_compatible.invalid_capture',
+                area: 'capture_quality',
             }),
         ]));
     });
