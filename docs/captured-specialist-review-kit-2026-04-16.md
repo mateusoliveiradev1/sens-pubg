@@ -4,6 +4,10 @@ This guide is generated from the captured benchmark draft, intake manifest, labe
 
 Only a real specialist review should flip provenance to `specialist-reviewed`.
 
+Specialist review is not a substitute for consent review. Confirm that the clip has a matching consent record, allowed benchmark purpose, derivative scope, and trainability authorization before approving any `golden` transition.
+
+Public streamer/pro videos are qualitative reference only unless formal permission/trainability is verified. Do not use public video frames as validation or training evidence from this kit without formal permission recorded in the consent manifest.
+
 ## Commands
 
 ```bash
@@ -28,5 +32,6 @@ npm run validate:sdd-coverage
 - Confirmar que o clip ainda merece `golden` ao revisar video, contact sheet e center preview.
 - Confirmar que patch, arma, distancia, stance, optic/state, attachments e spray window continuam defensaveis.
 - Confirmar que os frame labels cobrem o trecho de spray com evidencia suficiente para auditoria humana.
+- Confirmar que consentimento, finalidade permitida, autorizacao de trainability e escopo de derivativos ainda permitem a promocao.
+- Se permissao foi retirada, quarentenar o clip e disparar rebaseline antes de qualquer release claim.
 - Se houver duvida material, nao escrever `specialist-reviewed`; manter a decisao como `pending` e corrigir corpus/labels primeiro.
-

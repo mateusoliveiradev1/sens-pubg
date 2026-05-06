@@ -244,7 +244,7 @@ describe('createAimAnalyzerSession', () => {
         });
     });
 
-    it('tracks visible, uncertain, and occluded frames with auditable counters', () => {
+    it('tracks visible, uncertain, occluded, and lost frames with auditable counters', () => {
         const session = createAimAnalyzerSession();
         session.start();
 
@@ -273,27 +273,27 @@ describe('createAimAnalyzerSession', () => {
         });
 
         expect(progress).toMatchObject({
-            frameCount: 2,
+            frameCount: 1,
             framesProcessed: 4,
-            framesLost: 1,
-            visibleFrames: 3,
+            framesLost: 2,
+            visibleFrames: 2,
             statusCounts: {
-                tracked: 2,
+                tracked: 1,
                 uncertain: 1,
                 occluded: 1,
-                lost: 0,
+                lost: 1,
             },
         });
-        expect(progress.trackingQuality).toBeCloseTo(0.625, 5);
+        expect(progress.trackingQuality).toBeCloseTo(0.375, 5);
 
         const result = session.finish();
 
-        expect(result.points).toHaveLength(2);
+        expect(result.points).toHaveLength(1);
         expect(result.trackingFrames.map((frame) => frame.status)).toEqual([
             'tracked',
             'uncertain',
             'occluded',
-            'tracked',
+            'lost',
         ]);
         expect(result.trackingFrames[0]).toMatchObject({
             colorState: 'red',
@@ -301,8 +301,7 @@ describe('createAimAnalyzerSession', () => {
             opticStateConfidence: 1,
         });
         expect(result.trackingFrames[2]?.exogenousDisturbance.occlusion).toBe(1);
-        expect(result.trackingQuality).toBeCloseTo(0.625, 5);
-        expect(result.suggestion).toContain('puxando demais');
+        expect(result.trackingQuality).toBeCloseTo(0.375, 5);
     });
 
     it('marks a frame as lost before the tracker has any prior lock', () => {

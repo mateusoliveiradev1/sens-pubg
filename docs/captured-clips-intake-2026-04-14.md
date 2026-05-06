@@ -8,6 +8,10 @@ Four local PUBG clips are registered in `tests/goldens/benchmark/captured-benchm
 
 The raw video files are intentionally ignored by git. The benchmark dataset, label templates and preview images are lightweight evidence for the intake decision.
 
+Consent placeholders live in `tests/fixtures/captured-clips/consent.todo.v1.json`. They mark the current starter pack as private, internal-validation-only, and not trainability-authorized unless a maintainer records explicit permission for a later transition.
+
+Public streamer/pro videos are qualitative reference only unless formal permission/trainability is verified. They must not be downloaded, frame-extracted, trained on, validated against, or promoted from this intake path without a filled consent record.
+
 Frame label templates live in `tests/fixtures/captured-clips/labels/*.frames.todo.json`. Despite the historical `.todo` suffix, the current starter pack has enough tracking labels to run the pure benchmark path.
 
 Validation command:
@@ -25,6 +29,8 @@ npm run promote:captured-clips
 ```
 
 This command combines the intake manifest and label worksheet into a benchmark dataset draft only after every clip is fully labeled.
+
+The promotion CLI also reads the consent manifest by default. A missing, withdrawn, qualitative-only, or trainability-incomplete consent record blocks promotion and is reported with field paths.
 
 Labeling guide command:
 
@@ -64,3 +70,5 @@ npx tsx scripts/run-benchmark.ts tests/goldens/benchmark/captured-benchmark-draf
 ```
 
 Only promote additional clips to `golden` after a second human review; `reviewed` clips are sufficient for starter coverage but should not be treated as immutable truth.
+
+If consent is withdrawn, quarantine the clip and rebaseline any benchmark or release evidence that previously counted it.

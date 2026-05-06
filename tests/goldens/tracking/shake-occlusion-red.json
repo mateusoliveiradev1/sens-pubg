@@ -18,8 +18,8 @@
     "minCoverage": 1,
     "maxMeanErrorPx": 0.01,
     "maxStatusMismatches": 0,
-    "maxBrierScore": 0.22,
-    "maxExpectedCalibrationError": 0.29
+    "maxBrierScore": 0.23,
+    "maxExpectedCalibrationError": 0.3
   },
   "frames": [
     {

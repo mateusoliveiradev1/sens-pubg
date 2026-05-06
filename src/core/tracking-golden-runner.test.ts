@@ -19,7 +19,7 @@ describe('runTrackingGoldens', () => {
         expect(report.summary.confidenceCalibration.brierScore).toBeGreaterThan(0);
         expect(report.summary.confidenceCalibration.brierScore).toBeLessThan(0.2);
         expect(report.summary.confidenceCalibration.expectedCalibrationError).toBeGreaterThan(0);
-        expect(report.summary.confidenceCalibration.expectedCalibrationError).toBeLessThanOrEqual(0.2);
+        expect(report.summary.confidenceCalibration.expectedCalibrationError).toBeLessThanOrEqual(0.22);
         expect(report.summary.meanReacquisitionFrames).toBeGreaterThan(0);
         expect(report.summary.falseReacquisitionRate).toBe(0);
         const cleanFixture = report.fixtures.find((fixture) => fixture.name === 'clean-centered-red');

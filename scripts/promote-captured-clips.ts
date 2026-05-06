@@ -8,6 +8,7 @@ import { buildCapturedPromotionMarkdownReport } from '../src/core/captured-promo
 import { parseCapturedClipIntakeManifest } from '../src/types/captured-clip-intake';
 import { parseCapturedBenchmarkReviewDecisionSet } from '../src/types/captured-benchmark-review-decisions';
 import { parseCapturedClipLabelSet } from '../src/types/captured-clip-labels';
+import { parseCapturedClipConsentManifest } from '../src/types/captured-clip-consent';
 import { parseBenchmarkDataset, type BenchmarkDataset } from '../src/types/benchmark';
 import { runBenchmark } from './run-benchmark';
 import type { CapturedBenchmarkPromotionReport } from '../src/core/captured-golden-promotion';
@@ -15,6 +16,7 @@ import type { CapturedBenchmarkPromotionReport } from '../src/core/captured-gold
 export interface PromoteCapturedClipsOptions {
     readonly intakePath?: string;
     readonly labelsPath?: string;
+    readonly consentPath?: string;
     readonly reviewDecisionsPath?: string;
     readonly datasetId?: string;
     readonly createdAt?: string;
@@ -70,6 +72,9 @@ export const promoteCapturedClips = async (options: PromoteCapturedClipsOptions 
     const loadedLabelSet = parseCapturedClipLabelSet(
         await loadJson(options.labelsPath ?? 'tests/fixtures/captured-clips/labels.todo.v1.json'),
     );
+    const consentManifest = parseCapturedClipConsentManifest(
+        await loadJson(options.consentPath ?? 'tests/fixtures/captured-clips/consent.todo.v1.json'),
+    );
     const labelSet = options.clipIds && options.clipIds.length > 0
         ? {
             ...loadedLabelSet,
@@ -86,6 +91,7 @@ export const promoteCapturedClips = async (options: PromoteCapturedClipsOptions 
         createdAt: options.createdAt ?? new Date().toISOString(),
         intakeManifest,
         labelSet,
+        consentManifest,
         ...(reviewDecisionSet ? { reviewDecisionSet } : {}),
         ...(options.targetMaturity ? { targetMaturity: options.targetMaturity } : {}),
         ...(options.promotionReason ? { promotionReason: options.promotionReason } : {}),
@@ -158,7 +164,7 @@ function readRepeatedOption(args: readonly string[], name: string): readonly str
     return values;
 }
 
-function parseFlagOptions(args: readonly string[]): PromoteCapturedClipsOptions {
+export function parsePromoteCapturedClipFlagOptions(args: readonly string[]): PromoteCapturedClipsOptions {
     const createdAt = new Date().toISOString();
     const reportPath = readOption(args, '--report')
         ?? `docs/benchmark-reports/captured-promotion-${createdAt.slice(0, 10)}.md`;
@@ -180,6 +186,7 @@ function parseFlagOptions(args: readonly string[]): PromoteCapturedClipsOptions 
     return {
         intakePath: readOption(args, '--intake') ?? 'tests/fixtures/captured-clips/intake.v1.json',
         labelsPath: readOption(args, '--labels') ?? 'tests/fixtures/captured-clips/labels.todo.v1.json',
+        consentPath: readOption(args, '--consent') ?? 'tests/fixtures/captured-clips/consent.todo.v1.json',
         datasetId: readOption(args, '--dataset-id') ?? 'captured-benchmark-draft',
         createdAt,
         writeDataset: args.includes('--write'),
@@ -205,7 +212,7 @@ const main = async (): Promise<void> => {
     const flagMode = args.some((arg) => arg.startsWith('--'));
     const [intakeArg, labelsArg, datasetIdArg, reviewDecisionsArg] = args;
     const options = flagMode
-        ? parseFlagOptions(args)
+        ? parsePromoteCapturedClipFlagOptions(args)
         : {
             ...(intakeArg ? { intakePath: intakeArg } : {}),
             ...(labelsArg ? { labelsPath: labelsArg } : {}),

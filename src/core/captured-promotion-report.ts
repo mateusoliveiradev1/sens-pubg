@@ -23,6 +23,44 @@ function statusLabel(passed: boolean): 'PASS' | 'FAIL' {
     return passed ? 'PASS' : 'FAIL';
 }
 
+function yesNo(value: boolean): 'yes' | 'no' {
+    return value ? 'yes' : 'no';
+}
+
+function formatAllowedPurposes(purposes: readonly string[]): string {
+    return purposes.length > 0 ? purposes.join(', ') : 'missing';
+}
+
+function consentBlockers(input: CapturedPromotionReportInput): boolean {
+    const consentReasons = new Set([
+        'missing-consent',
+        'consent-not-verified',
+        'trainability-not-authorized',
+        'redistribution-scope-mismatch',
+        'withdrawn-clip',
+        'review-state-too-early',
+        'permissioned-purpose-missing',
+    ]);
+
+    return input.promotion.blockedClips.some((blocker) => consentReasons.has(blocker.reason));
+}
+
+function withdrawalLabel(summary: CapturedBenchmarkPromotionReport['consent'][number] | undefined): string {
+    if (!summary) {
+        return 'missing';
+    }
+
+    if (!summary.withdrawn) {
+        return 'no';
+    }
+
+    return [
+        'withdrawn',
+        summary.quarantineRequired ? 'quarantine' : 'quarantine-missing',
+        summary.requiresRebaseline ? 'rebaseline' : 'rebaseline-missing',
+    ].join(' / ');
+}
+
 function selectedIds(input: CapturedPromotionReportInput): readonly string[] {
     if (input.selectedClipIds.length > 0) {
         return input.selectedClipIds;
@@ -50,8 +88,19 @@ function coverageDeltaRows(input: CapturedPromotionReportInput): readonly string
 
 function metadataRows(input: CapturedPromotionReportInput): readonly string[] {
     const clips = input.promotion.dataset?.clips ?? [];
+    const consentByClipId = new Map(input.promotion.consent.map((summary) => [summary.clipId, summary]));
 
-    return clips.map((clip) => `| ${clip.clipId} | ${clip.capture.patchVersion} | ${clip.capture.weaponId} | ${clip.capture.optic.opticId}:${clip.capture.optic.stateId} | ${clip.capture.distanceMeters} | ${clip.quality.reviewStatus} | ${clip.quality.reviewProvenance?.source ?? 'unspecified'} |`);
+    return clips.map((clip) => {
+        const consent = consentByClipId.get(clip.clipId);
+
+        return `| ${clip.clipId} | ${clip.capture.patchVersion} | ${clip.capture.weaponId} | ${clip.capture.optic.opticId}:${clip.capture.optic.stateId} | ${clip.capture.distanceMeters} | ${clip.quality.reviewStatus} | ${clip.quality.reviewProvenance?.source ?? 'unspecified'} | ${consent?.consentStatus ?? 'missing'} | ${formatAllowedPurposes(consent?.allowedPurposes ?? [])} | ${yesNo(consent?.trainabilityAuthorized ?? false)} | ${consent?.derivativeScope ?? 'missing'} | ${withdrawalLabel(consent)} |`;
+    });
+}
+
+function consentRows(input: CapturedPromotionReportInput): readonly string[] {
+    return input.promotion.consent.map((summary) => (
+        `| ${summary.clipId} | ${summary.consentStatus} | ${formatAllowedPurposes(summary.allowedPurposes)} | ${yesNo(summary.trainabilityAuthorized)} | ${summary.derivativeScope} | ${yesNo(summary.redistributionAllowed)} | ${withdrawalLabel(summary)} |`
+    ));
 }
 
 function blockerRows(input: CapturedPromotionReportInput): readonly string[] {
@@ -96,14 +145,21 @@ export function buildCapturedPromotionMarkdownReport(
         '| Check | Status |',
         '|---|---|',
         `| Metadata and label completeness | ${statusLabel(input.promotion.blockedClips.length === 0)} |`,
+        `| Consent and corpus permission | ${statusLabel(!consentBlockers(input))} |`,
         `| Benchmark or replay validation | ${statusLabel(input.benchmarkPassed)} |`,
         `| Dataset write eligibility | ${statusLabel(input.promotion.dataset !== undefined)} |`,
         '',
         '## Metadata And Provenance',
         '',
-        '| Clip | Patch | Weapon | Optic | Distance | Maturity | Provenance |',
-        '|---|---|---|---|---:|---|---|',
-        ...(metadataRows(input).length > 0 ? metadataRows(input) : ['| (none) | - | - | - | 0 | - | - |']),
+        '| Clip | Patch | Weapon | Optic | Distance | Maturity | Provenance | Consent status | Allowed purposes | Trainability | Derivative scope | Withdrawal |',
+        '|---|---|---|---|---:|---|---|---|---|---|---|---|',
+        ...(metadataRows(input).length > 0 ? metadataRows(input) : ['| (none) | - | - | - | 0 | - | - | missing | missing | no | missing | missing |']),
+        '',
+        '## Consent And Permission',
+        '',
+        '| Clip | Consent status | Allowed purposes | Trainability | Derivative scope | Redistribution | Withdrawal |',
+        '|---|---|---|---|---|---|---|',
+        ...(consentRows(input).length > 0 ? consentRows(input) : ['| (none) | missing | missing | no | missing | no | missing |']),
         '',
         '## Coverage Impact',
         '',
@@ -124,6 +180,8 @@ export function buildCapturedPromotionMarkdownReport(
         '## Next Gaps',
         '',
         ...(gaps.length > 0 ? gaps.map((gap) => `- ${gap}`) : ['- None']),
+        '',
+        'Public streamer/pro videos are qualitative reference only unless formal permission/trainability is verified.',
         '',
         'Internal maintainer/dev/reviewer workflow only. These labels are not public user-generated content.',
         '',

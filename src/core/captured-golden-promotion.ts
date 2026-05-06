@@ -1,5 +1,9 @@
 import type { BenchmarkClip, BenchmarkClipReviewProvenance, BenchmarkDataset } from '@/types/benchmark';
 import { parseBenchmarkDataset } from '@/types/benchmark';
+import type {
+    CapturedClipConsentManifest,
+    CapturedClipConsentRecord,
+} from '@/types/captured-clip-consent';
 import type { CapturedClipIntakeClip, CapturedClipIntakeManifest } from '@/types/captured-clip-intake';
 import type { CapturedBenchmarkReviewDecisionSet } from '@/types/captured-benchmark-review-decisions';
 import {
@@ -18,6 +22,13 @@ export type CapturedBenchmarkPromotionBlockerReason =
     | 'missing-frame-labels'
     | 'missing-spray-window'
     | 'missing-provenance'
+    | 'missing-consent'
+    | 'consent-not-verified'
+    | 'trainability-not-authorized'
+    | 'redistribution-scope-mismatch'
+    | 'withdrawn-clip'
+    | 'review-state-too-early'
+    | 'permissioned-purpose-missing'
     | 'missing-promotion-reason'
     | 'golden-without-reviewed-status'
     | 'golden-without-replay-pass'
@@ -35,10 +46,23 @@ export interface CapturedBenchmarkPromotionInput {
     readonly intakeManifest: CapturedClipIntakeManifest;
     readonly labelSet: CapturedClipLabelSet;
     readonly reviewDecisionSet?: CapturedBenchmarkReviewDecisionSet;
+    readonly consentManifest?: CapturedClipConsentManifest;
     readonly targetMaturity?: BenchmarkClip['quality']['reviewStatus'];
     readonly promotionReason?: string;
     readonly replayPassedClipIds?: readonly string[];
     readonly strongReviewClipIds?: readonly string[];
+}
+
+export interface CapturedBenchmarkConsentSummary {
+    readonly clipId: string;
+    readonly consentStatus: CapturedClipConsentRecord['consentStatus'] | 'missing';
+    readonly allowedPurposes: readonly CapturedClipConsentRecord['allowedPurposes'][number][];
+    readonly trainabilityAuthorized: boolean;
+    readonly derivativeScope: CapturedClipConsentRecord['derivativeScope'] | 'missing';
+    readonly redistributionAllowed: boolean;
+    readonly withdrawn: boolean;
+    readonly quarantineRequired?: boolean;
+    readonly requiresRebaseline?: boolean;
 }
 
 export interface CapturedBenchmarkPromotionReport {
@@ -46,6 +70,7 @@ export interface CapturedBenchmarkPromotionReport {
     readonly promotedClipCount: number;
     readonly goldenClipCount: number;
     readonly blockedClips: readonly CapturedBenchmarkPromotionBlocker[];
+    readonly consent: readonly CapturedBenchmarkConsentSummary[];
     readonly dataset?: BenchmarkDataset;
 }
 
@@ -136,11 +161,62 @@ function pushBlocker(
     blockers.push({ clipId, reason, missingFieldPaths });
 }
 
+const consentStatusRank: Record<CapturedClipConsentRecord['consentStatus'], number> = {
+    intake_received: 0,
+    consent_verified: 1,
+    metadata_complete: 2,
+    technical_screened: 3,
+    label_review: 4,
+    specialist_reviewed: 5,
+    golden_candidate: 6,
+    golden_promoted: 7,
+    rejected: -1,
+    deferred: -1,
+    withdrawn: -1,
+};
+
+function hasPurpose(
+    consent: CapturedClipConsentRecord | undefined,
+    purpose: CapturedClipConsentRecord['allowedPurposes'][number],
+): boolean {
+    return consent?.allowedPurposes.includes(purpose) ?? false;
+}
+
+function toConsentSummary(
+    clipId: string,
+    consent: CapturedClipConsentRecord | undefined,
+): CapturedBenchmarkConsentSummary {
+    if (!consent) {
+        return {
+            clipId,
+            consentStatus: 'missing',
+            allowedPurposes: [],
+            trainabilityAuthorized: false,
+            derivativeScope: 'missing',
+            redistributionAllowed: false,
+            withdrawn: false,
+        };
+    }
+
+    return {
+        clipId,
+        consentStatus: consent.consentStatus,
+        allowedPurposes: consent.allowedPurposes,
+        trainabilityAuthorized: consent.trainabilityAuthorized,
+        derivativeScope: consent.derivativeScope,
+        redistributionAllowed: consent.redistributionAllowed,
+        withdrawn: consent.consentStatus === 'withdrawn',
+        ...(consent.withdrawal ? { quarantineRequired: consent.withdrawal.quarantineRequired } : {}),
+        ...(consent.withdrawal ? { requiresRebaseline: consent.withdrawal.requiresRebaseline } : {}),
+    };
+}
+
 function collectStrictBlockers(input: {
     readonly intakeClip: CapturedClipIntakeClip;
     readonly label: CapturedClipLabel;
     readonly reviewStatus: BenchmarkClip['quality']['reviewStatus'];
     readonly reviewProvenance: BenchmarkClipReviewProvenance;
+    readonly consent?: CapturedClipConsentRecord;
     readonly targetMaturity?: BenchmarkClip['quality']['reviewStatus'];
     readonly promotionReason?: string;
     readonly replayPassedClipIds?: readonly string[];
@@ -149,6 +225,8 @@ function collectStrictBlockers(input: {
     const blockers: CapturedBenchmarkPromotionBlocker[] = [];
     const { label } = input;
     const diagnosed = (label.labels.expectedDiagnoses?.length ?? 0) > 0;
+    const consent = input.consent;
+    const targetIsGolden = input.targetMaturity === 'golden' || input.reviewStatus === 'golden';
 
     pushBlocker(blockers, label.clipId, 'missing-capture-metadata', [
         ...([
@@ -178,6 +256,43 @@ function collectStrictBlockers(input: {
     ]);
     pushBlocker(blockers, label.clipId, 'missing-provenance', input.reviewProvenance.source ? [] : ['quality.reviewProvenance.source']);
 
+    pushBlocker(blockers, label.clipId, 'missing-consent', consent ? [] : ['consent.clipId']);
+
+    if (consent) {
+        pushBlocker(blockers, label.clipId, 'withdrawn-clip', consent.consentStatus === 'withdrawn'
+            ? [
+                'consent.consentStatus',
+                'consent.withdrawal.quarantineRequired',
+                'consent.withdrawal.requiresRebaseline',
+            ]
+            : []);
+
+        pushBlocker(blockers, label.clipId, 'redistribution-scope-mismatch', (
+            consent.redistributionAllowed &&
+            consent.derivativeScope !== 'thumbnail_allowed' &&
+            consent.derivativeScope !== 'frames_allowed'
+        ) ? ['consent.redistributionAllowed', 'consent.derivativeScope'] : []);
+
+        if (targetIsGolden) {
+            const consentReadyForGolden = consent.consentStatus === 'golden_candidate'
+                || consent.consentStatus === 'golden_promoted';
+
+            pushBlocker(blockers, label.clipId, 'review-state-too-early', consentReadyForGolden ? [] : ['consent.consentStatus']);
+            pushBlocker(blockers, label.clipId, 'permissioned-purpose-missing', hasPurpose(consent, 'commercial_benchmark') ? [] : ['consent.allowedPurposes.commercial_benchmark']);
+            pushBlocker(blockers, label.clipId, 'trainability-not-authorized', consent.trainabilityAuthorized ? [] : ['consent.trainabilityAuthorized']);
+        } else {
+            pushBlocker(blockers, label.clipId, 'consent-not-verified', consentStatusRank[consent.consentStatus] >= consentStatusRank.label_review ? [] : ['consent.consentStatus']);
+            pushBlocker(blockers, label.clipId, 'permissioned-purpose-missing', hasPurpose(consent, 'internal_validation') ? [] : ['consent.allowedPurposes.internal_validation']);
+        }
+
+        if (
+            consent.allowedPurposes.length === 1 &&
+            consent.allowedPurposes[0] === 'qualitative_reference'
+        ) {
+            pushBlocker(blockers, label.clipId, 'permissioned-purpose-missing', ['consent.allowedPurposes.qualitative_reference_only']);
+        }
+    }
+
     if (diagnosed) {
         pushBlocker(blockers, label.clipId, 'missing-coach-expectation', [
             ...(label.labels.expectedCoachMode === null || label.labels.expectedCoachMode === undefined ? ['labels.expectedCoachMode'] : []),
@@ -189,7 +304,7 @@ function collectStrictBlockers(input: {
         pushBlocker(blockers, label.clipId, 'missing-promotion-reason', ['promotionReason']);
     }
 
-    if (input.targetMaturity === 'golden') {
+    if (targetIsGolden) {
         pushBlocker(blockers, label.clipId, 'golden-without-reviewed-status', input.reviewStatus === 'draft' ? ['quality.reviewStatus'] : []);
         pushBlocker(
             blockers,
@@ -199,7 +314,8 @@ function collectStrictBlockers(input: {
         );
         const hasStrongReview = input.strongReviewClipIds?.includes(label.clipId)
             || input.reviewProvenance.source === 'specialist-reviewed'
-            || input.reviewProvenance.source === 'human-reviewed';
+            || input.reviewProvenance.source === 'human-reviewed'
+            || (input.reviewProvenance.source === 'codex-assisted' && Boolean(input.reviewProvenance.notes?.trim()));
         pushBlocker(blockers, label.clipId, 'golden-without-strong-review', hasStrongReview ? [] : ['review.strongJustification']);
     }
 
@@ -258,6 +374,7 @@ const resolveReviewProvenance = (
             source: decision.approvedReviewProvenance ?? 'human-reviewed',
             ...(decision.approvedBy ? { reviewerId: decision.approvedBy } : {}),
             ...(decision.approvedAt ? { reviewedAt: decision.approvedAt } : {}),
+            ...(decision.rationale ? { notes: decision.rationale } : {}),
         };
     }
 
@@ -272,10 +389,14 @@ export const buildCapturedBenchmarkPromotion = (
     input: CapturedBenchmarkPromotionInput,
 ): CapturedBenchmarkPromotionReport => {
     const intakeByClipId = new Map(input.intakeManifest.clips.map((clip) => [clip.clipId, clip]));
+    const consentByClipId = new Map((input.consentManifest?.clips ?? []).map((clip) => [clip.clipId, clip]));
     const blockedClips: CapturedBenchmarkPromotionBlocker[] = [];
     const benchmarkClips: BenchmarkClip[] = [];
+    const consentSummaries: CapturedBenchmarkConsentSummary[] = [];
 
     for (const label of input.labelSet.clips) {
+        const consent = consentByClipId.get(label.clipId);
+        consentSummaries.push(toConsentSummary(label.clipId, consent));
         const intakeClip = intakeByClipId.get(label.clipId);
         if (!intakeClip) {
             blockedClips.push({
@@ -303,6 +424,7 @@ export const buildCapturedBenchmarkPromotion = (
             label,
             reviewStatus,
             reviewProvenance,
+            ...(consent ? { consent } : {}),
             ...(input.targetMaturity ? { targetMaturity: input.targetMaturity } : {}),
             ...(input.promotionReason ? { promotionReason: input.promotionReason } : {}),
             ...(input.replayPassedClipIds ? { replayPassedClipIds: input.replayPassedClipIds } : {}),
@@ -328,6 +450,7 @@ export const buildCapturedBenchmarkPromotion = (
             promotedClipCount: 0,
             goldenClipCount: 0,
             blockedClips,
+            consent: consentSummaries,
         };
     }
 
@@ -336,6 +459,7 @@ export const buildCapturedBenchmarkPromotion = (
         promotedClipCount: benchmarkClips.length,
         goldenClipCount: benchmarkClips.filter((clip) => clip.quality.reviewStatus === 'golden').length,
         blockedClips,
+        consent: consentSummaries,
         dataset: parseBenchmarkDataset({
             schemaVersion: 1,
             datasetId: input.datasetId,

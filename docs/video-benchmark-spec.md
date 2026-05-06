@@ -54,10 +54,20 @@ Reviewed clips can count for the strict release gate when structured checks pass
 
 Golden requires reviewed status, stable replay/benchmark pass, complete metadata, a strong human/specialist/Codex-assisted review justification, and a promotion reason. Missing metadata blocks promotion and must report field paths.
 
+## Consent And Public Video Rules
+
+Every captured or real/pro validation clip needs a per-clip consent record before it can count as `reviewed` or `golden`. The record must include contributor reference, consent date, allowed purposes, trainability authorization when applicable, raw clip storage scope, derivative scope, reviewer, review state, transition reason, and withdrawal fields when permission is removed.
+
+Raw clips are private by default. Promotion reports and benchmark artifacts may use clip IDs, metadata, labels, aggregate metrics, and review rationale. Thumbnails or frame derivatives require explicit `thumbnail_allowed` or `frames_allowed` derivative scope, and redistribution must never be inferred from benchmark membership.
+
+Public streamer/pro videos are qualitative reference only unless formal permission/trainability is verified. Do not download, frame-extract, train on, validate against, or promote public YouTube/Twitch/pro footage as benchmark evidence without explicit permission and the required trainability/commercial benchmark purposes.
+
+Withdrawn clips must be quarantined and any affected benchmark baseline must be rechecked or rebaselined before future release claims.
+
 Useful commands:
 
 ```bash
-npm run promote:captured-clips -- --dry-run --clip captured-clip1-2026-04-14 --to reviewed --reason "Close release evidence gap" --reviewer maintainer --report docs/benchmark-reports/captured-promotion-2026-05-05.md
+npm run promote:captured-clips -- --dry-run --clip captured-clip1-2026-04-14 --to reviewed --reason "Close release evidence gap" --reviewer maintainer --consent tests/fixtures/captured-clips/consent.todo.v1.json --report docs/benchmark-reports/captured-promotion-2026-05-05.md
 npm run promote:captured-clips:with-review-decisions
 npm run benchmark:release
 npm run benchmark:update-baseline -- --dataset captured --reason "Intentional truth-contract change" --affected-clips "captured-clip1" --honesty-rationale "The new refusal avoids overclaiming weak evidence"

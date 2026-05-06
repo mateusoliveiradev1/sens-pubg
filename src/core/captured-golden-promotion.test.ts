@@ -3,9 +3,55 @@ import { describe, expect, it } from 'vitest';
 import { parseCapturedClipIntakeManifest } from '@/types/captured-clip-intake';
 import { parseCapturedBenchmarkReviewDecisionSet } from '@/types/captured-benchmark-review-decisions';
 import { parseCapturedClipLabelSet } from '@/types/captured-clip-labels';
+import {
+    parseCapturedClipConsentManifest,
+    type CapturedClipConsentManifest,
+    type CapturedClipConsentRecord,
+} from '@/types/captured-clip-consent';
 import { buildCapturedBenchmarkPromotion } from './captured-golden-promotion';
 
 const readJson = (path: string): unknown => JSON.parse(readFileSync(path, 'utf8'));
+const loadConsentManifest = (): CapturedClipConsentManifest =>
+    parseCapturedClipConsentManifest(readJson('tests/fixtures/captured-clips/consent.todo.v1.json'));
+
+function withConsentClip(
+    clipId: string,
+    patch: Partial<CapturedClipConsentRecord>,
+): CapturedClipConsentManifest {
+    const manifest = loadConsentManifest();
+
+    return {
+        ...manifest,
+        clips: manifest.clips.map((clip): CapturedClipConsentRecord => (
+            clip.clipId === clipId ? { ...clip, ...patch } : clip
+        )),
+    };
+}
+
+function withGoldenConsent(...clipIds: readonly string[]): CapturedClipConsentManifest {
+    const manifest = loadConsentManifest();
+    const goldenClipIds = new Set(clipIds.length > 0 ? clipIds : manifest.clips.map((clip) => clip.clipId));
+
+    return {
+        ...manifest,
+        clips: manifest.clips.map((clip): CapturedClipConsentRecord => (
+            goldenClipIds.has(clip.clipId)
+                ? {
+                    ...clip,
+                    consentStatus: 'golden_candidate',
+                    allowedPurposes: [
+                        'internal_validation',
+                        'commercial_benchmark',
+                        'trainability',
+                    ],
+                    trainabilityAuthorized: true,
+                    transitionReason: 'Fixture golden permission and trainability authorization for tests.',
+                }
+                : clip
+        )),
+    };
+}
+
 const expectedTruth = {
     actionState: 'testable',
     mechanicalLevel: 'advanced',
@@ -38,6 +84,7 @@ describe('captured golden promotion', () => {
             createdAt: '2026-04-14T19:30:00.000Z',
             intakeManifest,
             labelSet,
+            consentManifest: loadConsentManifest(),
         });
 
         expect(promotion.dataset).toBeDefined();
@@ -128,6 +175,7 @@ describe('captured golden promotion', () => {
             createdAt: '2026-04-14T19:30:00.000Z',
             intakeManifest,
             labelSet,
+            consentManifest: loadConsentManifest(),
         });
 
         expect(promotion.blockedClips).toEqual([]);
@@ -184,6 +232,7 @@ describe('captured golden promotion', () => {
             intakeManifest,
             labelSet,
             reviewDecisionSet,
+            consentManifest: loadConsentManifest(),
         });
 
         expect(promotion.goldenClipCount).toBe(0);
@@ -222,6 +271,8 @@ describe('captured golden promotion', () => {
             intakeManifest,
             labelSet,
             reviewDecisionSet,
+            consentManifest: withGoldenConsent('captured-clip1-2026-04-14'),
+            replayPassedClipIds: ['captured-clip1-2026-04-14'],
         });
 
         expect(promotion.goldenClipCount).toBe(1);
@@ -230,6 +281,7 @@ describe('captured golden promotion', () => {
             source: 'specialist-reviewed',
             reviewerId: 'human-reviewer',
             reviewedAt: '2026-04-14T22:50:00.000Z',
+            notes: 'Clip limpo confirmado manualmente como golden inicial.',
         });
         expect(promotion.dataset?.clips[1]?.quality.reviewStatus).toBe('reviewed');
     });
@@ -274,6 +326,8 @@ describe('captured golden promotion', () => {
             intakeManifest,
             labelSet,
             reviewDecisionSet,
+            consentManifest: withGoldenConsent('captured-clip1-2026-04-14'),
+            replayPassedClipIds: ['captured-clip1-2026-04-14'],
         });
 
         expect(promotion.goldenClipCount).toBe(1);
@@ -282,6 +336,7 @@ describe('captured golden promotion', () => {
             source: 'codex-assisted',
             reviewerId: 'codex-auto-review',
             reviewedAt: '2026-04-14T22:50:00.000Z',
+            notes: 'Promocao proposta automaticamente: clip limpo confirmado.',
         });
     });
 
@@ -324,6 +379,8 @@ describe('captured golden promotion', () => {
             intakeManifest,
             labelSet,
             reviewDecisionSet,
+            consentManifest: withGoldenConsent('captured-clip1-2026-04-14'),
+            replayPassedClipIds: ['captured-clip1-2026-04-14'],
         });
 
         expect(promotion.goldenClipCount).toBe(1);
@@ -332,6 +389,7 @@ describe('captured golden promotion', () => {
             source: 'specialist-reviewed',
             reviewerId: 'specialist-reviewer',
             reviewedAt: '2026-04-15T10:15:00.000Z',
+            notes: 'Validacao especialista proposta automaticamente: clip golden revisado por especialista.',
         });
     });
 
@@ -381,11 +439,114 @@ describe('captured golden promotion', () => {
             createdAt: '2026-04-14T19:30:00.000Z',
             intakeManifest,
             labelSet,
+            consentManifest: loadConsentManifest(),
         });
 
         expect(promotion.dataset).toBeUndefined();
         expect(promotion.blockedClips[0]?.reason).toBe('missing-intake');
         expect(promotion.goldenClipCount).toBe(0);
+    });
+
+    it('blocks promotion when consent is missing', () => {
+        const intakeManifest = parseCapturedClipIntakeManifest(readJson('tests/fixtures/captured-clips/intake.v1.json'));
+        const labelSet = parseCapturedClipLabelSet(readJson('tests/fixtures/captured-clips/labels.todo.v1.json'));
+
+        const promotion = buildCapturedBenchmarkPromotion({
+            datasetId: 'captured-benchmark-draft',
+            createdAt: '2026-04-14T19:30:00.000Z',
+            intakeManifest,
+            labelSet,
+        });
+
+        expect(promotion.dataset).toBeUndefined();
+        expect(promotion.blockedClips.some((clip) => clip.reason === 'missing-consent')).toBe(true);
+        expect(promotion.consent.every((clip) => clip.consentStatus === 'missing')).toBe(true);
+    });
+
+    it('blocks golden promotion until commercial benchmark purpose and trainability are verified', () => {
+        const intakeManifest = parseCapturedClipIntakeManifest(readJson('tests/fixtures/captured-clips/intake.v1.json'));
+        const labelSet = parseCapturedClipLabelSet(readJson('tests/fixtures/captured-clips/labels.todo.v1.json'));
+        const clipIds = labelSet.clips.map((clip) => clip.clipId);
+
+        const promotion = buildCapturedBenchmarkPromotion({
+            datasetId: 'captured-benchmark-draft',
+            createdAt: '2026-04-14T23:00:00.000Z',
+            intakeManifest,
+            labelSet,
+            consentManifest: loadConsentManifest(),
+            targetMaturity: 'golden',
+            promotionReason: 'Promover evidencia forte para release.',
+            replayPassedClipIds: clipIds,
+            strongReviewClipIds: clipIds,
+        });
+
+        expect(promotion.dataset).toBeUndefined();
+        expect(promotion.blockedClips.some((clip) => clip.reason === 'review-state-too-early')).toBe(true);
+        expect(promotion.blockedClips.some((clip) => clip.reason === 'permissioned-purpose-missing')).toBe(true);
+        expect(promotion.blockedClips.some((clip) => clip.reason === 'trainability-not-authorized')).toBe(true);
+    });
+
+    it('blocks qualitative-only public references from benchmark promotion', () => {
+        const intakeManifest = parseCapturedClipIntakeManifest(readJson('tests/fixtures/captured-clips/intake.v1.json'));
+        const loadedLabelSet = parseCapturedClipLabelSet(readJson('tests/fixtures/captured-clips/labels.todo.v1.json'));
+        const labelSet = {
+            ...loadedLabelSet,
+            clips: [loadedLabelSet.clips[0]!],
+        };
+
+        const promotion = buildCapturedBenchmarkPromotion({
+            datasetId: 'captured-benchmark-draft',
+            createdAt: '2026-04-14T19:30:00.000Z',
+            intakeManifest,
+            labelSet,
+            consentManifest: withConsentClip('captured-clip1-2026-04-14', {
+                allowedPurposes: ['qualitative_reference'],
+                transitionReason: 'Public reference only; no validation permission.',
+            }),
+        });
+
+        expect(promotion.dataset).toBeUndefined();
+        expect(promotion.blockedClips.some((clip) => (
+            clip.reason === 'permissioned-purpose-missing'
+                && clip.missingFieldPaths.includes('consent.allowedPurposes.qualitative_reference_only')
+        ))).toBe(true);
+    });
+
+    it('blocks withdrawn clips with quarantine and rebaseline provenance', () => {
+        const intakeManifest = parseCapturedClipIntakeManifest(readJson('tests/fixtures/captured-clips/intake.v1.json'));
+        const loadedLabelSet = parseCapturedClipLabelSet(readJson('tests/fixtures/captured-clips/labels.todo.v1.json'));
+        const labelSet = {
+            ...loadedLabelSet,
+            clips: [loadedLabelSet.clips[0]!],
+        };
+
+        const promotion = buildCapturedBenchmarkPromotion({
+            datasetId: 'captured-benchmark-draft',
+            createdAt: '2026-04-14T19:30:00.000Z',
+            intakeManifest,
+            labelSet,
+            consentManifest: withConsentClip('captured-clip1-2026-04-14', {
+                consentStatus: 'withdrawn',
+                transitionReason: 'Contributor withdrew validation permission.',
+                withdrawal: {
+                    withdrawnAt: '2026-04-16T10:00:00.000Z',
+                    reason: 'Contributor withdrew corpus permission.',
+                    quarantineRequired: true,
+                    requiresRebaseline: true,
+                },
+            }),
+        });
+
+        expect(promotion.dataset).toBeUndefined();
+        expect(promotion.blockedClips.some((clip) => (
+            clip.reason === 'withdrawn-clip'
+                && clip.missingFieldPaths.includes('consent.withdrawal.requiresRebaseline')
+        ))).toBe(true);
+        expect(promotion.consent[0]).toMatchObject({
+            withdrawn: true,
+            quarantineRequired: true,
+            requiresRebaseline: true,
+        });
     });
 
     it('blocks guided golden promotion without replay pass and strong justification', () => {
@@ -397,6 +558,7 @@ describe('captured golden promotion', () => {
             createdAt: '2026-04-14T23:00:00.000Z',
             intakeManifest,
             labelSet,
+            consentManifest: withGoldenConsent(),
             targetMaturity: 'golden',
             promotionReason: 'Promover evidencia forte para release.',
         });

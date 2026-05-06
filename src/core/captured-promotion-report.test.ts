@@ -117,6 +117,17 @@ describe('buildCapturedPromotionMarkdownReport', () => {
             promotedClipCount: 1,
             goldenClipCount: 0,
             blockedClips: [],
+            consent: [
+                {
+                    clipId: 'captured-clip1',
+                    consentStatus: 'label_review',
+                    allowedPurposes: ['internal_validation'],
+                    trainabilityAuthorized: false,
+                    derivativeScope: 'metadata_and_report',
+                    redistributionAllowed: false,
+                    withdrawn: false,
+                },
+            ],
             dataset,
         };
         const report = buildCapturedPromotionMarkdownReport({
@@ -135,6 +146,9 @@ describe('buildCapturedPromotionMarkdownReport', () => {
         expect(report.markdown).toContain('Close release evidence gap.');
         expect(report.markdown).toContain('| Total clips | 0 | 1 | 1 |');
         expect(report.markdown).toContain('| Metadata and label completeness | PASS |');
+        expect(report.markdown).toContain('| Consent and corpus permission | PASS |');
+        expect(report.markdown).toContain('| captured-clip1 | label_review | internal_validation | no | metadata_and_report | no | no |');
+        expect(report.markdown).toContain('Public streamer/pro videos are qualitative reference only unless formal permission/trainability is verified.');
         expect(report.markdown).toContain('Internal maintainer/dev/reviewer workflow only');
     });
 
@@ -148,6 +162,19 @@ describe('buildCapturedPromotionMarkdownReport', () => {
                     clipId: 'captured-clip1',
                     reason: 'missing-truth-expectation',
                     missingFieldPaths: ['labels.expectedTruth'],
+                },
+            ],
+            consent: [
+                {
+                    clipId: 'captured-clip1',
+                    consentStatus: 'withdrawn',
+                    allowedPurposes: ['internal_validation'],
+                    trainabilityAuthorized: false,
+                    derivativeScope: 'metadata_and_report',
+                    redistributionAllowed: false,
+                    withdrawn: true,
+                    quarantineRequired: true,
+                    requiresRebaseline: true,
                 },
             ],
         };
@@ -180,6 +207,7 @@ describe('captured promotion docs', () => {
 
         expect(videoSpec).toContain('draft -> reviewed -> golden');
         expect(videoSpec).toContain('internal maintainer/dev/reviewer workflow');
+        expect(videoSpec).toContain('Public streamer/pro videos are qualitative reference only unless formal permission/trainability is verified.');
         expect(videoSpec).toContain('Missing metadata blocks promotion');
         expect(videoSpec).toContain('npm run benchmark:release');
         expect(benchmarkRunner).toContain('expectedTruth');

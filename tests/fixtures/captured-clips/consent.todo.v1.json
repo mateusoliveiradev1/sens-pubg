@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "manifestId": "captured-clips-consent-2026-04-14",
+  "createdAt": "2026-04-14T19:00:00.000Z",
+  "clips": [
+    {
+      "clipId": "captured-clip1-2026-04-14",
+      "contributorRef": "fixture-contributor-001",
+      "consentCapturedAt": "2026-04-14T18:40:00.000Z",
+      "consentStatus": "label_review",
+      "allowedPurposes": ["internal_validation"],
+      "trainabilityAuthorized": false,
+      "rawClipStorage": "private_only",
+      "derivativeScope": "metadata_and_report",
+      "redistributionAllowed": false,
+      "reviewerRef": "fixture-maintainer",
+      "reviewedAt": "2026-04-14T19:00:00.000Z",
+      "transitionReason": "Placeholder consent fixture for internal validation tests only."
+    },
+    {
+      "clipId": "captured-clip2-2026-04-14",
+      "contributorRef": "fixture-contributor-001",
+      "consentCapturedAt": "2026-04-14T18:40:00.000Z",
+      "consentStatus": "label_review",
+      "allowedPurposes": ["internal_validation"],
+      "trainabilityAuthorized": false,
+      "rawClipStorage": "private_only",
+      "derivativeScope": "metadata_and_report",
+      "redistributionAllowed": false,
+      "reviewerRef": "fixture-maintainer",
+      "reviewedAt": "2026-04-14T19:00:00.000Z",
+      "transitionReason": "Placeholder consent fixture for internal validation tests only."
+    },
+    {
+      "clipId": "captured-clip3-2026-04-14",
+      "contributorRef": "fixture-contributor-001",
+      "consentCapturedAt": "2026-04-14T18:40:00.000Z",
+      "consentStatus": "label_review",
+      "allowedPurposes": ["internal_validation"],
+      "trainabilityAuthorized": false,
+      "rawClipStorage": "private_only",
+      "derivativeScope": "metadata_and_report",
+      "redistributionAllowed": false,
+      "reviewerRef": "fixture-maintainer",
+      "reviewedAt": "2026-04-14T19:00:00.000Z",
+      "transitionReason": "Placeholder consent fixture for internal validation tests only."
+    },
+    {
+      "clipId": "captured-clip4-2026-04-14",
+      "contributorRef": "fixture-contributor-001",
+      "consentCapturedAt": "2026-04-14T18:40:00.000Z",
+      "consentStatus": "label_review",
+      "allowedPurposes": ["internal_validation"],
+      "trainabilityAuthorized": false,
+      "rawClipStorage": "private_only",
+      "derivativeScope": "metadata_and_report",
+      "redistributionAllowed": false,
+      "reviewerRef": "fixture-maintainer",
+      "reviewedAt": "2026-04-14T19:00:00.000Z",
+      "transitionReason": "Placeholder consent fixture for internal validation tests only."
+    },
+    {
+      "clipId": "captured-clip5-2026-04-16",
+      "contributorRef": "fixture-contributor-002",
+      "consentCapturedAt": "2026-04-16T18:40:00.000Z",
+      "consentStatus": "label_review",
+      "allowedPurposes": ["internal_validation"],
+      "trainabilityAuthorized": false,
+      "rawClipStorage": "private_only",
+      "derivativeScope": "metadata_and_report",
+      "redistributionAllowed": false,
+      "reviewerRef": "fixture-maintainer",
+      "reviewedAt": "2026-04-16T19:00:00.000Z",
+      "transitionReason": "Placeholder consent fixture for internal validation tests only."
+    }
+  ]
+}
