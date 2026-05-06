@@ -21,11 +21,11 @@ Players pay only if the product helps them improve spray control through evidenc
 - Community publishing, profiles, moderation, admin, and entitlement scaffolding already exist.
 - The project is linked to Vercel and has release/readiness scripts for local, deployed, and backend checks.
 - Phase 3 adds strict compatible precision trends, persisted evolution lines/checkpoints, visible blocker reasons, history audit timelines, and dashboard principal trend actions for repeat-clip improvement evidence.
+- Phase 4 adds an adaptive coach loop with persisted protocol outcomes, outcome-aware memory, lower aggressiveness under conflict/weak evidence, post-analysis/dashboard/history loop surfaces, and copy-only LLM guardrails.
 
 ### Active
 
 - [ ] Improve spray analysis precision with measurable tracking, metric, and benchmark targets.
-- [ ] Improve the coach from a useful single-session plan into an adaptive improvement loop with memory and outcomes.
 - [ ] Define "perfection" as practical accuracy, confidence honesty, and repeatable improvement, not impossible certainty.
 - [ ] Create a monetization model around original value: user clip analysis, coach plans, history, programs, and team workflows.
 - [ ] Launch a freemium monthly path first, with future room for credits and team/community plans.
@@ -73,7 +73,7 @@ Research summary:
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | Treat this as brownfield product hardening, not greenfield creation | The repo already has analysis, coach, community, tests, and deploy scaffolding | Pending |
-| Prioritize precision and coach together | Better tracking without coaching does not sell; better coach without evidence overpromises | Pending |
+| Prioritize precision and coach together | Better tracking without coaching does not sell; better coach without evidence overpromises | Validated through Phases 3-4 |
 | Start monetization with freemium monthly | It matches the user's preference and the product's habit-building training loop | Pending |
 | Keep teams/coaches as expansion, not the first required buyer | Serving all customer types at once risks fuzzy positioning | Pending |
 | Monetize original analysis/coach value, not gated PUBG API data | PUBG API terms restrict exclusive paid access based on API data | Pending |
@@ -96,4 +96,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state.
 
 ---
-*Last updated: 2026-05-05 after Phase 3 multi-clip precision loop*
+*Last updated: 2026-05-06 after Phase 4 adaptive coach loop*
