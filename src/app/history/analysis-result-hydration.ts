@@ -8,6 +8,7 @@ import { resolveMeasurementTruth } from '@/core/measurement-truth';
 import { normalizePatchVersion } from '@/game/pubg';
 import type {
     AnalysisResult,
+    CoachDecisionSnapshot,
     CoachOutcomeConflict,
     CoachOutcomeEvidenceStrength,
     ProfileType,
@@ -245,6 +246,70 @@ function normalizeCoachOutcomeSnapshot(value: unknown): CoachProtocolOutcomeSnap
         validationCta: value.validationCta,
         conflicts,
     };
+}
+
+function isCoachOutcomeMemoryLayerSource(value: unknown): value is CoachDecisionSnapshot['outcomeMemory']['activeLayer'] {
+    return value === 'strict_compatible'
+        || value === 'global_fallback'
+        || value === 'none';
+}
+
+function isCoachOutcomeMemoryLayerSummary(value: unknown): value is CoachDecisionSnapshot['outcomeMemory']['strictCompatible'] {
+    return isRecord(value)
+        && (value.source === 'strict_compatible' || value.source === 'global_fallback')
+        && isFiniteNumber(value.outcomeCount)
+        && isFiniteNumber(value.pendingCount)
+        && isFiniteNumber(value.neutralCount)
+        && isFiniteNumber(value.weakSelfReportCount)
+        && isFiniteNumber(value.confirmedCount)
+        && isFiniteNumber(value.invalidCount)
+        && isFiniteNumber(value.conflictCount)
+        && isFiniteNumber(value.repeatedFailureCount)
+        && isFiniteNumber(value.staleOutcomeCount)
+        && isFiniteNumber(value.technicalEvidenceCount)
+        && Array.isArray(value.focusAreas)
+        && value.focusAreas.every(isCoachFocusArea)
+        && isFiniteNumber(value.confidence)
+        && typeof value.summary === 'string';
+}
+
+function isCoachOutcomeMemorySummary(value: unknown): value is CoachDecisionSnapshot['outcomeMemory'] {
+    return isRecord(value)
+        && isCoachOutcomeMemoryLayerSource(value.activeLayer)
+        && isCoachOutcomeMemoryLayerSummary(value.strictCompatible)
+        && isCoachOutcomeMemoryLayerSummary(value.globalFallback)
+        && isFiniteNumber(value.pendingCount)
+        && isFiniteNumber(value.neutralCount)
+        && isFiniteNumber(value.confirmedCount)
+        && isFiniteNumber(value.invalidCount)
+        && isFiniteNumber(value.conflictCount)
+        && isFiniteNumber(value.repeatedFailureCount)
+        && isFiniteNumber(value.staleOutcomeCount)
+        && isFiniteNumber(value.confidence)
+        && typeof value.summary === 'string';
+}
+
+function isCoachDecisionSnapshot(value: unknown): value is CoachDecisionSnapshot {
+    return isRecord(value)
+        && isCoachDecisionTier(value.tier)
+        && isCoachFocusArea(value.primaryFocusArea)
+        && typeof value.primaryFocusTitle === 'string'
+        && Array.isArray(value.secondaryFocusAreas)
+        && value.secondaryFocusAreas.every(isCoachFocusArea)
+        && typeof value.protocolId === 'string'
+        && typeof value.validationTarget === 'string'
+        && typeof value.memorySummary === 'string'
+        && isCoachOutcomeMemorySummary(value.outcomeMemory)
+        && isCoachOutcomeEvidenceStrength(value.outcomeEvidenceState)
+        && Array.isArray(value.conflicts)
+        && value.conflicts.every(isCoachOutcomeConflict)
+        && isStringArray(value.blockerReasons)
+        && (value.precisionTrendLabel === undefined || isPrecisionTrendLabel(value.precisionTrendLabel))
+        && typeof value.createdAt === 'string';
+}
+
+function normalizeCoachDecisionSnapshot(value: unknown): CoachDecisionSnapshot | undefined {
+    return isCoachDecisionSnapshot(value) ? value : undefined;
 }
 
 function isCoachSignalSource(value: unknown): value is HistoryCoachPriority['signals'][number]['source'] {
@@ -548,10 +613,12 @@ function normalizeHistoryAnalysisResult(result: AnalysisResult): AnalysisResult 
     const trajectory = result.trajectory as AnalysisResult['trajectory'] | undefined;
     const normalizedSubSessions = result.subSessions?.map(normalizeHistoryAnalysisResult);
     const normalizedCoachPlan = normalizeCoachPlan(result.coachPlan);
+    const normalizedCoachDecisionSnapshot = normalizeCoachDecisionSnapshot(result.coachDecisionSnapshot);
     const normalizedCoachOutcomeSnapshot = normalizeCoachOutcomeSnapshot(result.coachOutcomeSnapshot);
     const normalizedPrecisionTrend = normalizePrecisionTrend(result.precisionTrend);
     const resultWithoutCoachPlan = { ...result };
     delete resultWithoutCoachPlan.coachPlan;
+    delete resultWithoutCoachPlan.coachDecisionSnapshot;
     delete resultWithoutCoachPlan.coachOutcomeSnapshot;
     delete resultWithoutCoachPlan.mastery;
     delete resultWithoutCoachPlan.precisionTrend;
@@ -562,6 +629,7 @@ function normalizeHistoryAnalysisResult(result: AnalysisResult): AnalysisResult 
         ...resultWithoutCoachPlan,
         ...(normalizedSensitivity ? { sensitivity: normalizedSensitivity } : {}),
         ...(normalizedCoachPlan ? { coachPlan: normalizedCoachPlan } : {}),
+        ...(normalizedCoachDecisionSnapshot ? { coachDecisionSnapshot: normalizedCoachDecisionSnapshot } : {}),
         ...(normalizedCoachOutcomeSnapshot ? { coachOutcomeSnapshot: normalizedCoachOutcomeSnapshot } : {}),
         ...(normalizedPrecisionTrend ? { precisionTrend: normalizedPrecisionTrend } : {}),
         ...(normalizedSubSessions ? { subSessions: normalizedSubSessions } : {}),

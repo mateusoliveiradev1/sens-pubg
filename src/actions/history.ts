@@ -36,6 +36,7 @@ import { normalizePatchVersion } from '@/game/pubg';
 import { createGroqCoachClient } from '@/server/coach/groq-coach-client';
 import type {
     AnalysisResult,
+    CoachDecisionSnapshot,
     CoachFocusArea,
     CoachProtocolOutcome,
     CoachProtocolOutcomeCoachSnapshot,
@@ -617,6 +618,113 @@ function precisionNextValidation(payload: { readonly nextValidationHint?: string
         ?? 'Gravar validacao compativel mantendo as variaveis fixas.';
 }
 
+function resolveCoachOutcomeEvidenceState(
+    outcomeMemory: CoachDecisionSnapshot['outcomeMemory'],
+): CoachDecisionSnapshot['outcomeEvidenceState'] {
+    if (outcomeMemory.conflictCount > 0) {
+        return 'conflict';
+    }
+
+    if (outcomeMemory.confirmedCount > 0) {
+        return 'confirmed_by_compatible_clip';
+    }
+
+    if (outcomeMemory.invalidCount > 0) {
+        return 'invalid';
+    }
+
+    if (outcomeMemory.pendingCount > 0 || outcomeMemory.neutralCount > 0) {
+        return 'neutral';
+    }
+
+    return 'none';
+}
+
+function compactCoachOutcomeMemory(
+    outcomeMemory: CoachDecisionSnapshot['outcomeMemory'],
+): CoachDecisionSnapshot['outcomeMemory'] {
+    const compactLayer = (
+        layer: CoachDecisionSnapshot['outcomeMemory']['strictCompatible'],
+    ): CoachDecisionSnapshot['outcomeMemory']['strictCompatible'] => ({
+        source: layer.source,
+        outcomeCount: layer.outcomeCount,
+        pendingCount: layer.pendingCount,
+        neutralCount: layer.neutralCount,
+        weakSelfReportCount: layer.weakSelfReportCount,
+        confirmedCount: layer.confirmedCount,
+        invalidCount: layer.invalidCount,
+        conflictCount: layer.conflictCount,
+        repeatedFailureCount: layer.repeatedFailureCount,
+        staleOutcomeCount: layer.staleOutcomeCount,
+        technicalEvidenceCount: layer.technicalEvidenceCount,
+        focusAreas: layer.focusAreas,
+        confidence: layer.confidence,
+        summary: layer.summary,
+    });
+
+    return {
+        activeLayer: outcomeMemory.activeLayer,
+        strictCompatible: compactLayer(outcomeMemory.strictCompatible),
+        globalFallback: compactLayer(outcomeMemory.globalFallback),
+        pendingCount: outcomeMemory.pendingCount,
+        neutralCount: outcomeMemory.neutralCount,
+        confirmedCount: outcomeMemory.confirmedCount,
+        invalidCount: outcomeMemory.invalidCount,
+        conflictCount: outcomeMemory.conflictCount,
+        repeatedFailureCount: outcomeMemory.repeatedFailureCount,
+        staleOutcomeCount: outcomeMemory.staleOutcomeCount,
+        confidence: outcomeMemory.confidence,
+        summary: outcomeMemory.summary,
+    };
+}
+
+function buildCoachDecisionSnapshot(input: {
+    readonly coachPlan: NonNullable<AnalysisResult['coachPlan']>;
+    readonly memorySnapshot: ReturnType<typeof buildCoachMemorySnapshot>;
+    readonly precisionTrend: PrecisionTrendSummary;
+    readonly protocolOutcomes: readonly CoachProtocolOutcome[];
+    readonly createdAt: Date;
+}): CoachDecisionSnapshot {
+    const protocol = input.coachPlan.actionProtocols[0];
+    const validationCheck = input.coachPlan.nextBlock.checks[0];
+    const conflicts = input.protocolOutcomes
+        .map((outcome) => outcome.conflict)
+        .filter((conflict): conflict is NonNullable<CoachProtocolOutcome['conflict']> => conflict !== undefined);
+    const visiblePriorities = [
+        input.coachPlan.primaryFocus,
+        ...input.coachPlan.secondaryFocuses,
+    ];
+    const blockerReasons = Array.from(new Set([
+        ...visiblePriorities.flatMap((priority) => priority.blockedBy),
+        ...input.memorySnapshot.conflictingFocusAreas.map((area) => `memory_conflict:${area}`),
+        ...input.memorySnapshot.signals
+            .filter((signal) => (
+                signal.key.includes('conflict')
+                || signal.key.includes('failure')
+                || signal.key.includes('pending')
+                || signal.key.includes('invalid_capture')
+            ))
+            .map((signal) => signal.key),
+        ...input.precisionTrend.blockerSummaries.map((summary) => summary.message),
+    ].filter((reason) => reason.trim().length > 0)));
+
+    return {
+        tier: input.coachPlan.tier,
+        primaryFocusArea: input.coachPlan.primaryFocus.area,
+        primaryFocusTitle: input.coachPlan.primaryFocus.title,
+        secondaryFocusAreas: input.coachPlan.secondaryFocuses.map((focus) => focus.area),
+        protocolId: protocol?.id ?? 'validation-block-protocol',
+        validationTarget: validationCheck?.target ?? input.precisionTrend.nextValidationHint,
+        memorySummary: input.memorySnapshot.summary,
+        outcomeMemory: compactCoachOutcomeMemory(input.memorySnapshot.outcomeMemory),
+        outcomeEvidenceState: resolveCoachOutcomeEvidenceState(input.memorySnapshot.outcomeMemory),
+        conflicts,
+        blockerReasons,
+        precisionTrendLabel: input.precisionTrend.label,
+        createdAt: input.createdAt.toISOString(),
+    };
+}
+
 export async function saveAnalysisResult(
     result: AnalysisResult,
     weaponId: string,
@@ -658,6 +766,13 @@ export async function saveAnalysisResult(
             .where(eq(analysisSessions.userId, session.user.id))
             .limit(12) as StoredSensitivityHistorySession[];
 
+        const protocolOutcomeRows = await db
+            .select()
+            .from(coachProtocolOutcomes)
+            .where(eq(coachProtocolOutcomes.userId, session.user.id))
+            .orderBy(desc(coachProtocolOutcomes.createdAt)) as CoachProtocolOutcomeRow[];
+        const protocolOutcomes = protocolOutcomeRows.map(toCoachProtocolOutcome);
+
         const compatiblePriorSessions = priorSessions.filter((storedSession) => (
             storedSession.fullResult !== null
             && storedSession.patchVersion === patchVersion
@@ -686,6 +801,7 @@ export async function saveAnalysisResult(
         const initialCoachMemorySnapshot = buildCoachMemorySnapshot({
             currentResult: resultWithCoaching,
             historySessions: coachMemoryHistorySessions,
+            protocolOutcomes,
         });
         const initialCoachPlan = buildCoachPlan({
             analysisResult: resultWithCoaching,
@@ -710,14 +826,23 @@ export async function saveAnalysisResult(
         const precisionCoachMemorySnapshot = buildCoachMemorySnapshot({
             currentResult: resultWithPrecision,
             historySessions: coachMemoryHistorySessions,
+            protocolOutcomes,
         });
         const coachPlan = buildCoachPlan({
             analysisResult: resultWithPrecision,
             memorySnapshot: precisionCoachMemorySnapshot,
         });
+        const coachDecisionSnapshot = buildCoachDecisionSnapshot({
+            coachPlan,
+            memorySnapshot: precisionCoachMemorySnapshot,
+            precisionTrend,
+            protocolOutcomes,
+            createdAt: resultWithPrecision.timestamp,
+        });
         enrichedResult = {
             ...resultWithPrecision,
             coachPlan,
+            coachDecisionSnapshot,
             mastery: resolveMeasurementTruth({
                 ...resultWithPrecision,
                 coachPlan,

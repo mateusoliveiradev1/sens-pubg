@@ -369,6 +369,41 @@ function createStoredCoachPlan(): CoachPlan {
     };
 }
 
+function createStoredCoachOutcomeRow(overrides: Record<string, unknown> = {}) {
+    return {
+        id: 'outcome-1',
+        userId: 'user-1',
+        analysisSessionId: 'history-outcome-1',
+        coachPlanId: 'plan-1',
+        protocolId: 'vertical-control-drill-protocol',
+        focusArea: 'vertical_control',
+        status: 'improved',
+        reasonCodes: [],
+        note: null,
+        revisionOfId: null,
+        evidenceStrength: 'conflict',
+        conflictPayload: {
+            userOutcomeId: 'outcome-1',
+            precisionTrendLabel: 'validated_regression',
+            reason: 'Self-report improved, but strict compatible precision validated regression.',
+            nextValidationCopy: 'Grave uma validacao curta antes de avancar.',
+        },
+        payload: {
+            coachSnapshot: {
+                tier: 'test_protocol',
+                primaryFocusArea: 'vertical_control',
+                primaryFocusTitle: 'Controle vertical',
+                protocolId: 'vertical-control-drill-protocol',
+                validationTarget: 'reduzir erro vertical',
+                precisionTrendLabel: 'validated_regression',
+            },
+        },
+        createdAt: new Date('2026-04-12T12:30:00.000Z'),
+        updatedAt: new Date('2026-04-12T12:30:00.000Z'),
+        ...overrides,
+    };
+}
+
 describe('saveAnalysisResult', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -593,6 +628,95 @@ describe('saveAnalysisResult', () => {
                         consensusProfile: 'balanced',
                         agreement: 'aligned',
                     }),
+                }),
+            }),
+        }));
+    });
+
+    it('uses prior coach protocol outcomes for save-time memory and stores an auditable decision snapshot', async () => {
+        const result: AnalysisResult = {
+            ...createAnalysisResult(),
+            diagnoses: [
+                {
+                    type: 'underpull',
+                    severity: 4,
+                    verticalControlIndex: 0.58,
+                    deficitPercent: 42,
+                    confidence: 0.9,
+                    evidence: {
+                        confidence: 0.9,
+                        coverage: 0.91,
+                        angularErrorDegrees: 1.6,
+                        linearErrorCm: 64,
+                        linearErrorSeverity: 4,
+                    },
+                    description: 'Controle vertical ainda sobe demais no sustain.',
+                    cause: 'O bloco anterior conflitou com a validacao compativel.',
+                    remediation: 'Revisar hipotese antes de repetir o mesmo protocolo.',
+                },
+            ],
+        };
+
+        mocks.limit.mockReset();
+        mocks.limit
+            .mockResolvedValueOnce([{ id: 'profile-1' }])
+            .mockResolvedValueOnce([
+                {
+                    id: 'history-outcome-1',
+                    createdAt: new Date('2026-04-12T12:00:00.000Z'),
+                    weaponId: 'beryl-m762',
+                    scopeId: 'red-dot',
+                    patchVersion: CURRENT_PUBG_PATCH_VERSION,
+                    distance: 30,
+                    stance: 'standing',
+                    attachments: {
+                        muzzle: 'compensator',
+                        grip: 'vertical',
+                        stock: 'none',
+                    },
+                    fullResult: {
+                        coachPlan: createStoredCoachPlan(),
+                    },
+                },
+            ]);
+        mocks.orderBy.mockResolvedValueOnce([
+            createStoredCoachOutcomeRow(),
+        ]);
+
+        await saveAnalysisResult(result, 'beryl-m762', 'red-dot', 30);
+
+        expect(mocks.sessionValues).toHaveBeenCalledWith(expect.objectContaining({
+            fullResult: expect.objectContaining({
+                coachPlan: expect.objectContaining({
+                    tier: 'test_protocol',
+                    primaryFocus: expect.objectContaining({
+                        area: 'validation',
+                    }),
+                    secondaryFocuses: expect.arrayContaining([
+                        expect.objectContaining({
+                            area: 'vertical_control',
+                            blockedBy: expect.arrayContaining(['outcome_conflict']),
+                        }),
+                    ]),
+                }),
+                coachDecisionSnapshot: expect.objectContaining({
+                    tier: 'test_protocol',
+                    primaryFocusArea: 'validation',
+                    protocolId: expect.any(String),
+                    outcomeEvidenceState: 'conflict',
+                    outcomeMemory: expect.objectContaining({
+                        activeLayer: 'strict_compatible',
+                        conflictCount: 1,
+                    }),
+                    conflicts: [
+                        expect.objectContaining({
+                            precisionTrendLabel: 'validated_regression',
+                        }),
+                    ],
+                    blockerReasons: expect.arrayContaining([
+                        'outcome_conflict',
+                        'memory_conflict:vertical_control',
+                    ]),
                 }),
             }),
         }));

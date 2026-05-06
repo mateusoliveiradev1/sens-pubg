@@ -617,6 +617,22 @@ export interface CoachOutcomeMemorySummary {
     readonly summary: string;
 }
 
+export interface CoachDecisionSnapshot {
+    readonly tier: CoachDecisionTier;
+    readonly primaryFocusArea: CoachFocusArea;
+    readonly primaryFocusTitle: string;
+    readonly secondaryFocusAreas: readonly CoachFocusArea[];
+    readonly protocolId: string;
+    readonly validationTarget: string;
+    readonly memorySummary: string;
+    readonly outcomeMemory: CoachOutcomeMemorySummary;
+    readonly outcomeEvidenceState: CoachOutcomeEvidenceStrength;
+    readonly conflicts: readonly CoachOutcomeConflict[];
+    readonly blockerReasons: readonly string[];
+    readonly precisionTrendLabel?: PrecisionTrendLabel;
+    readonly createdAt: string;
+}
+
 export interface CoachFeedback {
     readonly diagnosis: Diagnosis;
     readonly mode: CoachMode;
@@ -938,6 +954,7 @@ export interface AnalysisResult {
     readonly sensitivity: SensitivityRecommendation;
     readonly coaching: readonly CoachFeedback[];
     readonly coachPlan?: CoachPlan;
+    readonly coachDecisionSnapshot?: CoachDecisionSnapshot;
     readonly coachOutcomeSnapshot?: CoachProtocolOutcomeSnapshot;
     readonly mastery?: SprayMastery;
     readonly precisionTrend?: PrecisionTrendSummary;

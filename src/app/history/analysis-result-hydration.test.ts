@@ -6,7 +6,7 @@ import {
     analysisResultBase,
     analysisResultWithWeakCapture,
 } from '@/core/coach-test-fixtures';
-import type { AnalysisContextDetails, CoachPlan, CoachProtocolOutcomeSnapshot } from '@/types/engine';
+import type { AnalysisContextDetails, CoachDecisionSnapshot, CoachPlan, CoachProtocolOutcomeSnapshot } from '@/types/engine';
 
 function createStoredResult(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
@@ -117,6 +117,74 @@ function createStoredCoachOutcomeSnapshot(): CoachProtocolOutcomeSnapshot {
         pending: false,
         validationCta: 'Gravar validacao compativel',
         conflicts: [],
+    };
+}
+
+function createStoredCoachDecisionSnapshot(): CoachDecisionSnapshot {
+    return {
+        tier: 'test_protocol',
+        primaryFocusArea: 'vertical_control',
+        primaryFocusTitle: 'Controle vertical',
+        secondaryFocusAreas: ['validation'],
+        protocolId: 'vertical-drill',
+        validationTarget: 'vertical_control',
+        memorySummary: 'Strict compatible outcome memory: 1 conflict outcome requires compatible validation.',
+        outcomeEvidenceState: 'conflict',
+        outcomeMemory: {
+            activeLayer: 'strict_compatible',
+            strictCompatible: {
+                source: 'strict_compatible',
+                outcomeCount: 1,
+                pendingCount: 0,
+                neutralCount: 0,
+                weakSelfReportCount: 0,
+                confirmedCount: 0,
+                invalidCount: 0,
+                conflictCount: 1,
+                repeatedFailureCount: 0,
+                staleOutcomeCount: 0,
+                technicalEvidenceCount: 0,
+                focusAreas: ['vertical_control'],
+                confidence: 0.52,
+                summary: '1 conflict outcome requires compatible validation.',
+            },
+            globalFallback: {
+                source: 'global_fallback',
+                outcomeCount: 1,
+                pendingCount: 0,
+                neutralCount: 0,
+                weakSelfReportCount: 0,
+                confirmedCount: 0,
+                invalidCount: 0,
+                conflictCount: 1,
+                repeatedFailureCount: 0,
+                staleOutcomeCount: 0,
+                technicalEvidenceCount: 0,
+                focusAreas: ['vertical_control'],
+                confidence: 0.52,
+                summary: '1 conflict outcome requires compatible validation.',
+            },
+            pendingCount: 0,
+            neutralCount: 0,
+            confirmedCount: 0,
+            invalidCount: 0,
+            conflictCount: 1,
+            repeatedFailureCount: 0,
+            staleOutcomeCount: 0,
+            confidence: 0.52,
+            summary: 'Strict compatible outcome memory: 1 conflict outcome requires compatible validation.',
+        },
+        conflicts: [
+            {
+                userOutcomeId: 'outcome-1',
+                precisionTrendLabel: 'validated_regression',
+                reason: 'Self-report improved, but strict compatible precision validated regression.',
+                nextValidationCopy: 'Grave uma validacao curta.',
+            },
+        ],
+        blockerReasons: ['outcome_conflict', 'memory_conflict:vertical_control'],
+        precisionTrendLabel: 'validated_regression',
+        createdAt: '2026-05-06T00:00:00.000Z',
     };
 }
 
@@ -411,6 +479,36 @@ describe('hydrateAnalysisResultFromHistory', () => {
         });
 
         expect(result.coachOutcomeSnapshot).toBeUndefined();
+    });
+
+    it('preserves valid coach decision snapshots from saved history payloads', () => {
+        const coachDecisionSnapshot = createStoredCoachDecisionSnapshot();
+
+        const result = hydrateAnalysisResultFromHistory({
+            fullResult: createStoredResult({ coachDecisionSnapshot }),
+            recordPatchVersion: '41.1',
+            scopeId: 'red-dot',
+            distanceMeters: 30,
+        });
+
+        expect(result.coachDecisionSnapshot).toEqual(coachDecisionSnapshot);
+    });
+
+    it('drops malformed coach decision snapshots instead of trusting mutated memory', () => {
+        const result = hydrateAnalysisResultFromHistory({
+            fullResult: createStoredResult({
+                coachDecisionSnapshot: {
+                    tier: 'apply_protocol',
+                    primaryFocusArea: 'sensitivity',
+                    outcomeEvidenceState: 'perfect',
+                },
+            }),
+            recordPatchVersion: '41.1',
+            scopeId: 'red-dot',
+            distanceMeters: 30,
+        });
+
+        expect(result.coachDecisionSnapshot).toBeUndefined();
     });
 
     it('preserves valid stored mastery from history payloads', () => {
