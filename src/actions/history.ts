@@ -35,6 +35,15 @@ import {
 import { normalizePatchVersion } from '@/game/pubg';
 import { createGroqCoachClient } from '@/server/coach/groq-coach-client';
 import {
+    recordFirstUsableAnalysis,
+    recordQuotaEvent,
+    recordUpgradeIntent,
+} from '@/lib/product-analytics';
+import {
+    createPremiumProjectionSummary,
+    projectAnalysisForAccess,
+} from '@/lib/premium-projection';
+import {
     createAnalysisSaveAttemptId,
     createDrizzleQuotaLedgerRepository,
     finalizeAnalysisQuota,
@@ -43,6 +52,7 @@ import {
     voidAnalysisQuota,
     type AnalysisQuotaReservation,
 } from '@/lib/quota-ledger';
+import { resolveProductAccess, type ProductAccessResolution } from '@/lib/product-entitlements';
 import type {
     AnalysisSaveAccessState,
     AnalysisSaveQuotaNotice,
@@ -289,6 +299,15 @@ async function resolveSaveAccessForUser(userId: string) {
         repository,
         ...resolved,
     };
+}
+
+async function resolveProductAccessForRead(userId: string): Promise<ProductAccessResolution> {
+    try {
+        const resolved = await resolveSaveAccessForUser(userId);
+        return resolved.access;
+    } catch {
+        return resolveProductAccess({ userId });
+    }
 }
 
 export async function getAnalysisSaveAccess(): Promise<AnalysisSaveAccessState> {
@@ -939,13 +958,28 @@ export async function saveAnalysisResult(
             quota: reservationResult.quota,
             ctaHref: saveAccess.ctaHref,
         });
+        await recordQuotaEvent({
+            userId: session.user.id,
+            eventType: 'quota.exhausted',
+            quotaState: reservationResult.quota.state,
+            reasonCode: 'limit_blocked',
+            quotaUsed: reservationResult.quota.used,
+            quotaLimit: reservationResult.quota.limit,
+        });
+        await recordUpgradeIntent({
+            userId: session.user.id,
+            surface: 'analysis_save',
+            featureKey: 'analysis.save.pro_limit',
+            accessState: access.accessState,
+            reasonCode: 'limit_blocked',
+        });
 
         return {
             success: false,
             code: 'limit_reached',
             error: quota.message,
             quota,
-            result: withQuotaNotice(enrichedResult, quota),
+            result: projectAnalysisForAccess(withQuotaNotice(enrichedResult, quota), access),
         };
     }
 
@@ -1163,14 +1197,47 @@ export async function saveAnalysisResult(
             }
         }
 
+        if (finalNonBillableWeakCapture) {
+            await recordQuotaEvent({
+                userId: session.user.id,
+                eventType: 'quota.consumed',
+                quotaState: quota.quota.state,
+                reasonCode: 'non_billable_weak_capture',
+                quotaUsed: quota.quota.used,
+                quotaLimit: quota.quota.limit,
+            });
+        } else {
+            await recordQuotaEvent({
+                userId: session.user.id,
+                eventType: quota.quota.state === 'warning' ? 'quota.warning' : 'quota.consumed',
+                quotaState: quota.quota.state,
+                reasonCode: 'billable',
+                quotaUsed: quota.quota.used,
+                quotaLimit: quota.quota.limit,
+            });
+
+            if (priorSessions.length === 0) {
+                await recordFirstUsableAnalysis({
+                    userId: session.user.id,
+                    accessState: access.accessState,
+                    quotaState: quota.quota.state,
+                });
+            }
+        }
+
+        const resultWithQuota = withQuotaNotice({
+            ...enrichedResult,
+            historySessionId: sessionId,
+        }, quota);
+
         return {
             success: true as const,
             sessionId,
             quota,
-            result: withQuotaNotice({
-                ...enrichedResult,
-                historySessionId: sessionId,
-            }, quota),
+            result: projectAnalysisForAccess(resultWithQuota, {
+                ...access,
+                quota: quota.quota,
+            }),
         };
     } catch (err) {
         if (quotaReservation?.reasonCode === 'billable') {
@@ -1198,7 +1265,7 @@ export async function saveAnalysisResult(
             code: 'save_failed',
             error: 'Erro ao salvar historico.',
             quota,
-            result: withQuotaNotice(enrichedResult, quota),
+            result: projectAnalysisForAccess(withQuotaNotice(enrichedResult, quota), access),
         };
     }
 }
@@ -1690,6 +1757,7 @@ export async function getHistorySessions() {
     }
 
     try {
+        const access = await resolveProductAccessForRead(session.user.id);
         const result = await db
             .select({
                 id: analysisSessions.id,
@@ -1731,6 +1799,8 @@ export async function getHistorySessions() {
             );
         }
 
+        const projection = createPremiumProjectionSummary(access);
+
         return result.map(({ fullResult, ...historySession }) => {
             const sensitivity = fullResult && typeof fullResult === 'object'
                 ? (fullResult as Record<string, unknown>).sensitivity
@@ -1763,6 +1833,8 @@ export async function getHistorySessions() {
 
             return {
                 ...historySession,
+                premiumProjection: projection,
+                lockedReason: projection.canSeeFullHistory ? null : 'pro_feature',
                 ...(recommendedProfile === 'low' || recommendedProfile === 'balanced' || recommendedProfile === 'high'
                     ? { recommendedProfile }
                     : {}),

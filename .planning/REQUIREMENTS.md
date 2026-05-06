@@ -28,17 +28,17 @@
 
 ### Product Analytics
 
-- [ ] **ANALYT-01**: System records activation when a user completes a first usable analysis.
-- [ ] **ANALYT-02**: System records upgrade-intent events when users hit analysis limits or attempt premium history/coach features.
+- [x] **ANALYT-01**: System records activation when a user completes a first usable analysis.
+- [x] **ANALYT-02**: System records upgrade-intent events when users hit analysis limits or attempt premium history/coach features.
 - [ ] **ANALYT-03**: Admin can inspect high-level funnel metrics without exposing local secrets.
 
 ### Monetization
 
-- [ ] **MON-01**: User can use a free tier with limited analyses and basic coach output.
-- [ ] **MON-02**: User can subscribe to Pro monthly for higher analysis limits, full coach plan, history trends, and advanced metrics.
-- [ ] **MON-03**: Server can sync subscription status into existing entitlement/access checks.
-- [ ] **MON-04**: System does not make PUBG API-derived data an exclusive paid feature.
-- [ ] **MON-05**: Pricing and paywall copy clearly say the product is independent from PUBG/KRAFTON and does not guarantee rank or perfect sensitivity.
+- [x] **MON-01**: User can use a free tier with limited analyses and basic coach output.
+- [x] **MON-02**: User can subscribe to Pro monthly for higher analysis limits, full coach plan, history trends, and advanced metrics.
+- [x] **MON-03**: Server can sync subscription status into existing entitlement/access checks.
+- [x] **MON-04**: System does not make PUBG API-derived data an exclusive paid feature.
+- [x] **MON-05**: Pricing and paywall copy clearly say the product is independent from PUBG/KRAFTON and does not guarantee rank or perfect sensitivity.
 
 ### Expansion
 
@@ -85,14 +85,14 @@
 | COACH-03 | Phase 4 | Complete |
 | COACH-04 | Phase 4 | Complete |
 | COACH-05 | Phase 4 | Complete |
-| ANALYT-01 | Phase 5 | Pending |
-| ANALYT-02 | Phase 5 | Pending |
+| ANALYT-01 | Phase 5 | Complete |
+| ANALYT-02 | Phase 5 | Complete |
 | ANALYT-03 | Phase 7 | Pending |
-| MON-01 | Phase 5 | Pending |
-| MON-02 | Phase 5 | Pending |
-| MON-03 | Phase 5 | Pending |
-| MON-04 | Phase 5 | Pending |
-| MON-05 | Phase 5 | Pending |
+| MON-01 | Phase 5 | Complete |
+| MON-02 | Phase 5 | Complete; paid founder beta launch manually blocked until Stripe test-mode checklist passes |
+| MON-03 | Phase 5 | Complete; live Stripe verification manually blocked |
+| MON-04 | Phase 5 | Complete |
+| MON-05 | Phase 5 | Complete; Stripe Dashboard copy review manually blocked |
 | TEAM-01 | Phase 6 | Pending |
 | TEAM-02 | Phase 6 | Pending |
 
@@ -103,4 +103,4 @@
 
 ---
 *Requirements defined: 2026-05-05*
-*Last updated: 2026-05-05 after Phase 3 multi-clip precision loop*
+*Last updated: 2026-05-06 after Phase 5 Freemium Pro MVP implementation*

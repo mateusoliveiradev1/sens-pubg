@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type Stripe from 'stripe';
 
-import { handleStripeWebhookRequest } from './route';
+import { handleStripeWebhookRequest } from '@/server/billing/stripe-webhook-handler';
 
 function request(body: string, signature?: string): Request {
     return new Request('https://sens.pubg.test/api/stripe/webhook', {

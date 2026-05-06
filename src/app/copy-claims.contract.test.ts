@@ -7,6 +7,11 @@ const PRODUCT_COPY_FILES = [
     'src/app/analyze/results-dashboard-view-model.ts',
     'src/app/dashboard/page.tsx',
     'src/app/dashboard/dashboard-truth-view-model.ts',
+    'src/app/pricing/page.tsx',
+    'src/app/billing/page.tsx',
+    'src/app/checkout/success/page.tsx',
+    'src/app/checkout/cancel/page.tsx',
+    'src/lib/premium-projection.ts',
     'src/actions/dashboard-active-coach-loop.ts',
     'src/app/analyze/analysis-guide.tsx',
     'src/app/page.tsx',
@@ -56,6 +61,15 @@ describe('product copy claim contract', () => {
             'veredito final',
             'provou melhora sem validacao',
             'ajuste definitivo garantido',
+            'unlimited',
+            'ilimitad',
+            'sem limite',
+            'api pubg exclusiva',
+            'acesso exclusivo a api pubg',
+            'pubg oficial',
+            'oficial da pubg',
+            'krafton oficial',
+            'afiliado oficial',
         ];
 
         for (const filePath of PRODUCT_COPY_FILES) {
@@ -108,5 +122,29 @@ describe('product copy claim contract', () => {
         expect(outcomePanelCopy).toContain('resultado');
         expect(outcomePanelCopy).toContain('validacao');
         expect(`${analysisCopy}\n${dashboardLoopCopy}\n${outcomePanelCopy}`).not.toContain('melhora comprovada');
+    });
+
+    it('covers monetization surfaces with honest pricing, lock, and payment copy', () => {
+        const pricingCopy = normalizeCopy(readProductCopy('src/app/pricing/page.tsx'));
+        const billingCopy = normalizeCopy(readProductCopy('src/app/billing/page.tsx'));
+        const successCopy = normalizeCopy(readProductCopy('src/app/checkout/success/page.tsx'));
+        const cancelCopy = normalizeCopy(readProductCopy('src/app/checkout/cancel/page.tsx'));
+        const lockCopy = normalizeCopy(`${readProductCopy('src/app/analyze/results-dashboard-view-model.ts')}\n${readProductCopy('src/lib/premium-projection.ts')}`);
+
+        expect(pricingCopy).toContain('free: 3 analises uteis salvas por mes');
+        expect(pricingCopy).toContain('pro: 100 analises uteis salvas por ciclo stripe');
+        expect(pricingCopy).toContain('nao e afiliado');
+        expect(pricingCopy).toContain('nao sao vendidos como acesso exclusivo');
+        expect(pricingCopy).toContain('webhook precisa confirmar');
+
+        expect(billingCopy).toContain('historico salvo fica preservado');
+        expect(billingCopy).toContain('brasil precisa de revisao humana');
+        expect(successCopy).toContain('url de sucesso nao concede pro');
+        expect(successCopy).toContain('webhook');
+        expect(cancelCopy).toContain('nao sao apagados');
+
+        expect(lockCopy).toContain('plano completo');
+        expect(lockCopy).toContain('limite');
+        expect(lockCopy).toContain('pagamento');
     });
 });

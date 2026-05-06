@@ -145,6 +145,65 @@
     font-size: var(--text-xs);
 }
 
+.premiumLockPanel {
+    display: grid;
+    gap: var(--space-md);
+    padding: var(--space-lg);
+    margin-bottom: var(--space-lg);
+    border: 1px solid rgba(116, 215, 255, 0.18);
+    border-radius: var(--radius-md);
+    background: rgba(7, 12, 18, 0.78);
+}
+
+.premiumLockIntro {
+    display: grid;
+    gap: 6px;
+}
+
+.premiumLockIntro h3 {
+    margin: 0;
+    font-size: var(--text-lg);
+}
+
+.premiumLockIntro p,
+.premiumLockCard p {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+    line-height: 1.6;
+}
+
+.captureGuidanceGrid,
+.premiumLockGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: var(--space-sm);
+}
+
+.captureGuidanceGrid span {
+    padding: 10px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+    line-height: 1.5;
+}
+
+.premiumLockCard {
+    display: grid;
+    gap: 8px;
+    padding: var(--space-md);
+    border: 1px solid rgba(255, 193, 7, 0.18);
+    border-radius: var(--radius-sm);
+    background: rgba(255, 193, 7, 0.06);
+}
+
+.premiumLockCard h4 {
+    margin: 0;
+    font-size: var(--text-base);
+}
+
 @media (max-width: 640px) {
     .quotaNotice {
         align-items: flex-start;

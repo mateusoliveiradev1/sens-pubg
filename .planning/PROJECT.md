@@ -22,15 +22,16 @@ Players pay only if the product helps them improve spray control through evidenc
 - The project is linked to Vercel and has release/readiness scripts for local, deployed, and backend checks.
 - Phase 3 adds strict compatible precision trends, persisted evolution lines/checkpoints, visible blocker reasons, history audit timelines, and dashboard principal trend actions for repeat-clip improvement evidence.
 - Phase 4 adds an adaptive coach loop with persisted protocol outcomes, outcome-aware memory, lower aggressiveness under conflict/weak evidence, post-analysis/dashboard/history loop surfaces, and copy-only LLM guardrails.
+- Phase 5 implements the Freemium Pro MVP: server-owned price/entitlement/subscription/quota truth, Stripe Checkout/webhook/Portal code, Free 3/month and Pro 100/cycle useful-save limits, Free/Pro projection, privacy-minimal analytics, paid UX, admin/beta ops, and No False Done verification.
 
 ### Active
 
 - [ ] Improve spray analysis precision with measurable tracking, metric, and benchmark targets.
 - [ ] Define "perfection" as practical accuracy, confidence honesty, and repeatable improvement, not impossible certainty.
-- [ ] Create a monetization model around original value: user clip analysis, coach plans, history, programs, and team workflows.
-- [ ] Launch a freemium monthly path first, with future room for credits and team/community plans.
-- [ ] Protect commercial risk by not paywalling PUBG API-derived data as an exclusive feature.
-- [ ] Build product analytics around activation, upgrade intent, retention, and paid value.
+- [x] Create a monetization model around original value: user clip analysis, coach plans, history, programs, and team workflows.
+- [x] Launch a freemium monthly path first, with future room for credits and team/community plans.
+- [x] Protect commercial risk by not paywalling PUBG API-derived data as an exclusive feature.
+- [x] Build product analytics around activation, upgrade intent, retention, and paid value.
 
 ### Out of Scope
 
@@ -74,9 +75,9 @@ Research summary:
 |----------|-----------|---------|
 | Treat this as brownfield product hardening, not greenfield creation | The repo already has analysis, coach, community, tests, and deploy scaffolding | Pending |
 | Prioritize precision and coach together | Better tracking without coaching does not sell; better coach without evidence overpromises | Validated through Phases 3-4 |
-| Start monetization with freemium monthly | It matches the user's preference and the product's habit-building training loop | Pending |
+| Start monetization with freemium monthly | It matches the user's preference and the product's habit-building training loop | Implemented in Phase 5; paid founder beta waits for manual Stripe checklist |
 | Keep teams/coaches as expansion, not the first required buyer | Serving all customer types at once risks fuzzy positioning | Pending |
-| Monetize original analysis/coach value, not gated PUBG API data | PUBG API terms restrict exclusive paid access based on API data | Pending |
+| Monetize original analysis/coach value, not gated PUBG API data | PUBG API terms restrict exclusive paid access based on API data | Validated in Phase 5 copy/contracts |
 
 ## Evolution
 
@@ -96,4 +97,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state.
 
 ---
-*Last updated: 2026-05-06 after Phase 4 adaptive coach loop*
+*Last updated: 2026-05-06 after Phase 5 Freemium Pro MVP*

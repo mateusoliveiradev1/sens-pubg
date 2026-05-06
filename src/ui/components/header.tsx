@@ -28,12 +28,18 @@ export async function Header(): Promise<React.JSX.Element> {
                     <li><Link href="/analyze" className={styles.link}>Analisar</Link></li>
                     <li><Link href="/community" className={styles.link}>Comunidade</Link></li>
                     <li><Link href="/history" className={styles.link}>Histórico</Link></li>
+                    <li><Link href="/pricing" className={styles.link}>Pro</Link></li>
                     <li><Link href="/pros" className={styles.link}>Pros</Link></li>
                 </ul>
 
                 <div className={styles.actions}>
                     {user ? (
-                        <UserDropdown user={user} />
+                        <>
+                            <Link href="/billing" className="btn btn-secondary">
+                                Billing
+                            </Link>
+                            <UserDropdown user={user} />
+                        </>
                     ) : (
                         <Link href="/login" className="btn btn-primary">
                             Entrar

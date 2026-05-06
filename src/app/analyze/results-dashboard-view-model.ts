@@ -18,6 +18,8 @@ import { formatPrecisionTrendLabel } from '@/core/precision-loop';
 import type {
     AnalysisSaveAccessState,
     AnalysisSaveQuotaNotice,
+    PremiumFeatureLock,
+    PremiumProjectionSummary,
 } from '@/types/monetization';
 
 export type ResultMetricTone = 'success' | 'warning' | 'error' | 'info';
@@ -120,6 +122,21 @@ export interface AnalysisQuotaNoticeModel {
     readonly tone: ResultMetricTone;
     readonly ctaLabel: 'Ver Pro' | 'Abrir billing' | null;
     readonly href: '/pricing' | '/billing' | null;
+}
+
+export interface PremiumLockCardModel {
+    readonly featureKey: PremiumFeatureLock['featureKey'];
+    readonly title: string;
+    readonly body: string;
+    readonly reasonLabel: string;
+    readonly href: '/pricing' | '/billing' | null;
+    readonly ctaLabel: 'Ver Pro' | 'Abrir billing' | null;
+}
+
+export interface CaptureGuidanceModel {
+    readonly title: string;
+    readonly checklist: readonly string[];
+    readonly weakCaptureBody: string | null;
 }
 
 export type AdaptiveCoachLoopState =
@@ -369,6 +386,70 @@ export function buildAnalysisQuotaNoticeModel(input: {
     }
 
     return null;
+}
+
+function formatPremiumLockReason(reason: PremiumFeatureLock['reason']): string {
+    switch (reason) {
+        case 'pro_feature':
+            return 'Pro';
+        case 'limit_reached':
+            return 'Limite atingido';
+        case 'payment_issue':
+            return 'Pagamento pendente';
+        case 'weak_evidence':
+            return 'Evidencia fraca';
+        case 'not_enough_history':
+            return 'Historico curto';
+    }
+}
+
+export function buildPremiumLockCards(
+    projection: PremiumProjectionSummary | undefined,
+): readonly PremiumLockCardModel[] {
+    if (!projection) {
+        return [];
+    }
+
+    return projection.locks
+        .filter((lock) => (
+            lock.featureKey === 'coach.full_plan'
+            || lock.featureKey === 'history.full'
+            || lock.featureKey === 'metrics.advanced'
+            || lock.featureKey === 'coach.validation_loop'
+            || lock.featureKey === 'trends.compatible_full'
+        ))
+        .slice(0, 5)
+        .map((lock) => ({
+            featureKey: lock.featureKey,
+            title: lock.title,
+            body: lock.body,
+            reasonLabel: formatPremiumLockReason(lock.reason),
+            href: lock.ctaHref,
+            ctaLabel: lock.ctaHref === '/pricing'
+                ? 'Ver Pro'
+                : lock.ctaHref === '/billing'
+                    ? 'Abrir billing'
+                    : null,
+        }));
+}
+
+export function buildCaptureGuidanceModel(result: AnalysisResult): CaptureGuidanceModel {
+    const usable = result.videoQualityReport?.usableForAnalysis ?? result.mastery?.evidence.usableForAnalysis ?? true;
+    const weakCaptureBody = usable
+        ? null
+        : 'Este clip ainda entra como evidencia auditavel, mas pode nao consumir quota util. Grave outro com a captura mais limpa antes de aplicar mudanca forte.';
+
+    return {
+        title: 'Guia de captura para uma leitura honesta',
+        checklist: [
+            'arma, mira, distancia, postura e attachments declarados antes do upload',
+            'spray continuo, sem corte e sem flick no meio da janela',
+            'crosshair visivel durante a maior parte do spray',
+            'duracao minima suficiente para o recoil estabilizar',
+            'mesmo contexto no proximo clip quando for validar trend compativel',
+        ],
+        weakCaptureBody,
+    };
 }
 
 function resolveAdaptiveCoachLoopState(result: AnalysisResult): AdaptiveCoachLoopState {

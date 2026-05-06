@@ -28,8 +28,10 @@ import { createTrackingTimeline } from './tracking-timeline';
 import {
     buildAdaptiveCoachLoopModel,
     buildAnalysisQuotaNoticeModel,
+    buildCaptureGuidanceModel,
     buildEvidenceBadges,
     buildMasteryPillarCards,
+    buildPremiumLockCards,
     buildPrecisionTrendBlockModel,
     buildResultMetricCards,
     buildResultVerdictModel,
@@ -766,6 +768,8 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
     const adaptiveCoachLoop = buildAdaptiveCoachLoopModel(activeSession);
     const precisionTrendBlock = buildPrecisionTrendBlockModel(activeSession.precisionTrend);
     const quotaNotice = buildAnalysisQuotaNoticeModel({ quota: activeSession.quota ?? null });
+    const premiumLocks = buildPremiumLockCards(activeSession.premiumProjection);
+    const captureGuidance = buildCaptureGuidanceModel(activeSession);
 
     return (
         <div className={styles.dashboard}>
@@ -834,6 +838,38 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                     </div>
                 </section>
             ) : null}
+            <section className={styles.premiumLockPanel} aria-label="Guia de captura e estado Pro">
+                <div className={styles.premiumLockIntro}>
+                    <span className={styles.reportEyebrow}>Free / Pro</span>
+                    <h3>{captureGuidance.title}</h3>
+                    {captureGuidance.weakCaptureBody ? (
+                        <p>{captureGuidance.weakCaptureBody}</p>
+                    ) : (
+                        <p>Free continua mostrando a verdade do clip. Pro abre o plano completo, historico profundo, metricas avancadas e loop de validacao quando a evidencia sustenta.</p>
+                    )}
+                </div>
+                <div className={styles.captureGuidanceGrid}>
+                    {captureGuidance.checklist.map((item) => (
+                        <span key={item}>{item}</span>
+                    ))}
+                </div>
+                {premiumLocks.length > 0 ? (
+                    <div className={styles.premiumLockGrid}>
+                        {premiumLocks.map((lock) => (
+                            <article key={`${lock.featureKey}-${lock.reasonLabel}`} className={styles.premiumLockCard}>
+                                <span className="badge badge-info">{lock.reasonLabel}</span>
+                                <h4>{lock.title}</h4>
+                                <p>{lock.body}</p>
+                                {lock.href && lock.ctaLabel ? (
+                                    <a href={lock.href} className="btn btn-ghost btn-sm">
+                                        {lock.ctaLabel}
+                                    </a>
+                                ) : null}
+                            </article>
+                        ))}
+                    </div>
+                ) : null}
+            </section>
             {/* ═══ Sub-Sessions Selector ═══ */}
             {result.subSessions && result.subSessions.length > 0 && (
                 <section className={styles.section}>

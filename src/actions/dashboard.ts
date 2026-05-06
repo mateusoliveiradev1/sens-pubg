@@ -6,6 +6,13 @@ import { auth } from '@/auth';
 import { eq, sql, gte, and, desc } from 'drizzle-orm';
 import { hydrateAnalysisResultFromHistory } from '@/app/history/analysis-result-hydration';
 import { buildDashboardActiveCoachLoop, type DashboardActiveCoachLoop } from './dashboard-active-coach-loop';
+import { createPremiumProjectionSummary } from '@/lib/premium-projection';
+import { resolveProductAccess, type ProductAccessResolution } from '@/lib/product-entitlements';
+import {
+    createDrizzleQuotaLedgerRepository,
+    resolveAnalysisSaveAccessWithResolution,
+} from '@/lib/quota-ledger';
+import type { PremiumProjectionSummary } from '@/types/monetization';
 import type {
     AnalysisResult,
     CoachDecisionTier,
@@ -77,6 +84,7 @@ export interface DashboardStats {
     trendEvidence: DashboardTrendEvidence;
     principalPrecisionTrend: DashboardPrincipalPrecisionTrend | null;
     activeCoachLoop: DashboardActiveCoachLoop | null;
+    premiumProjection: PremiumProjectionSummary;
 }
 
 interface RecentTruthSession {
@@ -252,6 +260,17 @@ function buildPrincipalPrecisionTrend(
     };
 }
 
+async function resolveDashboardAccess(userId: string): Promise<ProductAccessResolution> {
+    try {
+        return (await resolveAnalysisSaveAccessWithResolution({
+            repository: createDrizzleQuotaLedgerRepository(db),
+            userId,
+        })).access;
+    } catch {
+        return resolveProductAccess({ userId });
+    }
+}
+
 export async function getDashboardStats(): Promise<DashboardStats | null> {
     const session = await auth();
     if (!session?.user?.id) return null;
@@ -261,6 +280,7 @@ export async function getDashboardStats(): Promise<DashboardStats | null> {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     try {
+        const access = await resolveDashboardAccess(userId);
         // 1. Basic Stats — use COALESCE to fallback sprayScore → stabilityScore
         const scoreExpr = sql`COALESCE(NULLIF(${analysisSessions.sprayScore}, 0), ${analysisSessions.stabilityScore}::integer, 0)`;
 
@@ -423,7 +443,8 @@ export async function getDashboardStats(): Promise<DashboardStats | null> {
             latestCoachNextBlock: buildLatestCoachNextBlock(latestTruthResult),
             trendEvidence: buildTrendEvidence(recentTruthSessions, hydratedRecentResults, delta),
             principalPrecisionTrend,
-            activeCoachLoop,
+            activeCoachLoop: access.features['coach.validation_loop'].granted ? activeCoachLoop : null,
+            premiumProjection: createPremiumProjectionSummary(access, latestTruthResult ?? undefined),
         };
     } catch (err) {
         console.error('[getDashboardStats] Error:', err);

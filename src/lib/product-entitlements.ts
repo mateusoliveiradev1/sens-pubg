@@ -4,10 +4,8 @@ import {
     type ProductAccessState,
     type ProductEntitlementDefinition,
     type ProductEntitlementKey,
-    type ProductQuotaState,
     type ProductQuotaSummary,
     type ProductTier,
-    type QuotaReasonCode,
 } from '@/types/monetization';
 
 export type ProductAccessSource =
@@ -481,5 +479,5 @@ export function hasProductEntitlement(
     resolution: ProductAccessResolution,
     key: ProductEntitlementKey,
 ): boolean {
-    return resolution.features[key].granted;
+    return resolution.features[key]?.granted ?? false;
 }

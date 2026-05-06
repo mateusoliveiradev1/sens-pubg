@@ -73,4 +73,15 @@ describe('/community page contract', () => {
         expect(source).toMatch(/\{signal\.label\}/);
         expect(source).toMatch(/\{signal\.reason\}/);
     });
+
+    it('keeps public community as an open trust surface instead of a Pro paywall', () => {
+        const source = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase();
+
+        expect(source).toMatch(/community-feed|featuredposts|posthighlights/);
+        expect(source).toMatch(/clearhref|emptystate|filteremptystate|\/community\/users\//);
+        expect(source).not.toMatch(/pro required|assinatura obrigatoria|paywall|bloqueado por pro|checkout/);
+    });
 });

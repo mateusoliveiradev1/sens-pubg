@@ -177,28 +177,43 @@ export const parseProductQuotaState = productQuotaStateContract.parse;
 
 const monetizationEventTypeContract = createMonetizationEnumContract([
     'activation.first_usable_analysis',
+    'analysis.saved',
+    'analysis.non_billable',
     'quota.consumed',
     'quota.warning',
     'quota.limit_hit',
+    'quota.exhausted',
     'quota.adjusted',
     'upgrade_intent.limit_hit',
     'upgrade_intent.premium_feature_attempted',
+    'upgrade_intent.checkout_requested',
+    'premium.lock_viewed',
     'paywall.viewed',
     'checkout.started',
+    'checkout.created',
+    'checkout.blocked',
+    'checkout.failed',
     'checkout.canceled',
     'checkout.completed',
     'checkout.confirmed',
     'webhook.processed',
     'webhook.rejected',
+    'webhook.quarantined',
     'pro.activated',
     'pro.payment_failed',
     'pro.grace_entered',
     'pro.revoked',
+    'pro.canceled',
+    'pro.suspended',
     'billing.portal_opened',
+    'billing.portal_blocked',
     'admin.grant_created',
     'admin.grant_revoked',
     'admin.suspension_created',
     'admin.suspension_removed',
+    'admin.support_note_created',
+    'admin.reconciliation_requested',
+    'beta.cohort_attributed',
     'pro.feature_value',
 ]);
 
@@ -325,4 +340,33 @@ export interface NoFalseDoneEvidenceItem {
     readonly command: string | null;
     readonly result: NoFalseDoneEvidenceStatus;
     readonly remainingGap: string | null;
+}
+
+export type PremiumLockReason =
+    | 'pro_feature'
+    | 'limit_reached'
+    | 'payment_issue'
+    | 'weak_evidence'
+    | 'not_enough_history';
+
+export interface PremiumFeatureLock {
+    readonly featureKey: ProductEntitlementKey;
+    readonly reason: PremiumLockReason;
+    readonly title: string;
+    readonly body: string;
+    readonly ctaHref: '/pricing' | '/billing' | null;
+}
+
+export interface PremiumProjectionSummary {
+    readonly tier: ProductTier;
+    readonly accessState: ProductAccessState;
+    readonly billingStatus: BillingStatus;
+    readonly quota: ProductQuotaSummary;
+    readonly locks: readonly PremiumFeatureLock[];
+    readonly visibleFeatureKeys: readonly ProductEntitlementKey[];
+    readonly hiddenFeatureKeys: readonly ProductEntitlementKey[];
+    readonly canSeeFullCoachPlan: boolean;
+    readonly canSeeFullHistory: boolean;
+    readonly canSeeAdvancedMetrics: boolean;
+    readonly canCaptureCoachOutcome: boolean;
 }
