@@ -35,7 +35,14 @@ export {
 } from './frame-extraction';
 
 export {
+    resolveAnalysisDecision,
+    permissionMatrixForDecisionLevel,
+    type ResolveAnalysisDecisionInput,
+} from './analysis-decision';
+
+export {
     detectSprayWindow,
+    detectSprayValidity,
     type DetectSprayWindowOptions,
 } from './spray-window-detection';
 

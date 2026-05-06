@@ -1,5 +1,10 @@
 import { asMilliseconds } from '../types/branded';
-import type { SprayWindowDetection } from '../types/engine';
+import type {
+    AnalysisBlockerReasonCode,
+    SprayValidityReport,
+    SprayWindowDetection,
+} from '../types/engine';
+import { resolveAnalysisDecision } from './analysis-decision';
 import type { CrosshairColor } from './crosshair-tracking';
 import { createStreamingCrosshairTracker } from './crosshair-tracking';
 import type { ExtractedFrame } from './frame-extraction';
@@ -20,10 +25,13 @@ export function detectSprayWindow(
     frames: readonly ExtractedFrame[],
     options: DetectSprayWindowOptions = {}
 ): SprayWindowDetection | null {
-    if (frames.length < 2) {
-        return null;
-    }
+    return detectSprayValidity(frames, options).window;
+}
 
+export function detectSprayValidity(
+    frames: readonly ExtractedFrame[],
+    options: DetectSprayWindowOptions = {}
+): SprayValidityReport {
     const tracker = createStreamingCrosshairTracker();
     const targetColor = options.targetColor ?? 'RED';
     const minDisplacementPx = options.minDisplacementPx ?? 2;
@@ -34,7 +42,13 @@ export function detectSprayWindow(
         readonly frameIndex: number;
         readonly confidence: number;
     }> = [];
+    const displacements: Array<{
+        readonly frameIndex: number;
+        readonly distancePx: number;
+    }> = [];
     let previousVisiblePosition: { x: number; y: number } | null = null;
+    let visibleFrames = 0;
+    let confidenceSum = 0;
 
     for (let index = 0; index < frames.length; index++) {
         const frame = frames[index]!;
@@ -44,11 +58,15 @@ export function detectSprayWindow(
             continue;
         }
 
+        visibleFrames++;
+        confidenceSum += observation.confidence;
+
         if (previousVisiblePosition) {
             const displacementPx = Math.hypot(
                 observation.x - previousVisiblePosition.x,
                 observation.y - previousVisiblePosition.y
             );
+            displacements.push({ frameIndex: index, distancePx: displacementPx });
 
             if (displacementPx >= minDisplacementPx) {
                 shotLikeEvents.push({
@@ -64,6 +82,50 @@ export function detectSprayWindow(
         };
     }
 
+    const blockerReasons = resolveValidityBlockerReasons({
+        frameCount: frames.length,
+        visibleFrames,
+        shotLikeEvents: shotLikeEvents.length,
+        minShotLikeEvents,
+        displacements,
+    });
+    const window = blockerReasons.length === 0
+        ? createSprayWindow(frames, shotLikeEvents, minShotLikeEvents, preRollFrames, postRollFrames)
+        : null;
+    const meanVisibleConfidence = visibleFrames > 0 ? confidenceSum / visibleFrames : 0;
+    const windowConfidence = window?.confidence ?? 0;
+    const confidence = clampUnit(window
+        ? Math.max(windowConfidence, meanVisibleConfidence * 0.85)
+        : meanVisibleConfidence * 0.5);
+    const decision = resolveAnalysisDecision({
+        blockerReasons,
+        confidence,
+        coverage: visibleFrames / Math.max(frames.length, 1),
+    });
+
+    return {
+        valid: window !== null && decision.level !== 'blocked_invalid_clip',
+        decisionLevel: window ? decision.level : decision.level === 'usable_analysis' ? 'inconclusive_recapture' : decision.level,
+        window,
+        blockerReasons,
+        trimmedReasons: resolveTrimmedReasons(displacements),
+        recaptureGuidance: recaptureGuidanceForReasons(blockerReasons),
+        frameCount: frames.length,
+        shotLikeEvents: shotLikeEvents.length,
+        confidence,
+    };
+}
+
+function createSprayWindow(
+    frames: readonly ExtractedFrame[],
+    shotLikeEvents: ReadonlyArray<{
+        readonly frameIndex: number;
+        readonly confidence: number;
+    }>,
+    minShotLikeEvents: number,
+    preRollFrames: number,
+    postRollFrames: number
+): SprayWindowDetection | null {
     if (shotLikeEvents.length < minShotLikeEvents) {
         return null;
     }
@@ -88,4 +150,93 @@ export function detectSprayWindow(
         rejectedLeadingMs: asMilliseconds(Math.max(0, startFrame.timestamp - firstFrame.timestamp)),
         rejectedTrailingMs: asMilliseconds(Math.max(0, lastFrame.timestamp - endFrame.timestamp)),
     };
+}
+
+function resolveValidityBlockerReasons(input: {
+    readonly frameCount: number;
+    readonly visibleFrames: number;
+    readonly shotLikeEvents: number;
+    readonly minShotLikeEvents: number;
+    readonly displacements: ReadonlyArray<{
+        readonly frameIndex: number;
+        readonly distancePx: number;
+    }>;
+}): readonly AnalysisBlockerReasonCode[] {
+    const reasons: AnalysisBlockerReasonCode[] = [];
+
+    if (input.frameCount < 6) {
+        reasons.push('too_short');
+    }
+
+    if (input.visibleFrames === 0) {
+        reasons.push('crosshair_not_visible');
+    }
+
+    if (input.shotLikeEvents < input.minShotLikeEvents) {
+        reasons.push('not_spray_protocol');
+    }
+
+    if (input.displacements.some((entry) => entry.distancePx > 28)) {
+        reasons.push('flick');
+    }
+
+    if (input.displacements.filter((entry) => entry.distancePx > 40).length >= 2) {
+        reasons.push('target_swap');
+    }
+
+    if (hasLeadingOrTrailingHardCut(input.displacements, input.frameCount)) {
+        reasons.push('hard_cut');
+    }
+
+    return [...new Set(reasons)];
+}
+
+function hasLeadingOrTrailingHardCut(
+    displacements: ReadonlyArray<{
+        readonly frameIndex: number;
+        readonly distancePx: number;
+    }>,
+    frameCount: number
+): boolean {
+    const leadingBoundary = Math.min(2, Math.max(frameCount - 1, 0));
+    const trailingBoundary = Math.max(0, frameCount - 2);
+
+    return displacements.some((entry) => (
+        entry.distancePx > 55
+        && (entry.frameIndex <= leadingBoundary || entry.frameIndex >= trailingBoundary)
+    ));
+}
+
+function resolveTrimmedReasons(
+    displacements: ReadonlyArray<{
+        readonly distancePx: number;
+    }>
+): readonly AnalysisBlockerReasonCode[] {
+    if (displacements.some((entry) => entry.distancePx > 28)) {
+        return ['flick'];
+    }
+
+    return [];
+}
+
+function recaptureGuidanceForReasons(
+    reasons: readonly AnalysisBlockerReasonCode[]
+): readonly string[] {
+    const guidance: Partial<Record<AnalysisBlockerReasonCode, string>> = {
+        too_short: 'Grave pelo menos um spray completo antes de analisar.',
+        hard_cut: 'Evite cortes dentro do spray; exporte um trecho continuo.',
+        flick: 'Nao misture flick com spray controlado no mesmo clip.',
+        target_swap: 'Use um unico alvo durante a janela de spray.',
+        camera_motion: 'Evite movimento de camera externo durante a captura.',
+        crosshair_not_visible: 'Use reticulo vermelho ou verde visivel no centro.',
+        not_spray_protocol: 'Grave um spray sustentado com arma, mira e distancia fixas.',
+    };
+
+    const selected = reasons
+        .map((reason) => guidance[reason])
+        .filter((message): message is string => Boolean(message));
+
+    return selected.length > 0
+        ? [...new Set(selected)]
+        : ['Grave um spray sustentado com reticulo visivel e alvo unico.'];
 }

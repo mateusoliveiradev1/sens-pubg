@@ -343,4 +343,43 @@ describe('createVideoQualityDiagnosticReport', () => {
         expect(diagnostic.summary).toContain('janela util');
         expect(diagnostic.recommendations).toContain('O pipeline aplicou normalizacao de cor/contraste antes da leitura.');
     });
+
+    it('includes spray validity blockers and recapture guidance for invalid clips', () => {
+        const report = createVideoQualityReport({
+            sharpness: 72,
+            compressionBurden: 28,
+            reticleContrast: 70,
+            roiStability: 100,
+            fpsStability: 100,
+        });
+        const diagnostic = createVideoQualityDiagnosticReport({
+            report,
+            sampledFrames: 8,
+            selectedFrames: 8,
+            normalizationApplied: false,
+            sprayWindow: null,
+            sprayValidity: {
+                valid: false,
+                decisionLevel: 'blocked_invalid_clip',
+                window: null,
+                blockerReasons: ['hard_cut', 'target_swap'],
+                trimmedReasons: [],
+                recaptureGuidance: [
+                    'Evite cortes dentro do spray; exporte um trecho continuo.',
+                    'Use um unico alvo durante a janela de spray.',
+                ],
+                frameCount: 8,
+                shotLikeEvents: 3,
+                confidence: 0.25,
+            },
+        });
+
+        expect(diagnostic.preprocessing.validityBlockerReasons).toEqual(['hard_cut', 'target_swap']);
+        expect(diagnostic.preprocessing.recaptureGuidance).toEqual([
+            'Evite cortes dentro do spray; exporte um trecho continuo.',
+            'Use um unico alvo durante a janela de spray.',
+        ]);
+        expect(diagnostic.recommendations).toContain('Evite cortes dentro do spray; exporte um trecho continuo.');
+        expect(diagnostic.recommendations.join(' ')).not.toMatch(/perfect|garantido|rank|definitivo/i);
+    });
 });

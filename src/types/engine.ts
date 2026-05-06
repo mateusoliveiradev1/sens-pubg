@@ -100,6 +100,55 @@ export interface TrackingEvidence extends TrackingQualitySummary {
     readonly confidenceCalibration: TrackingConfidenceCalibration;
 }
 
+export type AnalysisEngineContractVersion = 'spray-truth-v2';
+
+export type AnalysisDecisionLevel =
+    | 'blocked_invalid_clip'
+    | 'inconclusive_recapture'
+    | 'partial_safe_read'
+    | 'usable_analysis'
+    | 'strong_analysis';
+
+export type AnalysisBlockerReasonCode =
+    | 'too_short'
+    | 'hard_cut'
+    | 'flick'
+    | 'target_swap'
+    | 'camera_motion'
+    | 'crosshair_not_visible'
+    | 'not_spray_protocol'
+    | 'low_coverage'
+    | 'low_confidence'
+    | 'low_clip_quality';
+
+export type AnalysisClaimLevel =
+    | 'none'
+    | 'capture_guidance'
+    | 'limited_read'
+    | 'analysis'
+    | 'commercial_supported';
+
+export interface AnalysisDecisionPermissionMatrix {
+    readonly canDisplayDiagnosis: boolean;
+    readonly canDisplaySensitivity: boolean;
+    readonly canDisplayCoach: boolean;
+    readonly canSaveAuditResult: boolean;
+    readonly countsAsUsefulAnalysis: boolean;
+    readonly canEnterPrecisionTrend: boolean;
+    readonly canEnterCorpus: boolean;
+    readonly allowedClaimLevel: AnalysisClaimLevel;
+}
+
+export interface AnalysisDecision {
+    readonly version: AnalysisEngineContractVersion;
+    readonly level: AnalysisDecisionLevel;
+    readonly blockerReasons: readonly AnalysisBlockerReasonCode[];
+    readonly permissionMatrix: AnalysisDecisionPermissionMatrix;
+    readonly recommendedNextStep: string;
+    readonly legacyActionState: SprayActionState;
+    readonly confidence: number;
+}
+
 export type VideoQualityBlockingReason =
     | 'low_sharpness'
     | 'high_compression_burden'
@@ -119,6 +168,9 @@ export interface VideoQualityPreprocessingReport {
     readonly sampledFrames: number;
     readonly selectedFrames: number;
     readonly sprayWindow?: SprayWindowDetection;
+    readonly sprayValidity?: SprayValidityReport;
+    readonly validityBlockerReasons?: readonly AnalysisBlockerReasonCode[];
+    readonly recaptureGuidance?: readonly string[];
 }
 
 export interface VideoQualityDiagnosticReport {
@@ -189,6 +241,18 @@ export interface SprayWindowDetection {
     readonly shotLikeEvents: number;
     readonly rejectedLeadingMs: Milliseconds;
     readonly rejectedTrailingMs: Milliseconds;
+}
+
+export interface SprayValidityReport {
+    readonly valid: boolean;
+    readonly decisionLevel: AnalysisDecisionLevel;
+    readonly window: SprayWindowDetection | null;
+    readonly blockerReasons: readonly AnalysisBlockerReasonCode[];
+    readonly trimmedReasons: readonly AnalysisBlockerReasonCode[];
+    readonly recaptureGuidance: readonly string[];
+    readonly frameCount: number;
+    readonly shotLikeEvents: number;
+    readonly confidence: number;
 }
 
 export interface DisplacementVector {

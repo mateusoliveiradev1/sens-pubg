@@ -9,7 +9,7 @@ import {
     validateAndPrepareVideo,
     releaseVideoUrl,
     extractFrames,
-    detectSprayWindow,
+    detectSprayValidity,
     sliceExtractedFramesToWindow,
     buildTrajectory,
     calculateSprayMetrics,
@@ -23,6 +23,7 @@ import { buildCoachPlan } from '@/core/coach-plan-builder';
 import type {
     AnalysisDistanceMode,
     AnalysisResult,
+    SprayValidityReport,
     GripAttachment,
     GripStyle,
     MuzzleAttachment,
@@ -142,6 +143,15 @@ function formatQualityBlockingReasons(reasons: readonly VideoQualityBlockingReas
 
 function formatDiagnosticWindow(startMs: number, endMs: number): string {
     return `${(startMs / 1000).toFixed(2)}s - ${(endMs / 1000).toFixed(2)}s`;
+}
+
+function formatSprayValidityBlockerMessage(report: SprayValidityReport): string {
+    const reasons = report.blockerReasons.length > 0
+        ? report.blockerReasons.join(', ')
+        : 'spray invalido';
+    const guidance = report.recaptureGuidance.join(' ');
+
+    return `Clip bloqueado antes do rastreio (${reasons}). ${guidance}`;
 }
 
 function QualityTimelineEvidence({ timeline }: { readonly timeline: VideoQualityFrameTimeline }): React.JSX.Element {
@@ -418,11 +428,16 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                 const extractedFrames = await extractFrames(video.url, Math.min(video.fps, 60), marker.time, expectedDurationSecs, (frameProgress) => {
                     setProgress((index * stepIncrement) + (frameProgress.percent * 0.5 * (stepIncrement / 100)));
                 });
-                const detectedSprayWindow = detectSprayWindow(extractedFrames, {
+                const sprayValidity = detectSprayValidity(extractedFrames, {
                     targetColor: crosshairColor,
                 });
-                const framesForTracking = detectedSprayWindow
-                    ? sliceExtractedFramesToWindow(extractedFrames, detectedSprayWindow)
+
+                if (sprayValidity.decisionLevel === 'blocked_invalid_clip') {
+                    throw new Error(formatSprayValidityBlockerMessage(sprayValidity));
+                }
+
+                const framesForTracking = sprayValidity.window
+                    ? sliceExtractedFramesToWindow(extractedFrames, sprayValidity.window)
                     : extractedFrames;
 
                 setPhase('tracking');

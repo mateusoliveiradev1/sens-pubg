@@ -1,5 +1,7 @@
 import { asMilliseconds, asScore } from '../types/branded';
 import type {
+    AnalysisBlockerReasonCode,
+    SprayValidityReport,
     SprayWindowDetection,
     VideoQualityBlockingReason,
     VideoQualityDiagnosticReport,
@@ -43,6 +45,7 @@ export interface CreateVideoQualityDiagnosticReportInput {
     readonly selectedFrames: number;
     readonly normalizationApplied: boolean;
     readonly sprayWindow?: SprayWindowDetection | null;
+    readonly sprayValidity?: SprayValidityReport | null;
     readonly timeline?: VideoQualityFrameTimeline;
 }
 
@@ -671,7 +674,9 @@ function createVideoQualitySummary(
     input: CreateVideoQualityDiagnosticReportInput
 ): string {
     const score = Math.round(Number(input.report.overallScore));
-    const sprayWindowText = input.sprayWindow
+    const sprayWindowText = input.sprayValidity
+        ? (input.sprayValidity.valid ? 'spray valido detectado' : 'spray bloqueado por validade')
+        : input.sprayWindow
         ? 'janela util do spray detectada'
         : 'janela util do spray nao detectada';
 
@@ -697,6 +702,7 @@ function createVideoQualityRecommendations(
 ): readonly string[] {
     const recommendations: string[] = [];
     const reasons = input.report.blockingReasons;
+    const validityBlockers = input.sprayValidity?.blockerReasons ?? [];
 
     if (input.normalizationApplied) {
         recommendations.push('O pipeline aplicou normalizacao de cor/contraste antes da leitura.');
@@ -704,6 +710,10 @@ function createVideoQualityRecommendations(
 
     if (!input.sprayWindow) {
         recommendations.push('Marque o inicio do spray o mais perto possivel do primeiro tiro para reduzir frames mortos.');
+    }
+
+    for (const recommendation of createSprayValidityRecommendations(validityBlockers)) {
+        recommendations.push(recommendation);
     }
 
     if (reasons.includes('low_sharpness')) {
@@ -737,11 +747,28 @@ function createVideoQualityRecommendations(
     return recommendations;
 }
 
+function createSprayValidityRecommendations(
+    reasons: readonly AnalysisBlockerReasonCode[]
+): readonly string[] {
+    const copy: Partial<Record<AnalysisBlockerReasonCode, string>> = {
+        too_short: 'Grave pelo menos um spray completo antes de analisar.',
+        hard_cut: 'Evite cortes dentro do spray; exporte um trecho continuo.',
+        flick: 'Nao misture flick com spray controlado no mesmo clip.',
+        target_swap: 'Use um unico alvo durante a janela de spray.',
+        camera_motion: 'Evite movimento de camera externo durante a captura.',
+        crosshair_not_visible: 'Use reticulo vermelho ou verde visivel no centro.',
+        not_spray_protocol: 'Grave um spray sustentado com arma, mira e distancia fixas.',
+    };
+
+    return [...new Set(reasons.map((reason) => copy[reason]).filter((message): message is string => Boolean(message)))];
+}
+
 export function createVideoQualityDiagnosticReport(
     input: CreateVideoQualityDiagnosticReportInput
 ): VideoQualityDiagnosticReport {
     const tier = classifyVideoQualityTier(input.report);
     const sprayWindow = input.sprayWindow ?? undefined;
+    const sprayValidity = input.sprayValidity ?? undefined;
 
     return {
         tier,
@@ -752,6 +779,11 @@ export function createVideoQualityDiagnosticReport(
             sampledFrames: input.sampledFrames,
             selectedFrames: input.selectedFrames,
             ...(sprayWindow ? { sprayWindow } : {}),
+            ...(sprayValidity ? {
+                sprayValidity,
+                validityBlockerReasons: sprayValidity.blockerReasons,
+                recaptureGuidance: sprayValidity.recaptureGuidance,
+            } : {}),
         },
         ...(input.timeline ? { timeline: input.timeline } : {}),
     };

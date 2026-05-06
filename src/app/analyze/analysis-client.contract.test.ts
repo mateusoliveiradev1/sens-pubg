@@ -145,4 +145,22 @@ describe('analysis worker tracking contract', () => {
         expect(source).not.toMatch(/for\s*\(const frame of framesForTracking\)[\s\S]*worker\.postMessage/);
         expect(source).not.toMatch(/new Promise<WorkerTrackingResult>/);
     });
+
+    it('uses spray validity before tracking instead of only binary window detection', () => {
+        const source = readFileSync(new URL('./analysis-client.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/detectSprayValidity\(/);
+        expect(source).not.toMatch(/detectSprayWindow\(/);
+    });
+
+    it('does not fall back to extracted frames when spray validity blocks the clip', () => {
+        const source = readFileSync(new URL('./analysis-client.tsx', import.meta.url), 'utf8');
+        const blockedBranch = source.match(
+            /if\s*\(sprayValidity\.decisionLevel === 'blocked_invalid_clip'\)\s*\{([\s\S]*?)\n\s*\}/
+        );
+
+        expect(blockedBranch?.[1]).toMatch(/throw new Error/);
+        expect(blockedBranch?.[1]).not.toMatch(/extractedFrames/);
+        expect(source).toMatch(/sprayValidity\.window[\s\S]*sliceExtractedFramesToWindow\(extractedFrames,\s*sprayValidity\.window\)/);
+    });
 });
