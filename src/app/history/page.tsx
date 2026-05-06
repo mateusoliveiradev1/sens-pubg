@@ -49,6 +49,49 @@ const ACCEPTANCE_META = {
     },
 } as const;
 
+const COACH_OUTCOME_META = {
+    pending: {
+        color: 'var(--color-warning)',
+        background: 'rgba(255, 193, 7, 0.1)',
+        border: 'rgba(255, 193, 7, 0.24)',
+    },
+    started: {
+        color: '#74d7ff',
+        background: 'rgba(116, 215, 255, 0.12)',
+        border: 'rgba(116, 215, 255, 0.22)',
+    },
+    completed: {
+        color: 'var(--color-warning)',
+        background: 'rgba(255, 193, 7, 0.1)',
+        border: 'rgba(255, 193, 7, 0.24)',
+    },
+    improved: {
+        color: 'var(--color-success)',
+        background: 'rgba(34, 197, 94, 0.12)',
+        border: 'rgba(34, 197, 94, 0.22)',
+    },
+    unchanged: {
+        color: '#74d7ff',
+        background: 'rgba(116, 215, 255, 0.12)',
+        border: 'rgba(116, 215, 255, 0.22)',
+    },
+    worse: {
+        color: 'var(--color-error)',
+        background: 'rgba(239, 68, 68, 0.12)',
+        border: 'rgba(239, 68, 68, 0.22)',
+    },
+    invalid_capture: {
+        color: 'var(--color-warning)',
+        background: 'rgba(255, 193, 7, 0.1)',
+        border: 'rgba(255, 193, 7, 0.24)',
+    },
+    conflict: {
+        color: 'var(--color-error)',
+        background: 'rgba(239, 68, 68, 0.12)',
+        border: 'rgba(239, 68, 68, 0.22)',
+    },
+} as const;
+
 const FIELD_TREND_META: Record<FieldTrendState, {
     readonly label: string;
     readonly description: string;
@@ -89,6 +132,10 @@ function getAcceptanceMeta(feedback?: SensitivityAcceptanceFeedback) {
     }
 
     return ACCEPTANCE_META[feedback.outcome];
+}
+
+function getCoachOutcomeMeta(status: HistorySession['coachOutcomeStatus'] | undefined) {
+    return status ? COACH_OUTCOME_META[status.status] : null;
 }
 
 function resolveTrendState(summary: {
@@ -596,6 +643,7 @@ export default async function HistoryPage({
                                     const weaponName = session.weaponName ?? staticWeapon?.name ?? session.weaponId;
                                     const category = session.weaponCategory ?? staticWeapon?.category;
                                     const acceptanceMeta = getAcceptanceMeta(session.acceptanceFeedback);
+                                    const coachOutcomeMeta = getCoachOutcomeMeta(session.coachOutcomeStatus);
                                     const recommendedProfile = isProfileType(session.recommendedProfile)
                                         ? PROFILE_LABELS[session.recommendedProfile]
                                         : undefined;
@@ -670,6 +718,29 @@ export default async function HistoryPage({
                                                                 {acceptanceMeta.label}
                                                             </span>
 
+                                                            {session.coachOutcomeStatus && coachOutcomeMeta ? (
+                                                                <span
+                                                                    style={{
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        padding: '6px 10px',
+                                                                        borderRadius: '999px',
+                                                                        border: `1px solid ${coachOutcomeMeta.border}`,
+                                                                        background: coachOutcomeMeta.background,
+                                                                        color: coachOutcomeMeta.color,
+                                                                        fontSize: '11px',
+                                                                        fontWeight: 700,
+                                                                        letterSpacing: '0.04em',
+                                                                        textTransform: 'uppercase',
+                                                                    }}
+                                                                >
+                                                                    Coach: {session.coachOutcomeStatus.label}
+                                                                    {session.coachOutcomeStatus.revisionCount > 0
+                                                                        ? ` (${session.coachOutcomeStatus.revisionCount} rev.)`
+                                                                        : ''}
+                                                                </span>
+                                                            ) : null}
+
                                                             {recommendedProfile ? (
                                                                 <span
                                                                     style={{
@@ -695,6 +766,11 @@ export default async function HistoryPage({
                                                             Mira: {scope?.name ?? session.scopeId} · Patch: {session.patchVersion} ·{' '}
                                                             {session.createdAt.toLocaleDateString('pt-BR')}
                                                         </p>
+                                                        {session.coachOutcomeStatus ? (
+                                                            <p style={{ margin: '6px 0 0 0', color: 'var(--color-accent-cyan)', fontSize: '12px', fontWeight: 700 }}>
+                                                                Ver auditoria do coach
+                                                            </p>
+                                                        ) : null}
                                                     </div>
                                                 </div>
 

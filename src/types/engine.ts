@@ -943,6 +943,7 @@ export interface PrecisionEvolutionLine {
 
 export interface AnalysisResult {
     readonly id: string;
+    readonly historySessionId?: string;
     readonly timestamp: Date;
     readonly patchVersion: string;
     readonly analysisContext?: AnalysisContextDetails;

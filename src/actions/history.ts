@@ -910,7 +910,14 @@ export async function saveAnalysisResult(
 
         await db.insert(sensitivityHistory).values(historyRows);
 
-        return { success: true as const, sessionId, result: enrichedResult };
+        return {
+            success: true as const,
+            sessionId,
+            result: {
+                ...enrichedResult,
+                historySessionId: sessionId,
+            },
+        };
     } catch (err) {
         console.error('[saveAnalysisResult] Error:', err);
         return {
@@ -1355,6 +1362,52 @@ export async function recordSensitivityAcceptance(
     }
 }
 
+function formatCoachOutcomeStatusLabel(status: CoachProtocolOutcomeStatus): string {
+    switch (status) {
+        case 'started':
+            return 'Bloco iniciado';
+        case 'completed':
+            return 'Completou sem medir';
+        case 'improved':
+            return 'Melhorou - relato';
+        case 'unchanged':
+            return 'Ficou igual';
+        case 'worse':
+            return 'Piorou no treino';
+        case 'invalid_capture':
+            return 'Captura invalida';
+    }
+}
+
+function isHistoryCoachFocusArea(value: unknown): value is CoachFocusArea {
+    return value === 'capture_quality'
+        || value === 'vertical_control'
+        || value === 'horizontal_control'
+        || value === 'timing'
+        || value === 'consistency'
+        || value === 'sensitivity'
+        || value === 'loadout'
+        || value === 'validation';
+}
+
+function isHistoryCoachProtocolOutcomeRow(value: unknown): value is CoachProtocolOutcomeRow {
+    return isRecord(value)
+        && typeof value.id === 'string'
+        && typeof value.analysisSessionId === 'string'
+        && typeof value.coachPlanId === 'string'
+        && typeof value.protocolId === 'string'
+        && isHistoryCoachFocusArea(value.focusArea)
+        && (value.status === 'started'
+            || value.status === 'completed'
+            || value.status === 'improved'
+            || value.status === 'unchanged'
+            || value.status === 'worse'
+            || value.status === 'invalid_capture')
+        && Array.isArray(value.reasonCodes)
+        && typeof value.evidenceStrength === 'string'
+        && value.createdAt instanceof Date;
+}
+
 export async function getHistorySessions() {
     const session = await auth();
     if (!session?.user?.id) {
@@ -1383,16 +1436,55 @@ export async function getHistorySessions() {
             )
             .where(eq(analysisSessions.userId, session.user.id))
             .orderBy(analysisSessions.createdAt);
+        const outcomeRowsResult = await db
+            .select()
+            .from(coachProtocolOutcomes)
+            .where(eq(coachProtocolOutcomes.userId, session.user.id))
+            .orderBy(coachProtocolOutcomes.createdAt) as CoachProtocolOutcomeRow[] | undefined;
+        const outcomeRows = Array.isArray(outcomeRowsResult)
+            ? outcomeRowsResult.filter(isHistoryCoachProtocolOutcomeRow)
+            : [];
+        const latestOutcomeBySession = new Map<string, CoachProtocolOutcome>();
+        const revisionCountBySession = new Map<string, number>();
+
+        for (const row of outcomeRows) {
+            const outcome = toCoachProtocolOutcome(row);
+            latestOutcomeBySession.set(outcome.sessionId, outcome);
+            revisionCountBySession.set(
+                outcome.sessionId,
+                (revisionCountBySession.get(outcome.sessionId) ?? 0) + (outcome.revisionOfOutcomeId ? 1 : 0),
+            );
+        }
 
         return result.map(({ fullResult, ...historySession }) => {
             const sensitivity = fullResult && typeof fullResult === 'object'
                 ? (fullResult as Record<string, unknown>).sensitivity
+                : undefined;
+            const coachPlan = fullResult && typeof fullResult === 'object'
+                ? (fullResult as Record<string, unknown>).coachPlan
                 : undefined;
             const storedSensitivity = sensitivity && typeof sensitivity === 'object'
                 ? sensitivity as Record<string, unknown>
                 : undefined;
             const recommendedProfile = storedSensitivity?.recommended;
             const acceptanceFeedback = normalizeStoredAcceptanceFeedback(storedSensitivity?.acceptanceFeedback);
+            const latestOutcome = latestOutcomeBySession.get(historySession.id);
+            const hasCoachPlan = typeof coachPlan === 'object' && coachPlan !== null;
+            const coachOutcomeStatus = latestOutcome ? {
+                status: latestOutcome.conflict ? 'conflict' as const : latestOutcome.status,
+                label: latestOutcome.conflict
+                    ? 'Resultado em conflito'
+                    : formatCoachOutcomeStatusLabel(latestOutcome.status),
+                evidenceStrength: latestOutcome.evidenceStrength,
+                recordedAt: latestOutcome.recordedAt,
+                revisionCount: revisionCountBySession.get(historySession.id) ?? 0,
+            } : hasCoachPlan ? {
+                status: 'pending' as const,
+                label: 'Protocolo pendente',
+                evidenceStrength: 'none' as const,
+                recordedAt: null,
+                revisionCount: 0,
+            } : undefined;
 
             return {
                 ...historySession,
@@ -1400,6 +1492,7 @@ export async function getHistorySessions() {
                     ? { recommendedProfile }
                     : {}),
                 ...(acceptanceFeedback ? { acceptanceFeedback } : {}),
+                coachOutcomeStatus,
             };
         });
     } catch (err) {

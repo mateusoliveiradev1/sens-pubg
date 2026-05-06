@@ -497,7 +497,7 @@ describe('saveAnalysisResult', () => {
     it('persists patchVersion with the saved session and full result payload', async () => {
         const result = createAnalysisResult();
 
-        await saveAnalysisResult(result, 'beryl-m762', 'red-dot', 30);
+        const saved = await saveAnalysisResult(result, 'beryl-m762', 'red-dot', 30);
 
         expect(mocks.sessionValues).toHaveBeenCalledWith(expect.objectContaining({
             weaponId: 'beryl-m762',
@@ -507,6 +507,13 @@ describe('saveAnalysisResult', () => {
                 patchVersion: CURRENT_PUBG_PATCH_VERSION,
             }),
         }));
+        expect(saved).toMatchObject({
+            success: true,
+            sessionId: 'session-1',
+            result: {
+                historySessionId: 'session-1',
+            },
+        });
     });
 
     it('enriches coaching through the server helper and returns the enriched payload', async () => {
@@ -1289,6 +1296,60 @@ describe('getHistorySessions', () => {
             recommendedProfile: 'balanced',
         });
         expect(session).not.toHaveProperty('acceptanceFeedback');
+    });
+
+    it('adds the latest coach protocol outcome status to history cards', async () => {
+        mocks.orderBy
+            .mockResolvedValueOnce([
+                {
+                    id: 'session-1',
+                    weaponId: 'beryl-m762',
+                    scopeId: 'red-dot',
+                    patchVersion: CURRENT_PUBG_PATCH_VERSION,
+                    stabilityScore: 78,
+                    verticalControl: 1.02,
+                    horizontalNoise: 0.18,
+                    createdAt: new Date('2026-04-17T12:00:00.000Z'),
+                    weaponName: 'Beryl M762',
+                    weaponCategory: 'ar',
+                    fullResult: {
+                        coachPlan: createStoredCoachPlan(),
+                    },
+                },
+            ])
+            .mockResolvedValueOnce([
+                createStoredCoachOutcomeRow({
+                    analysisSessionId: 'session-1',
+                    status: 'improved',
+                    evidenceStrength: 'conflict',
+                    conflictPayload: {
+                        userOutcomeId: 'outcome-1',
+                        precisionTrendLabel: 'validated_regression',
+                        reason: 'Self-report improved, but strict compatible precision validated regression.',
+                        nextValidationCopy: 'Grave uma validacao curta antes de avancar.',
+                    },
+                }),
+                createStoredCoachOutcomeRow({
+                    id: 'outcome-2',
+                    analysisSessionId: 'session-1',
+                    status: 'worse',
+                    evidenceStrength: 'invalid',
+                    conflictPayload: null,
+                    revisionOfId: 'outcome-1',
+                }),
+            ]);
+
+        const [session] = await getHistorySessions();
+
+        expect(session).toMatchObject({
+            id: 'session-1',
+            coachOutcomeStatus: {
+                status: 'worse',
+                label: 'Piorou no treino',
+                evidenceStrength: 'invalid',
+                revisionCount: 1,
+            },
+        });
     });
 });
 

@@ -68,6 +68,7 @@ function createStats(overrides: Partial<DashboardStats> = {}): DashboardStats {
             canClaimProgress: true,
         },
         principalPrecisionTrend: null,
+        activeCoachLoop: null,
         ...overrides,
     };
 }
@@ -231,5 +232,48 @@ describe('dashboard truth view model', () => {
         expect(model.trendTitle).toBe('Nao comparavel');
         expect(model.trendBody).toContain('Distancia estimada bloqueia trend preciso.');
         expect(model.trendTitle).not.toBe('Progresso validado');
+    });
+
+    it('lets active pending coach loop override the generic next action', () => {
+        const model = buildDashboardTruthViewModel(createStats({
+            activeCoachLoop: {
+                sessionId: 'session-1',
+                status: 'started',
+                statusLabel: 'Bloco iniciado',
+                body: 'Bloco iniciado. Feche o resultado quando terminar.',
+                ctaLabel: 'Fechar protocolo pendente',
+                ctaHref: '/history/session-1',
+                primaryFocusTitle: 'Controle vertical',
+                nextBlockTitle: 'Bloco curto de teste de controle vertical',
+                memorySummary: 'Memoria curta em aberto.',
+                updatedAt: '2026-05-05T12:00:00.000Z',
+            },
+        }));
+
+        expect(model.nextActionTitle).toBe('Fechar protocolo pendente');
+        expect(model.nextActionBody).toContain('Bloco iniciado');
+        expect(model.truthBadgeLabel).toBe('Bloco iniciado');
+        expect(model.activeCoachLoop?.ctaHref).toBe('/history/session-1');
+    });
+
+    it('routes active coach conflicts to compatible validation', () => {
+        const model = buildDashboardTruthViewModel(createStats({
+            activeCoachLoop: {
+                sessionId: 'session-1',
+                status: 'conflict',
+                statusLabel: 'Resultado em conflito',
+                body: 'Outcome e validacao compativel discordam.',
+                ctaLabel: 'Gravar validacao compativel',
+                ctaHref: '/analyze',
+                primaryFocusTitle: 'Controle vertical',
+                nextBlockTitle: 'Bloco curto de teste de controle vertical',
+                memorySummary: 'Conflito em memoria.',
+                updatedAt: '2026-05-05T12:00:00.000Z',
+            },
+        }));
+
+        expect(model.nextActionTitle).toBe('Gravar validacao compativel');
+        expect(model.nextActionBody).toContain('Resultado em conflito');
+        expect(model.nextActionBody).not.toContain('Aplicar');
     });
 });

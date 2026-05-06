@@ -33,7 +33,23 @@ describe('history page field evolution contract', () => {
         expect(source).toMatch(/analysisResult\.coachPlan\.sessionSummary/);
         expect(source).toMatch(/analysisResult\.coachPlan\.primaryFocus\.title/);
         expect(source).toMatch(/analysisResult\.coachPlan\.nextBlock\.title/);
-        expect(source).toMatch(/<ResultsDashboard result=\{analysisResult\} \/>/);
+        expect(source).toMatch(/<ResultsDashboard result=\{analysisResultForDisplay\} \/>/);
+    });
+
+    it('shows coach outcome chips on history cards and full audit detail', () => {
+        const listSource = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
+        const detailSource = readFileSync(new URL('./[id]/page.tsx', import.meta.url), 'utf8');
+
+        expect(listSource).toMatch(/coachOutcomeStatus/);
+        expect(listSource).toMatch(/Coach: \{session\.coachOutcomeStatus\.label\}/);
+        expect(listSource).toMatch(/Ver auditoria do coach/);
+
+        expect(detailSource).toMatch(/Auditoria do coach/);
+        expect(detailSource).toMatch(/coachDecisionSnapshot/);
+        expect(detailSource).toMatch(/coachProtocolOutcomes\.map/);
+        expect(detailSource).toMatch(/Linha de outcomes e revisoes/);
+        expect(detailSource).toMatch(/Conflito:/);
+        expect(detailSource).toMatch(/Clips compativeis/);
     });
 
     it('shows precision checkpoint context on the history detail page', () => {

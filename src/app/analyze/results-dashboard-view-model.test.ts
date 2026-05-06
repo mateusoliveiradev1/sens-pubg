@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { CoachFeedback, CoachPlan, Diagnosis, PrecisionTrendSummary, SensitivityRecommendation, SprayMastery, SprayMetrics } from '@/types/engine';
+import type { AnalysisResult, CoachFeedback, CoachPlan, Diagnosis, PrecisionTrendSummary, SensitivityRecommendation, SprayMastery, SprayMetrics } from '@/types/engine';
 import {
+    buildAdaptiveCoachLoopModel,
     buildEvidenceBadges,
     buildMasteryPillarCards,
     buildPrecisionTrendBlockModel,
@@ -138,6 +139,43 @@ function createPrecisionTrend(overrides: Partial<PrecisionTrendSummary> = {}): P
         confidence: 0.88,
         coverage: 0.9,
         nextValidationHint: 'Grave outro clip compativel.',
+        ...overrides,
+    };
+}
+
+function createAnalysisResultForCoachLoop(overrides: Partial<AnalysisResult> = {}): AnalysisResult {
+    return {
+        id: 'analysis-1',
+        timestamp: new Date('2026-04-18T12:00:00.000Z'),
+        patchVersion: '36.1',
+        trajectory: {} as AnalysisResult['trajectory'],
+        loadout: {} as AnalysisResult['loadout'],
+        metrics: baseMetrics,
+        diagnoses: [],
+        sensitivity: baseSensitivity,
+        coaching: [],
+        coachPlan: createCoachPlan({
+            secondaryFocuses: [
+                {
+                    ...createCoachPlan().primaryFocus,
+                    id: 'timing',
+                    area: 'timing',
+                    title: 'Tempo de resposta',
+                },
+                {
+                    ...createCoachPlan().primaryFocus,
+                    id: 'consistency',
+                    area: 'consistency',
+                    title: 'Consistencia',
+                },
+                {
+                    ...createCoachPlan().primaryFocus,
+                    id: 'sensitivity',
+                    area: 'sensitivity',
+                    title: 'Sensibilidade',
+                },
+            ],
+        }),
         ...overrides,
     };
 }
@@ -453,5 +491,62 @@ describe('results dashboard view model', () => {
         expect(model?.body).toContain('Controle de precisao bloqueou a comparacao');
         expect(model?.blockerReasons).toEqual(['Distancia estimada bloqueia trend preciso.']);
         expect(model?.ctaLabel).toBe('Gravar validacao compativel');
+    });
+
+    it('builds the compact adaptive coach loop with unsaved CTA and max two secondary focuses', () => {
+        const model = buildAdaptiveCoachLoopModel(createAnalysisResultForCoachLoop());
+
+        expect(model).toMatchObject({
+            state: 'unsaved',
+            statusLabel: 'Analise ainda sem memoria',
+            primaryFocus: {
+                title: 'Controle vertical',
+            },
+            nextBlock: {
+                title: 'Bloco curto de teste de controle vertical',
+                durationLabel: '12 min',
+            },
+            cta: {
+                label: 'Gravar analise para registrar resultado',
+                href: null,
+            },
+        });
+        expect(model?.secondaryFocuses).toHaveLength(2);
+        expect(model?.badges.map((badge) => badge.label)).toEqual([
+            'Tier',
+            'Confianca',
+            'Cobertura',
+            'Resultado',
+        ]);
+    });
+
+    it('routes adaptive coach conflicts to compatible validation instead of stronger action', () => {
+        const model = buildAdaptiveCoachLoopModel(createAnalysisResultForCoachLoop({
+            historySessionId: 'session-1',
+            coachOutcomeSnapshot: {
+                latest: null,
+                revisions: [],
+                pending: false,
+                validationCta: 'Gravar validacao compativel',
+                conflicts: [{
+                    userOutcomeId: 'outcome-1',
+                    precisionTrendLabel: 'validated_regression',
+                    reason: 'Relato melhorou, trend piorou.',
+                    nextValidationCopy: 'Resultado em conflito. O relato foi positivo, mas a validacao compativel piorou; faca uma validacao curta antes de avancar.',
+                }],
+            },
+        }));
+
+        expect(model).toMatchObject({
+            state: 'conflict',
+            statusLabel: 'Resultado em conflito',
+            warningCopy: expect.stringContaining('validacao compativel piorou'),
+            cta: {
+                label: 'Gravar validacao compativel',
+                href: '/analyze',
+                tone: 'error',
+            },
+        });
+        expect(model?.badges.some((badge) => badge.key === 'conflict')).toBe(true);
     });
 });

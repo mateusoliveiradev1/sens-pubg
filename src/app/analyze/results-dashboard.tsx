@@ -26,6 +26,7 @@ import { SprayVisualization } from './spray-visualization';
 import { summarizeAnalysisTracking } from './tracking-summary';
 import { createTrackingTimeline } from './tracking-timeline';
 import {
+    buildAdaptiveCoachLoopModel,
     buildEvidenceBadges,
     buildMasteryPillarCards,
     buildPrecisionTrendBlockModel,
@@ -761,6 +762,7 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
         mastery: activeSession.mastery,
         trackingOverview,
     });
+    const adaptiveCoachLoop = buildAdaptiveCoachLoopModel(activeSession);
     const precisionTrendBlock = buildPrecisionTrendBlockModel(activeSession.precisionTrend);
 
     return (
@@ -959,6 +961,87 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                     </div>
                 </div>
             </section>
+
+            {adaptiveCoachLoop ? (
+                <section
+                    className={`${styles.adaptiveCoachLoop} ${resultToneClass(adaptiveCoachLoop.cta.tone)}`}
+                    aria-labelledby="adaptive-coach-loop-title"
+                >
+                    <div className={styles.adaptiveCoachHeader}>
+                        <div className={styles.adaptiveCoachIntro}>
+                            <span className={styles.reportEyebrow}>Coach Extremo</span>
+                            <h3 id="adaptive-coach-loop-title" className={styles.adaptiveCoachTitle}>
+                                {adaptiveCoachLoop.statusLabel}
+                            </h3>
+                            <p className={styles.adaptiveCoachBody}>{adaptiveCoachLoop.statusBody}</p>
+                        </div>
+                        <div className={styles.adaptiveCoachBadges}>
+                            {adaptiveCoachLoop.badges.map((badge) => (
+                                <span key={badge.key} className={`badge ${badge.tone === 'error' ? 'badge-warning' : badge.tone === 'success' ? 'badge-success' : 'badge-info'}`} title={badge.detail}>
+                                    {badge.label}: {badge.value}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+
+                    {adaptiveCoachLoop.warningCopy ? (
+                        <div className={styles.adaptiveCoachWarning} role="status">
+                            {adaptiveCoachLoop.warningCopy}
+                        </div>
+                    ) : null}
+
+                    <div className={styles.adaptiveCoachGrid}>
+                        <div className={styles.adaptiveCoachFocus}>
+                            <span className={styles.reportEyebrow}>Foco principal</span>
+                            <h4>{adaptiveCoachLoop.primaryFocus.title}</h4>
+                            <p>{adaptiveCoachLoop.primaryFocus.whyNow}</p>
+                            <div className={styles.adaptiveCoachChips}>
+                                <span>{adaptiveCoachLoop.primaryFocus.area}</span>
+                                <span>Conf. {adaptiveCoachLoop.primaryFocus.confidenceLabel}</span>
+                                <span>Cob. {adaptiveCoachLoop.primaryFocus.coverageLabel}</span>
+                            </div>
+                            {adaptiveCoachLoop.secondaryFocuses.length > 0 ? (
+                                <div className={styles.adaptiveCoachSecondary} aria-label="Focos secundarios">
+                                    {adaptiveCoachLoop.secondaryFocuses.map((focus) => (
+                                        <span key={`${focus.area}-${focus.title}`}>
+                                            {focus.title}
+                                        </span>
+                                    ))}
+                                </div>
+                            ) : null}
+                        </div>
+
+                        <div className={styles.adaptiveCoachBlock}>
+                            <div className={styles.nextBlockHeader}>
+                                <span className={styles.reportEyebrow}>Proximo bloco</span>
+                                <span className="badge badge-info">{adaptiveCoachLoop.nextBlock.durationLabel}</span>
+                            </div>
+                            <h4>{adaptiveCoachLoop.nextBlock.title}</h4>
+                            <ol>
+                                {adaptiveCoachLoop.nextBlock.steps.map((step) => (
+                                    <li key={step}>{step}</li>
+                                ))}
+                            </ol>
+                            {adaptiveCoachLoop.nextBlock.validationTarget ? (
+                                <p>Validar: {adaptiveCoachLoop.nextBlock.validationTarget}</p>
+                            ) : null}
+                        </div>
+                    </div>
+
+                    <div className={styles.adaptiveCoachFooter}>
+                        {adaptiveCoachLoop.cta.href ? (
+                            <a href={adaptiveCoachLoop.cta.href} className="btn btn-primary">
+                                {adaptiveCoachLoop.cta.label}
+                            </a>
+                        ) : (
+                            <span className={styles.adaptiveCoachDisabledCta}>
+                                {adaptiveCoachLoop.cta.label}
+                            </span>
+                        )}
+                        <span>{adaptiveCoachLoop.tierLabel} exige feedback do bloco e validacao compativel antes de consolidar.</span>
+                    </div>
+                </section>
+            ) : null}
 
             {precisionTrendBlock ? (
                 <section

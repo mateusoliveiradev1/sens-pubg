@@ -24,6 +24,7 @@ export interface DashboardTruthViewModel {
     readonly evidenceSummary: string;
     readonly precisionTrendLabel: string | null;
     readonly precisionTrendSummary: string | null;
+    readonly activeCoachLoop: DashboardStats['activeCoachLoop'];
     readonly nextBlock: DashboardTruthNextBlock | null;
     readonly arsenalFocus: DashboardTruthArsenalFocus | null;
 }
@@ -154,6 +155,14 @@ function buildPrecisionNextAction(
 }
 
 function buildNextAction(stats: DashboardStats): Pick<DashboardTruthViewModel, 'nextActionTitle' | 'nextActionBody' | 'truthBadgeLabel'> {
+    if (stats.activeCoachLoop) {
+        return {
+            nextActionTitle: stats.activeCoachLoop.ctaLabel,
+            nextActionBody: `${stats.activeCoachLoop.statusLabel}: ${stats.activeCoachLoop.body}`,
+            truthBadgeLabel: stats.activeCoachLoop.statusLabel,
+        };
+    }
+
     const precisionAction = buildPrecisionNextAction(stats.principalPrecisionTrend);
     if (precisionAction) {
         return precisionAction;
@@ -347,6 +356,7 @@ export function buildDashboardTruthViewModel(stats: DashboardStats): DashboardTr
         precisionTrendSummary: stats.principalPrecisionTrend
             ? `${stats.principalPrecisionTrend.compatibleCount} clip(s), ${formatPercent(stats.principalPrecisionTrend.coverage)} cobertura, ${formatPercent(stats.principalPrecisionTrend.confidence)} confianca.`
             : null,
+        activeCoachLoop: stats.activeCoachLoop,
         nextBlock: buildNextBlock(stats),
         arsenalFocus: buildArsenalFocus(stats),
     };

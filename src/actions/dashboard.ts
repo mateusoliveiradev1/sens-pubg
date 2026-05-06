@@ -1,13 +1,14 @@
 'use server';
 
 import { db } from '@/db';
-import { analysisSessions, precisionEvolutionLines, weaponProfiles, weaponRegistry } from '@/db/schema';
+import { analysisSessions, coachProtocolOutcomes, precisionEvolutionLines, weaponProfiles, weaponRegistry } from '@/db/schema';
 import { auth } from '@/auth';
 import { eq, sql, gte, and, desc } from 'drizzle-orm';
 import { hydrateAnalysisResultFromHistory } from '@/app/history/analysis-result-hydration';
 import type {
     AnalysisResult,
     CoachDecisionTier,
+    CoachProtocolOutcomeStatus,
     PrecisionTrendLabel,
     PrecisionTrendSummary,
     SprayActionState,
@@ -62,6 +63,26 @@ export interface DashboardPrincipalPrecisionTrend {
     readonly updatedAt: string;
 }
 
+export type DashboardActiveCoachLoopStatus =
+    | 'pending'
+    | 'started'
+    | 'completed'
+    | 'validation_needed'
+    | 'conflict';
+
+export interface DashboardActiveCoachLoop {
+    readonly sessionId: string;
+    readonly status: DashboardActiveCoachLoopStatus;
+    readonly statusLabel: string;
+    readonly body: string;
+    readonly ctaLabel: 'Fechar protocolo pendente' | 'Gravar validacao compativel';
+    readonly ctaHref: string;
+    readonly primaryFocusTitle: string;
+    readonly nextBlockTitle: string;
+    readonly memorySummary: string | null;
+    readonly updatedAt: string;
+}
+
 export interface DashboardStats {
     totalSessions: number;
     avgStabilityScore: number;
@@ -75,9 +96,11 @@ export interface DashboardStats {
     latestCoachNextBlock: DashboardLatestCoachNextBlock | null;
     trendEvidence: DashboardTrendEvidence;
     principalPrecisionTrend: DashboardPrincipalPrecisionTrend | null;
+    activeCoachLoop: DashboardActiveCoachLoop | null;
 }
 
 interface RecentTruthSession {
+    readonly id: string;
     readonly weaponId: string;
     readonly scopeId: string;
     readonly patchVersion: string;
@@ -148,6 +171,112 @@ function buildLatestCoachNextBlock(result: AnalysisResult | null): DashboardLate
         steps: nextBlock.steps.slice(0, 3),
         validationTarget: validation?.target ?? null,
         validationSuccessCondition: validation?.successCondition ?? null,
+    };
+}
+
+function formatCoachOutcomeStatus(status: CoachProtocolOutcomeStatus): string {
+    switch (status) {
+        case 'started':
+            return 'Bloco iniciado';
+        case 'completed':
+            return 'Completou sem medir';
+        case 'improved':
+            return 'Melhorou - relato';
+        case 'unchanged':
+            return 'Ficou igual';
+        case 'worse':
+            return 'Piorou no treino';
+        case 'invalid_capture':
+            return 'Captura invalida';
+    }
+}
+
+function toIsoDate(value: Date | string): string {
+    return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+}
+
+export function buildDashboardActiveCoachLoop(input: {
+    readonly sessionId: string | null;
+    readonly result: AnalysisResult | null;
+    readonly latestOutcome?: {
+        readonly status: CoachProtocolOutcomeStatus;
+        readonly evidenceStrength: string;
+        readonly conflictPayload: unknown;
+        readonly createdAt: Date;
+    } | null;
+}): DashboardActiveCoachLoop | null {
+    const coachPlan = input.result?.coachPlan;
+
+    if (!input.sessionId || !coachPlan) {
+        return null;
+    }
+
+    const latestOutcome = input.latestOutcome ?? null;
+    const hasConflict = Boolean(latestOutcome?.conflictPayload) || latestOutcome?.evidenceStrength === 'conflict';
+    const memorySummary = input.result?.coachDecisionSnapshot?.memorySummary
+        ?? input.result?.coachDecisionSnapshot?.outcomeMemory.summary
+        ?? null;
+
+    if (!latestOutcome) {
+        return {
+            sessionId: input.sessionId,
+            status: 'pending',
+            statusLabel: 'Protocolo pendente',
+            body: 'Execute o bloco curto e registre o resultado antes do coach usar esse sinal como memoria.',
+            ctaLabel: 'Fechar protocolo pendente',
+            ctaHref: `/history/${input.sessionId}`,
+            primaryFocusTitle: coachPlan.primaryFocus.title,
+            nextBlockTitle: coachPlan.nextBlock.title,
+            memorySummary,
+            updatedAt: toIsoDate(input.result.timestamp),
+        };
+    }
+
+    if (hasConflict) {
+        return {
+            sessionId: input.sessionId,
+            status: 'conflict',
+            statusLabel: 'Resultado em conflito',
+            body: 'Outcome e validacao compativel discordam. Grave uma validacao curta antes de avancar ou aplicar protocolo mais forte.',
+            ctaLabel: 'Gravar validacao compativel',
+            ctaHref: '/analyze',
+            primaryFocusTitle: coachPlan.primaryFocus.title,
+            nextBlockTitle: coachPlan.nextBlock.title,
+            memorySummary,
+            updatedAt: latestOutcome.createdAt.toISOString(),
+        };
+    }
+
+    if (latestOutcome.status === 'started' || latestOutcome.status === 'completed') {
+        return {
+            sessionId: input.sessionId,
+            status: latestOutcome.status,
+            statusLabel: formatCoachOutcomeStatus(latestOutcome.status),
+            body: latestOutcome.status === 'completed'
+                ? 'Voce completou o bloco, mas ainda falta dizer o efeito. Feche o resultado antes do coach ficar mais agressivo.'
+                : 'Bloco iniciado. Feche o resultado quando terminar para manter a memoria do coach honesta.',
+            ctaLabel: 'Fechar protocolo pendente',
+            ctaHref: `/history/${input.sessionId}`,
+            primaryFocusTitle: coachPlan.primaryFocus.title,
+            nextBlockTitle: coachPlan.nextBlock.title,
+            memorySummary,
+            updatedAt: latestOutcome.createdAt.toISOString(),
+        };
+    }
+
+    return {
+        sessionId: input.sessionId,
+        status: 'validation_needed',
+        statusLabel: formatCoachOutcomeStatus(latestOutcome.status),
+        body: latestOutcome.status === 'invalid_capture'
+            ? 'Nao conte isso contra o protocolo ainda. A captura ou execucao invalidou a leitura; repita com contexto controlado.'
+            : 'Resultado registrado. Agora grave um clip compativel para confirmar se o efeito aparece na leitura controlada.',
+        ctaLabel: 'Gravar validacao compativel',
+        ctaHref: '/analyze',
+        primaryFocusTitle: coachPlan.primaryFocus.title,
+        nextBlockTitle: coachPlan.nextBlock.title,
+        memorySummary,
+        updatedAt: latestOutcome.createdAt.toISOString(),
     };
 }
 
@@ -327,6 +456,7 @@ export async function getDashboardStats(): Promise<DashboardStats | null> {
 
         const recentTruthRows = await db
             .select({
+                id: analysisSessions.id,
                 weaponId: analysisSessions.weaponId,
                 scopeId: analysisSessions.scopeId,
                 patchVersion: analysisSessions.patchVersion,
@@ -340,6 +470,7 @@ export async function getDashboardStats(): Promise<DashboardStats | null> {
             .orderBy(desc(analysisSessions.createdAt))
             .limit(12);
         const recentTruthSessions = recentTruthRows.map((row): RecentTruthSession => ({
+            id: row.id,
             weaponId: row.weaponId,
             scopeId: row.scopeId,
             patchVersion: row.patchVersion,
@@ -368,6 +499,30 @@ export async function getDashboardStats(): Promise<DashboardStats | null> {
                 : latestTruthResult?.precisionTrend ?? null,
             persistedPrecisionLine?.updatedAt ?? latestTruthRow?.createdAt ?? null,
         );
+        const latestCoachOutcomeRows = latestTruthRow
+            ? await db
+                .select({
+                    status: coachProtocolOutcomes.status,
+                    evidenceStrength: coachProtocolOutcomes.evidenceStrength,
+                    conflictPayload: coachProtocolOutcomes.conflictPayload,
+                    createdAt: coachProtocolOutcomes.createdAt,
+                })
+                .from(coachProtocolOutcomes)
+                .where(
+                    and(
+                        eq(coachProtocolOutcomes.userId, userId),
+                        eq(coachProtocolOutcomes.analysisSessionId, latestTruthRow.id),
+                    ),
+                )
+                .orderBy(desc(coachProtocolOutcomes.createdAt))
+                .limit(1)
+            : [];
+        const latestCoachOutcome = latestCoachOutcomeRows[0] ?? null;
+        const activeCoachLoop = buildDashboardActiveCoachLoop({
+            sessionId: latestTruthRow?.id ?? null,
+            result: latestTruthResult,
+            latestOutcome: latestCoachOutcome,
+        });
 
         return {
             totalSessions: Number(basicStats[0]?.count || 0),
@@ -394,6 +549,7 @@ export async function getDashboardStats(): Promise<DashboardStats | null> {
             latestCoachNextBlock: buildLatestCoachNextBlock(latestTruthResult),
             trendEvidence: buildTrendEvidence(recentTruthSessions, hydratedRecentResults, delta),
             principalPrecisionTrend,
+            activeCoachLoop,
         };
     } catch (err) {
         console.error('[getDashboardStats] Error:', err);

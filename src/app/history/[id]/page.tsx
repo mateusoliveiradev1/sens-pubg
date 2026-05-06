@@ -7,12 +7,17 @@ import Link from 'next/link';
 import { SCOPE_LIST } from '@/game/pubg';
 import { formatAnalysisDistancePresentation } from '@/app/analyze/analysis-distance-presentation';
 import { ResultsDashboard } from '@/app/analyze/results-dashboard';
+import { getCoachProtocolOutcomesForSession } from '@/actions/history';
 import { formatPrecisionTrendLabel } from '@/core/precision-loop';
 import { hydrateAnalysisResultFromHistory } from '../analysis-result-hydration';
+import { CoachProtocolOutcomePanel } from './coach-protocol-outcome-panel';
 import { PublishAnalysisButton } from './publish-analysis-button';
 import { SensitivityAcceptancePanel } from './sensitivity-acceptance-panel';
 import type {
+    AnalysisResult,
     CoachDecisionTier,
+    CoachProtocolOutcome,
+    CoachProtocolOutcomeSnapshot,
     PrecisionCheckpointState,
     PrecisionCompatibilityKey,
     PrecisionTrendSummary,
@@ -29,6 +34,47 @@ const HISTORY_COACH_TIER_LABELS: Record<CoachDecisionTier, string> = {
     stabilize_block: 'Estabilizar bloco',
     apply_protocol: 'Aplicar protocolo',
 };
+
+const HISTORY_OUTCOME_REASON_LABELS = {
+    capture_quality: 'Qualidade da captura',
+    incompatible_context: 'Contexto incompativel',
+    poor_execution: 'Execucao ruim',
+    variable_changed: 'Variavel alterada',
+    confusing_protocol: 'Protocolo confuso',
+    fatigue_or_pain: 'Dor/fadiga',
+    other: 'Outro motivo',
+} as const;
+
+function historyOutcomeStatusLabel(status: CoachProtocolOutcome['status']): string {
+    switch (status) {
+        case 'started':
+            return 'Comecei o bloco';
+        case 'completed':
+            return 'Completei sem medir';
+        case 'improved':
+            return 'Melhorou no treino';
+        case 'unchanged':
+            return 'Ficou igual';
+        case 'worse':
+            return 'Piorou no treino';
+        case 'invalid_capture':
+            return 'Captura invalida';
+    }
+}
+
+function buildHistoryCoachOutcomeSnapshot(
+    outcomes: readonly CoachProtocolOutcome[],
+): CoachProtocolOutcomeSnapshot {
+    const latest = outcomes[outcomes.length - 1] ?? null;
+
+    return {
+        latest,
+        revisions: outcomes,
+        pending: latest?.status === 'started' || latest?.status === 'completed',
+        validationCta: 'Gravar validacao compativel',
+        conflicts: outcomes.flatMap((outcome) => outcome.conflict ? [outcome.conflict] : []),
+    };
+}
 
 function precisionCheckpointStateLabel(state: PrecisionCheckpointState): string {
     switch (state) {
@@ -207,6 +253,16 @@ export default async function HistoryDetailRoute({ params }: Props) {
         ?? checkpointTrend?.nextValidationHint
         ?? 'Gravar validacao compativel mantendo as variaveis fixas.';
     const checkpointLineContext = precisionLineContextLabel(precisionCheckpoint?.lineCompatibilityKey);
+    const coachProtocolOutcomes = analysisResult.coachPlan
+        ? await getCoachProtocolOutcomesForSession(record.id)
+        : [];
+    const analysisResultForDisplay: AnalysisResult = {
+        ...analysisResult,
+        historySessionId: record.id,
+        ...(analysisResult.coachPlan ? {
+            coachOutcomeSnapshot: buildHistoryCoachOutcomeSnapshot(coachProtocolOutcomes),
+        } : {}),
+    };
 
     return (
         <>
@@ -317,6 +373,143 @@ export default async function HistoryDetailRoute({ params }: Props) {
                         </section>
                     ) : null}
 
+                    {analysisResultForDisplay.coachPlan ? (
+                        <section
+                            className="glass-card"
+                            style={{
+                                padding: 'var(--space-lg)',
+                                border: '1px solid rgba(255, 107, 0, 0.2)',
+                                background: 'linear-gradient(145deg, rgba(28, 12, 2, 0.72), rgba(8, 8, 12, 0.92))',
+                            }}
+                        >
+                            <div style={{ display: 'grid', gap: 'var(--space-sm)', marginBottom: 'var(--space-md)' }}>
+                                <p
+                                    style={{
+                                        margin: 0,
+                                        fontSize: '11px',
+                                        letterSpacing: '0.18em',
+                                        textTransform: 'uppercase',
+                                        color: 'var(--color-accent-primary)',
+                                        fontWeight: 700,
+                                    }}
+                                >
+                                    Ver auditoria do coach
+                                </p>
+                                <h2 style={{ margin: 0, fontSize: 'var(--text-2xl)', lineHeight: 1.15 }}>
+                                    Auditoria do coach
+                                </h2>
+                                <p style={{ margin: 0, color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+                                    Snapshot deterministico, outcomes, revisoes, conflitos, clips compativeis e memoria usada nesta decisao.
+                                </p>
+                            </div>
+
+                            {analysisResultForDisplay.coachDecisionSnapshot ? (
+                                <div style={{ display: 'grid', gap: 'var(--space-sm)', marginBottom: 'var(--space-md)' }}>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                        <span className="badge badge-info">
+                                            {HISTORY_COACH_TIER_LABELS[analysisResultForDisplay.coachDecisionSnapshot.tier]}
+                                        </span>
+                                        <span className="badge badge-info">
+                                            Foco: {analysisResultForDisplay.coachDecisionSnapshot.primaryFocusTitle}
+                                        </span>
+                                        <span className={analysisResultForDisplay.coachDecisionSnapshot.outcomeEvidenceState === 'conflict' ? 'badge badge-warning' : 'badge badge-info'}>
+                                            Outcome: {analysisResultForDisplay.coachDecisionSnapshot.outcomeEvidenceState}
+                                        </span>
+                                        {analysisResultForDisplay.precisionTrend ? (
+                                            <span className="badge badge-info">
+                                                Clips compativeis: {analysisResultForDisplay.precisionTrend.compatibleCount}
+                                            </span>
+                                        ) : null}
+                                    </div>
+                                    <p style={{ margin: 0, color: 'var(--color-text-secondary)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+                                        Memoria: {analysisResultForDisplay.coachDecisionSnapshot.memorySummary}
+                                    </p>
+                                    {analysisResultForDisplay.coachDecisionSnapshot.blockerReasons.length > 0 ? (
+                                        <div style={{ display: 'grid', gap: '6px' }}>
+                                            {analysisResultForDisplay.coachDecisionSnapshot.blockerReasons.slice(0, 5).map((reason) => (
+                                                <span
+                                                    key={reason}
+                                                    style={{
+                                                        padding: '7px 9px',
+                                                        borderRadius: '8px',
+                                                        border: '1px solid rgba(255, 193, 7, 0.22)',
+                                                        background: 'rgba(255, 193, 7, 0.08)',
+                                                        color: 'var(--color-text-secondary)',
+                                                        fontSize: '12px',
+                                                        lineHeight: 1.45,
+                                                    }}
+                                                >
+                                                    Bloqueio: {reason}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    ) : null}
+                                </div>
+                            ) : (
+                                <p style={{ margin: '0 0 var(--space-md) 0', color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+                                    Snapshot de decisao ausente neste registro salvo.
+                                </p>
+                            )}
+
+                            <div style={{ display: 'grid', gap: 'var(--space-sm)' }}>
+                                <h3 style={{ margin: 0, fontSize: 'var(--text-base)' }}>
+                                    Linha de outcomes e revisoes
+                                </h3>
+                                {coachProtocolOutcomes.length > 0 ? (
+                                    coachProtocolOutcomes.map((outcome) => (
+                                        <div
+                                            key={outcome.id}
+                                            style={{
+                                                padding: 'var(--space-md)',
+                                                borderRadius: '8px',
+                                                border: outcome.conflict
+                                                    ? '1px solid rgba(239, 68, 68, 0.28)'
+                                                    : '1px solid rgba(255, 255, 255, 0.08)',
+                                                background: outcome.conflict
+                                                    ? 'rgba(239, 68, 68, 0.08)'
+                                                    : 'rgba(0, 0, 0, 0.18)',
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                                                <span className={outcome.conflict ? 'badge badge-warning' : 'badge badge-info'}>
+                                                    {historyOutcomeStatusLabel(outcome.status)}
+                                                </span>
+                                                <span className="badge badge-info">{outcome.evidenceStrength}</span>
+                                                {outcome.revisionOfOutcomeId ? (
+                                                    <span className="badge badge-warning">
+                                                        Revisao de {outcome.revisionOfOutcomeId}
+                                                    </span>
+                                                ) : null}
+                                                <span className="badge badge-info">
+                                                    {new Date(outcome.recordedAt).toLocaleString('pt-BR')}
+                                                </span>
+                                            </div>
+                                            {outcome.reasonCodes.length > 0 ? (
+                                                <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+                                                    Motivos: {outcome.reasonCodes.map((reason) => HISTORY_OUTCOME_REASON_LABELS[reason]).join(', ')}
+                                                </p>
+                                            ) : null}
+                                            {outcome.note ? (
+                                                <p style={{ margin: '6px 0 0 0', color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+                                                    Nota: {outcome.note}
+                                                </p>
+                                            ) : null}
+                                            {outcome.conflict ? (
+                                                <p style={{ margin: '6px 0 0 0', color: 'var(--color-warning)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+                                                    Conflito: {outcome.conflict.nextValidationCopy}
+                                                </p>
+                                            ) : null}
+                                        </div>
+                                    ))
+                                ) : (
+                                    <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+                                        Nenhum outcome registrado ainda. Use o painel de resultado para iniciar a trilha auditavel.
+                                    </p>
+                                )}
+                            </div>
+                        </section>
+                    ) : null}
+
                     {precisionCheckpoint || checkpointTrend ? (
                         <section
                             className="glass-card"
@@ -418,11 +611,19 @@ export default async function HistoryDetailRoute({ params }: Props) {
                         </section>
                     ) : null}
 
-                    <SensitivityAcceptancePanel
-                        sessionId={record.id}
-                        sensitivity={analysisResult.sensitivity}
-                    />
-                    <ResultsDashboard result={analysisResult} />
+                    {analysisResult.coachPlan ? (
+                        <CoachProtocolOutcomePanel
+                            sessionId={record.id}
+                            coachPlan={analysisResult.coachPlan}
+                            outcomes={coachProtocolOutcomes}
+                        />
+                    ) : (
+                        <SensitivityAcceptancePanel
+                            sessionId={record.id}
+                            sensitivity={analysisResult.sensitivity}
+                        />
+                    )}
+                    <ResultsDashboard result={analysisResultForDisplay} />
                 </div>
             </div>
         </>

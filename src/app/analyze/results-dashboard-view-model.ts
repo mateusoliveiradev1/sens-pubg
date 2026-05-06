@@ -1,4 +1,5 @@
 import type {
+    AnalysisResult,
     CoachBlockPlan,
     CoachFeedback,
     CoachPlan,
@@ -108,6 +109,47 @@ export interface PrecisionTrendBlockModel {
     readonly ctaLabel: 'Gravar validacao compativel';
 }
 
+export type AdaptiveCoachLoopState =
+    | 'unsaved'
+    | 'pending'
+    | 'validation_needed'
+    | 'conflict'
+    | 'ready';
+
+export interface AdaptiveCoachLoopFocusModel {
+    readonly title: string;
+    readonly area: string;
+    readonly whyNow: string;
+    readonly confidenceLabel: string;
+    readonly coverageLabel: string;
+}
+
+export interface AdaptiveCoachLoopNextBlockModel {
+    readonly title: string;
+    readonly durationLabel: string;
+    readonly steps: readonly string[];
+    readonly validationTarget: string | null;
+}
+
+export interface AdaptiveCoachLoopCtaModel {
+    readonly label: 'Gravar analise para registrar resultado' | 'Registrar resultado do bloco' | 'Gravar validacao compativel';
+    readonly href: string | null;
+    readonly tone: ResultMetricTone;
+}
+
+export interface AdaptiveCoachLoopModel {
+    readonly state: AdaptiveCoachLoopState;
+    readonly statusLabel: string;
+    readonly statusBody: string;
+    readonly warningCopy: string | null;
+    readonly tierLabel: string;
+    readonly primaryFocus: AdaptiveCoachLoopFocusModel;
+    readonly secondaryFocuses: readonly AdaptiveCoachLoopFocusModel[];
+    readonly nextBlock: AdaptiveCoachLoopNextBlockModel;
+    readonly badges: readonly EvidenceBadgeModel[];
+    readonly cta: AdaptiveCoachLoopCtaModel;
+}
+
 interface BuildResultMetricCardsInput {
     readonly metrics: SprayMetrics;
     readonly sensitivity: Pick<SensitivityRecommendation, 'suggestedVSM'>;
@@ -162,6 +204,242 @@ function toneFromActionLabel(actionLabel: string): ResultMetricTone {
     if (actionLabel === 'Testavel') return 'warning';
     if (actionLabel === 'Capturar de novo') return 'error';
     return 'info';
+}
+
+function formatCoachDecisionTierLabel(tier: CoachPlan['tier']): string {
+    switch (tier) {
+        case 'capture_again':
+            return 'Capturar novamente';
+        case 'test_protocol':
+            return 'Testar protocolo';
+        case 'stabilize_block':
+            return 'Estabilizar bloco';
+        case 'apply_protocol':
+            return 'Aplicar protocolo';
+    }
+}
+
+function formatCoachFocusArea(area: CoachPlan['primaryFocus']['area']): string {
+    switch (area) {
+        case 'capture_quality':
+            return 'Qualidade da captura';
+        case 'vertical_control':
+            return 'Controle vertical';
+        case 'horizontal_control':
+            return 'Controle horizontal';
+        case 'timing':
+            return 'Timing';
+        case 'consistency':
+            return 'Consistencia';
+        case 'sensitivity':
+            return 'Sensibilidade';
+        case 'loadout':
+            return 'Loadout';
+        case 'validation':
+            return 'Validacao';
+    }
+}
+
+function formatOutcomeEvidenceState(
+    state: NonNullable<AnalysisResult['coachDecisionSnapshot']>['outcomeEvidenceState'] | undefined
+): string {
+    switch (state) {
+        case 'weak_self_report':
+            return 'Relato fraco';
+        case 'neutral':
+            return 'Fechamento neutro';
+        case 'invalid':
+            return 'Captura invalida';
+        case 'conflict':
+            return 'Conflito ativo';
+        case 'confirmed_by_compatible_clip':
+            return 'Validado por clip';
+        case 'none':
+        case undefined:
+            return 'Sem resultado ainda';
+    }
+}
+
+function resolveAdaptiveCoachLoopState(result: AnalysisResult): AdaptiveCoachLoopState {
+    const outcomeSnapshot = result.coachOutcomeSnapshot;
+    const decisionSnapshot = result.coachDecisionSnapshot;
+
+    if ((outcomeSnapshot?.conflicts.length ?? 0) > 0 || decisionSnapshot?.outcomeEvidenceState === 'conflict') {
+        return 'conflict';
+    }
+
+    if (outcomeSnapshot?.pending || outcomeSnapshot?.latest?.status === 'started' || outcomeSnapshot?.latest?.status === 'completed') {
+        return 'pending';
+    }
+
+    if (outcomeSnapshot?.latest) {
+        return 'validation_needed';
+    }
+
+    if (!result.historySessionId) {
+        return 'unsaved';
+    }
+
+    return 'ready';
+}
+
+function buildAdaptiveCoachLoopCta(result: AnalysisResult, state: AdaptiveCoachLoopState): AdaptiveCoachLoopCtaModel {
+    const historyHref = result.historySessionId ? `/history/${result.historySessionId}` : null;
+
+    if (state === 'unsaved') {
+        return {
+            label: 'Gravar analise para registrar resultado',
+            href: null,
+            tone: 'warning',
+        };
+    }
+
+    if (state === 'pending' || state === 'ready') {
+        return {
+            label: 'Registrar resultado do bloco',
+            href: historyHref,
+            tone: 'warning',
+        };
+    }
+
+    return {
+        label: 'Gravar validacao compativel',
+        href: '/analyze',
+        tone: state === 'conflict' ? 'error' : 'info',
+    };
+}
+
+function buildAdaptiveCoachLoopStatus(
+    result: AnalysisResult,
+    state: AdaptiveCoachLoopState,
+): Pick<AdaptiveCoachLoopModel, 'statusLabel' | 'statusBody' | 'warningCopy'> {
+    const latestStatus = result.coachOutcomeSnapshot?.latest?.status;
+
+    if (state === 'conflict') {
+        return {
+            statusLabel: 'Resultado em conflito',
+            statusBody: 'O coach bloqueou acao agressiva ate existir uma validacao curta e comparavel.',
+            warningCopy: result.coachOutcomeSnapshot?.conflicts[0]?.nextValidationCopy
+                ?? 'Resultado em conflito. O relato foi positivo, mas a validacao compativel piorou; faca uma validacao curta antes de avancar.',
+        };
+    }
+
+    if (state === 'pending') {
+        return {
+            statusLabel: latestStatus === 'started' ? 'Bloco em andamento' : 'Resultado pendente',
+            statusBody: latestStatus === 'completed'
+                ? 'Voce completou o bloco, mas ainda falta dizer o efeito. Feche o resultado antes do coach ficar mais agressivo.'
+                : 'Feche o resultado do bloco para o coach usar esse feedback sem fingir certeza.',
+            warningCopy: null,
+        };
+    }
+
+    if (state === 'validation_needed') {
+        return {
+            statusLabel: 'Validacao compativel aberta',
+            statusBody: 'Resultado registrado. Agora grave um clip comparavel para confirmar se o sinal aparece na leitura controlada.',
+            warningCopy: null,
+        };
+    }
+
+    if (state === 'unsaved') {
+        return {
+            statusLabel: 'Analise ainda sem memoria',
+            statusBody: 'Salve a sessao para registrar resultado do bloco e alimentar a memoria do coach.',
+            warningCopy: null,
+        };
+    }
+
+    return {
+        statusLabel: 'Loop pronto para feedback',
+        statusBody: 'Execute o bloco curto, registre o resultado e depois valide com outro clip comparavel.',
+        warningCopy: null,
+    };
+}
+
+function buildAdaptiveCoachFocusModel(focus: CoachPlan['primaryFocus']): AdaptiveCoachLoopFocusModel {
+    return {
+        title: focus.title,
+        area: formatCoachFocusArea(focus.area),
+        whyNow: focus.whyNow,
+        confidenceLabel: formatPercent(focus.confidence),
+        coverageLabel: formatPercent(focus.coverage),
+    };
+}
+
+export function buildAdaptiveCoachLoopModel(result: AnalysisResult): AdaptiveCoachLoopModel | null {
+    const coachPlan = result.coachPlan;
+
+    if (!coachPlan) {
+        return null;
+    }
+
+    const state = resolveAdaptiveCoachLoopState(result);
+    const status = buildAdaptiveCoachLoopStatus(result, state);
+    const decisionSnapshot = result.coachDecisionSnapshot;
+    const outcomeMemory = decisionSnapshot?.outcomeMemory;
+    const conflictCount = (result.coachOutcomeSnapshot?.conflicts.length ?? 0) + (decisionSnapshot?.conflicts.length ?? 0);
+
+    const badges: EvidenceBadgeModel[] = [
+        {
+            key: 'tier',
+            label: 'Tier',
+            value: formatCoachDecisionTierLabel(coachPlan.tier),
+            tone: coachPlan.tier === 'apply_protocol' ? 'success' : coachPlan.tier === 'capture_again' ? 'error' : 'warning',
+            detail: 'Nivel de acao permitido pelo contrato atual.',
+        },
+        {
+            key: 'confidence',
+            label: 'Confianca',
+            value: formatPercent(coachPlan.primaryFocus.confidence),
+            tone: toneFromPercent(coachPlan.primaryFocus.confidence * 100),
+            detail: 'Confianca da evidencia do foco principal.',
+        },
+        {
+            key: 'coverage',
+            label: 'Cobertura',
+            value: formatPercent(coachPlan.primaryFocus.coverage),
+            tone: toneFromPercent(coachPlan.primaryFocus.coverage * 100),
+            detail: 'Cobertura usada para sustentar o proximo bloco.',
+        },
+        {
+            key: 'outcome',
+            label: 'Resultado',
+            value: formatOutcomeEvidenceState(decisionSnapshot?.outcomeEvidenceState),
+            tone: decisionSnapshot?.outcomeEvidenceState === 'conflict'
+                ? 'error'
+                : decisionSnapshot?.outcomeEvidenceState === 'confirmed_by_compatible_clip'
+                    ? 'success'
+                    : 'warning',
+            detail: outcomeMemory?.summary ?? 'Sem memoria de resultado suficiente ainda.',
+        },
+    ];
+
+    if (conflictCount > 0) {
+        badges.push({
+            key: 'conflict',
+            label: 'Conflito',
+            value: `${conflictCount}`,
+            tone: 'error',
+            detail: 'Conflito bloqueia CTA agressiva e exige validacao compativel.',
+        });
+    }
+
+    return {
+        state,
+        ...status,
+        tierLabel: formatCoachDecisionTierLabel(coachPlan.tier),
+        primaryFocus: buildAdaptiveCoachFocusModel(coachPlan.primaryFocus),
+        secondaryFocuses: coachPlan.secondaryFocuses.slice(0, 2).map(buildAdaptiveCoachFocusModel),
+        nextBlock: {
+            title: coachPlan.nextBlock.title,
+            durationLabel: `${coachPlan.nextBlock.durationMinutes} min`,
+            steps: coachPlan.nextBlock.steps.slice(0, 3),
+            validationTarget: coachPlan.nextBlock.checks[0]?.target ?? null,
+        },
+        badges,
+        cta: buildAdaptiveCoachLoopCta(result, state),
+    };
 }
 
 function isVerticalDiagnosis(diagnosis: Diagnosis): boolean {

@@ -67,20 +67,45 @@ describe('results dashboard visualization contract', () => {
         const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
 
         expect(source).toMatch(/buildPrecisionTrendBlockModel/);
+        expect(source).toMatch(/buildAdaptiveCoachLoopModel/);
         expect(source).toMatch(/activeSession\.precisionTrend/);
+        expect(source).toMatch(/styles\.adaptiveCoachLoop/);
         expect(source).toMatch(/styles\.precisionTrendBlock/);
         expect(source).toMatch(/precisionTrendBlock\.ctaLabel/);
         expect(source).toMatch(/precisionTrendBlock\.blockerReasons/);
 
         const verdictIndex = source.indexOf('styles.verdictReport');
+        const coachLoopIndex = source.indexOf('styles.adaptiveCoachLoop');
         const trendIndex = source.indexOf('styles.precisionTrendBlock');
         const videoQualityIndex = source.indexOf('Qualidade do clip', trendIndex);
         const trackingIndex = source.indexOf('Leitura tecnica do tracking', trendIndex);
 
         expect(verdictIndex).toBeGreaterThan(-1);
+        expect(coachLoopIndex).toBeGreaterThan(verdictIndex);
+        expect(trendIndex).toBeGreaterThan(coachLoopIndex);
         expect(trendIndex).toBeGreaterThan(verdictIndex);
         expect(videoQualityIndex).toBeGreaterThan(trendIndex);
         expect(trackingIndex).toBeGreaterThan(trendIndex);
+    });
+
+    it('renders the adaptive coach loop CTA states without history audit noise', () => {
+        const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
+        const viewModelSource = readFileSync(new URL('./results-dashboard-view-model.ts', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/adaptiveCoachLoop\.primaryFocus\.title/);
+        expect(source).toMatch(/adaptiveCoachLoop\.secondaryFocuses/);
+        expect(source).toMatch(/adaptiveCoachLoop\.nextBlock\.title/);
+        expect(source).toMatch(/adaptiveCoachLoop\.badges/);
+        expect(source).toMatch(/adaptiveCoachLoop\.cta\.label/);
+        expect(viewModelSource).toMatch(/Gravar analise para registrar resultado/);
+        expect(viewModelSource).toMatch(/Registrar resultado do bloco/);
+        expect(viewModelSource).toMatch(/Gravar validacao compativel/);
+
+        const coachLoopIndex = source.indexOf('styles.adaptiveCoachLoop');
+        const revisionIndex = source.indexOf('revision', coachLoopIndex);
+
+        expect(coachLoopIndex).toBeGreaterThan(-1);
+        expect(revisionIndex).toBe(-1);
     });
 
     it('shows the next block, evidence badges, mastery pillars, and spray proof in the report', () => {

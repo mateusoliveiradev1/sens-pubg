@@ -286,6 +286,7 @@ export default async function DashboardPage() {
     const latestMastery = stats.latestMastery;
     const nextActionTitle = truthView.nextActionTitle;
     const nextActionBody = truthView.nextActionBody;
+    const activeCoachLoop = truthView.activeCoachLoop;
 
     const heroSummary = bestWeapon
         ? `Sua media operacional fechou em ${latestAverage}% na ultima leitura, com pico recente de ${latestPeak}%. ${bestWeapon.displayName} e hoje a arma que melhor converte suas sessoes em resultado; a tendencia atual e ${truthView.trendTitle.toLowerCase()}.`
@@ -420,6 +421,19 @@ export default async function DashboardPage() {
                                 <p className="mt-3 text-sm leading-relaxed text-zinc-400">
                                     {nextActionBody}
                                 </p>
+                                {activeCoachLoop ? (
+                                    <div className={`mt-5 rounded-[18px] border p-4 ${activeCoachLoop.status === 'conflict' ? 'border-amber-400/30 bg-amber-400/10' : 'border-cyan-400/20 bg-cyan-400/10'}`}>
+                                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                                            <span className={activeCoachLoop.status === 'conflict' ? 'badge badge-warning' : 'badge badge-info'}>
+                                                Loop ativo: {activeCoachLoop.statusLabel}
+                                            </span>
+                                            <span className="badge badge-info">{activeCoachLoop.primaryFocusTitle}</span>
+                                        </div>
+                                        <p className="text-xs leading-relaxed text-zinc-400">
+                                            {activeCoachLoop.nextBlockTitle}. {activeCoachLoop.memorySummary ?? 'Memoria do coach em formacao.'}
+                                        </p>
+                                    </div>
+                                ) : null}
                                 {truthView.nextBlock ? (
                                     <div className="mt-5 rounded-[18px] border border-white/8 bg-zinc-950/60 p-4">
                                         <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -439,8 +453,8 @@ export default async function DashboardPage() {
                                     </div>
                                 ) : null}
                                 <div className="mt-5 flex flex-wrap gap-3">
-                                    <Link href="/analyze" className="btn btn-primary">
-                                        Rodar nova analise
+                                    <Link href={activeCoachLoop?.ctaHref ?? '/analyze'} className="btn btn-primary">
+                                        {activeCoachLoop?.ctaLabel ?? 'Rodar nova analise'}
                                     </Link>
                                     <Link href="/history" className="btn btn-ghost">
                                         Ver sessoes
