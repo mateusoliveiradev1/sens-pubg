@@ -60,8 +60,13 @@ export function buildCoachPlan(input: BuildCoachPlanInput = {}): CoachPlan {
         tier,
         sessionSummary: buildSessionSummary({ tier, primaryFocus, priorityCount: priorities.length }),
         primaryFocus,
-        secondaryFocuses: priorities.slice(1),
-        actionProtocols: buildActionProtocols({ tier, primaryFocus, analysisResult: input.analysisResult }),
+        secondaryFocuses: priorities.slice(1, 3),
+        actionProtocols: buildActionProtocols({
+            tier,
+            primaryFocus,
+            analysisResult: input.analysisResult,
+            ...(input.memorySnapshot ? { memorySnapshot: input.memorySnapshot } : {}),
+        }),
         nextBlock: buildNextBlockPlan({ tier, primaryFocus }),
         stopConditions: buildStopConditions({ tier, primaryFocus }),
         adaptationWindowDays: buildAdaptationWindow(tier),
@@ -73,8 +78,9 @@ export function buildActionProtocols(input: {
     readonly tier: CoachDecisionTier;
     readonly primaryFocus: CoachPriority;
     readonly analysisResult: AnalysisResult | undefined;
+    readonly memorySnapshot?: CoachMemorySnapshot;
 }): readonly CoachActionProtocol[] {
-    const { tier, primaryFocus, analysisResult } = input;
+    const { tier, primaryFocus, analysisResult, memorySnapshot } = input;
 
     if (tier === 'capture_again') {
         return [{
@@ -118,7 +124,7 @@ export function buildActionProtocols(input: {
         }];
     }
 
-    return [protocolForFocus(primaryFocus)];
+    return [applyMemoryProtocolContext(protocolForFocus(primaryFocus), primaryFocus, memorySnapshot)];
 }
 
 export function buildNextBlockPlan(input: {
@@ -194,6 +200,14 @@ export function resolveCoachDecisionTier(input: ResolveCoachDecisionTierInput): 
         return 'test_protocol';
     }
 
+    if (hasOutcomeFailureMemory(input.memorySnapshot)) {
+        return 'test_protocol';
+    }
+
+    if (shouldStabilizeFromMemory(input)) {
+        return 'stabilize_block';
+    }
+
     if (shouldStabilizeBlock(input.primaryFocus)) {
         return 'stabilize_block';
     }
@@ -225,6 +239,32 @@ function hasConflictingCoachMemory(memorySnapshot: CoachMemorySnapshot | undefin
     return Boolean(memorySnapshot && memorySnapshot.conflictingFocusAreas.length > 0);
 }
 
+function hasOutcomeFailureMemory(memorySnapshot: CoachMemorySnapshot | undefined): boolean {
+    const outcomeMemory = memorySnapshot?.outcomeMemory;
+
+    return Boolean(outcomeMemory && outcomeMemory.repeatedFailureCount > 0);
+}
+
+function shouldStabilizeFromMemory(input: ResolveCoachDecisionTierInput): boolean {
+    const trendLabel = input.memorySnapshot?.precisionTrend?.label;
+    if (
+        trendLabel === 'initial_signal'
+        || trendLabel === 'in_validation'
+        || trendLabel === 'oscillation'
+    ) {
+        return true;
+    }
+
+    const outcomeMemory = input.memorySnapshot?.outcomeMemory;
+    if (!outcomeMemory || outcomeMemory.activeLayer === 'none') {
+        return false;
+    }
+
+    return outcomeMemory.pendingCount > 0
+        || outcomeMemory.neutralCount > 0
+        || outcomeMemory.invalidCount > 0;
+}
+
 function shouldStabilizeBlock(primaryFocus: CoachPriority): boolean {
     return primaryFocus.area === 'consistency'
         && primaryFocus.blockedBy.length === 0
@@ -246,7 +286,28 @@ function shouldApplyProtocol(input: ResolveCoachDecisionTierInput): boolean {
         && primaryFocus.blockedBy.length === 0
         && primaryFocus.priorityScore >= 0.75
         && primaryFocus.confidence >= 0.75
-        && primaryFocus.coverage >= 0.75;
+        && primaryFocus.coverage >= 0.75
+        && hasStrongCompatibleValidation(input);
+}
+
+function hasStrongCompatibleValidation(input: ResolveCoachDecisionTierInput): boolean {
+    const memorySnapshot = input.memorySnapshot;
+
+    if (!memorySnapshot) {
+        return false;
+    }
+
+    const outcomeMemory = memorySnapshot.outcomeMemory;
+    const hasConfirmedStrictOutcome = outcomeMemory.activeLayer === 'strict_compatible'
+        && outcomeMemory.confirmedCount > 0
+        && outcomeMemory.conflictCount === 0
+        && outcomeMemory.repeatedFailureCount === 0;
+    const trend = memorySnapshot.precisionTrend;
+    const hasValidatedPrecisionTrend = trend?.label === 'validated_progress'
+        && trend.evidenceLevel === 'strong'
+        && trend.compatibleCount >= 3;
+
+    return hasConfirmedStrictOutcome || hasValidatedPrecisionTrend;
 }
 
 function hasSignal(priority: CoachPriority, key: string): boolean {
@@ -336,6 +397,40 @@ function protocolForFocus(primaryFocus: CoachPriority): CoachActionProtocol {
                 avoidWhen: 'Evite mudancas permanentes de configuracao com evidencia apenas de validacao.',
             };
     }
+}
+
+function applyMemoryProtocolContext(
+    protocol: CoachActionProtocol,
+    primaryFocus: CoachPriority,
+    memorySnapshot: CoachMemorySnapshot | undefined,
+): CoachActionProtocol {
+    if (!memorySnapshot) {
+        return protocol;
+    }
+
+    const hasRepeatedFailure = primaryFocus.blockedBy.includes('revised_hypothesis')
+        || primaryFocus.signals.some((signal) => signal.key.includes('.repeated_failure.'));
+    if (hasRepeatedFailure) {
+        return {
+            ...protocol,
+            id: `${protocol.id}-revised-hypothesis`,
+            instruction: `${protocol.instruction} Antes de repetir, valide uma hipotese alternativa curta para ${focusLabel(primaryFocus)} e compare contra o ultimo bloco.`,
+            applyWhen: `${protocol.applyWhen} Use como revisao controlada porque o mesmo foco ja falhou antes.`,
+            avoidWhen: 'Evite repetir o protocolo antigo sem uma nova hipotese, checagem curta ou validacao compativel.',
+        };
+    }
+
+    const hasConfirmedProgress = memorySnapshot.outcomeMemory.activeLayer === 'strict_compatible'
+        && memorySnapshot.outcomeMemory.confirmedCount > 0;
+    if (hasConfirmedProgress && memorySnapshot.precisionTrend?.label === 'validated_progress') {
+        return {
+            ...protocol,
+            instruction: `${protocol.instruction} O objetivo agora e consolidar o mesmo contexto antes de trocar variavel.`,
+            applyWhen: `${protocol.applyWhen} Use quando o proximo clip mantiver arma, mira, distancia, postura, acessorios e sensibilidade fixos.`,
+        };
+    }
+
+    return protocol;
 }
 
 function nextBlockTitle(tier: CoachDecisionTier, primaryFocus: CoachPriority): string {

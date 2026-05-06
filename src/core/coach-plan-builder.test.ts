@@ -9,6 +9,96 @@ import {
     createAnalysisResultFixture,
 } from './coach-test-fixtures';
 import { asScore } from '../types/branded';
+import type { CoachProtocolOutcome, PrecisionTrendSummary } from '../types/engine';
+
+function coachProtocolOutcome(
+    overrides: Partial<CoachProtocolOutcome> = {},
+): CoachProtocolOutcome {
+    return {
+        id: 'outcome-1',
+        sessionId: 'history-outcome-1',
+        coachPlanId: 'plan-1',
+        protocolId: 'sensitivity-test-protocol',
+        focusArea: 'sensitivity',
+        status: 'improved',
+        reasonCodes: [],
+        recordedAt: '2026-04-17T12:30:00.000Z',
+        evidenceStrength: 'weak_self_report',
+        ...overrides,
+    };
+}
+
+function validatedProgressTrend(): PrecisionTrendSummary {
+    return {
+        label: 'validated_progress',
+        evidenceLevel: 'strong',
+        compatibleCount: 3,
+        baseline: {
+            resultId: 'baseline-result',
+            timestamp: '2026-04-15T12:00:00.000Z',
+            actionableScore: 64,
+            mechanicalScore: 68,
+            coverage: 0.88,
+            confidence: 0.86,
+            clipQuality: 82,
+        },
+        current: {
+            resultId: 'current-result',
+            timestamp: '2026-04-18T12:00:00.000Z',
+            actionableScore: 82,
+            mechanicalScore: 80,
+            coverage: 0.92,
+            confidence: 0.9,
+            clipQuality: 86,
+        },
+        recentWindow: {
+            count: 3,
+            resultIds: ['baseline-result', 'middle-result', 'current-result'],
+            actionableAverage: 73,
+            mechanicalAverage: 74,
+            coverageAverage: 0.9,
+            confidenceAverage: 0.88,
+            clipQualityAverage: 84,
+        },
+        actionableDelta: {
+            baseline: 64,
+            current: 82,
+            delta: 18,
+            recentWindowAverage: 73,
+            recentWindowDelta: 9,
+        },
+        mechanicalDelta: {
+            baseline: 68,
+            current: 80,
+            delta: 12,
+            recentWindowAverage: 74,
+            recentWindowDelta: 6,
+        },
+        pillarDeltas: [],
+        recurringDiagnoses: [],
+        blockerSummaries: [],
+        blockedClips: [],
+        confidence: 0.9,
+        coverage: 0.92,
+        nextValidationHint: 'Progresso validado. Consolide o mesmo contexto antes de trocar variavel.',
+    };
+}
+
+function buildValidatedSensitivityPlan() {
+    const analysisResult = {
+        ...analysisResultWithStrongSensitivity,
+        precisionTrend: validatedProgressTrend(),
+    };
+    const memorySnapshot = buildCoachMemorySnapshot({
+        currentResult: analysisResult,
+        historySessions: [],
+    });
+
+    return buildCoachPlan({
+        analysisResult,
+        memorySnapshot,
+    });
+}
 
 describe('buildCoachPlan', () => {
     it('returns the base CoachPlan fields needed by the coaching session summary', () => {
@@ -36,6 +126,8 @@ describe('buildCoachPlan', () => {
                 checks: expect.any(Array),
             }),
         }));
+        expect(plan.secondaryFocuses.length).toBeLessThanOrEqual(2);
+        expect(plan.actionProtocols).toHaveLength(1);
     });
 
     it('uses the highest ranked raw priority as the primary focus', () => {
@@ -100,8 +192,15 @@ describe('buildCoachPlan', () => {
         expect(plan.tier).toBe('stabilize_block');
     });
 
-    it('uses apply_protocol only when evidence is strong and unblocked', () => {
+    it('keeps a strong current clip in test_protocol until compatible memory validates it', () => {
         const plan = buildCoachPlan({ analysisResult: analysisResultWithStrongSensitivity });
+
+        expect(plan.primaryFocus.area).toBe('sensitivity');
+        expect(plan.tier).toBe('test_protocol');
+    });
+
+    it('uses apply_protocol when strong current evidence has strict compatible validation', () => {
+        const plan = buildValidatedSensitivityPlan();
 
         expect(plan.primaryFocus.area).toBe('sensitivity');
         expect(plan.tier).toBe('apply_protocol');
@@ -164,6 +263,190 @@ describe('buildCoachPlan', () => {
         expect(plan.tier).toBe('test_protocol');
     });
 
+    it('blocks apply_protocol when self-report conflicts with compatible trend evidence', () => {
+        const analysisResult = {
+            ...analysisResultWithStrongSensitivity,
+            precisionTrend: {
+                ...validatedProgressTrend(),
+                label: 'validated_regression' as const,
+                actionableDelta: {
+                    baseline: 84,
+                    current: 70,
+                    delta: -14,
+                    recentWindowAverage: 78,
+                    recentWindowDelta: -8,
+                },
+                nextValidationHint: 'Regressao validada. Grave uma validacao curta antes de avancar.',
+            },
+        };
+        const memorySnapshot = buildCoachMemorySnapshot({
+            currentResult: analysisResult,
+            historySessions: [{
+                id: 'history-outcome-1',
+                createdAt: new Date('2026-04-17T12:00:00.000Z'),
+                patchVersion: analysisResult.patchVersion,
+                distance: analysisResult.analysisContext?.targetDistanceMeters,
+                loadout: analysisResult.loadout,
+                fullResult: {
+                    coachPlan: {
+                        primaryFocus: { area: 'sensitivity' },
+                    },
+                },
+            }],
+            protocolOutcomes: [
+                coachProtocolOutcome({
+                    status: 'improved',
+                    evidenceStrength: 'conflict',
+                    conflict: {
+                        userOutcomeId: 'outcome-1',
+                        precisionTrendLabel: 'validated_regression',
+                        reason: 'Self-report improved, but strict compatible precision validated regression.',
+                        nextValidationCopy: 'Grave uma validacao curta.',
+                    },
+                    coachSnapshot: {
+                        tier: 'test_protocol',
+                        primaryFocusArea: 'sensitivity',
+                        primaryFocusTitle: 'Sensibilidade',
+                        protocolId: 'sensitivity-test-protocol',
+                        validationTarget: 'perfil recomendado melhora com contexto fixo',
+                        precisionTrendLabel: 'validated_regression',
+                    },
+                }),
+            ],
+        });
+
+        const plan = buildCoachPlan({ analysisResult, memorySnapshot });
+
+        expect(plan.tier).toBe('test_protocol');
+        expect(memorySnapshot.conflictingFocusAreas).toContain('sensitivity');
+    });
+
+    it('uses stabilize_block when neutral outcomes or initial trend make stronger action premature', () => {
+        const analysisResult = {
+            ...analysisResultWithStrongSensitivity,
+            precisionTrend: {
+                ...validatedProgressTrend(),
+                label: 'initial_signal' as const,
+                evidenceLevel: 'initial' as const,
+                compatibleCount: 2,
+                nextValidationHint: 'Sinal inicial registrado. Grave uma terceira validacao compativel.',
+            },
+        };
+        const memorySnapshot = buildCoachMemorySnapshot({
+            currentResult: analysisResult,
+            historySessions: [{
+                id: 'history-outcome-1',
+                createdAt: new Date('2026-04-17T12:00:00.000Z'),
+                patchVersion: analysisResult.patchVersion,
+                distance: analysisResult.analysisContext?.targetDistanceMeters,
+                loadout: analysisResult.loadout,
+                fullResult: {
+                    coachPlan: {
+                        primaryFocus: { area: 'sensitivity' },
+                    },
+                },
+            }],
+            protocolOutcomes: [
+                coachProtocolOutcome({
+                    status: 'completed',
+                    evidenceStrength: 'neutral',
+                }),
+            ],
+        });
+
+        const plan = buildCoachPlan({ analysisResult, memorySnapshot });
+        const sensitivityPriority = [plan.primaryFocus, ...plan.secondaryFocuses]
+            .find((priority) => priority.area === 'sensitivity');
+
+        expect(plan.tier).toBe('stabilize_block');
+        expect(sensitivityPriority?.blockedBy).toContain('validation');
+    });
+
+    it('adds a revised hypothesis when the same focus fails twice', () => {
+        const verticalDominantResult = createAnalysisResultFixture({
+            ...analysisResultBase,
+            diagnoses: [{
+                type: 'underpull',
+                severity: 5,
+                verticalControlIndex: 0.58,
+                deficitPercent: 42,
+                confidence: 0.95,
+                evidence: {
+                    confidence: 0.95,
+                    coverage: 0.92,
+                    angularErrorDegrees: 1.8,
+                    linearErrorCm: 70,
+                    linearErrorSeverity: 5,
+                },
+                description: 'Controle vertical segue dominante no clip atual',
+                cause: 'O sustain ainda perde pressao mesmo com captura usavel',
+                remediation: 'Revise a hipotese antes de repetir o mesmo bloco vertical',
+            }],
+        });
+        const memorySnapshot = buildCoachMemorySnapshot({
+            currentResult: verticalDominantResult,
+            historySessions: [
+                {
+                    id: 'history-outcome-1',
+                    createdAt: new Date('2026-04-17T12:00:00.000Z'),
+                    patchVersion: verticalDominantResult.patchVersion,
+                    distance: verticalDominantResult.analysisContext?.targetDistanceMeters,
+                    loadout: verticalDominantResult.loadout,
+                    fullResult: {
+                        coachPlan: {
+                            primaryFocus: { area: 'vertical_control' },
+                        },
+                    },
+                },
+                {
+                    id: 'history-outcome-2',
+                    createdAt: new Date('2026-04-16T12:00:00.000Z'),
+                    patchVersion: verticalDominantResult.patchVersion,
+                    distance: verticalDominantResult.analysisContext?.targetDistanceMeters,
+                    loadout: verticalDominantResult.loadout,
+                    fullResult: {
+                        coachPlan: {
+                            primaryFocus: { area: 'vertical_control' },
+                        },
+                    },
+                },
+            ],
+            protocolOutcomes: [
+                coachProtocolOutcome({
+                    id: 'worse-outcome-1',
+                    sessionId: 'history-outcome-1',
+                    protocolId: 'vertical-control-drill-protocol',
+                    focusArea: 'vertical_control',
+                    status: 'worse',
+                    evidenceStrength: 'weak_self_report',
+                }),
+                coachProtocolOutcome({
+                    id: 'worse-outcome-2',
+                    sessionId: 'history-outcome-2',
+                    protocolId: 'vertical-control-drill-protocol',
+                    focusArea: 'vertical_control',
+                    status: 'worse',
+                    evidenceStrength: 'weak_self_report',
+                    recordedAt: '2026-04-16T12:30:00.000Z',
+                }),
+            ],
+        });
+
+        const plan = buildCoachPlan({
+            analysisResult: verticalDominantResult,
+            memorySnapshot,
+        });
+
+        expect(plan.tier).toBe('test_protocol');
+        expect(plan.primaryFocus.area).toBe('vertical_control');
+        expect(plan.primaryFocus.blockedBy).toContain('revised_hypothesis');
+        expect(plan.actionProtocols).toHaveLength(1);
+        expect(plan.actionProtocols[0]).toEqual(expect.objectContaining({
+            id: expect.stringContaining('revised-hypothesis'),
+            avoidWhen: expect.stringContaining('nova hipotese'),
+        }));
+    });
+
     it('raises primary focus confidence when coach memory strongly aligns', () => {
         const planWithoutMemory = buildCoachPlan({ analysisResult: analysisResultBase });
         const memorySnapshot = buildCoachMemorySnapshot({
@@ -213,7 +496,7 @@ describe('buildCoachPlan', () => {
 
     it('builds action protocols that match conservative and apply-ready tiers', () => {
         const weakCapturePlan = buildCoachPlan({ analysisResult: analysisResultWithWeakCapture });
-        const applyReadyPlan = buildCoachPlan({ analysisResult: analysisResultWithStrongSensitivity });
+        const applyReadyPlan = buildValidatedSensitivityPlan();
 
         expect(weakCapturePlan.actionProtocols).toEqual([
             expect.objectContaining({
@@ -296,7 +579,7 @@ describe('buildCoachPlan', () => {
     it('adds stop conditions and an adaptation window for the current tier', () => {
         const testPlan = buildCoachPlan({ analysisResult: analysisResultBase });
         const weakCapturePlan = buildCoachPlan({ analysisResult: analysisResultWithWeakCapture });
-        const applyReadyPlan = buildCoachPlan({ analysisResult: analysisResultWithStrongSensitivity });
+        const applyReadyPlan = buildValidatedSensitivityPlan();
 
         expect(testPlan.stopConditions.length).toBeGreaterThan(0);
         expect(testPlan.adaptationWindowDays).toBeGreaterThan(0);

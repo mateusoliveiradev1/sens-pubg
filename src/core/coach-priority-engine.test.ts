@@ -9,6 +9,7 @@ import {
 import { rankCoachPriorities } from './coach-priority-engine';
 import { extractCoachSignals } from './coach-signal-extractor';
 import { asScore } from '../types/branded';
+import type { CoachSignal } from '../types/engine';
 
 describe('rankCoachPriorities', () => {
     it('prioritizes capture quality when weak capture makes the clip unusable', () => {
@@ -90,5 +91,45 @@ describe('rankCoachPriorities', () => {
             dependencies: ['consistency'],
         }));
         expect(sensitivityPriority?.priorityScore).toBeLessThan(priorities[0]?.priorityScore ?? 0);
+    });
+
+    it('adds outcome and validation blockers to sensitivity priorities', () => {
+        const signals: readonly CoachSignal[] = [
+            {
+                source: 'sensitivity',
+                area: 'sensitivity',
+                key: 'sensitivity.apply_ready',
+                summary: 'Sensibilidade forte no clip atual.',
+                confidence: 0.93,
+                coverage: 0.9,
+                weight: 0.9,
+            },
+            {
+                source: 'history',
+                area: 'sensitivity',
+                key: 'outcome.strict_compatible.conflict.sensitivity',
+                summary: 'Outcome em conflito com trend compativel.',
+                confidence: 0.9,
+                coverage: 1,
+                weight: 0.58,
+            },
+            {
+                source: 'history',
+                area: 'validation',
+                key: 'outcome.strict_compatible.pending',
+                summary: 'Resultado do bloco ainda precisa fechamento.',
+                confidence: 0.7,
+                coverage: 0.66,
+                weight: 0.24,
+            },
+        ];
+
+        const priorities = rankCoachPriorities({ signals });
+        const sensitivityPriority = priorities.find((priority) => priority.area === 'sensitivity');
+
+        expect(sensitivityPriority).toEqual(expect.objectContaining({
+            blockedBy: expect.arrayContaining(['outcome_conflict', 'validation']),
+            dependencies: expect.arrayContaining(['outcome_conflict', 'validation']),
+        }));
     });
 });

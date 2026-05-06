@@ -64,13 +64,14 @@ function resolvePriorityDependencies(priorities: readonly CoachPriority[]): read
         || hasSignal(findPriority(priorities, 'sensitivity'), 'sensitivity.capture_again');
     const consistencyBlocksSensitivity = isDominantConsistencyPriority(consistencyPriority);
     const historyConflictBlocksSensitivity = hasHistoryConflict(priorities);
+    const validationBlocksSensitivity = hasValidationBlockingHistory(priorities);
 
     return priorities.map((priority) => {
-        if (priority.area !== 'sensitivity') {
-            return priority;
-        }
+        let resolvedPriority = applyOutcomeDependencies(priority);
 
-        let resolvedPriority = priority;
+        if (priority.area !== 'sensitivity') {
+            return resolvedPriority;
+        }
 
         if (badCaptureBlocksSensitivity) {
             resolvedPriority = addPriorityDependency(resolvedPriority, 'capture_quality');
@@ -92,6 +93,14 @@ function resolvePriorityDependencies(priorities: readonly CoachPriority[]): read
                 resolvedPriority,
                 'history_conflict',
                 roundScore(Math.max(0, resolvedPriority.priorityScore - 0.12)),
+            );
+        }
+
+        if (validationBlocksSensitivity) {
+            resolvedPriority = addPriorityDependency(
+                resolvedPriority,
+                'validation',
+                roundScore(Math.max(0, resolvedPriority.priorityScore - 0.1)),
             );
         }
 
@@ -123,6 +132,55 @@ function hasHistoryConflict(priorities: readonly CoachPriority[]): boolean {
         const summary = signal.summary.toLowerCase();
         return signal.key.includes('conflict') || summary.includes('conflict');
     }));
+}
+
+function hasValidationBlockingHistory(priorities: readonly CoachPriority[]): boolean {
+    return priorities.some((priority) => priority.signals.some((signal) => (
+        signal.source === 'history'
+        && (
+            signal.key === 'precision.initial_signal'
+            || signal.key === 'precision.in_validation'
+            || signal.key === 'precision.oscillation'
+            || signal.key.includes('.pending')
+            || signal.key.includes('.weak_self_report.')
+        )
+    )));
+}
+
+function applyOutcomeDependencies(priority: CoachPriority): CoachPriority {
+    let resolvedPriority = priority;
+
+    if (hasOutcomeSignal(priority, '.conflict.')) {
+        resolvedPriority = addPriorityDependency(
+            resolvedPriority,
+            'outcome_conflict',
+            roundScore(Math.max(0, resolvedPriority.priorityScore - 0.16)),
+        );
+    }
+
+    if (hasOutcomeSignal(priority, '.repeated_failure.')) {
+        resolvedPriority = addPriorityDependency(
+            resolvedPriority,
+            'revised_hypothesis',
+            roundScore(Math.max(0, resolvedPriority.priorityScore - 0.12)),
+        );
+    } else if (hasOutcomeSignal(priority, '.failure.')) {
+        resolvedPriority = addPriorityDependency(
+            resolvedPriority,
+            'short_validation',
+            roundScore(Math.max(0, resolvedPriority.priorityScore - 0.08)),
+        );
+    }
+
+    return resolvedPriority;
+}
+
+function hasOutcomeSignal(priority: CoachPriority, marker: string): boolean {
+    return priority.signals.some((signal) => (
+        signal.source === 'history'
+        && signal.key.startsWith('outcome.')
+        && signal.key.includes(marker)
+    ));
 }
 
 function addPriorityDependency(
