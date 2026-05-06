@@ -30,6 +30,7 @@ key-files:
     - src/app/history/[id]/coach-protocol-outcome-panel.tsx
     - src/app/history/[id]/coach-protocol-outcome-panel.contract.test.ts
     - src/actions/dashboard.test.ts
+    - src/actions/dashboard-active-coach-loop.ts
   modified:
     - src/types/engine.ts
     - src/actions/history.ts
@@ -89,6 +90,7 @@ completed: 2026-05-05
 ## Task Commits
 
 1. **Task 1-3: Surface adaptive coach loop across analysis, history, and dashboard** - `60dc7df` (feat)
+2. **Hotfix: Move dashboard helper out of server action module** - `65c561c` (fix)
 
 ## Files Created/Modified
 
@@ -100,6 +102,7 @@ completed: 2026-05-05
 - `src/app/history/page.tsx` - Shows latest coach outcome status chips and audit entry copy.
 - `src/actions/history.ts` - Returns `historySessionId`, reads latest outcome state for history cards, and keeps action validation server-owned.
 - `src/actions/dashboard.ts` - Adds active coach loop read model from latest saved coach plan and latest protocol outcome.
+- `src/actions/dashboard-active-coach-loop.ts` - Owns the pure active-loop helper outside the `'use server'` action module.
 - `src/app/dashboard/dashboard-truth-view-model.ts` - Routes active pending/conflict loops ahead of generic next action.
 - `src/app/dashboard/page.tsx` - Shows active-loop band and CTA.
 - Focused tests and contract tests were added/updated for all new surfaces.
@@ -125,12 +128,21 @@ completed: 2026-05-05
 
 ---
 
-**Total deviations:** 1 implementation contract adjustment
-**Impact on plan:** Positive. It made the planned CTA states implementable without guessing from transient analysis IDs.
+**Total deviations:** 2 implementation contract adjustments
+**Impact on plan:** Positive. The first made the planned CTA states implementable without guessing from transient analysis IDs; the second kept Next server-action exports valid.
+
+**2. Next Server Actions export boundary rejected a pure helper**
+- **Found during:** Local dashboard runtime/build check after implementation
+- **Issue:** `buildDashboardActiveCoachLoop` was exported from `src/actions/dashboard.ts`, which is a `'use server'` module. Next requires runtime exports from server-action modules to be async server actions.
+- **Fix:** Moved the pure helper and its types to `src/actions/dashboard-active-coach-loop.ts`; `dashboard.ts` imports it internally and only exports the async action.
+- **Files modified:** `src/actions/dashboard.ts`, `src/actions/dashboard-active-coach-loop.ts`, `src/actions/dashboard.test.ts`
+- **Verification:** Focused dashboard tests, typecheck, and `npm run build` passed.
+- **Committed in:** `65c561c`
 
 ## Issues Encountered
 
 - Typecheck caught a few inferred union issues in `getHistorySessions` and dashboard recent-session selection. These were fixed before committing.
+- Next build caught the server-action export boundary issue after the first Wave 3 commit. The helper was moved into a non-server-action module.
 
 ## Verification
 
@@ -138,6 +150,8 @@ completed: 2026-05-05
 - `npm run typecheck` - passed
 - `npx vitest run` - passed, 125 files / 677 tests
 - `npm run benchmark:gate` - passed, synthetic and captured benchmarks score 100, coverage gate PASS
+- `npx vitest run src/actions/dashboard.test.ts src/app/dashboard/dashboard-truth-view-model.test.ts src/app/dashboard/page.contract.test.ts` - passed after hotfix, 3 files / 16 tests
+- `npm run build` - passed after hotfix
 
 ## User Setup Required
 
