@@ -82,8 +82,8 @@ The implementation should be production-grade for payments and entitlements, but
 - **D-50:** Physical preparation, ergonomics, and musculacao belong with the guided Pro training phase or a closely related follow-up, but must be framed safely as general preparation/routine support, not medical advice, injury treatment, or guaranteed performance gain.
 
 ### Roadmap And Launch Strategy
-- **D-51:** The current active roadmap has Phase 5 Freemium Pro MVP, Phase 6 Team And Coach Expansion, and Phase 7 Revenue Operations Hardening. The user correctly noted that prior context also preserved future complete training and UI/UX premium phases.
-- **D-52:** For a polished public launch, downstream planning should recommend inserting/adding dedicated phases before final public launch: Premium Visual/UI/UX, Guided Pro Training Programs, then Team/Coach expansion and Revenue Operations Hardening.
+- **D-51:** The roadmap is updated from the original 7-phase sequence into a 13-phase launch-perfect sequence that preserves Phase 5 as the safe monetization wedge and adds validation, UI/UX, complete training, Spray Lab, guided programs, social Pro, revenue operations, and team/coach expansion before or around public launch readiness.
+- **D-52:** For a polished public launch, downstream planning should treat these as launch-critical phases: Core Accuracy And Pro Validation Hardening, Premium Visual/UI/UX, Complete Training Protocols, PUBG Spray Lab/Session Runner/Benchmark, Guided Pro Training Programs, Social Pro/Community Premium, Revenue Operations Hardening, and Team/Coach Expansion.
 - **D-53:** A closed beta can happen after Phase 5 if checkout, entitlements, limits, and Pro loop are safe. Public launch should wait until payment ops, premium UI/UX, guided Pro training value, and revenue operations are ready.
 - **D-54:** The final launch promise should not be "buy a course." It should be "upload real PUBG spray clips and follow an evidence-backed improvement program that adapts to your validations."
 
@@ -93,8 +93,16 @@ The implementation should be production-grade for payments and entitlements, but
 - **D-57:** Product analytics for Phase 5 must record first usable analysis activation, free quota consumed, limit hit, paywall viewed, checkout started, checkout canceled, checkout completed/confirmed, Pro activated, payment failed, grace entered, Pro revoked, and premium feature attempted while locked.
 - **D-58:** Analytics must avoid exposing secrets or private clip data. High-level funnel and event metadata are enough for Phase 5; admin revenue operations are later hardening.
 
+### Core Validation, Public Video Use, And Spray Lab
+- **D-59:** The current spray analysis engine is strong enough to continue toward closed beta with honest claims, but it must not be treated as "perfect" or fully public-launch ready until a dedicated Core Accuracy And Pro Validation Hardening phase expands real/pro validation and confidence calibration.
+- **D-60:** Public YouTube/Twitch/pro match videos may be used for qualitative reference, product research, discovery of creators/pros, and manual hypothesis generation.
+- **D-61:** Do not scrape, download, or automatically extract frames/features/metrics from third-party public videos for commercial engine training or validation unless there is explicit permission, verified trainability, or another documented legal basis.
+- **D-62:** Create a Pro Spray Validation Corpus from user clips, advanced players, coaches, pros, partners, or videos with verified training permission. Store provenance, consent, metadata, review status, and golden promotion criteria.
+- **D-63:** Core validation should improve spray start/end detection, camera-motion/flick/cut separation, recoil tracking, weak-quality handling, confidence calibration, diagnosis quality, and coach/training handoff.
+- **D-64:** A PUBG Spray Lab/Session Runner/Benchmark phase should make Sens PUBG feel like an "Aim Lab focused on PUBG": guided drills, sessions, reps, weapon/scope/distance objectives, benchmarks, and validation prompts tied back to real clip analysis.
+
 ### the agent's Discretion
-The planner/researcher may choose exact database table names, Drizzle migration shape, Stripe API version, internal entitlement type names, Pro monthly cap, pricing research path, UI component split, and event schema. That discretion does not include weakening server-side entitlement truth, granting Pro from the client redirect, accepting arbitrary client price IDs, treating Pix as Pro monthly recurring MVP, hiding weak evidence, or turning community into the primary paywall before solo Pro is validated.
+The planner/researcher may choose exact database table names, Drizzle migration shape, Stripe API version, internal entitlement type names, Pro monthly cap, pricing research path, UI component split, event schema, and detailed ordering inside the future validation/training/UI phases. That discretion does not include weakening server-side entitlement truth, granting Pro from the client redirect, accepting arbitrary client price IDs, treating Pix as Pro monthly recurring MVP, hiding weak evidence, turning community into the primary paywall before solo Pro is validated, or making strong public paid claims before the Core Accuracy and Pro Validation gates are satisfied.
 
 </decisions>
 
@@ -106,7 +114,7 @@ The planner/researcher may choose exact database table names, Drizzle migration 
 ### Planning Source
 - `.planning/PROJECT.md` - Core value, browser-first constraint, monetization posture, original-value requirement, and confidence honesty.
 - `.planning/REQUIREMENTS.md` - Phase 5 requirements: ANALYT-01, ANALYT-02, MON-01, MON-02, MON-03, MON-04, MON-05.
-- `.planning/ROADMAP.md` - Current Phase 5 scope and current Phase 6/7 sequence that may need follow-up roadmap adjustment.
+- `.planning/ROADMAP.md` - Updated 13-phase roadmap with Phase 5 monetization, Core Accuracy validation, premium UI/UX, complete training, PUBG Spray Lab, guided Pro programs, social Pro, revenue operations, and team/coach expansion.
 - `.planning/STATE.md` - Current project state: Phase 5 ready for monetization discussion/planning after completed Phases 1-4.
 
 ### Prior Phase Decisions
@@ -198,6 +206,8 @@ The planner/researcher may choose exact database table names, Drizzle migration 
 - The user wants community as funnel/trust now, with social Pro features prepared for later phases before real public launch.
 - The user clarified that future "almost course" value must not be sold as a course. It is a guided Pro training program/system based on the user's clips, coach, training blocks, validations, and progression.
 - The user noticed that complete training and premium UI/UX phases were already part of the broader vision. The Phase 5 context must preserve them as launch-critical future phases, not generic backlog.
+- The user wants deeper spray clip analysis improvements captured in the new Core Accuracy phase, including a stronger validation path before public commercial claims.
+- The user wants the future lab/program product to feel like a complete PUBG-specific improvement lab, not just analysis volume or a generic training course.
 
 </specifics>
 
@@ -205,7 +215,9 @@ The planner/researcher may choose exact database table names, Drizzle migration 
 ## Deferred Ideas
 
 - Premium Visual/UI/UX phase before public launch: full polish across analysis, dashboard, history, pricing/paywall, billing states, and community cues.
+- Core Accuracy And Pro Validation Hardening: deeper spray detection/tracking, real/pro validation corpus, specialist review, confidence calibration, and commercial benchmark gates.
 - Guided Pro Training Programs phase before public launch: structured routines, weekly progression, missions, drill library, active-line continuation, and validation cadence. This is not a "course" product.
+- PUBG Spray Lab / Session Runner / Benchmark: guided drills, reps, sessions, weapon/scope/distance objectives, and lab benchmarks tied back to clip validation.
 - Physical preparation, ergonomics, and musculacao: future Pro training capability with safety framing, no medical/injury promises, and likely its own expert-reviewed contract.
 - Social Pro/community expansion: Pro badge, premium report sharing, saved drills, private collections, creator analytics, and advanced post context.
 - Team/coach paid workflow: multi-player review, coach/team dashboard, seats, and report access after solo Pro is validated.

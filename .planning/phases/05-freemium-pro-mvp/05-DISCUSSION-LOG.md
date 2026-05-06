@@ -100,6 +100,44 @@
 
 ---
 
+## Core Engine Validation
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Keep core as-is after Phase 4 | Lowest scope, but not enough for confident public paid launch. | |
+| Add dedicated Core Accuracy phase | Improve spray detection/tracking and validate against real/pro corpus before strong public claims. | yes |
+| Mix core hardening into Phase 5 | Would overload checkout/entitlement implementation and blur payment security with analysis research. | |
+
+**User's choice:** Add a dedicated Core Accuracy And Pro Validation Hardening phase after Phase 5.
+**Notes:** Discussion concluded the current engine is a strong foundation for honest closed beta, but not yet a "perfect" commercial engine. The hardening phase should improve spray start/end detection, recoil tracking, camera-motion/flick/cut separation, weak-quality handling, confidence calibration, diagnosis quality, and coach/training handoff.
+
+---
+
+## Public Video And Pro Spray Corpus
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Scrape/extract from public YouTube videos | Abundant data, but high legal/platform/commercial risk. | |
+| Use public videos as qualitative reference | Safe for product research, hypothesis generation, and creator discovery. | yes |
+| Build permissioned corpus | Slower, but production-grade and defensible for commercial validation. | yes |
+
+**User's choice:** Do not store third-party public videos; use them as reference/discovery, and build a permissioned validation corpus.
+**Notes:** Not saving raw video is not enough if the system still extracts frames/features/metrics for training or validation. Acceptable path is to use YouTube/Twitch/pro match videos qualitatively, then collect clips from users, advanced players, coaches, pros, partners, or videos with verified training permission/provenance.
+
+---
+
+## Launch-Perfect Roadmap Update
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| Keep 7 phases | Simpler, but loses explicit UI, training, Spray Lab, validation, and social Pro work. | |
+| Add a launch-perfect sequence | Makes the path to a truly sellable Pro product explicit. | yes |
+
+**User's choice:** Update the official roadmap to 13 phases.
+**Notes:** New sequence keeps Phase 5 as secure monetization, then adds Core Accuracy, Premium Visual/UI/UX, Complete Training Protocols, PUBG Spray Lab/Session Runner/Benchmark, Guided Pro Training Programs, Social Pro/Community Premium, Revenue Operations Hardening, and Team/Coach Expansion.
+
+---
+
 ## the agent's Discretion
 
 - Exact Pro monthly quota/cap.
@@ -107,10 +145,13 @@
 - Exact table names and migration shape for Stripe, subscriptions, usage ledger, and product entitlements.
 - Exact UI split for paywall/pricing/billing surfaces.
 - Exact event names, as long as activation and upgrade intent are recorded.
+- Exact implementation ordering within the future validation, UI, training, lab, and program phases, as long as public launch waits for validation and revenue readiness.
 
 ## Deferred Ideas
 
+- Core Accuracy And Pro Validation Hardening.
 - Premium Visual/UI/UX phase before public launch.
+- PUBG Spray Lab / Session Runner / Benchmark.
 - Guided Pro Training Programs phase before public launch, not positioned as course.
 - Physical preparation, ergonomics, and musculacao with safety framing.
 - Social Pro/community premium features.

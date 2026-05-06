@@ -13,9 +13,15 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 | 2 | Benchmark Expansion | Make regressions visible before commercial claims | BENCH-01, BENCH-02, BENCH-03 |
 | 3 | Multi-Clip Precision Loop | Turn single analyses into measurable improvement trends | PREC-03 |
 | 4 | Adaptive Coach Loop | Make coach plans learn from outcomes and history | COACH-01, COACH-02, COACH-03, COACH-04, COACH-05 |
-| 5 | Freemium Pro MVP | Activate paid solo-player monetization safely | ANALYT-01, ANALYT-02, MON-01, MON-02, MON-03, MON-04, MON-05 |
-| 6 | Team And Coach Expansion | Extend paid value to teams/coaches after solo proof | TEAM-01, TEAM-02 |
-| 7 | Revenue Operations Hardening | Make the paid system measurable, supportable, and launch-ready | ANALYT-03 |
+| 5 | Freemium Pro MVP | Activate paid solo-player monetization safely for closed beta | ANALYT-01, ANALYT-02, MON-01, MON-02, MON-03, MON-04, MON-05 |
+| 6 | Core Accuracy And Pro Validation Hardening | Make clip spray analysis commercially trustworthy before strong public claims | PREC-01, PREC-02, PREC-03, PREC-04, BENCH-01, BENCH-02, BENCH-03, COACH-01, COACH-02, COACH-03, COACH-04, COACH-05 |
+| 7 | Premium Visual UI UX | Make the paid product feel premium, clear, and launch-grade | ANALYT-01, ANALYT-02, MON-01, MON-02, MON-04 |
+| 8 | Complete Training Protocols | Turn coach next-block advice into complete practical PUBG training protocols | COACH-01, COACH-02, COACH-03, COACH-04, COACH-05 |
+| 9 | PUBG Spray Lab Session Runner And Benchmark | Build the PUBG-focused lab layer for guided drills, sessions, and benchmarks | PREC-03, BENCH-01, BENCH-02, BENCH-03, COACH-01, COACH-02, COACH-03 |
+| 10 | Guided Pro Training Programs | Organize the Pro loop into weekly and monthly adaptive training programs | PREC-03, COACH-01, COACH-02, COACH-03, COACH-04, COACH-05, MON-01, MON-02 |
+| 11 | Social Pro Community Premium | Add Pro social value while keeping public community as a trust funnel | MON-01, MON-02, MON-03, MON-04, MON-05 |
+| 12 | Revenue Operations Hardening | Make the paid system measurable, supportable, and launch-ready | ANALYT-03 |
+| 13 | Team And Coach Expansion | Extend paid value to teams/coaches after solo Pro proof | TEAM-01, TEAM-02 |
 
 ## Phase 1: Measurement Truth Contract
 
@@ -170,22 +176,109 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **UI hint:** yes
 
-## Phase 6: Team And Coach Expansion
+## Phase 6: Core Accuracy And Pro Validation Hardening
 
-**Goal:** Serve teams/coaches after solo paid value is validated.
+**Goal:** Make the clip spray analysis engine commercially trustworthy before strong public launch claims.
 
-**Requirements:** TEAM-01, TEAM-02
+**Requirements:** PREC-01, PREC-02, PREC-03, PREC-04, BENCH-01, BENCH-02, BENCH-03, COACH-01, COACH-02, COACH-03, COACH-04, COACH-05
 
 **Success Criteria:**
 
-1. Team/coach workflow can review multiple player reports.
-2. Premium report sharing/export protects private account data.
-3. Team feature gate is separate from solo Pro.
-4. Roadmap can support seat-based billing later.
+1. Spray start/end detection, recoil tracking, camera-motion separation, flick/cut detection, and low-quality clip handling are improved and regression-tested.
+2. A real/pro validation corpus exists with explicit permission or trainability provenance, metadata, reviewed labels, and golden promotion rules.
+3. Public internet videos are used only for qualitative reference or discovery unless permission/trainability is verified.
+4. Engine confidence is calibrated against captured real clips and specialist review, including inconclusive and weak-evidence behavior.
+5. Commercial benchmark gates cover tracking, diagnosis, coach recommendation quality, training handoff, and confidence honesty before strong public claims.
+
+**UI hint:** no
+
+**Cross-cutting constraints:**
+- Do not scrape, download, or extract features from third-party YouTube/Twitch videos for product training without permission or verified trainability.
+- Do not redistribute raw partner clips unless the contributor agreement explicitly allows it.
+- Preserve browser-first user analysis; validation corpus work improves truth, not a new backend video-processing product.
+- No copy may claim perfect sensitivity, guaranteed recoil control, guaranteed rank gain, or guaranteed improvement.
+
+## Phase 7: Premium Visual UI UX
+
+**Goal:** Make the paid product feel premium, clear, and launch-grade across the full solo-player loop.
+
+**Requirements:** ANALYT-01, ANALYT-02, MON-01, MON-02, MON-04
+
+**Success Criteria:**
+
+1. Analysis, result, dashboard, history, pricing, billing, and locked-state surfaces feel cohesive and production-grade.
+2. Free versus Pro value is visible without hiding the truth contract, confidence, coverage, or inconclusive states.
+3. Progression and evolution are visually obvious through active lines, checkpoints, compatible trends, and next actions.
+4. Mobile and desktop flows are polished enough for real paid users.
+5. UI copy remains honest, independent from PUBG/KRAFTON, and avoids guaranteed-performance claims.
 
 **UI hint:** yes
 
-## Phase 7: Revenue Operations Hardening
+## Phase 8: Complete Training Protocols
+
+**Goal:** Turn coach next-block advice into complete practical PUBG training protocols.
+
+**Requirements:** COACH-01, COACH-02, COACH-03, COACH-04, COACH-05
+
+**Success Criteria:**
+
+1. Training protocols specify what to train, where to train, duration, weapon, optic, distance, reps, drill target, and stop/continue criteria.
+2. Protocols connect directly to the user's clip diagnosis, active evolution line, and next compatible validation clip.
+3. Physical preparation, ergonomics, and musculacao are framed safely as general preparation, not medical advice or guaranteed performance gain.
+4. Protocols remain deterministic and evidence-bound; optional LLM copy cannot change technical facts.
+5. Tests cover protocol selection, weak-evidence downgrade, history/outcome influence, and user-facing copy constraints.
+
+**UI hint:** yes
+
+## Phase 9: PUBG Spray Lab Session Runner And Benchmark
+
+**Goal:** Build the PUBG-focused lab layer for guided drills, training sessions, and internal benchmarks.
+
+**Requirements:** PREC-03, BENCH-01, BENCH-02, BENCH-03, COACH-01, COACH-02, COACH-03
+
+**Success Criteria:**
+
+1. Drill library exists for PUBG recoil control by weapon, optic, distance, error pattern, and training objective.
+2. Session runner guides the user through blocks, reps, outcomes, and validation prompts without becoming a generic course product.
+3. Internal PUBG spray benchmark tracks drill performance and connects back to compatible clip validation.
+4. Spray Lab supports progression from beginner correction to advanced/pro-level refinement without overclaiming.
+5. Benchmark/session data feeds the coach loop and dashboard in privacy-safe, entitlement-aware ways.
+
+**UI hint:** yes
+
+## Phase 10: Guided Pro Training Programs
+
+**Goal:** Organize the Pro loop into weekly and monthly adaptive training programs.
+
+**Requirements:** PREC-03, COACH-01, COACH-02, COACH-03, COACH-04, COACH-05, MON-01, MON-02
+
+**Success Criteria:**
+
+1. Pro users can follow structured weekly/monthly programs generated from clips, coach decisions, outcomes, and compatible validations.
+2. Programs include missions, checkpoints, active-line continuation, recovery/reset behavior, and clear progression states.
+3. The product is positioned as an adaptive PUBG improvement system, not a course or content library.
+4. Program adjustments are evidence-bound and downgrade themselves when clips, history, or outcomes are weak/conflicting.
+5. Paywall and dashboard make program value clear without promising guaranteed improvement.
+
+**UI hint:** yes
+
+## Phase 11: Social Pro Community Premium
+
+**Goal:** Add Pro social value while keeping public community as a trust funnel.
+
+**Requirements:** MON-01, MON-02, MON-03, MON-04, MON-05
+
+**Success Criteria:**
+
+1. Public feed, public posts, basic profiles, and basic engagement remain open/free where already open.
+2. Pro social value includes premium report sharing, Pro badges, saved drills, private collections, advanced post context, or creator analytics.
+3. Community upgrade cues point to original Sens PUBG value: analysis, coach, history, training programs, and validation.
+4. Community entitlements do not leak into product Pro access without shared server-side entitlement truth.
+5. No exclusive paid value is based only on PUBG API-derived data.
+
+**UI hint:** yes
+
+## Phase 12: Revenue Operations Hardening
 
 **Goal:** Make the paid system observable, supportable, and ready for real launch decisions.
 
@@ -200,12 +293,29 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **UI hint:** yes
 
+## Phase 13: Team And Coach Expansion
+
+**Goal:** Serve teams/coaches after solo paid value is validated.
+
+**Requirements:** TEAM-01, TEAM-02
+
+**Success Criteria:**
+
+1. Team/coach workflow can review multiple player reports.
+2. Premium report sharing/export protects private account data.
+3. Team feature gate is separate from solo Pro.
+4. Roadmap can support seat-based billing later.
+
+**UI hint:** yes
+
 ## Coverage Validation
 
 - v1 requirements covered: 22/22
-- Requirements mapped exactly once: yes
+- Existing v1 requirements remain covered after launch-hardening expansion: yes
+- Added phases preserve the complete training, premium UI/UX, validation, Spray Lab, and community Pro vision: yes
 - Monetization begins after precision, benchmark, and coach foundations: yes
-- Team/coaches included without blocking first paid solo launch: yes
+- Closed beta can begin after safe Phase 5 monetization; public launch waits for validation, premium UX, training value, and revenue ops: yes
+- Team/coaches remain included without blocking first paid solo launch: yes
 
 ---
 *Roadmap created: 2026-05-05 after research-backed brownfield initialization*

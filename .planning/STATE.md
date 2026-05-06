@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: ready_to_plan
-last_updated: "2026-05-06T02:47:55.226Z"
+last_updated: "2026-05-06T04:05:24.364Z"
 progress:
-  total_phases: 7
+  total_phases: 13
   completed_phases: 4
   total_plans: 14
   completed_plans: 14
-  percent: 57
+  percent: 31
 ---
 
 # State: Sens PUBG
@@ -35,7 +35,8 @@ Phase 5: Freemium Pro MVP
 - Phase 3 execution is complete with strict compatible precision trends, persisted evolution lines/checkpoints, post-analysis trend copy, history audit timelines, and dashboard principal trend actions.
 - Phase 4 UI design contract is approved at `.planning/phases/04-adaptive-coach-loop/04-UI-SPEC.md`.
 - Phase 4 execution is complete with protocol outcome persistence, adaptive memory/aggressiveness, coach-loop UI surfaces, LLM fact preservation, and adaptive benchmark/copy gates.
-- Phase 5 is ready for discussion and planning before monetization implementation starts.
+- Phase 5 is ready for continued discussion and planning before monetization implementation starts.
+- Roadmap has been expanded to 13 launch-perfect phases to preserve core validation, premium UI/UX, complete training, PUBG Spray Lab, guided Pro programs, social Pro/community value, revenue operations, and team/coach expansion.
 
 ## Next Recommended Command
 
@@ -45,10 +46,17 @@ Discuss Phase 5 before planning the Freemium Pro MVP so pricing, limits, payment
 
 ## Open Questions
 
-- Exact free analysis limit for launch.
 - First Pro price test in BRL and USD.
-- Whether billing provider should be Stripe first or another provider due Brazil payment preferences.
-- Which captured clips should become the first commercial benchmark set.
+- Exact Pro monthly quota/cap.
+- Exact Phase 5 paywall surfaces and pricing/billing UX.
+- Exact scope and acceptance gates for the future Core Accuracy And Pro Validation Hardening phase.
+- Which permissioned real/pro clips should become the first commercial validation corpus.
 
 ---
 *Initialized: 2026-05-05*
+
+## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 5 edited: Expanded roadmap to 13 launch-perfect phases after Phase 5 discussion: core validation, premium UI/UX, complete training, Spray Lab, guided programs, social Pro, revenue ops, and team/coach expansion
