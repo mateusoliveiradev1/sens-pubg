@@ -145,6 +145,22 @@ export {
     type PrecisionCompatibilityOptions,
     type ResolvePrecisionTrendInput,
 } from './precision-loop';
+export {
+    COACH_OUTCOME_NOTE_MAX_LENGTH,
+    detectCoachOutcomePrecisionConflict,
+    isCoachProtocolOutcomeReasonCode,
+    isCoachProtocolOutcomeStatus,
+    normalizeCoachProtocolOutcomeInput,
+    resolveCoachOutcomeEvidence,
+    summarizeCoachOutcomeForMemory,
+    type CoachOutcomeEvidenceResolution,
+    type CoachOutcomeMemorySummary,
+    type DetectCoachOutcomePrecisionConflictInput,
+    type NormalizeCoachProtocolOutcomeInput,
+    type NormalizeCoachProtocolOutcomeResult,
+    type NormalizedCoachProtocolOutcomeInput,
+    type ResolveCoachOutcomeEvidenceInput,
+} from './coach-outcomes';
 export { generateCoaching } from './coach-engine';
 export {
     adaptCoachResultWithOptionalLlm,

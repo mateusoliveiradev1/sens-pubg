@@ -516,6 +516,71 @@ export interface CoachPlan {
     readonly llmRewriteAllowed: boolean;
 }
 
+export type CoachProtocolOutcomeStatus =
+    | 'started'
+    | 'completed'
+    | 'improved'
+    | 'unchanged'
+    | 'worse'
+    | 'invalid_capture';
+
+export type CoachProtocolOutcomeReasonCode =
+    | 'capture_quality'
+    | 'incompatible_context'
+    | 'poor_execution'
+    | 'variable_changed'
+    | 'confusing_protocol'
+    | 'fatigue_or_pain'
+    | 'other';
+
+export type CoachOutcomeEvidenceStrength =
+    | 'none'
+    | 'weak_self_report'
+    | 'neutral'
+    | 'invalid'
+    | 'conflict'
+    | 'confirmed_by_compatible_clip';
+
+export interface CoachOutcomeConflict {
+    readonly userOutcomeId: string;
+    readonly precisionTrendLabel: PrecisionTrendLabel;
+    readonly reason: string;
+    readonly nextValidationCopy: string;
+}
+
+export interface CoachProtocolOutcomeCoachSnapshot {
+    readonly tier: CoachDecisionTier;
+    readonly primaryFocusArea: CoachFocusArea;
+    readonly primaryFocusTitle: string;
+    readonly protocolId: string;
+    readonly validationTarget: string;
+    readonly precisionTrendLabel?: PrecisionTrendLabel;
+}
+
+export interface CoachProtocolOutcome {
+    readonly id: string;
+    readonly sessionId: string;
+    readonly coachPlanId: string;
+    readonly protocolId: string;
+    readonly focusArea: CoachFocusArea;
+    readonly status: CoachProtocolOutcomeStatus;
+    readonly reasonCodes: readonly CoachProtocolOutcomeReasonCode[];
+    readonly note?: string;
+    readonly recordedAt: string;
+    readonly revisionOfOutcomeId?: string;
+    readonly evidenceStrength: CoachOutcomeEvidenceStrength;
+    readonly conflict?: CoachOutcomeConflict;
+    readonly coachSnapshot?: CoachProtocolOutcomeCoachSnapshot;
+}
+
+export interface CoachProtocolOutcomeSnapshot {
+    readonly latest: CoachProtocolOutcome | null;
+    readonly revisions: readonly CoachProtocolOutcome[];
+    readonly pending: boolean;
+    readonly validationCta: string;
+    readonly conflicts: readonly CoachOutcomeConflict[];
+}
+
 export interface CoachFeedback {
     readonly diagnosis: Diagnosis;
     readonly mode: CoachMode;
