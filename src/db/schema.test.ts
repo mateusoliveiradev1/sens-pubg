@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import * as dbSchema from './schema';
 import {
     analysisSessions,
+    coachProtocolOutcomes,
     communityPostAnalysisSnapshots,
     communityPosts,
     communityProfiles,
@@ -153,6 +154,94 @@ describe('precision evolution schema', () => {
         expect(sessionForeignKey.onDelete).toBe('set null');
         expect(lineIndex.config.columns.map((column) => column.name)).toEqual(['line_id', 'created_at']);
         expect(sessionIndex.config.columns.map((column) => column.name)).toEqual(['analysis_session_id']);
+    });
+});
+
+describe('coach protocol outcome schema', () => {
+    it('defines normalized protocol outcomes with user and session ownership', () => {
+        expect(coachProtocolOutcomes).toBeDefined();
+
+        const id = getColumn(coachProtocolOutcomes, 'id');
+        const userId = getColumn(coachProtocolOutcomes, 'user_id');
+        const analysisSessionId = getColumn(coachProtocolOutcomes, 'analysis_session_id');
+        const coachPlanId = getColumn(coachProtocolOutcomes, 'coach_plan_id');
+        const protocolId = getColumn(coachProtocolOutcomes, 'protocol_id');
+        const focusArea = getColumn(coachProtocolOutcomes, 'focus_area');
+        const status = getColumn(coachProtocolOutcomes, 'status');
+        const reasonCodes = getColumn(coachProtocolOutcomes, 'reason_codes');
+        const note = getColumn(coachProtocolOutcomes, 'note');
+        const revisionOfId = getColumn(coachProtocolOutcomes, 'revision_of_id');
+        const evidenceStrength = getColumn(coachProtocolOutcomes, 'evidence_strength');
+        const conflictPayload = getColumn(coachProtocolOutcomes, 'conflict_payload');
+        const payload = getColumn(coachProtocolOutcomes, 'payload');
+        const createdAt = getColumn(coachProtocolOutcomes, 'created_at');
+        const updatedAt = getColumn(coachProtocolOutcomes, 'updated_at');
+
+        expect(id.primary).toBe(true);
+        expect(userId.notNull).toBe(true);
+        expect(analysisSessionId.notNull).toBe(true);
+        expect(coachPlanId.notNull).toBe(true);
+        expect(protocolId.notNull).toBe(true);
+        expect(focusArea.notNull).toBe(true);
+        expect(status.notNull).toBe(true);
+        expect(reasonCodes.notNull).toBe(true);
+        expect(reasonCodes.default).toBe('[]');
+        expect(note.notNull).toBe(false);
+        expect(revisionOfId.notNull).toBe(false);
+        expect(evidenceStrength.notNull).toBe(true);
+        expect(conflictPayload.notNull).toBe(false);
+        expect(payload.notNull).toBe(true);
+        expect(payload.default).toBe('{}');
+        expect(createdAt.notNull).toBe(true);
+        expect(updatedAt.notNull).toBe(true);
+
+        const userForeignKey = getForeignKey(
+            coachProtocolOutcomes,
+            'coach_protocol_outcomes_user_id_users_id_fk',
+        );
+        const sessionForeignKey = getForeignKey(
+            coachProtocolOutcomes,
+            'coach_protocol_outcomes_analysis_session_id_analysis_sessions_id_fk',
+        );
+
+        expect(userForeignKey.onDelete).toBe('cascade');
+        expect(sessionForeignKey.onDelete).toBe('cascade');
+    });
+
+    it('indexes dashboard pending loops, history audit, protocol memory, and revisions', () => {
+        const userStatusIndex = getIndex(
+            coachProtocolOutcomes,
+            'coach_protocol_outcomes_user_status_updated_idx',
+        );
+        const sessionIndex = getIndex(
+            coachProtocolOutcomes,
+            'coach_protocol_outcomes_session_created_idx',
+        );
+        const protocolIndex = getIndex(
+            coachProtocolOutcomes,
+            'coach_protocol_outcomes_user_protocol_idx',
+        );
+        const revisionIndex = getIndex(
+            coachProtocolOutcomes,
+            'coach_protocol_outcomes_revision_idx',
+        );
+
+        expect(userStatusIndex.config.columns.map((column) => column.name)).toEqual([
+            'user_id',
+            'status',
+            'updated_at',
+        ]);
+        expect(sessionIndex.config.columns.map((column) => column.name)).toEqual([
+            'analysis_session_id',
+            'created_at',
+        ]);
+        expect(protocolIndex.config.columns.map((column) => column.name)).toEqual([
+            'user_id',
+            'protocol_id',
+        ]);
+        expect(revisionIndex.config.columns.map((column) => column.name)).toEqual([
+            'revision_of_id',
+        ]);
     });
 });
 

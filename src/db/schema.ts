@@ -15,11 +15,18 @@ import {
     index,
     primaryKey,
     uniqueIndex,
+    type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import type { AdapterAccount } from '@auth/core/adapters';
 import type { CommunityPostAnalysisSnapshot } from '@/core/community-post-snapshot';
 import type {
+    CoachFocusArea,
+    CoachOutcomeConflict,
+    CoachOutcomeEvidenceStrength,
+    CoachProtocolOutcomeCoachSnapshot,
+    CoachProtocolOutcomeReasonCode,
+    CoachProtocolOutcomeStatus,
     PrecisionCheckpointState,
     PrecisionTrendSummary,
     PrecisionVariableInTest,
@@ -157,6 +164,14 @@ export interface PrecisionCheckpointPayload {
     readonly metadata?: Record<string, unknown>;
 }
 
+export interface CoachProtocolOutcomePayload {
+    readonly coachSnapshot?: CoachProtocolOutcomeCoachSnapshot;
+    readonly precisionTrendLabel?: PrecisionTrendSummary['label'];
+    readonly validationTarget?: string;
+    readonly recordedBy?: 'user';
+    readonly metadata?: Record<string, unknown>;
+}
+
 // ═══════════════════════════════════════════
 // Auth.js Tables (NextAuth adapter)
 // ═══════════════════════════════════════════
@@ -205,6 +220,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     progressionEventsBenefited: many(communityProgressionEvents, {
         relationName: 'community_progression_events_beneficiary',
     }),
+    coachProtocolOutcomes: many(coachProtocolOutcomes),
     squadOwnerships: many(communitySquads, {
         relationName: 'community_squads_owner',
     }),
@@ -401,6 +417,42 @@ export const precisionCheckpoints = pgTable('precision_checkpoints', {
     index('precision_checkpoints_session_idx').on(table.analysisSessionId),
 ]);
 
+export const coachProtocolOutcomes = pgTable('coach_protocol_outcomes', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    analysisSessionId: uuid('analysis_session_id')
+        .notNull()
+        .references(() => analysisSessions.id, { onDelete: 'cascade' }),
+    coachPlanId: text('coach_plan_id').notNull(),
+    protocolId: text('protocol_id').notNull(),
+    focusArea: text('focus_area').$type<CoachFocusArea>().notNull(),
+    status: text('status').$type<CoachProtocolOutcomeStatus>().notNull(),
+    reasonCodes: jsonb('reason_codes')
+        .notNull()
+        .default('[]')
+        .$type<readonly CoachProtocolOutcomeReasonCode[]>(),
+    note: text('note'),
+    revisionOfId: uuid('revision_of_id').references(
+        (): AnyPgColumn => coachProtocolOutcomes.id,
+        { onDelete: 'set null' },
+    ),
+    evidenceStrength: text('evidence_strength').$type<CoachOutcomeEvidenceStrength>().notNull(),
+    conflictPayload: jsonb('conflict_payload').$type<CoachOutcomeConflict>(),
+    payload: jsonb('payload')
+        .notNull()
+        .default('{}')
+        .$type<CoachProtocolOutcomePayload>(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => [
+    index('coach_protocol_outcomes_user_status_updated_idx').on(table.userId, table.status, table.updatedAt),
+    index('coach_protocol_outcomes_session_created_idx').on(table.analysisSessionId, table.createdAt),
+    index('coach_protocol_outcomes_user_protocol_idx').on(table.userId, table.protocolId),
+    index('coach_protocol_outcomes_revision_idx').on(table.revisionOfId),
+]);
+
 export const analysisSessionsRelations = relations(analysisSessions, ({ one, many }) => ({
     user: one(users, {
         fields: [analysisSessions.userId],
@@ -414,6 +466,7 @@ export const analysisSessionsRelations = relations(analysisSessions, ({ one, man
         relationName: 'precision_evolution_lines_current_session',
     }),
     precisionCheckpoints: many(precisionCheckpoints),
+    coachProtocolOutcomes: many(coachProtocolOutcomes),
     communitySourcePosts: many(communityPosts),
     communityPostAnalysisSnapshots: many(communityPostAnalysisSnapshots),
 }));
@@ -1410,6 +1463,25 @@ export const precisionCheckpointsRelations = relations(precisionCheckpoints, ({ 
     }),
 }));
 
+export const coachProtocolOutcomesRelations = relations(coachProtocolOutcomes, ({ one, many }) => ({
+    user: one(users, {
+        fields: [coachProtocolOutcomes.userId],
+        references: [users.id],
+    }),
+    analysisSession: one(analysisSessions, {
+        fields: [coachProtocolOutcomes.analysisSessionId],
+        references: [analysisSessions.id],
+    }),
+    revisionOf: one(coachProtocolOutcomes, {
+        relationName: 'coach_protocol_outcomes_revision',
+        fields: [coachProtocolOutcomes.revisionOfId],
+        references: [coachProtocolOutcomes.id],
+    }),
+    revisions: many(coachProtocolOutcomes, {
+        relationName: 'coach_protocol_outcomes_revision',
+    }),
+}));
+
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // System / Bot Status
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -1461,6 +1533,8 @@ export type PrecisionEvolutionLineRow = typeof precisionEvolutionLines.$inferSel
 export type NewPrecisionEvolutionLine = typeof precisionEvolutionLines.$inferInsert;
 export type PrecisionCheckpointRow = typeof precisionCheckpoints.$inferSelect;
 export type NewPrecisionCheckpoint = typeof precisionCheckpoints.$inferInsert;
+export type CoachProtocolOutcomeRow = typeof coachProtocolOutcomes.$inferSelect;
+export type NewCoachProtocolOutcome = typeof coachProtocolOutcomes.$inferInsert;
 export type SensitivityHistoryRow = typeof sensitivityHistory.$inferSelect;
 export type NewSensitivityHistory = typeof sensitivityHistory.$inferInsert;
 export type WeaponProfile = typeof weaponProfiles.$inferSelect;
