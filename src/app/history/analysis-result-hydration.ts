@@ -1,10 +1,19 @@
 import { createAnalysisContext } from '@/app/analyze/analysis-context';
+import {
+    isCoachProtocolOutcomeReasonCode,
+    isCoachProtocolOutcomeStatus,
+} from '@/core/coach-outcomes';
 import { localizeStoredCoachPlanPtBr } from '@/core/coach-plan-builder';
 import { resolveMeasurementTruth } from '@/core/measurement-truth';
 import { normalizePatchVersion } from '@/game/pubg';
 import type {
     AnalysisResult,
+    CoachOutcomeConflict,
+    CoachOutcomeEvidenceStrength,
     ProfileType,
+    CoachProtocolOutcome,
+    CoachProtocolOutcomeCoachSnapshot,
+    CoachProtocolOutcomeSnapshot,
     PrecisionEvidenceLevel,
     PrecisionPillarDeltaStatus,
     PrecisionPillarKey,
@@ -161,6 +170,81 @@ function isCoachFocusArea(value: unknown): value is HistoryCoachPriority['area']
         || value === 'sensitivity'
         || value === 'loadout'
         || value === 'validation';
+}
+
+function isCoachOutcomeEvidenceStrength(value: unknown): value is CoachOutcomeEvidenceStrength {
+    return value === 'none'
+        || value === 'weak_self_report'
+        || value === 'neutral'
+        || value === 'invalid'
+        || value === 'conflict'
+        || value === 'confirmed_by_compatible_clip';
+}
+
+function isCoachOutcomeConflict(value: unknown): value is CoachOutcomeConflict {
+    return isRecord(value)
+        && typeof value.userOutcomeId === 'string'
+        && isPrecisionTrendLabel(value.precisionTrendLabel)
+        && typeof value.reason === 'string'
+        && typeof value.nextValidationCopy === 'string';
+}
+
+function isCoachProtocolOutcomeCoachSnapshot(value: unknown): value is CoachProtocolOutcomeCoachSnapshot {
+    return isRecord(value)
+        && isCoachDecisionTier(value.tier)
+        && isCoachFocusArea(value.primaryFocusArea)
+        && typeof value.primaryFocusTitle === 'string'
+        && typeof value.protocolId === 'string'
+        && typeof value.validationTarget === 'string'
+        && (value.precisionTrendLabel === undefined || isPrecisionTrendLabel(value.precisionTrendLabel));
+}
+
+function isCoachProtocolOutcome(value: unknown): value is CoachProtocolOutcome {
+    return isRecord(value)
+        && typeof value.id === 'string'
+        && typeof value.sessionId === 'string'
+        && typeof value.coachPlanId === 'string'
+        && typeof value.protocolId === 'string'
+        && isCoachFocusArea(value.focusArea)
+        && isCoachProtocolOutcomeStatus(value.status)
+        && Array.isArray(value.reasonCodes)
+        && value.reasonCodes.every(isCoachProtocolOutcomeReasonCode)
+        && (value.note === undefined || typeof value.note === 'string')
+        && typeof value.recordedAt === 'string'
+        && (value.revisionOfOutcomeId === undefined || typeof value.revisionOfOutcomeId === 'string')
+        && isCoachOutcomeEvidenceStrength(value.evidenceStrength)
+        && (value.conflict === undefined || isCoachOutcomeConflict(value.conflict))
+        && (value.coachSnapshot === undefined || isCoachProtocolOutcomeCoachSnapshot(value.coachSnapshot));
+}
+
+function normalizeCoachOutcomeSnapshot(value: unknown): CoachProtocolOutcomeSnapshot | undefined {
+    if (!isRecord(value)) {
+        return undefined;
+    }
+
+    const latest = value.latest;
+    const revisions = value.revisions;
+    const conflicts = value.conflicts;
+
+    if (
+        latest !== null && !isCoachProtocolOutcome(latest)
+        || !Array.isArray(revisions)
+        || !revisions.every(isCoachProtocolOutcome)
+        || typeof value.pending !== 'boolean'
+        || typeof value.validationCta !== 'string'
+        || !Array.isArray(conflicts)
+        || !conflicts.every(isCoachOutcomeConflict)
+    ) {
+        return undefined;
+    }
+
+    return {
+        latest,
+        revisions,
+        pending: value.pending,
+        validationCta: value.validationCta,
+        conflicts,
+    };
 }
 
 function isCoachSignalSource(value: unknown): value is HistoryCoachPriority['signals'][number]['source'] {
@@ -464,9 +548,11 @@ function normalizeHistoryAnalysisResult(result: AnalysisResult): AnalysisResult 
     const trajectory = result.trajectory as AnalysisResult['trajectory'] | undefined;
     const normalizedSubSessions = result.subSessions?.map(normalizeHistoryAnalysisResult);
     const normalizedCoachPlan = normalizeCoachPlan(result.coachPlan);
+    const normalizedCoachOutcomeSnapshot = normalizeCoachOutcomeSnapshot(result.coachOutcomeSnapshot);
     const normalizedPrecisionTrend = normalizePrecisionTrend(result.precisionTrend);
     const resultWithoutCoachPlan = { ...result };
     delete resultWithoutCoachPlan.coachPlan;
+    delete resultWithoutCoachPlan.coachOutcomeSnapshot;
     delete resultWithoutCoachPlan.mastery;
     delete resultWithoutCoachPlan.precisionTrend;
     const normalizedSensitivity = result.sensitivity
@@ -476,6 +562,7 @@ function normalizeHistoryAnalysisResult(result: AnalysisResult): AnalysisResult 
         ...resultWithoutCoachPlan,
         ...(normalizedSensitivity ? { sensitivity: normalizedSensitivity } : {}),
         ...(normalizedCoachPlan ? { coachPlan: normalizedCoachPlan } : {}),
+        ...(normalizedCoachOutcomeSnapshot ? { coachOutcomeSnapshot: normalizedCoachOutcomeSnapshot } : {}),
         ...(normalizedPrecisionTrend ? { precisionTrend: normalizedPrecisionTrend } : {}),
         ...(normalizedSubSessions ? { subSessions: normalizedSubSessions } : {}),
     } as AnalysisResult;

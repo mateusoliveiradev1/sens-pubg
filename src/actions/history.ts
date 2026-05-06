@@ -1,5 +1,6 @@
 'use server';
 
+import { randomUUID } from 'node:crypto';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 
@@ -8,6 +9,11 @@ import { hydrateAnalysisResultFromHistory } from '@/app/history/analysis-result-
 import { auth } from '@/auth';
 import { enrichAnalysisResultCoaching } from '@/core/analysis-result-coach-enrichment';
 import { buildCoachMemorySnapshot, type CoachMemoryHistorySession } from '@/core/coach-memory';
+import {
+    detectCoachOutcomePrecisionConflict,
+    normalizeCoachProtocolOutcomeInput,
+    resolveCoachOutcomeEvidence,
+} from '@/core/coach-outcomes';
 import { buildCoachPlan } from '@/core/coach-plan-builder';
 import { resolveMeasurementTruth } from '@/core/measurement-truth';
 import { buildPrecisionCompatibilityKey, formatPrecisionTrendLabel, resolvePrecisionTrend } from '@/core/precision-loop';
@@ -18,17 +24,23 @@ import {
 import { db } from '@/db';
 import {
     analysisSessions,
+    coachProtocolOutcomes,
     playerProfiles,
     precisionCheckpoints,
     precisionEvolutionLines,
     sensitivityHistory,
     weaponProfiles,
+    type CoachProtocolOutcomeRow,
 } from '@/db/schema';
 import { normalizePatchVersion } from '@/game/pubg';
 import { createGroqCoachClient } from '@/server/coach/groq-coach-client';
 import type {
     AnalysisResult,
     CoachFocusArea,
+    CoachProtocolOutcome,
+    CoachProtocolOutcomeCoachSnapshot,
+    CoachProtocolOutcomeReasonCode,
+    CoachProtocolOutcomeStatus,
     PrecisionCheckpointState,
     PrecisionCompatibilityKey,
     PrecisionTrendLabel,
@@ -90,6 +102,17 @@ export interface PrecisionHistoryLineSummary {
     readonly createdAt: Date;
     readonly updatedAt: Date;
     readonly checkpoints: readonly PrecisionHistoryCheckpointSummary[];
+}
+
+export interface RecordCoachProtocolOutcomeInput {
+    readonly sessionId: string;
+    readonly coachPlanId: string;
+    readonly protocolId: string;
+    readonly focusArea: CoachFocusArea;
+    readonly status: CoachProtocolOutcomeStatus;
+    readonly reasonCodes?: readonly CoachProtocolOutcomeReasonCode[];
+    readonly note?: string;
+    readonly revisionOfOutcomeId?: string;
 }
 
 function normalizeStoredAttachments(
@@ -770,6 +793,332 @@ export async function saveAnalysisResult(
             error: 'Erro ao salvar historico.',
             result: enrichedResult,
         };
+    }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function readString(value: Record<string, unknown> | undefined, key: string): string | undefined {
+    const property = value?.[key];
+    return typeof property === 'string' && property.trim().length > 0
+        ? property.trim()
+        : undefined;
+}
+
+function isCoachDecisionTier(value: unknown): value is CoachProtocolOutcomeCoachSnapshot['tier'] {
+    return value === 'capture_again'
+        || value === 'test_protocol'
+        || value === 'stabilize_block'
+        || value === 'apply_protocol';
+}
+
+function isStoredPrecisionTrendLabel(value: unknown): value is PrecisionTrendLabel {
+    return value === 'baseline'
+        || value === 'initial_signal'
+        || value === 'in_validation'
+        || value === 'validated_progress'
+        || value === 'validated_regression'
+        || value === 'oscillation'
+        || value === 'not_comparable'
+        || value === 'consolidated';
+}
+
+function readPrecisionTrendForOutcome(
+    fullResult: Record<string, unknown>,
+): Pick<PrecisionTrendSummary, 'label' | 'evidenceLevel' | 'nextValidationHint'> | null {
+    const trend = fullResult.precisionTrend;
+
+    if (!isRecord(trend) || !isStoredPrecisionTrendLabel(trend.label)) {
+        return null;
+    }
+
+    return {
+        label: trend.label,
+        evidenceLevel: typeof trend.evidenceLevel === 'string'
+            ? trend.evidenceLevel as PrecisionTrendSummary['evidenceLevel']
+            : 'blocked',
+        nextValidationHint: typeof trend.nextValidationHint === 'string'
+            ? trend.nextValidationHint
+            : 'Grave uma validacao compativel antes de avancar.',
+    };
+}
+
+function buildCoachOutcomeCoachSnapshot(
+    fullResult: Record<string, unknown>,
+    input: {
+        readonly protocolId: string;
+        readonly focusArea: CoachFocusArea;
+    },
+): { readonly ok: true; readonly value: CoachProtocolOutcomeCoachSnapshot } | { readonly ok: false; readonly error: string } {
+    const coachPlan = isRecord(fullResult.coachPlan) ? fullResult.coachPlan : undefined;
+    const primaryFocus = isRecord(coachPlan?.primaryFocus) ? coachPlan.primaryFocus : undefined;
+    const nextBlock = isRecord(coachPlan?.nextBlock) ? coachPlan.nextBlock : undefined;
+    const protocols = Array.isArray(coachPlan?.actionProtocols)
+        ? coachPlan.actionProtocols.filter(isRecord)
+        : [];
+    const protocol = protocols.find((candidate) => candidate.id === input.protocolId);
+    const tier = coachPlan?.tier;
+    const primaryFocusArea = primaryFocus?.area;
+    const primaryFocusTitle = readString(primaryFocus, 'title');
+
+    if (!coachPlan || !isCoachDecisionTier(tier)) {
+        return { ok: false, error: 'Sessao sem plano de coach valido.' };
+    }
+
+    if (primaryFocusArea !== input.focusArea) {
+        return { ok: false, error: 'O foco informado nao corresponde ao foco principal salvo.' };
+    }
+
+    if (!protocol) {
+        return { ok: false, error: 'Protocolo nao encontrado no plano salvo.' };
+    }
+
+    const validationCheck = Array.isArray(nextBlock?.checks)
+        ? nextBlock.checks.find(isRecord)
+        : undefined;
+    const precisionTrend = readPrecisionTrendForOutcome(fullResult);
+    const validationTarget = readString(validationCheck, 'target')
+        ?? precisionTrend?.nextValidationHint
+        ?? readString(protocol, 'applyWhen')
+        ?? 'Gravar validacao compativel mantendo o contexto controlado.';
+
+    return {
+        ok: true,
+        value: {
+            tier,
+            primaryFocusArea: input.focusArea,
+            primaryFocusTitle: primaryFocusTitle ?? input.focusArea,
+            protocolId: input.protocolId,
+            validationTarget,
+            ...(precisionTrend ? { precisionTrendLabel: precisionTrend.label } : {}),
+        },
+    };
+}
+
+function toCoachProtocolOutcome(row: CoachProtocolOutcomeRow): CoachProtocolOutcome {
+    const conflictPayload = row.conflictPayload ?? undefined;
+    const coachSnapshot = row.payload.coachSnapshot;
+
+    return {
+        id: row.id,
+        sessionId: row.analysisSessionId,
+        coachPlanId: row.coachPlanId,
+        protocolId: row.protocolId,
+        focusArea: row.focusArea,
+        status: row.status,
+        reasonCodes: row.reasonCodes,
+        ...(row.note ? { note: row.note } : {}),
+        recordedAt: row.createdAt.toISOString(),
+        ...(row.revisionOfId ? { revisionOfOutcomeId: row.revisionOfId } : {}),
+        evidenceStrength: row.evidenceStrength,
+        ...(conflictPayload ? { conflict: conflictPayload } : {}),
+        ...(coachSnapshot ? { coachSnapshot } : {}),
+    };
+}
+
+export async function recordCoachProtocolOutcome(
+    input: RecordCoachProtocolOutcomeInput,
+) {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return {
+            success: false as const,
+            error: 'Nao autenticado.',
+        };
+    }
+
+    const normalized = normalizeCoachProtocolOutcomeInput({
+        sessionId: input.sessionId,
+        coachPlanId: input.coachPlanId,
+        protocolId: input.protocolId,
+        focusArea: input.focusArea,
+        status: input.status,
+        reasonCodes: input.reasonCodes,
+        note: input.note,
+        revisionOfOutcomeId: input.revisionOfOutcomeId,
+    });
+
+    if (!normalized.ok) {
+        return {
+            success: false as const,
+            error: normalized.errors[0] ?? 'Resultado do protocolo invalido.',
+        };
+    }
+
+    try {
+        const [storedSession] = await db
+            .select({
+                id: analysisSessions.id,
+                fullResult: analysisSessions.fullResult,
+            })
+            .from(analysisSessions)
+            .where(
+                and(
+                    eq(analysisSessions.id, normalized.value.sessionId),
+                    eq(analysisSessions.userId, session.user.id),
+                ),
+            )
+            .limit(1);
+
+        if (!storedSession) {
+            return {
+                success: false as const,
+                error: 'Sessao nao encontrada.',
+            };
+        }
+
+        if (normalized.value.revisionOfOutcomeId) {
+            const [previousOutcome] = await db
+                .select({ id: coachProtocolOutcomes.id })
+                .from(coachProtocolOutcomes)
+                .where(
+                    and(
+                        eq(coachProtocolOutcomes.id, normalized.value.revisionOfOutcomeId),
+                        eq(coachProtocolOutcomes.userId, session.user.id),
+                        eq(coachProtocolOutcomes.analysisSessionId, normalized.value.sessionId),
+                    ),
+                )
+                .limit(1);
+
+            if (!previousOutcome) {
+                return {
+                    success: false as const,
+                    error: 'Resultado original nao encontrado para revisao.',
+                };
+            }
+        }
+
+        const fullResult = isRecord(storedSession.fullResult)
+            ? storedSession.fullResult
+            : {};
+        const coachSnapshot = buildCoachOutcomeCoachSnapshot(fullResult, normalized.value);
+
+        if (!coachSnapshot.ok) {
+            return {
+                success: false as const,
+                error: coachSnapshot.error,
+            };
+        }
+
+        const outcomeId = randomUUID();
+        const recordedAt = new Date();
+        const precisionTrend = readPrecisionTrendForOutcome(fullResult);
+        const conflict = detectCoachOutcomePrecisionConflict({
+            outcomeId,
+            status: normalized.value.status,
+            precisionTrend,
+        });
+        const evidence = resolveCoachOutcomeEvidence({
+            status: normalized.value.status,
+            reasonCodes: normalized.value.reasonCodes,
+            precisionTrend,
+        });
+        const evidenceStrength = conflict ? 'conflict' : evidence.evidenceStrength;
+        const payload = {
+            coachSnapshot: coachSnapshot.value,
+            ...(precisionTrend ? { precisionTrendLabel: precisionTrend.label } : {}),
+            validationTarget: coachSnapshot.value.validationTarget,
+            recordedBy: 'user' as const,
+            metadata: {
+                countsAsTechnicalEvidence: evidence.countsAsTechnicalEvidence,
+                pendingClosure: evidence.pendingClosure,
+                needsCompatibleValidation: conflict ? true : evidence.needsCompatibleValidation,
+                invalidBecauseOfExecutionOrCapture: evidence.invalidBecauseOfExecutionOrCapture,
+            },
+        };
+
+        await db.insert(coachProtocolOutcomes).values({
+            id: outcomeId,
+            userId: session.user.id,
+            analysisSessionId: normalized.value.sessionId,
+            coachPlanId: normalized.value.coachPlanId,
+            protocolId: normalized.value.protocolId,
+            focusArea: normalized.value.focusArea,
+            status: normalized.value.status,
+            reasonCodes: normalized.value.reasonCodes,
+            ...(normalized.value.note ? { note: normalized.value.note } : {}),
+            ...(normalized.value.revisionOfOutcomeId ? { revisionOfId: normalized.value.revisionOfOutcomeId } : {}),
+            evidenceStrength,
+            ...(conflict ? { conflictPayload: conflict } : {}),
+            payload,
+            createdAt: recordedAt,
+            updatedAt: recordedAt,
+        });
+
+        revalidatePath('/history');
+        revalidatePath(`/history/${normalized.value.sessionId}`);
+        revalidatePath('/dashboard');
+
+        const outcome: CoachProtocolOutcome = {
+            id: outcomeId,
+            sessionId: normalized.value.sessionId,
+            coachPlanId: normalized.value.coachPlanId,
+            protocolId: normalized.value.protocolId,
+            focusArea: normalized.value.focusArea,
+            status: normalized.value.status,
+            reasonCodes: normalized.value.reasonCodes,
+            ...(normalized.value.note ? { note: normalized.value.note } : {}),
+            recordedAt: recordedAt.toISOString(),
+            ...(normalized.value.revisionOfOutcomeId ? { revisionOfOutcomeId: normalized.value.revisionOfOutcomeId } : {}),
+            evidenceStrength,
+            ...(conflict ? { conflict } : {}),
+            coachSnapshot: coachSnapshot.value,
+        };
+
+        return {
+            success: true as const,
+            outcome,
+        };
+    } catch (err) {
+        console.error('[recordCoachProtocolOutcome] Error:', err);
+        return {
+            success: false as const,
+            error: 'Nao foi possivel registrar o resultado.',
+        };
+    }
+}
+
+export async function getCoachProtocolOutcomesForSession(
+    sessionId: string,
+): Promise<readonly CoachProtocolOutcome[]> {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return [];
+    }
+
+    try {
+        const [storedSession] = await db
+            .select({ id: analysisSessions.id })
+            .from(analysisSessions)
+            .where(
+                and(
+                    eq(analysisSessions.id, sessionId),
+                    eq(analysisSessions.userId, session.user.id),
+                ),
+            )
+            .limit(1);
+
+        if (!storedSession) {
+            return [];
+        }
+
+        const rows = await db
+            .select()
+            .from(coachProtocolOutcomes)
+            .where(
+                and(
+                    eq(coachProtocolOutcomes.analysisSessionId, sessionId),
+                    eq(coachProtocolOutcomes.userId, session.user.id),
+                ),
+            )
+            .orderBy(coachProtocolOutcomes.createdAt);
+
+        return rows.map(toCoachProtocolOutcome);
+    } catch (err) {
+        console.error('[getCoachProtocolOutcomesForSession] Error:', err);
+        return [];
     }
 }
 

@@ -6,7 +6,7 @@ import {
     analysisResultBase,
     analysisResultWithWeakCapture,
 } from '@/core/coach-test-fixtures';
-import type { AnalysisContextDetails, CoachPlan } from '@/types/engine';
+import type { AnalysisContextDetails, CoachPlan, CoachProtocolOutcomeSnapshot } from '@/types/engine';
 
 function createStoredResult(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
@@ -89,6 +89,34 @@ function createStoredCoachPlan(): CoachPlan {
         stopConditions: ['Pare se o tracking ficar abaixo de 80% de cobertura.'],
         adaptationWindowDays: 3,
         llmRewriteAllowed: true,
+    };
+}
+
+function createStoredCoachOutcomeSnapshot(): CoachProtocolOutcomeSnapshot {
+    return {
+        latest: {
+            id: 'outcome-1',
+            sessionId: 'session-1',
+            coachPlanId: 'plan-1',
+            protocolId: 'vertical-drill',
+            focusArea: 'vertical_control',
+            status: 'improved',
+            reasonCodes: [],
+            recordedAt: '2026-05-06T00:00:00.000Z',
+            evidenceStrength: 'weak_self_report',
+            coachSnapshot: {
+                tier: 'test_protocol',
+                primaryFocusArea: 'vertical_control',
+                primaryFocusTitle: 'Controle vertical',
+                protocolId: 'vertical-drill',
+                validationTarget: 'vertical_control',
+                precisionTrendLabel: 'initial_signal',
+            },
+        },
+        revisions: [],
+        pending: false,
+        validationCta: 'Gravar validacao compativel',
+        conflicts: [],
     };
 }
 
@@ -337,6 +365,52 @@ describe('hydrateAnalysisResultFromHistory', () => {
         });
 
         expect(result.coachPlan).toBeUndefined();
+    });
+
+    it('preserves valid coach outcome snapshots from saved history payloads', () => {
+        const coachOutcomeSnapshot = createStoredCoachOutcomeSnapshot();
+
+        const result = hydrateAnalysisResultFromHistory({
+            fullResult: createStoredResult({ coachOutcomeSnapshot }),
+            recordPatchVersion: '41.1',
+            scopeId: 'red-dot',
+            distanceMeters: 30,
+        });
+
+        expect(result.coachOutcomeSnapshot).toEqual(coachOutcomeSnapshot);
+    });
+
+    it('leaves missing coach outcome snapshots absent for legacy history payloads', () => {
+        const result = hydrateAnalysisResultFromHistory({
+            fullResult: createStoredResult(),
+            recordPatchVersion: '41.1',
+            scopeId: 'red-dot',
+            distanceMeters: 30,
+        });
+
+        expect(result.coachOutcomeSnapshot).toBeUndefined();
+    });
+
+    it('drops malformed coach outcome snapshots instead of inventing protocol outcomes', () => {
+        const result = hydrateAnalysisResultFromHistory({
+            fullResult: createStoredResult({
+                coachOutcomeSnapshot: {
+                    latest: {
+                        id: 'outcome-1',
+                        status: 'perfect',
+                    },
+                    revisions: [],
+                    pending: false,
+                    validationCta: 'Gravar validacao compativel',
+                    conflicts: [],
+                },
+            }),
+            recordPatchVersion: '41.1',
+            scopeId: 'red-dot',
+            distanceMeters: 30,
+        });
+
+        expect(result.coachOutcomeSnapshot).toBeUndefined();
     });
 
     it('preserves valid stored mastery from history payloads', () => {

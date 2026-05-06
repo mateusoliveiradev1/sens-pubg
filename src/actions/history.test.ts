@@ -2,13 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
     analysisSessions,
+    coachProtocolOutcomes,
     precisionCheckpoints,
     precisionEvolutionLines,
     sensitivityHistory,
 } from '@/db/schema';
 import { createAnalysisContext } from '@/app/analyze/analysis-context';
 import { CURRENT_PUBG_PATCH_VERSION } from '@/game/pubg/patch';
-import type { AnalysisResult, PrecisionTrendSummary } from '@/types/engine';
+import type { AnalysisResult, CoachPlan, PrecisionTrendSummary } from '@/types/engine';
 
 const mocks = vi.hoisted(() => {
     const auth = vi.fn();
@@ -25,6 +26,7 @@ const mocks = vi.hoisted(() => {
     const onConflictDoUpdate = vi.fn();
     const lineReturning = vi.fn();
     const checkpointValues = vi.fn();
+    const outcomeValues = vi.fn();
     const historyValues = vi.fn();
     const update = vi.fn();
     const updateSet = vi.fn();
@@ -48,6 +50,7 @@ const mocks = vi.hoisted(() => {
         onConflictDoUpdate,
         lineReturning,
         checkpointValues,
+        outcomeValues,
         historyValues,
         update,
         updateSet,
@@ -82,7 +85,14 @@ vi.mock('@/server/coach/groq-coach-client', () => ({
     createGroqCoachClient: mocks.createGroqCoachClient,
 }));
 
-import { getHistorySessions, getPrecisionHistoryLines, recordSensitivityAcceptance, saveAnalysisResult } from './history';
+import {
+    getCoachProtocolOutcomesForSession,
+    getHistorySessions,
+    getPrecisionHistoryLines,
+    recordCoachProtocolOutcome,
+    recordSensitivityAcceptance,
+    saveAnalysisResult,
+} from './history';
 
 function createAnalysisResult(): AnalysisResult {
     return {
@@ -310,9 +320,63 @@ function createStoredPrecisionTrend(overrides: Partial<PrecisionTrendSummary> = 
     };
 }
 
+function createStoredCoachPlan(): CoachPlan {
+    return {
+        tier: 'test_protocol',
+        sessionSummary: 'Plano salvo para validar um bloco curto.',
+        primaryFocus: {
+            id: 'vertical-focus',
+            area: 'vertical_control',
+            title: 'Controle vertical',
+            whyNow: 'O sustain vertical ainda decide o bloco.',
+            priorityScore: 0.86,
+            severity: 0.8,
+            confidence: 0.84,
+            coverage: 0.88,
+            dependencies: [],
+            blockedBy: [],
+            signals: [],
+        },
+        secondaryFocuses: [],
+        actionProtocols: [
+            {
+                id: 'vertical-drill',
+                kind: 'technique',
+                instruction: 'Faca tres sprays mantendo o mesmo alvo.',
+                expectedEffect: 'Reduzir erro vertical sem mexer na sens.',
+                risk: 'low',
+                applyWhen: 'Use com cobertura acima de 80%.',
+            },
+        ],
+        nextBlock: {
+            title: 'Bloco vertical curto',
+            durationMinutes: 12,
+            steps: ['Grave tres sprays comparaveis.'],
+            checks: [
+                {
+                    label: 'Validacao vertical',
+                    target: 'vertical_control',
+                    minimumCoverage: 0.8,
+                    minimumConfidence: 0.75,
+                    successCondition: 'VCI melhora sem piorar ruido.',
+                    failCondition: 'VCI nao melhora ou captura cai.',
+                },
+            ],
+        },
+        stopConditions: ['Pare se a captura cair.'],
+        adaptationWindowDays: 3,
+        llmRewriteAllowed: true,
+    };
+}
+
 describe('saveAnalysisResult', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        mocks.limit.mockReset();
+        mocks.orderBy.mockReset();
+        mocks.insert.mockReset();
+        mocks.outcomeValues.mockReset();
+        mocks.update.mockReset();
 
         mocks.auth.mockResolvedValue({
             user: { id: 'user-1' },
@@ -354,6 +418,12 @@ describe('saveAnalysisResult', () => {
                 };
             }
 
+            if (table === coachProtocolOutcomes) {
+                return {
+                    values: mocks.outcomeValues,
+                };
+            }
+
             if (table === sensitivityHistory) {
                 return {
                     values: mocks.historyValues,
@@ -375,6 +445,7 @@ describe('saveAnalysisResult', () => {
         });
         mocks.lineReturning.mockResolvedValue([{ id: 'precision-line-1' }]);
         mocks.checkpointValues.mockResolvedValue(undefined);
+        mocks.outcomeValues.mockResolvedValue(undefined);
         mocks.limit.mockResolvedValueOnce([{ id: 'profile-1' }]).mockResolvedValue([]);
         mocks.historyValues.mockResolvedValue(undefined);
         mocks.update.mockReturnValue({
@@ -750,6 +821,249 @@ describe('saveAnalysisResult', () => {
         expect(mocks.updateSet).toHaveBeenNthCalledWith(2, { applied: false });
         expect(mocks.update).toHaveBeenNthCalledWith(3, sensitivityHistory);
         expect(mocks.updateSet).toHaveBeenNthCalledWith(3, { applied: true });
+    });
+});
+
+describe('recordCoachProtocolOutcome', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mocks.limit.mockReset();
+        mocks.orderBy.mockReset();
+        mocks.insert.mockReset();
+
+        mocks.auth.mockResolvedValue({
+            user: { id: 'user-1' },
+        });
+        mocks.select.mockReturnValue({
+            from: mocks.from,
+        });
+        mocks.from.mockReturnValue({
+            where: mocks.where,
+        });
+        mocks.where.mockReturnValue({
+            limit: mocks.limit,
+            orderBy: mocks.orderBy,
+        });
+        mocks.insert.mockImplementation((table) => {
+            if (table === coachProtocolOutcomes) {
+                return {
+                    values: mocks.outcomeValues,
+                };
+            }
+
+            throw new Error('Unexpected table');
+        });
+        mocks.outcomeValues.mockResolvedValue(undefined);
+    });
+
+    it('rejects unauthenticated users', async () => {
+        mocks.auth.mockResolvedValue(null);
+
+        const result = await recordCoachProtocolOutcome({
+            sessionId: 'session-1',
+            coachPlanId: 'plan-1',
+            protocolId: 'vertical-drill',
+            focusArea: 'vertical_control',
+            status: 'started',
+        });
+
+        expect(result).toEqual({
+            success: false,
+            error: 'Nao autenticado.',
+        });
+        expect(mocks.insert).not.toHaveBeenCalled();
+    });
+
+    it('rejects attempts to write outcomes for another user session', async () => {
+        mocks.limit.mockResolvedValueOnce([]);
+
+        const result = await recordCoachProtocolOutcome({
+            sessionId: 'other-session',
+            coachPlanId: 'plan-1',
+            protocolId: 'vertical-drill',
+            focusArea: 'vertical_control',
+            status: 'completed',
+        });
+
+        expect(result).toEqual({
+            success: false,
+            error: 'Sessao nao encontrada.',
+        });
+        expect(mocks.insert).not.toHaveBeenCalled();
+    });
+
+    it('rejects invalid_capture without a structured reason code before writing', async () => {
+        const result = await recordCoachProtocolOutcome({
+            sessionId: 'session-1',
+            coachPlanId: 'plan-1',
+            protocolId: 'vertical-drill',
+            focusArea: 'vertical_control',
+            status: 'invalid_capture',
+            reasonCodes: [],
+        });
+
+        expect(result).toEqual({
+            success: false,
+            error: 'invalid_capture requires at least one reason code.',
+        });
+        expect(mocks.select).not.toHaveBeenCalled();
+        expect(mocks.insert).not.toHaveBeenCalled();
+    });
+
+    it('records a protocol outcome with evidence strength, snapshot payload, and dashboard revalidation', async () => {
+        mocks.limit.mockResolvedValueOnce([{
+            id: 'session-1',
+            fullResult: {
+                coachPlan: createStoredCoachPlan(),
+                precisionTrend: createStoredPrecisionTrend(),
+            },
+        }]);
+
+        const result = await recordCoachProtocolOutcome({
+            sessionId: 'session-1',
+            coachPlanId: 'plan-1',
+            protocolId: 'vertical-drill',
+            focusArea: 'vertical_control',
+            status: 'improved',
+            note: '  bloco controlado  ',
+        });
+
+        expect(result).toEqual({
+            success: true,
+            outcome: expect.objectContaining({
+                id: expect.any(String),
+                sessionId: 'session-1',
+                status: 'improved',
+                evidenceStrength: 'confirmed_by_compatible_clip',
+                note: 'bloco controlado',
+                coachSnapshot: expect.objectContaining({
+                    tier: 'test_protocol',
+                    primaryFocusArea: 'vertical_control',
+                    protocolId: 'vertical-drill',
+                    validationTarget: 'vertical_control',
+                    precisionTrendLabel: 'validated_progress',
+                }),
+            }),
+        });
+        expect(mocks.outcomeValues).toHaveBeenCalledWith(expect.objectContaining({
+            userId: 'user-1',
+            analysisSessionId: 'session-1',
+            protocolId: 'vertical-drill',
+            focusArea: 'vertical_control',
+            status: 'improved',
+            reasonCodes: [],
+            note: 'bloco controlado',
+            evidenceStrength: 'confirmed_by_compatible_clip',
+            payload: expect.objectContaining({
+                validationTarget: 'vertical_control',
+                recordedBy: 'user',
+            }),
+        }));
+        expect(mocks.revalidatePath).toHaveBeenCalledWith('/history');
+        expect(mocks.revalidatePath).toHaveBeenCalledWith('/history/session-1');
+        expect(mocks.revalidatePath).toHaveBeenCalledWith('/dashboard');
+    });
+
+    it('creates a new linked row when correcting a prior outcome', async () => {
+        mocks.limit
+            .mockResolvedValueOnce([{
+                id: 'session-1',
+                fullResult: {
+                    coachPlan: createStoredCoachPlan(),
+                },
+            }])
+            .mockResolvedValueOnce([{ id: 'outcome-original' }]);
+
+        const result = await recordCoachProtocolOutcome({
+            sessionId: 'session-1',
+            coachPlanId: 'plan-1',
+            protocolId: 'vertical-drill',
+            focusArea: 'vertical_control',
+            status: 'worse',
+            reasonCodes: ['poor_execution'],
+            revisionOfOutcomeId: 'outcome-original',
+        });
+
+        expect(result).toEqual({
+            success: true,
+            outcome: expect.objectContaining({
+                revisionOfOutcomeId: 'outcome-original',
+                evidenceStrength: 'invalid',
+            }),
+        });
+        expect(mocks.outcomeValues).toHaveBeenCalledWith(expect.objectContaining({
+            revisionOfId: 'outcome-original',
+            evidenceStrength: 'invalid',
+            payload: expect.objectContaining({
+                metadata: expect.objectContaining({
+                    invalidBecauseOfExecutionOrCapture: true,
+                }),
+            }),
+        }));
+        expect(mocks.update).not.toHaveBeenCalled();
+    });
+});
+
+describe('getCoachProtocolOutcomesForSession', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+
+        mocks.auth.mockResolvedValue({
+            user: { id: 'user-1' },
+        });
+        mocks.select.mockReturnValue({
+            from: mocks.from,
+        });
+        mocks.from.mockReturnValue({
+            where: mocks.where,
+        });
+        mocks.where.mockReturnValue({
+            limit: mocks.limit,
+            orderBy: mocks.orderBy,
+        });
+    });
+
+    it('returns owned session outcomes as typed audit records', async () => {
+        mocks.limit.mockResolvedValueOnce([{ id: 'session-1' }]);
+        mocks.orderBy.mockResolvedValueOnce([{
+            id: 'outcome-1',
+            userId: 'user-1',
+            analysisSessionId: 'session-1',
+            coachPlanId: 'plan-1',
+            protocolId: 'vertical-drill',
+            focusArea: 'vertical_control',
+            status: 'started',
+            reasonCodes: [],
+            note: null,
+            revisionOfId: null,
+            evidenceStrength: 'neutral',
+            conflictPayload: null,
+            payload: {
+                coachSnapshot: {
+                    tier: 'test_protocol',
+                    primaryFocusArea: 'vertical_control',
+                    primaryFocusTitle: 'Controle vertical',
+                    protocolId: 'vertical-drill',
+                    validationTarget: 'vertical_control',
+                },
+            },
+            createdAt: new Date('2026-05-06T00:00:00.000Z'),
+            updatedAt: new Date('2026-05-06T00:00:00.000Z'),
+        }]);
+
+        const outcomes = await getCoachProtocolOutcomesForSession('session-1');
+
+        expect(outcomes).toEqual([
+            expect.objectContaining({
+                id: 'outcome-1',
+                sessionId: 'session-1',
+                status: 'started',
+                evidenceStrength: 'neutral',
+                coachSnapshot: expect.objectContaining({
+                    protocolId: 'vertical-drill',
+                }),
+            }),
+        ]);
     });
 });
 

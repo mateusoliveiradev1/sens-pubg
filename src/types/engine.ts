@@ -902,6 +902,7 @@ export interface AnalysisResult {
     readonly sensitivity: SensitivityRecommendation;
     readonly coaching: readonly CoachFeedback[];
     readonly coachPlan?: CoachPlan;
+    readonly coachOutcomeSnapshot?: CoachProtocolOutcomeSnapshot;
     readonly mastery?: SprayMastery;
     readonly precisionTrend?: PrecisionTrendSummary;
     readonly subSessions?: readonly AnalysisResult[];
