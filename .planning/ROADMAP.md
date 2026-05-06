@@ -131,6 +131,29 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **UI hint:** yes
 
+**Plans:**
+
+**Wave 1**
+- `04-01` - Outcome Contract, Persistence, And Revision Audit. Adds typed protocol outcomes, normalized Drizzle persistence, audit-safe revisions, authenticated outcome actions, and the blocking schema push.
+
+**Wave 2 *(blocked on Wave 1 completion)***
+- `04-02` - Adaptive Memory And Coach Aggressiveness. Feeds strict/global outcome memory into priority and tier selection so conflicts, weak self-report, invalid capture, and confirmed progress change coach behavior honestly.
+
+**Wave 3 *(blocked on Wave 2 completion)***
+- `04-03` - Adaptive Coach Loop Surfaces. Adds the compact post-analysis loop, outcome capture/correction UI, dashboard active-loop state, and history audit timeline.
+
+**Wave 4 *(blocked on Wave 3 completion)***
+- `04-04` - LLM And Benchmark Hardening. Locks optional LLM rewrite to copy-only behavior and extends benchmark/copy gates for adaptive coach truth.
+
+**Cross-cutting constraints:**
+- Preserve the browser-first analysis path; adaptive memory uses saved evidence and outcomes, not server video processing.
+- Deterministic code owns coach truth; the optional LLM can only rewrite allowed copy fields.
+- Self-reported improvement is weak evidence until compatible validation confirms it.
+- Outcome/trend conflicts and low-confidence history must lower aggressiveness and block strong apply actions.
+- Strict compatible memory leads; global memory can only tie-break when strict compatible evidence is absent.
+- Analysis shows the essential loop, dashboard shows active state, and history shows the full audit.
+- Phase 4 execution must run targeted tests plus `npm run typecheck`, `npx vitest run`, and `npm run benchmark:gate`.
+
 ## Phase 5: Freemium Pro MVP
 
 **Goal:** Launch the first safe paid wedge: solo-player Pro monthly.

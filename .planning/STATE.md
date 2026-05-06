@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready_to_plan
-last_updated: "2026-05-05T22:10:16.654Z"
+status: ready_to_execute
+last_updated: "2026-05-06T01:09:03.386Z"
 progress:
   total_phases: 7
   completed_phases: 3
-  total_plans: 10
+  total_plans: 14
   completed_plans: 10
-  percent: 43
+  percent: 71
 ---
 
 # State: Sens PUBG
@@ -34,12 +34,13 @@ Phase 4: Adaptive Coach Loop
 - Phase 2 execution is complete with truth-aware benchmark expectations, a strict release benchmark gate, versioned baselines, release reports, and guided captured clip promotion.
 - Phase 3 execution is complete with strict compatible precision trends, persisted evolution lines/checkpoints, post-analysis trend copy, history audit timelines, and dashboard principal trend actions.
 - Phase 4 UI design contract is approved at `.planning/phases/04-adaptive-coach-loop/04-UI-SPEC.md`.
+- Phase 4 planning is complete with 4 executable plans across 4 waves: outcome contract/persistence, adaptive memory/aggressiveness, coach-loop surfaces, and LLM/benchmark hardening.
 
 ## Next Recommended Command
 
-`$gsd-plan-phase 4`
+`$gsd-execute-phase 4`
 
-Plan Phase 4 to turn coach plans into an adaptive feedback loop using outcomes, memory, and compatible precision evidence.
+Execute Phase 4 to turn coach plans into an adaptive feedback loop using outcomes, memory, compatible precision evidence, and schema-bound LLM guardrails.
 
 ## Open Questions
 
