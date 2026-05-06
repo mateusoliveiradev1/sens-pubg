@@ -164,6 +164,8 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **Goal:** Launch the first safe paid wedge: solo-player Pro monthly.
 
+**Status:** Partially delivered on 2026-05-06. Automated implementation and gates pass; paid founder beta is blocked until the manual Stripe test-mode checklist passes.
+
 **Requirements:** ANALYT-01, ANALYT-02, MON-01, MON-02, MON-03, MON-04, MON-05
 
 **Success Criteria:**
@@ -221,6 +223,24 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 5. Commercial benchmark gates cover tracking, diagnosis, coach recommendation quality, training handoff, and confidence honesty before strong public claims.
 
 **UI hint:** no
+
+**Plans:**
+
+**Wave 1**
+- `06-01` - Versioned Decision Ladder And Spray Validity Contract: add the `spray-truth-v2` analysis decision ladder, permission matrix, blocker reason codes, spray validity report, and invalid-clip pre-tracking block.
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- `06-02` - Reticle Tracking, Camera Motion, Flick, And Cut Separation: make camera motion, hard cuts, flicks, target swaps, reacquisition, and contaminated frames explicit tracking evidence and benchmark expectations.
+- `06-03` - Permissioned Real/Pro Corpus And Golden Promotion Provenance: add per-clip consent/provenance, withdrawal/quarantine rules, public-video restrictions, and stricter captured golden promotion reports.
+
+**Wave 3** *(blocked on Wave 2 tracking work)*
+- `06-04` - Downstream Confidence, Coach, Sensitivity, Trend, And Quota Recalibration: make diagnostics, sensitivity, coach, precision trends, history, and useful-result quota obey the versioned decision ladder.
+
+**Wave 4** *(blocked on Wave 2 corpus/tracking and Wave 3 recalibration)*
+- `06-05` - Calibration Reports And Commercial Benchmark Gate: add confidence calibration reports and integrate calibration into the strict `benchmark:release` commercial truth gate.
+
+**Wave 5** *(blocked on all prior plans)*
+- `06-06` - No False Done Evidence Matrix And Commercial Claim Safety: add copy-safety gates, commercial accuracy readiness docs, mandatory gate evidence, and final status rules.
 
 **Cross-cutting constraints:**
 - Do not scrape, download, or extract features from third-party YouTube/Twitch videos for product training without permission or verified trainability.

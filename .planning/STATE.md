@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: ready_to_execute
-last_updated: "2026-05-06T15:24:06.162Z"
+last_updated: "2026-05-06T19:39:38.084Z"
 progress:
   total_phases: 13
-  completed_phases: 4
-  total_plans: 22
-  completed_plans: 17
-  percent: 77
+  completed_phases: 5
+  total_plans: 28
+  completed_plans: 23
+  percent: 82
 ---
 
 # State: Sens PUBG
@@ -22,7 +22,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-05)
 
 ## Current Focus
 
-Phase 5: Freemium Pro MVP
+Phase 6: Core Accuracy And Pro Validation Hardening
 
 ## Status
 
@@ -39,18 +39,22 @@ Phase 5: Freemium Pro MVP
 - Phase 5 plan 05-01 is complete with product monetization contracts, price catalog, resolver/flags, Drizzle persistence foundation, SQL migration, and a successful development schema push.
 - Phase 5 plan 05-02 is complete with server-created Stripe Checkout, raw-body signed webhook fulfillment, idempotent subscription lifecycle sync, Billing Portal actions, and focused payment-truth tests.
 - Phase 5 plan 05-03 is complete with an auditable quota ledger, Free 3/month and Pro 100/cycle save enforcement, weak-capture non-billable voids, technical-failure voids, and server-derived quota UI guidance.
+- Phase 5 plans 05-04 through 05-08 are complete with Free/Pro server projection, product analytics, paid founder UX, admin/beta operations, runbooks, focused monetization gates, and final evidence matrix.
+- Phase 5 automated gates pass: `npm run test:monetization`, `npm run typecheck`, `npx vitest run`, `npm run benchmark:gate`, and `npm run build`.
+- Phase 5 final status is Partially delivered: implementation and automated verification are complete, but paid founder beta remains blocked until the manual Stripe test-mode checklist passes.
 - Roadmap has been expanded to 13 launch-perfect phases to preserve core validation, premium UI/UX, complete training, PUBG Spray Lab, guided Pro programs, social Pro/community value, revenue operations, and team/coach expansion.
+- Phase 6 planning is complete with 6 executable plans across 5 waves, backed by `06-RESEARCH.md`, `06-VALIDATION.md`, `06-PATTERNS.md`, and full decision coverage from `06-CONTEXT.md`.
+- Phase 6 plan 06-01 is complete with the versioned `spray-truth-v2` decision ladder, explicit spray validity blockers, invalid-clip pre-tracking blocks, focused tests, full Vitest, typecheck, and benchmark gate passing.
 
 ## Next Recommended Command
 
-`$gsd-execute-phase 05-04`
+`$gsd-execute-phase 06`
 
-Execute the Phase 5 Free/Pro projection and premium enforcement plan.
+Execute the Core Accuracy And Pro Validation Hardening phase.
 
 ## Open Questions
 
 - Stripe test-mode Product/Price IDs, webhook secret, and public webhook endpoint must be available before the manual paid-flow checklist can pass.
-- Exact scope and acceptance gates for the future Core Accuracy And Pro Validation Hardening phase.
 - Which permissioned real/pro clips should become the first commercial validation corpus.
 
 ---
@@ -65,3 +69,10 @@ Execute the Phase 5 Free/Pro projection and premium enforcement plan.
 - Phase 5 05-01 executed: Added server-owned monetization contracts, founder/public monthly price catalog, product access resolver, monetization flags, billing/quota/analytics/audit schema, `0010_freemium_pro_mvp.sql`, and `05-USER-SETUP.md`; focused tests, typecheck, and `npx drizzle-kit push` passed.
 - Phase 5 05-02 executed: Added `stripe@22.1.0`, Checkout and Billing Portal server actions, `/api/stripe/webhook`, idempotent fulfillment, subscription lifecycle normalization, and webhook setup docs; focused tests and typecheck passed.
 - Phase 5 05-03 executed: Added server-owned quota periods/reservations/finalization/voids, Free 3/month and Pro 100/cycle enforcement in `saveAnalysisResult`, non-billable weak-capture save guidance, and preflight quota UI hints; focused tests, typecheck, full Vitest, and `npm run benchmark:gate` passed.
+- Phase 5 05-04 executed: Added shared Free/Pro projection policy, server-side projected result/history/dashboard payloads, honest Pro locks, capture guidance, and community boundary/copy contracts.
+- Phase 5 05-05 executed: Added privacy-minimal product analytics recorder and server-side activation, quota, upgrade-intent, checkout, lifecycle, admin, and beta event instrumentation.
+- Phase 5 05-06 executed: Added `/pricing`, `/checkout/success`, `/checkout/cancel`, `/billing`, header Pro/Billing CTAs, quota/lock/capture copy, and paid UX contracts.
+- Phase 5 05-07 executed: Added `/admin/billing`, admin billing actions, beta cohort/disclosure helpers, founder beta ops docs, and monetization runbooks.
+- Phase 5 05-08 executed: Added `npm run test:monetization`, final verification checklist, manual Stripe checklist, and No False Done evidence. Automated gates passed; paid founder beta remains manually blocked.
+- Phase 6 planned: 6 executable Core Accuracy And Pro Validation Hardening plans across 5 waves, covering the `spray-truth-v2` decision ladder, spray validity, tracking contamination, permissioned corpus provenance, downstream coach/sensitivity/trend recalibration, calibration reports, commercial benchmark gates, copy safety, and No False Done evidence.
+- Phase 6 06-01 executed: Added shared `spray-truth-v2` decision/permission contracts, `detectSprayValidity`, validity blocker recommendations, and analysis-client blocking before worker tracking for invalid clips.
