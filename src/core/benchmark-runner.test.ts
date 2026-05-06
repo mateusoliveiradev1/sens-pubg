@@ -31,7 +31,7 @@ const capturedSensitivityTestTruth = {
     },
 };
 
-const capturedSensitivityApplyTruth = {
+const capturedSensitivityValidatedTestTruth = {
     actionState: 'testable',
     mechanicalLevel: 'advanced',
     evidenceTier: 'moderate',
@@ -39,12 +39,12 @@ const capturedSensitivityApplyTruth = {
     primaryFocusArea: 'sensitivity',
     secondaryFocusAreas: ['capture_quality', 'validation'],
     nextBlock: {
-        tier: 'apply_protocol',
-        key: 'sensitivity-apply-protocol',
-        title: 'Aplicar e validar sensibilidade',
-        durationMinutes: 20,
-        exercise: 'Aplique o perfil de sensibilidade Balanceada e deixe o VSM perto de 0.97; depois mantenha todas as outras variaveis fixas no bloco.',
-        stepMarker: 'Aplique o protocolo de sensibilidade uma vez.',
+        tier: 'test_protocol',
+        key: 'sensitivity-test-protocol',
+        title: 'Bloco curto de teste de sensibilidade',
+        durationMinutes: 12,
+        exercise: 'Teste o perfil de sensibilidade recomendado em um bloco curto, sem assumir como definitivo ainda.',
+        stepMarker: 'Faca 3 sprays comparaveis focados em sensibilidade.',
         target: 'perfil recomendado melhora o controle sem nova instabilidade',
         minimumCoverage: 0.9,
         minimumConfidence: 0.87,
@@ -160,7 +160,7 @@ describe('runBenchmark', () => {
                     labels: {
                         expectedDiagnoses: [],
                         expectedTrackingTier: 'degraded',
-                        expectedTruth: capturedSensitivityApplyTruth,
+                        expectedTruth: capturedSensitivityValidatedTestTruth,
                     },
                     quality: {
                         sourceType: 'captured',

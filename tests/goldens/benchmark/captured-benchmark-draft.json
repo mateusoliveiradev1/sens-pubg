@@ -108,9 +108,9 @@
       "labels": {
         "expectedDiagnoses": [],
         "expectedCoachPlan": {
-          "tier": "apply_protocol",
+          "tier": "test_protocol",
           "primaryFocusArea": "sensitivity",
-          "nextBlockTitle": "Aplicar e validar sensibilidade"
+          "nextBlockTitle": "Bloco curto de teste de sensibilidade"
         },
         "expectedTrackingTier": "degraded",
         "expectedTruth": {
@@ -124,12 +124,12 @@
             "validation"
           ],
           "nextBlock": {
-            "tier": "apply_protocol",
-            "key": "sensitivity-apply-protocol",
-            "title": "Aplicar e validar sensibilidade",
-            "durationMinutes": 20,
-            "exercise": "Aplique o perfil de sensibilidade Balanceada e deixe o VSM perto de 0.97; depois mantenha todas as outras variaveis fixas no bloco.",
-            "stepMarker": "Aplique o protocolo de sensibilidade uma vez.",
+            "tier": "test_protocol",
+            "key": "sensitivity-test-protocol",
+            "title": "Bloco curto de teste de sensibilidade",
+            "durationMinutes": 12,
+            "exercise": "Teste o perfil de sensibilidade recomendado em um bloco curto, sem assumir como definitivo ainda.",
+            "stepMarker": "Faca 3 sprays comparaveis focados em sensibilidade.",
             "target": "perfil recomendado melhora o controle sem nova instabilidade",
             "minimumCoverage": 0.9,
             "minimumConfidence": 0.87,
@@ -181,9 +181,9 @@
       "labels": {
         "expectedDiagnoses": [],
         "expectedCoachPlan": {
-          "tier": "apply_protocol",
+          "tier": "test_protocol",
           "primaryFocusArea": "sensitivity",
-          "nextBlockTitle": "Aplicar e validar sensibilidade"
+          "nextBlockTitle": "Bloco curto de teste de sensibilidade"
         },
         "expectedTrackingTier": "clean",
         "expectedTruth": {
@@ -197,12 +197,12 @@
             "validation"
           ],
           "nextBlock": {
-            "tier": "apply_protocol",
-            "key": "sensitivity-apply-protocol",
-            "title": "Aplicar e validar sensibilidade",
-            "durationMinutes": 20,
-            "exercise": "Aplique o perfil de sensibilidade Balanceada e deixe o VSM perto de 0.97; depois mantenha todas as outras variaveis fixas no bloco.",
-            "stepMarker": "Aplique o protocolo de sensibilidade uma vez.",
+            "tier": "test_protocol",
+            "key": "sensitivity-test-protocol",
+            "title": "Bloco curto de teste de sensibilidade",
+            "durationMinutes": 12,
+            "exercise": "Teste o perfil de sensibilidade recomendado em um bloco curto, sem assumir como definitivo ainda.",
+            "stepMarker": "Faca 3 sprays comparaveis focados em sensibilidade.",
             "target": "perfil recomendado melhora o controle sem nova instabilidade",
             "minimumCoverage": 0.9,
             "minimumConfidence": 0.9,
@@ -257,9 +257,9 @@
         ],
         "expectedCoachMode": "standard",
         "expectedCoachPlan": {
-          "tier": "apply_protocol",
+          "tier": "test_protocol",
           "primaryFocusArea": "vertical_control",
-          "nextBlockTitle": "Aplicar e validar controle vertical"
+          "nextBlockTitle": "Bloco curto de teste de controle vertical"
         },
         "expectedTrackingTier": "degraded",
         "expectedTruth": {
@@ -273,12 +273,12 @@
             "capture_quality"
           ],
           "nextBlock": {
-            "tier": "apply_protocol",
+            "tier": "test_protocol",
             "key": "vertical-control-drill-protocol",
-            "title": "Aplicar e validar controle vertical",
-            "durationMinutes": 20,
+            "title": "Bloco curto de teste de controle vertical",
+            "durationMinutes": 12,
             "exercise": "Faca tres sprays focando em puxada constante para baixo durante a fase sustentada.",
-            "stepMarker": "Aplique o protocolo de controle vertical uma vez.",
+            "stepMarker": "Faca 3 sprays comparaveis focados em controle vertical.",
             "target": "reduzir o erro vertical sustentado em sprays comparaveis",
             "minimumCoverage": 0.9,
             "minimumConfidence": 0.9,
@@ -330,9 +330,9 @@
       "labels": {
         "expectedDiagnoses": [],
         "expectedCoachPlan": {
-          "tier": "apply_protocol",
+          "tier": "test_protocol",
           "primaryFocusArea": "sensitivity",
-          "nextBlockTitle": "Aplicar e validar sensibilidade"
+          "nextBlockTitle": "Bloco curto de teste de sensibilidade"
         },
         "expectedTrackingTier": "clean",
         "expectedTruth": {
@@ -346,12 +346,12 @@
             "validation"
           ],
           "nextBlock": {
-            "tier": "apply_protocol",
-            "key": "sensitivity-apply-protocol",
-            "title": "Aplicar e validar sensibilidade",
-            "durationMinutes": 20,
-            "exercise": "Aplique o perfil de sensibilidade Balanceada e deixe o VSM perto de 0.97; depois mantenha todas as outras variaveis fixas no bloco.",
-            "stepMarker": "Aplique o protocolo de sensibilidade uma vez.",
+            "tier": "test_protocol",
+            "key": "sensitivity-test-protocol",
+            "title": "Bloco curto de teste de sensibilidade",
+            "durationMinutes": 12,
+            "exercise": "Teste o perfil de sensibilidade recomendado em um bloco curto, sem assumir como definitivo ainda.",
+            "stepMarker": "Faca 3 sprays comparaveis focados em sensibilidade.",
             "target": "perfil recomendado melhora o controle sem nova instabilidade",
             "minimumCoverage": 0.9,
             "minimumConfidence": 0.9,
