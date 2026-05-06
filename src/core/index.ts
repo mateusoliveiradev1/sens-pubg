@@ -83,8 +83,10 @@ export {
 } from './crosshair-tracking';
 
 export {
+    classifyGlobalMotionTransition,
     estimateGlobalMotion,
     type GlobalMotionEstimate,
+    type GlobalMotionTransitionKind,
     type EstimateGlobalMotionOptions,
 } from './global-motion-compensation';
 
@@ -99,6 +101,11 @@ export {
     type CreateTrackingEvidenceInput,
     type TrackingEvidenceReferenceFrame,
 } from './tracking-evidence';
+export {
+    emptyTrackingContaminationEvidence,
+    summarizeTrackingContamination,
+    type TrackingContaminationFrameLike,
+} from './tracking-contamination';
 
 export {
     buildTrackingReviewOverlay,

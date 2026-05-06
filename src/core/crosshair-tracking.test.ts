@@ -60,6 +60,20 @@ function makeImageData(
     return { data, width, height } as ImageData;
 }
 
+function makeSolidImageData(
+    width: number,
+    height: number,
+    color: { r: number; g: number; b: number }
+): ImageData {
+    const pixels = Array.from({ length: width * height }, (_, index) => ({
+        x: index % width,
+        y: Math.floor(index / width),
+        ...color,
+    }));
+
+    return makeImageData(width, height, pixels);
+}
+
 function makeBlockPixels(
     centerX: number,
     centerY: number,
@@ -466,7 +480,60 @@ describe('createStreamingCrosshairTracker', () => {
         expect(staticFallback.exogenousDisturbance.shake).toBe(0);
         expect(shakenFallback.status).toBe('uncertain');
         expect(shakenFallback.exogenousDisturbance.shake).toBeGreaterThan(0.2);
+        expect(shakenFallback.exogenousDisturbance.cameraMotion).toBeGreaterThan(0);
         expect(shakenFallback.confidence).toBeLessThan(staticFallback.confidence);
+    });
+
+    it('marks hard cuts as exogenous contamination instead of reticle movement', () => {
+        const createTracker = (
+            tracking as {
+                createStreamingCrosshairTracker?: (config?: TrackerConfig) => StreamingTracker;
+            }
+        ).createStreamingCrosshairTracker;
+        expect(createTracker).toBeTypeOf('function');
+        if (!createTracker) return;
+
+        const lockedFrame = makeImageData(32, 32, makeBlockPixels(16, 16, 5));
+        const cutFrame = makeSolidImageData(32, 32, { r: 255, g: 255, b: 255 });
+        const trackerInstance = createTracker({
+            globalMotionCompensation: true,
+            globalMotionSearchRadiusPx: 6,
+        });
+
+        const first = trackerInstance.track(lockedFrame, { targetColor: 'RED' });
+        const second = trackerInstance.track(cutFrame, { targetColor: 'RED' });
+
+        expect(first.status).toBe('tracked');
+        expect(second.status).toBe('occluded');
+        expect(second.confidence).toBe(0);
+        expect(second.exogenousDisturbance.hardCut).toBeGreaterThan(0.8);
+        expect(second.exogenousDisturbance.identityConfidence).toBe(0);
+    });
+
+    it('caps confidence for flicks and target swaps', () => {
+        const createTracker = (
+            tracking as {
+                createStreamingCrosshairTracker?: (config?: TrackerConfig) => StreamingTracker;
+            }
+        ).createStreamingCrosshairTracker;
+        expect(createTracker).toBeTypeOf('function');
+        if (!createTracker) return;
+
+        const trackerInstance = createTracker({ roiRadiusPx: 80, templateSize: 5, searchRadius: 80 });
+        const firstFrame = makeImageData(80, 80, makeBlockPixels(20, 40, 5));
+        const flickFrame = makeImageData(80, 80, makeBlockPixels(65, 40, 5));
+        const targetSwapFrame = makeImageData(80, 80, makeBlockPixels(70, 40, 5));
+
+        const first = trackerInstance.track(firstFrame, { targetColor: 'RED' });
+        const flick = trackerInstance.track(flickFrame, { targetColor: 'RED' });
+        const targetSwap = trackerInstance.track(targetSwapFrame, { targetColor: 'RED' });
+
+        expect(first.status).toBe('tracked');
+        expect(flick.confidence).toBeLessThan(0.5);
+        expect(flick.exogenousDisturbance.flick).toBeGreaterThan(0);
+        expect(targetSwap.confidence).toBeLessThan(0.5);
+        expect(targetSwap.exogenousDisturbance.targetSwap).toBeGreaterThan(0);
+        expect(targetSwap.exogenousDisturbance.identityConfidence).toBeLessThan(0.6);
     });
 
     it('reacquires the visible reticle after a short decoy-induced drift instead of staying lost', () => {

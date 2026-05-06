@@ -168,6 +168,83 @@
         "diagnosticFixturePath": "tests/goldens/diagnostic/degraded-underpull-low-confidence-411.json",
         "coachFixturePath": "tests/goldens/coach/low-confidence-underpull.json"
       }
+    },
+    {
+      "clipId": "flick-contaminated-411",
+      "media": {
+        "videoPath": "tests/goldens/tracking/flick-contaminated-red.json"
+      },
+      "capture": {
+        "patchVersion": "41.1",
+        "weaponId": "beryl-m762",
+        "distanceMeters": 30,
+        "stance": "standing",
+        "optic": {
+          "opticId": "red-dot-sight",
+          "stateId": "1x"
+        },
+        "attachments": {
+          "muzzle": "none",
+          "grip": "none",
+          "stock": "none"
+        }
+      },
+      "labels": {
+        "expectedDiagnoses": [
+          "underpull"
+        ],
+        "expectedCoachMode": "low-confidence",
+        "expectedTrackingTier": "degraded",
+        "expectedTracking": {
+          "contaminatedFrameCountMax": 2,
+          "cameraMotionPenaltyMax": 0,
+          "hardCutPenaltyMax": 0,
+          "flickPenaltyMax": 0.7,
+          "targetSwapPenaltyMax": 0.3
+        },
+        "expectedCoachPlan": {
+          "tier": "capture_again",
+          "primaryFocusArea": "sensitivity",
+          "nextBlockTitle": "Bloco de captura limpa"
+        },
+        "expectedTruth": {
+          "actionState": "capture_again",
+          "mechanicalLevel": "intermediate",
+          "evidenceTier": "weak",
+          "weakEvidenceDowngrade": true,
+          "primaryFocusArea": "sensitivity",
+          "secondaryFocusAreas": [
+            "capture_quality",
+            "validation"
+          ],
+          "nextBlock": {
+            "tier": "capture_again",
+            "key": "capture-retry-protocol",
+            "title": "Bloco de captura limpa",
+            "durationMinutes": 5,
+            "exercise": "Grave um spray limpo com a mesma arma, mira, distancia e postura antes de mudar configuracoes.",
+            "stepMarker": "Grave um novo spray com a mesma arma, mira, distancia e postura.",
+            "target": "perfil recomendado melhora o controle sem nova instabilidade",
+            "minimumCoverage": 0.65,
+            "minimumConfidence": 0.65,
+            "successCondition": "Sucesso quando o perfil recomendado melhorar o erro principal sem derrubar a consistencia.",
+            "failCondition": "Falha se sensibilidade nao melhorar ou se a evidencia cair abaixo do limite.",
+            "nextClipValidation": "Validacao de sensibilidade"
+          }
+        }
+      },
+      "quality": {
+        "sourceType": "synthetic",
+        "reviewStatus": "reviewed",
+        "occlusionLevel": "moderate",
+        "compressionLevel": "medium",
+        "visibilityTier": "degraded"
+      },
+      "fixtures": {
+        "trackingFixturePath": "tests/goldens/tracking/flick-contaminated-red.json",
+        "diagnosticFixturePath": "tests/goldens/diagnostic/degraded-underpull-low-confidence-411.json",
+        "coachFixturePath": "tests/goldens/coach/low-confidence-underpull.json"
+      }
     }
   ]
 }

@@ -31,6 +31,7 @@ import { delta_theta, type ProjectionConfig } from '../game/pubg/projection-math
 import { angularErrorToLinearCentimeters, linearErrorSeverity } from '../game/pubg/error-math';
 import { getExpectedRecoilSequence, type ExpectedRecoilSequence } from '../game/pubg/recoil-sequences';
 import { alignTrackingPointsToShots } from './shot-alignment';
+import { emptyTrackingContaminationEvidence, summarizeTrackingContamination } from './tracking-contamination';
 
 export type SprayAngleConversion = number | ProjectionConfig;
 
@@ -331,6 +332,7 @@ function buildMetricQuality(
         framesTracked: Math.max(0, trajectory.framesTracked),
         framesLost: Math.max(0, trajectory.framesLost),
         framesProcessed,
+        ...emptyTrackingContaminationEvidence(),
         confidenceSource: 'summary',
     };
     const globalEvidence = (trajectory.trackingFrames ?? []).length > 0 ? frameEvidence : evidence;
@@ -371,6 +373,7 @@ function buildEvidenceQualityFromFrames(
             framesTracked: fallback?.fallbackFramesTracked ?? 0,
             framesLost: fallback?.fallbackFramesLost ?? 0,
             framesProcessed: fallback?.fallbackFramesProcessed ?? 0,
+            ...emptyTrackingContaminationEvidence(),
             confidenceSource: 'summary',
         };
     }
@@ -390,23 +393,37 @@ function buildEvidenceQualityFromFrames(
             (disturbance.muzzleFlash * 0.35) +
             (disturbance.blur * 0.25) +
             (disturbance.shake * 0.25) +
-            (disturbance.occlusion * 0.5)
+            (disturbance.occlusion * 0.5) +
+            ((disturbance.cameraMotion ?? 0) * 0.2) +
+            ((disturbance.hardCut ?? 0) * 0.85) +
+            ((disturbance.flick ?? 0) * 0.7) +
+            ((disturbance.targetSwap ?? 0) * 0.7) +
+            ((1 - clampUnit(disturbance.identityConfidence ?? 1)) * 0.45)
         );
 
         return sum + clampUnit(framePenalty);
     }, 0) / framesProcessed;
+    const contaminationEvidence = summarizeTrackingContamination(frames);
+    const severeIdentityPenalty = Math.max(
+        contaminationEvidence.hardCutPenalty,
+        contaminationEvidence.flickPenalty,
+        contaminationEvidence.targetSwapPenalty
+    );
     const reacquisitionPenalty = frames.reduce((sum, frame) => (
         sum + (frame.reacquisitionFrames !== undefined
             ? clampUnit(frame.reacquisitionFrames / 5)
             : 0)
     ), 0) / framesProcessed;
     const meanFrameConfidence = frames.reduce((sum, frame) => sum + clampUnit(frame.confidence), 0) / framesProcessed;
-    const evidenceConfidence = clampUnit(
+    const rawEvidenceConfidence = clampUnit(
         meanFrameConfidence *
         visibilityCoverage *
         (1 - disturbancePenalty) *
         (1 - reacquisitionPenalty)
     );
+    const evidenceConfidence = severeIdentityPenalty > 0.25
+        ? Math.min(0.79, rawEvidenceConfidence)
+        : rawEvidenceConfidence;
 
     return {
         coverage: clampUnit(visibilityCoverage * (1 - disturbancePenalty) * (1 - reacquisitionPenalty)),
@@ -418,6 +435,7 @@ function buildEvidenceQualityFromFrames(
         visibilityCoverage,
         disturbancePenalty,
         reacquisitionPenalty,
+        ...contaminationEvidence,
         confidenceSource: 'tracking_frames',
     };
 }

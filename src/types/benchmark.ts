@@ -165,11 +165,20 @@ export const benchmarkAdaptiveCoachExpectationSchema = z.object({
     nextBlockKey: z.string().min(1),
 });
 
+export const benchmarkTrackingExpectationSchema = z.object({
+    contaminatedFrameCountMax: z.number().int().nonnegative().optional(),
+    cameraMotionPenaltyMax: z.number().min(0).max(1).optional(),
+    hardCutPenaltyMax: z.number().min(0).max(1).optional(),
+    flickPenaltyMax: z.number().min(0).max(1).optional(),
+    targetSwapPenaltyMax: z.number().min(0).max(1).optional(),
+});
+
 export const benchmarkClipLabelsSchema = z.object({
     expectedDiagnoses: z.array(diagnosisTypeSchema),
     expectedCoachMode: coachModeSchema.optional(),
     expectedCoachPlan: benchmarkCoachPlanExpectationSchema.optional(),
     expectedTrackingTier: trackingTierSchema,
+    expectedTracking: benchmarkTrackingExpectationSchema.optional(),
     expectedTruth: benchmarkTruthExpectationSchema,
     adaptiveCoachContext: benchmarkAdaptiveCoachContextSchema.optional(),
     expectedAdaptiveCoach: benchmarkAdaptiveCoachExpectationSchema.optional(),
@@ -334,6 +343,7 @@ export type BenchmarkTruthNextBlockExpectation = z.infer<typeof benchmarkTruthNe
 export type BenchmarkTruthExpectation = z.infer<typeof benchmarkTruthExpectationSchema>;
 export type BenchmarkAdaptiveCoachContext = z.infer<typeof benchmarkAdaptiveCoachContextSchema>;
 export type BenchmarkAdaptiveCoachExpectation = z.infer<typeof benchmarkAdaptiveCoachExpectationSchema>;
+export type BenchmarkTrackingExpectation = z.infer<typeof benchmarkTrackingExpectationSchema>;
 export type BenchmarkClipLabels = z.infer<typeof benchmarkClipLabelsSchema>;
 export type BenchmarkClipReviewProvenance = z.infer<typeof benchmarkClipReviewProvenanceSchema>;
 export type BenchmarkClipQuality = z.infer<typeof benchmarkClipQualitySchema>;

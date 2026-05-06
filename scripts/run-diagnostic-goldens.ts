@@ -70,6 +70,12 @@ function makeMetricQuality(overrides: Partial<MetricEvidenceQuality> = {}): Spra
         framesTracked: 30,
         framesLost: 0,
         framesProcessed: 30,
+        cameraMotionPenalty: 0,
+        hardCutPenalty: 0,
+        flickPenalty: 0,
+        targetSwapPenalty: 0,
+        identityPenalty: 0,
+        contaminatedFrameCount: 0,
         ...overrides,
     };
 

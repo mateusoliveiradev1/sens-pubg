@@ -3,15 +3,15 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveSprayProjectionConfig } from '../src/app/analyze/analysis-session-config';
 import type { TrackingResult } from '../src/core/crosshair-tracking';
-import { buildTrajectory, calculateSprayMetrics, generateCoaching, generateSensitivityRecommendation, runDiagnostics as runCoreDiagnostics } from '../src/core';
+import { buildTrajectory, calculateSprayMetrics, emptyTrackingContaminationEvidence, generateCoaching, generateSensitivityRecommendation, runDiagnostics as runCoreDiagnostics } from '../src/core';
 import { buildCoachMemorySnapshot, type CoachMemorySnapshot } from '../src/core/coach-memory';
 import { buildCoachPlan } from '../src/core/coach-plan-builder';
 import { resolveMeasurementTruth } from '../src/core/measurement-truth';
 import { getWeapon } from '../src/game/pubg';
 import { asMilliseconds, asPixels, asScore } from '../src/types/branded';
 import { parseCapturedFrameLabelTemplate, type CapturedFrameLabelTemplate } from '../src/types/captured-frame-labels';
-import { parseBenchmarkDataset, type BenchmarkAdaptiveCoachContext, type BenchmarkAdaptiveCoachExpectation, type BenchmarkClip, type BenchmarkCoachPlanExpectation, type BenchmarkDataset, type BenchmarkTruthExpectation } from '../src/types/benchmark';
-import type { AnalysisResult, CoachFeedback, CoachMode, CoachProtocolOutcome, Diagnosis, MetricEvidenceQuality, SprayMetricQuality, SprayMetricQualityKey, SprayMetrics, TrackingFrameStatus, VideoQualityReport, WeaponLoadout } from '../src/types/engine';
+import { parseBenchmarkDataset, type BenchmarkAdaptiveCoachContext, type BenchmarkAdaptiveCoachExpectation, type BenchmarkClip, type BenchmarkCoachPlanExpectation, type BenchmarkDataset, type BenchmarkTrackingExpectation, type BenchmarkTruthExpectation } from '../src/types/benchmark';
+import type { AnalysisResult, CoachFeedback, CoachMode, CoachProtocolOutcome, Diagnosis, MetricEvidenceQuality, SprayMetricQuality, SprayMetricQualityKey, SprayMetrics, TrackingContaminationEvidence, TrackingFrameStatus, VideoQualityReport, WeaponLoadout } from '../src/types/engine';
 import {
     evaluateCoachGoldenFixture,
     loadCoachGoldenFixture,
@@ -45,6 +45,8 @@ export interface BenchmarkClipResult {
         readonly shotAlignmentErrorMs: number;
         readonly statusMismatches: number;
         readonly confidenceCalibration: ConfidenceCalibrationSummary;
+        readonly contamination: TrackingContaminationEvidence;
+        readonly contaminationMismatches: readonly string[];
         readonly error?: string;
     };
     readonly diagnostics: {
@@ -233,6 +235,12 @@ function makeMetricQuality(overrides: Partial<MetricEvidenceQuality> = {}): Spra
         framesTracked: 30,
         framesLost: 0,
         framesProcessed: 30,
+        cameraMotionPenalty: 0,
+        hardCutPenalty: 0,
+        flickPenalty: 0,
+        targetSwapPenalty: 0,
+        identityPenalty: 0,
+        contaminatedFrameCount: 0,
         ...overrides,
     };
 
@@ -391,6 +399,8 @@ function buildTrackingGoldenFixtureFromCapturedLabels(
     template: CapturedFrameLabelTemplate
 ): TrackingGoldenFixture {
     let hasVisibleHistory = false;
+    let previousVisiblePoint: { readonly x: number; readonly y: number } | null = null;
+    let identityContaminated = false;
 
     return {
         version: 1,
@@ -412,15 +422,32 @@ function buildTrackingGoldenFixtureFromCapturedLabels(
                 throw new Error(`Frame ${frame.frameIndex} de ${clip.clipId} ainda nao foi rotulado`);
             }
 
-            const expectedStatus = status === 'lost' && hasVisibleHistory ? 'occluded' : status;
+            let expectedStatus = status === 'lost' && hasVisibleHistory ? 'occluded' : status;
             const isVisible = expectedStatus === 'tracked' || expectedStatus === 'uncertain';
 
             if (isVisible && (x === null || y === null || x === undefined || y === undefined)) {
                 throw new Error(`Frame ${frame.frameIndex} de ${clip.clipId} precisa de coordenadas x/y para status ${expectedStatus}`);
             }
 
+            if (expectedStatus === 'tracked' && x !== null && y !== null && x !== undefined && y !== undefined) {
+                if (
+                    previousVisiblePoint &&
+                    Math.hypot(x - previousVisiblePoint.x, y - previousVisiblePoint.y) > 28
+                ) {
+                    identityContaminated = true;
+                }
+
+                if (identityContaminated) {
+                    expectedStatus = 'uncertain';
+                }
+            }
+
             if (isVisible) {
                 hasVisibleHistory = true;
+                previousVisiblePoint = {
+                    x: x!,
+                    y: y!,
+                };
             }
 
             return {
@@ -1141,6 +1168,44 @@ function deriveCoachMode(feedback: readonly { readonly mode: CoachMode }[]): Coa
     return undefined;
 }
 
+function compareTrackingContaminationExpectation(
+    clipId: string,
+    expected: BenchmarkTrackingExpectation | undefined,
+    actual: TrackingContaminationEvidence
+): readonly string[] {
+    if (!expected) {
+        return [];
+    }
+
+    const checks: readonly {
+        readonly expectationKey: keyof BenchmarkTrackingExpectation;
+        readonly actualKey: keyof TrackingContaminationEvidence;
+    }[] = [
+        { expectationKey: 'contaminatedFrameCountMax', actualKey: 'contaminatedFrameCount' },
+        { expectationKey: 'cameraMotionPenaltyMax', actualKey: 'cameraMotionPenalty' },
+        { expectationKey: 'hardCutPenaltyMax', actualKey: 'hardCutPenalty' },
+        { expectationKey: 'flickPenaltyMax', actualKey: 'flickPenalty' },
+        { expectationKey: 'targetSwapPenaltyMax', actualKey: 'targetSwapPenalty' },
+    ];
+    const mismatches: string[] = [];
+
+    for (const check of checks) {
+        const expectedMax = expected[check.expectationKey];
+        if (expectedMax === undefined) {
+            continue;
+        }
+
+        const actualValue = actual[check.actualKey];
+        if (actualValue > expectedMax) {
+            mismatches.push(
+                `${clipId}: expectedTracking.${check.expectationKey} expected <= ${expectedMax}, actual ${actualValue}`
+            );
+        }
+    }
+
+    return mismatches;
+}
+
 async function runTrackingBenchmark(
     clip: BenchmarkClip,
     loadCapturedProxy?: () => Promise<CapturedBenchmarkProxy>
@@ -1169,9 +1234,14 @@ async function runTrackingBenchmark(
         const actualTier = fixturePath
             ? deriveTrackingTier(result)
             : (await loadCapturedProxy?.())?.actualTrackingTier ?? deriveTrackingTier(result);
+        const contaminationMismatches = compareTrackingContaminationExpectation(
+            clip.clipId,
+            clip.labels.expectedTracking,
+            result.contamination
+        );
 
         return {
-            passed: result.passed && actualTier === clip.labels.expectedTrackingTier,
+            passed: result.passed && actualTier === clip.labels.expectedTrackingTier && contaminationMismatches.length === 0,
             fixtureName: result.name,
             expectedTier: clip.labels.expectedTrackingTier,
             actualTier,
@@ -1180,6 +1250,8 @@ async function runTrackingBenchmark(
             shotAlignmentErrorMs: toFixedNumber(shotAlignmentErrorMs),
             statusMismatches: result.statusMismatches,
             confidenceCalibration: result.confidenceCalibration,
+            contamination: result.contamination,
+            contaminationMismatches,
         };
     } catch (error) {
         return {
@@ -1192,6 +1264,8 @@ async function runTrackingBenchmark(
             shotAlignmentErrorMs: 0,
             statusMismatches: 0,
             confidenceCalibration: emptyConfidenceCalibration(),
+            contamination: emptyTrackingContaminationEvidence(),
+            contaminationMismatches: [],
             error: error instanceof Error ? error.message : 'erro desconhecido no benchmark de tracking',
         };
     }

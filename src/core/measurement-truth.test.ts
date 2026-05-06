@@ -17,6 +17,12 @@ const strongEvidence: MetricEvidenceQuality = {
     framesTracked: 28,
     framesLost: 1,
     framesProcessed: 29,
+    cameraMotionPenalty: 0,
+    hardCutPenalty: 0,
+    flickPenalty: 0,
+    targetSwapPenalty: 0,
+    identityPenalty: 0,
+    contaminatedFrameCount: 0,
 };
 
 const weakEvidence: MetricEvidenceQuality = {
@@ -26,6 +32,12 @@ const weakEvidence: MetricEvidenceQuality = {
     framesTracked: 10,
     framesLost: 14,
     framesProcessed: 24,
+    cameraMotionPenalty: 0,
+    hardCutPenalty: 0,
+    flickPenalty: 0,
+    targetSwapPenalty: 0,
+    identityPenalty: 0,
+    contaminatedFrameCount: 0,
 };
 
 describe('resolveMeasurementTruth', () => {

@@ -44,6 +44,11 @@ export interface ReticleExogenousDisturbance {
     readonly blur: number;
     readonly shake: number;
     readonly occlusion: number;
+    readonly cameraMotion?: number;
+    readonly hardCut?: number;
+    readonly flick?: number;
+    readonly targetSwap?: number;
+    readonly identityConfidence?: number;
 }
 
 export interface TrackingStatusCounts {
@@ -91,7 +96,16 @@ export interface TrackingConfidenceCalibration {
     readonly expectedCalibrationError: number;
 }
 
-export interface TrackingEvidence extends TrackingQualitySummary {
+export interface TrackingContaminationEvidence {
+    readonly cameraMotionPenalty: number;
+    readonly hardCutPenalty: number;
+    readonly flickPenalty: number;
+    readonly targetSwapPenalty: number;
+    readonly identityPenalty: number;
+    readonly contaminatedFrameCount: number;
+}
+
+export interface TrackingEvidence extends TrackingQualitySummary, TrackingContaminationEvidence {
     readonly coverage: number;
     readonly meanErrorPx: number;
     readonly maxErrorPx: number;
@@ -306,6 +320,12 @@ export interface MetricEvidenceQuality {
     readonly visibilityCoverage?: number;
     readonly disturbancePenalty?: number;
     readonly reacquisitionPenalty?: number;
+    readonly cameraMotionPenalty?: number;
+    readonly hardCutPenalty?: number;
+    readonly flickPenalty?: number;
+    readonly targetSwapPenalty?: number;
+    readonly identityPenalty?: number;
+    readonly contaminatedFrameCount?: number;
     readonly confidenceSource?: 'summary' | 'tracking_frames';
 }
 

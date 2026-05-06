@@ -1,8 +1,9 @@
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { summarizeTrackingContamination } from '../src/core/tracking-contamination';
 import { createStreamingCrosshairTracker, type CrosshairColor } from '../src/core/crosshair-tracking';
-import type { TrackingFrameStatus } from '../src/types/engine';
+import type { TrackingContaminationEvidence, TrackingFrameStatus } from '../src/types/engine';
 
 interface FixtureThresholds {
     readonly minCoverage: number;
@@ -94,6 +95,7 @@ export interface TrackingGoldenFixtureResult {
     readonly statusMismatches: number;
     readonly calibrationPassed: boolean;
     readonly confidenceCalibration: ConfidenceCalibrationSummary;
+    readonly contamination: TrackingContaminationEvidence;
     readonly frames: readonly TrackingGoldenFrameResult[];
 }
 
@@ -182,6 +184,23 @@ function calculateConfidenceCalibration(
         brierScore: toFixedNumber(brierSum / frames.length),
         expectedCalibrationError: toFixedNumber(expectedCalibrationError),
     };
+}
+
+function isIdentityContaminatedForCalibration(observation: {
+    readonly exogenousDisturbance: {
+        readonly hardCut?: number;
+        readonly flick?: number;
+        readonly targetSwap?: number;
+        readonly identityConfidence?: number;
+    };
+}): boolean {
+    const disturbance = observation.exogenousDisturbance;
+    return Math.max(
+        disturbance.hardCut ?? 0,
+        disturbance.flick ?? 0,
+        disturbance.targetSwap ?? 0,
+        1 - (disturbance.identityConfidence ?? 1)
+    ) > 0.25;
 }
 
 function percentile(values: readonly number[], quantile: number): number {
@@ -400,6 +419,8 @@ function normalizeObservationForGoldenComparison(observation: {
 
 export function evaluateTrackingGoldenFixture(fixture: TrackingGoldenFixture): TrackingGoldenFixtureResult {
     const frames: TrackingGoldenFrameResult[] = [];
+    const contaminationFrames: Parameters<typeof summarizeTrackingContamination>[0][number][] = [];
+    const calibrationFrames: Pick<TrackingGoldenFrameResult, 'expectedStatus' | 'confidence'>[] = [];
     let visibleExpected = 0;
     let visibleDetected = 0;
     let statusMismatches = 0;
@@ -441,6 +462,15 @@ export function evaluateTrackingGoldenFixture(fixture: TrackingGoldenFixture): T
             statusMismatches++;
         }
 
+        contaminationFrames.push({
+            exogenousDisturbance: observation.exogenousDisturbance,
+        });
+        if (!isIdentityContaminatedForCalibration(observation)) {
+            calibrationFrames.push({
+                expectedStatus,
+                confidence,
+            });
+        }
         frames.push({
             frame: i,
             expectedStatus,
@@ -466,7 +496,8 @@ export function evaluateTrackingGoldenFixture(fixture: TrackingGoldenFixture): T
     const falseReacquisitionRate = reacquisitionFrames.length > 0
         ? falseReacquisitionCount / reacquisitionFrames.length
         : 0;
-    const confidenceCalibration = calculateConfidenceCalibration(frames);
+    const confidenceCalibration = calculateConfidenceCalibration(calibrationFrames);
+    const contamination = summarizeTrackingContamination(contaminationFrames);
     const calibrationPassed = (
         confidenceCalibration.brierScore <= fixture.thresholds.maxBrierScore &&
         confidenceCalibration.expectedCalibrationError <= fixture.thresholds.maxExpectedCalibrationError
@@ -490,6 +521,7 @@ export function evaluateTrackingGoldenFixture(fixture: TrackingGoldenFixture): T
         statusMismatches,
         calibrationPassed,
         confidenceCalibration,
+        contamination,
         frames,
     };
 }

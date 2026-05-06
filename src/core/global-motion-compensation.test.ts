@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { estimateGlobalMotion } from './global-motion-compensation';
+import { classifyGlobalMotionTransition, estimateGlobalMotion } from './global-motion-compensation';
 
 function makeImageData(
     width: number,
@@ -99,5 +99,32 @@ describe('estimateGlobalMotion', () => {
         expect(estimate.dx).toBe(4);
         expect(estimate.dy).toBe(3);
         expect(estimate.confidence).toBeGreaterThan(0.5);
+        expect(estimate.magnitudePx).toBeCloseTo(5);
+        expect(estimate.transitionKind).toBe('camera_motion');
+        expect(estimate.reliability).toBeGreaterThan(0.5);
+    });
+
+    it('classifies unchanged frames as stable', () => {
+        const frame = makeImageData(40, 40, makePatternPixels());
+
+        const estimate = classifyGlobalMotionTransition(frame, frame, {
+            searchRadiusPx: 6,
+            sampleStepPx: 1,
+        });
+
+        expect(estimate.dx).toBe(0);
+        expect(estimate.dy).toBe(0);
+        expect(estimate.transitionKind).toBe('stable');
+    });
+
+    it('classifies incompatible frames as a hard cut', () => {
+        const previousFrame = makeImageData(40, 40, makePatternPixels());
+        const currentFrame = makeImageData(41, 40, makePatternPixels());
+
+        const estimate = classifyGlobalMotionTransition(previousFrame, currentFrame);
+
+        expect(estimate.transitionKind).toBe('hard_cut');
+        expect(estimate.confidence).toBe(0);
+        expect(estimate.meanAbsoluteError).toBe(Number.POSITIVE_INFINITY);
     });
 });

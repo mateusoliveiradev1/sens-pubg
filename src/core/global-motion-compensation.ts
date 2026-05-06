@@ -1,8 +1,13 @@
+export type GlobalMotionTransitionKind = 'stable' | 'camera_motion' | 'hard_cut';
+
 export interface GlobalMotionEstimate {
     readonly dx: number;
     readonly dy: number;
     readonly confidence: number;
     readonly meanAbsoluteError: number;
+    readonly magnitudePx: number;
+    readonly transitionKind: GlobalMotionTransitionKind;
+    readonly reliability: number;
 }
 
 export interface EstimateGlobalMotionOptions {
@@ -12,6 +17,11 @@ export interface EstimateGlobalMotionOptions {
 
 const DEFAULT_SEARCH_RADIUS_PX = 6;
 const DEFAULT_SAMPLE_STEP_PX = 2;
+const STABLE_MOTION_THRESHOLD_PX = 2;
+const CAMERA_MOTION_MAX_PX = 24;
+const LOW_CONFIDENCE_THRESHOLD = 0.2;
+const CAMERA_MOTION_CONFIDENCE_THRESHOLD = 0.35;
+const HARD_CUT_MAE_THRESHOLD = 72;
 
 function clampUnit(value: number): number {
     return Math.max(0, Math.min(1, value));
@@ -62,6 +72,55 @@ function calculateMeanAbsoluteError(
     return totalAbsoluteError / sampleCount;
 }
 
+function classifyEstimate(
+    dx: number,
+    dy: number,
+    confidence: number,
+    meanAbsoluteError: number
+): Pick<GlobalMotionEstimate, 'magnitudePx' | 'transitionKind' | 'reliability'> {
+    const magnitudePx = Math.hypot(dx, dy);
+    const errorReliability = Number.isFinite(meanAbsoluteError)
+        ? clampUnit(1 - (meanAbsoluteError / 255))
+        : 0;
+    const reliability = clampUnit((confidence * 0.7) + (errorReliability * 0.3));
+
+    if (
+        meanAbsoluteError > HARD_CUT_MAE_THRESHOLD ||
+        (magnitudePx > CAMERA_MOTION_MAX_PX && confidence < CAMERA_MOTION_CONFIDENCE_THRESHOLD)
+    ) {
+        return {
+            magnitudePx,
+            transitionKind: 'hard_cut',
+            reliability,
+        };
+    }
+
+    if (magnitudePx < STABLE_MOTION_THRESHOLD_PX || confidence < LOW_CONFIDENCE_THRESHOLD) {
+        return {
+            magnitudePx,
+            transitionKind: 'stable',
+            reliability,
+        };
+    }
+
+    if (
+        magnitudePx <= CAMERA_MOTION_MAX_PX &&
+        confidence >= CAMERA_MOTION_CONFIDENCE_THRESHOLD
+    ) {
+        return {
+            magnitudePx,
+            transitionKind: 'camera_motion',
+            reliability,
+        };
+    }
+
+    return {
+        magnitudePx,
+        transitionKind: 'stable',
+        reliability,
+    };
+}
+
 export function estimateGlobalMotion(
     previousFrame: ImageData,
     currentFrame: ImageData,
@@ -76,6 +135,9 @@ export function estimateGlobalMotion(
             dy: 0,
             confidence: 0,
             meanAbsoluteError: Number.POSITIVE_INFINITY,
+            magnitudePx: 0,
+            transitionKind: 'hard_cut',
+            reliability: 0,
         };
     }
 
@@ -118,10 +180,21 @@ export function estimateGlobalMotion(
         : 0;
     const confidence = clampUnit((normalizedBestError * 0.6) + (relativeGap * 0.4));
 
+    const classification = classifyEstimate(bestDx, bestDy, confidence, bestError);
+
     return {
         dx: bestDx,
         dy: bestDy,
         confidence,
         meanAbsoluteError: bestError,
+        ...classification,
     };
+}
+
+export function classifyGlobalMotionTransition(
+    previousFrame: ImageData,
+    currentFrame: ImageData,
+    options: EstimateGlobalMotionOptions = {}
+): GlobalMotionEstimate {
+    return estimateGlobalMotion(previousFrame, currentFrame, options);
 }

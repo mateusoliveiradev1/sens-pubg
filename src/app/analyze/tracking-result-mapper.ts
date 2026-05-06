@@ -51,6 +51,11 @@ function clampDisturbance(
         blur: clampUnit(disturbance.blur),
         shake: clampUnit(disturbance.shake),
         occlusion: clampUnit(disturbance.occlusion),
+        cameraMotion: clampUnit(disturbance.cameraMotion ?? 0),
+        hardCut: clampUnit(disturbance.hardCut ?? 0),
+        flick: clampUnit(disturbance.flick ?? 0),
+        targetSwap: clampUnit(disturbance.targetSwap ?? 0),
+        identityConfidence: clampUnit(disturbance.identityConfidence ?? 1),
     };
 }
 

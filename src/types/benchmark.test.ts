@@ -67,6 +67,13 @@ describe('benchmark dataset schema', () => {
                             nextBlockTitle: 'Bloco curto de teste de controle vertical',
                         },
                         expectedTrackingTier: 'clean',
+                        expectedTracking: {
+                            contaminatedFrameCountMax: 0,
+                            cameraMotionPenaltyMax: 0.05,
+                            hardCutPenaltyMax: 0,
+                            flickPenaltyMax: 0,
+                            targetSwapPenaltyMax: 0,
+                        },
                         expectedTruth: expectedTruth({
                             primaryFocusArea: 'vertical_control',
                         }),
@@ -93,6 +100,7 @@ describe('benchmark dataset schema', () => {
         expect(parsed.clips[0]?.sprayWindow?.startSeconds).toBe(6.8);
         expect(parsed.clips[0]?.capture.optic.opticId).toBe('hybrid-scope');
         expect(parsed.clips[0]?.labels.expectedCoachMode).toBe('standard');
+        expect(parsed.clips[0]?.labels.expectedTracking?.contaminatedFrameCountMax).toBe(0);
         expect(parsed.clips[0]?.fixtures?.trackingFixturePath).toBe('tests/goldens/tracking/clean-centered-red.json');
     });
 
@@ -278,6 +286,55 @@ describe('benchmark dataset schema', () => {
 
         expect(result.success).toBe(false);
         expect(result.error.issues.some((issue) => issue.path.join('.') === 'clips.0.labels.expectedTruth.weakEvidenceDowngrade')).toBe(true);
+    });
+
+    it('rejects contamination expectations outside bounded penalty ranges', () => {
+        const result = benchmarkDatasetSchema.safeParse({
+            schemaVersion: 1,
+            datasetId: 'invalid-tracking-expectation',
+            createdAt: '2026-04-14T12:00:00.000Z',
+            clips: [
+                {
+                    clipId: 'invalid-tracking-bounds',
+                    media: {
+                        videoPath: 'tests/goldens/tracking/clean-centered-red.json',
+                    },
+                    capture: {
+                        patchVersion: '41.1',
+                        weaponId: 'ace32',
+                        distanceMeters: 25,
+                        stance: 'standing',
+                        optic: {
+                            opticId: 'red-dot-sight',
+                            stateId: '1x',
+                        },
+                        attachments: {
+                            muzzle: 'none',
+                            grip: 'none',
+                            stock: 'none',
+                        },
+                    },
+                    labels: {
+                        expectedDiagnoses: [],
+                        expectedTrackingTier: 'clean',
+                        expectedTracking: {
+                            flickPenaltyMax: 1.2,
+                        },
+                        expectedTruth: expectedTruth(),
+                    },
+                    quality: {
+                        sourceType: 'synthetic',
+                        reviewStatus: 'reviewed',
+                        occlusionLevel: 'none',
+                        compressionLevel: 'lossless',
+                        visibilityTier: 'clean',
+                    },
+                },
+            ],
+        });
+
+        expect(result.success).toBe(false);
+        expect(result.error.issues.some((issue) => issue.path.join('.') === 'clips.0.labels.expectedTracking.flickPenaltyMax')).toBe(true);
     });
 
     it('rejects diagnosed clips that omit coach and truth protocol expectations', () => {

@@ -11,6 +11,11 @@ function makeFrame(
         readonly x?: number;
         readonly y?: number;
         readonly reacquisitionFrames?: number;
+        readonly cameraMotion?: number;
+        readonly hardCut?: number;
+        readonly flick?: number;
+        readonly targetSwap?: number;
+        readonly identityConfidence?: number;
     } = {}
 ): TrackingFrameObservation {
     const base = {
@@ -30,6 +35,11 @@ function makeFrame(
             blur: 1 - confidence,
             shake: 0,
             occlusion: status === 'tracked' || status === 'uncertain' ? 0 : 1,
+            cameraMotion: options.cameraMotion ?? 0,
+            hardCut: options.hardCut ?? 0,
+            flick: options.flick ?? 0,
+            targetSwap: options.targetSwap ?? 0,
+            identityConfidence: options.identityConfidence ?? 1,
         },
     };
 
@@ -60,8 +70,8 @@ describe('createTrackingEvidence', () => {
             },
             trackingFrames: [
                 makeFrame(0, 'tracked', 1, { x: 10, y: 10 }),
-                makeFrame(1, 'uncertain', 0.5, { x: 12, y: 10, reacquisitionFrames: 2 }),
-                makeFrame(2, 'occluded', 0),
+                makeFrame(1, 'uncertain', 0.5, { x: 12, y: 10, reacquisitionFrames: 2, cameraMotion: 0.4 }),
+                makeFrame(2, 'occluded', 0, { hardCut: 1, identityConfidence: 0 }),
                 makeFrame(3, 'tracked', 0.8, { x: 16, y: 13, reacquisitionFrames: 1 }),
             ],
             referenceFrames: [
@@ -84,6 +94,10 @@ describe('createTrackingEvidence', () => {
                 meanConfidence: 0.575,
                 observedVisibleRate: 0.75,
             },
+            cameraMotionPenalty: 0.1,
+            hardCutPenalty: 0.25,
+            identityPenalty: 0.25,
+            contaminatedFrameCount: 2,
         });
         expect(evidence.confidenceCalibration.brierScore).toBeCloseTo(0.0725, 4);
         expect(evidence.confidenceCalibration.expectedCalibrationError).toBeGreaterThan(0);

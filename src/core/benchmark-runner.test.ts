@@ -62,27 +62,63 @@ describe('runBenchmark', () => {
         });
 
         expect(report.passed).toBe(true);
-        expect(report.summary.totalClips).toBe(2);
+        expect(report.summary.totalClips).toBe(3);
         expect(report.summary.failedClips).toBe(0);
-        expect(report.summary.tracking.passed).toBe(2);
-        expect(report.summary.diagnostics.passed).toBe(2);
-        expect(report.summary.coach.passed).toBe(2);
-        expect(report.summary.truth.passed).toBe(2);
+        expect(report.summary.tracking.passed).toBe(3);
+        expect(report.summary.diagnostics.passed).toBe(3);
+        expect(report.summary.coach.passed).toBe(3);
+        expect(report.summary.truth.passed).toBe(3);
         expect(report.summary.tracking.meanShotAlignmentErrorMs).toBeGreaterThanOrEqual(0);
-        expect(report.summary.tracking.confidenceCalibration.sampleCount).toBe(7);
+        expect(report.summary.tracking.confidenceCalibration.sampleCount).toBe(8);
         expect(report.summary.tracking.confidenceCalibration.brierScore).toBeLessThan(0.1);
         expect(report.summary.tracking.confidenceCalibration.expectedCalibrationError).toBeGreaterThan(0);
-        expect(report.sourceBreakdown.synthetic?.totalClips).toBe(2);
+        expect(report.sourceBreakdown.synthetic?.totalClips).toBe(3);
         expect(report.sourceBreakdown.synthetic?.failedClips).toBe(0);
         expect(report.sourceBreakdown.synthetic?.tracking.meanShotAlignmentErrorMs).toBeGreaterThanOrEqual(0);
         expect(report.sourceBreakdown.synthetic?.tracking.confidenceCalibration.expectedCalibrationError).toBeGreaterThan(0);
-        expect(report.sourceBreakdown.synthetic?.truth.passed).toBe(2);
+        expect(report.sourceBreakdown.synthetic?.truth.passed).toBe(3);
         expect(report.sourceBreakdown.captured).toBeUndefined();
         expect(report.regression?.isRegression).toBe(false);
         expect(report.clips.map((clip) => clip.clipId).sort()).toEqual([
             'clean-centered-red-411',
             'degraded-underpull-411',
+            'flick-contaminated-411',
         ]);
+        const contaminatedClip = report.clips.find((clip) => clip.clipId === 'flick-contaminated-411');
+        expect(contaminatedClip?.tracking.contamination.contaminatedFrameCount).toBe(2);
+        expect(contaminatedClip?.tracking.contamination.flickPenalty).toBeGreaterThan(0.25);
+        expect(contaminatedClip?.tracking.contaminationMismatches).toEqual([]);
+    });
+
+    it('reports tracking contamination expectation mismatches', async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), 'benchmark-contamination-'));
+        const tempDatasetPath = path.join(tempDir, 'synthetic-benchmark.v1.json');
+        const dataset = JSON.parse(await readFile(datasetPath, 'utf8')) as {
+            clips: Array<{
+                clipId: string;
+                labels: {
+                    expectedTracking?: {
+                        flickPenaltyMax?: number;
+                    };
+                };
+            }>;
+        };
+        const contaminatedClip = dataset.clips.find((clip) => clip.clipId === 'flick-contaminated-411');
+        expect(contaminatedClip).toBeDefined();
+        contaminatedClip!.labels.expectedTracking = {
+            ...(contaminatedClip!.labels.expectedTracking ?? {}),
+            flickPenaltyMax: 0.1,
+        };
+        await writeFile(tempDatasetPath, JSON.stringify(dataset, null, 2));
+
+        const report = await runBenchmark({
+            datasetPath: tempDatasetPath,
+        });
+        const clip = report.clips.find((entry) => entry.clipId === 'flick-contaminated-411');
+
+        expect(report.passed).toBe(false);
+        expect(clip?.tracking.passed).toBe(false);
+        expect(clip?.tracking.contaminationMismatches.join(' ')).toContain('expectedTracking.flickPenaltyMax');
     });
 
     it('replays captured frame labels through the pure pipeline when explicit fixtures are absent', async () => {

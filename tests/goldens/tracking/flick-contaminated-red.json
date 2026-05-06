@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "flick-contaminated-red",
+  "color": "RED",
+  "frameSize": {
+    "width": 96,
+    "height": 96
+  },
+  "roiRadiusPx": 96,
+  "tracker": {
+    "templateSize": 5,
+    "searchRadius": 96
+  },
+  "thresholds": {
+    "minCoverage": 1,
+    "maxMeanErrorPx": 0.01,
+    "maxStatusMismatches": 0,
+    "maxBrierScore": 0.5,
+    "maxExpectedCalibrationError": 0.57
+  },
+  "frames": [
+    {
+      "timestamp": 0,
+      "reticle": { "x": 20, "y": 48, "shape": "block", "size": 5 },
+      "expected": { "status": "tracked", "x": 20, "y": 48 }
+    },
+    {
+      "timestamp": 16,
+      "reticle": { "x": 65, "y": 48, "shape": "block", "size": 5 },
+      "expected": { "status": "uncertain", "x": 65, "y": 48 }
+    },
+    {
+      "timestamp": 32,
+      "reticle": { "x": 70, "y": 48, "shape": "block", "size": 5 },
+      "expected": { "status": "uncertain", "x": 70, "y": 48 }
+    }
+  ]
+}

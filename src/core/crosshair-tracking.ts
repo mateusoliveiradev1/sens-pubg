@@ -16,7 +16,7 @@ import type {
     TrackingStatusCounts,
 } from '../types/engine';
 import type { ExtractedFrame } from './frame-extraction';
-import { estimateGlobalMotion, type GlobalMotionEstimate } from './global-motion-compensation';
+import { classifyGlobalMotionTransition, type GlobalMotionEstimate } from './global-motion-compensation';
 import { createCenteredRoi, normalizeTrackingRoi, type TrackingRoi } from './roi-stabilization';
 import { normalizeTrackingFrame } from './video-normalization';
 
@@ -100,6 +100,11 @@ interface ExogenousDisturbanceContext {
     readonly confidence: number;
     readonly muzzleFlash: number;
     readonly shake: number;
+    readonly cameraMotion?: number;
+    readonly hardCut?: number;
+    readonly flick?: number;
+    readonly targetSwap?: number;
+    readonly identityConfidence?: number;
 }
 
 interface DisturbanceAdjustedObservation {
@@ -384,6 +389,30 @@ function createLostObservation(hasPriorLock: boolean): StreamingCrosshairObserva
     };
 }
 
+function createHardCutObservation(
+    hasPriorLock: boolean,
+    globalMotionEstimate: GlobalMotionEstimate
+): StreamingCrosshairObservation {
+    const status: TrackingFrameStatus = hasPriorLock ? 'occluded' : 'lost';
+
+    return {
+        confidence: 0,
+        visiblePixels: 0,
+        status,
+        colorState: 'unknown',
+        exogenousDisturbance: createExogenousDisturbance({
+            status,
+            visiblePixels: 0,
+            confidence: 0,
+            muzzleFlash: 0,
+            shake: 0,
+            cameraMotion: estimateCameraMotionDisturbance(globalMotionEstimate),
+            hardCut: 1,
+            identityConfidence: 0,
+        }),
+    };
+}
+
 function createVisibleObservation(
     detection: CrosshairCentroidDetection,
     status: TrackingFrameStatus,
@@ -411,12 +440,24 @@ function createExogenousDisturbance(context: ExogenousDisturbanceContext): Retic
         : hasVisibleReticle
             ? 0
             : 0.65;
+    const hardCut = clampUnit(context.hardCut ?? 0);
+    const flick = clampUnit(context.flick ?? 0);
+    const targetSwap = clampUnit(context.targetSwap ?? 0);
+    const identityConfidence = clampUnit(
+        context.identityConfidence ??
+        (1 - Math.max(hardCut, flick * 0.85, targetSwap, occlusion * 0.35))
+    );
 
     return {
         muzzleFlash: clampUnit(context.muzzleFlash),
         blur,
         shake: clampUnit(context.shake),
         occlusion,
+        cameraMotion: clampUnit(context.cameraMotion ?? 0),
+        hardCut,
+        flick,
+        targetSwap,
+        identityConfidence,
     };
 }
 
@@ -427,7 +468,12 @@ function applyDisturbanceConfidencePenalty(
     const penalty = clampUnit(
         (disturbance.muzzleFlash * 0.18) +
         (disturbance.shake * 0.12) +
-        (disturbance.occlusion * 0.05)
+        (disturbance.occlusion * 0.05) +
+        ((disturbance.cameraMotion ?? 0) * 0.08) +
+        ((disturbance.hardCut ?? 0) * 0.45) +
+        ((disturbance.flick ?? 0) * 0.4) +
+        ((disturbance.targetSwap ?? 0) * 0.4) +
+        ((1 - clampUnit(disturbance.identityConfidence ?? 1)) * 0.35)
     );
 
     return clampUnit(confidence * (1 - penalty));
@@ -438,7 +484,11 @@ function createDisturbanceAdjustedObservation(
     visiblePixels: number,
     confidence: number,
     muzzleFlash: number,
-    shake: number
+    shake: number,
+    contamination: Pick<
+        ExogenousDisturbanceContext,
+        'cameraMotion' | 'hardCut' | 'flick' | 'targetSwap' | 'identityConfidence'
+    > = {}
 ): DisturbanceAdjustedObservation {
     const initialDisturbance = createExogenousDisturbance({
         status,
@@ -446,8 +496,15 @@ function createDisturbanceAdjustedObservation(
         confidence,
         muzzleFlash,
         shake,
+        ...contamination,
     });
-    const adjustedConfidence = applyDisturbanceConfidencePenalty(confidence, initialDisturbance);
+    const severeIdentityContamination = Math.max(
+        initialDisturbance.flick ?? 0,
+        initialDisturbance.targetSwap ?? 0
+    );
+    const adjustedConfidence = severeIdentityContamination > 0
+        ? Math.min(0.49, applyDisturbanceConfidencePenalty(confidence, initialDisturbance))
+        : applyDisturbanceConfidencePenalty(confidence, initialDisturbance);
     const adjustedStatus = status === 'tracked' || status === 'uncertain'
         ? classifyConfidence(adjustedConfidence)
         : status;
@@ -457,6 +514,7 @@ function createDisturbanceAdjustedObservation(
         confidence: adjustedConfidence,
         muzzleFlash,
         shake,
+        ...contamination,
     });
 
     return {
@@ -471,12 +529,20 @@ function estimateShakeDisturbance(globalMotionEstimate: GlobalMotionEstimate | n
         return 0;
     }
 
-    const magnitudePx = Math.hypot(globalMotionEstimate.dx, globalMotionEstimate.dy);
+    const magnitudePx = globalMotionEstimate.magnitudePx;
     if (magnitudePx < 0.5) {
         return 0;
     }
 
     return clampUnit((magnitudePx / 12) * globalMotionEstimate.confidence);
+}
+
+function estimateCameraMotionDisturbance(globalMotionEstimate: GlobalMotionEstimate | null): number {
+    if (!globalMotionEstimate || globalMotionEstimate.transitionKind !== 'camera_motion') {
+        return 0;
+    }
+
+    return clampUnit((globalMotionEstimate.magnitudePx / 24) * globalMotionEstimate.reliability);
 }
 
 function estimateMuzzleFlashDisturbance(
@@ -533,6 +599,8 @@ export function createStreamingCrosshairTracker(
     let motionDeltaX = 0;
     let motionDeltaY = 0;
     let consecutiveInvisibleFrames = 0;
+    let frameSequence = 0;
+    let recentLargeDisplacementFrame: number | null = null;
     let templateData: Uint8ClampedArray | null = null;
     let templateSize = Math.max(1, fullConfig.templateSize);
     let previousTrackingFrame: ImageData | null = null;
@@ -609,19 +677,59 @@ export function createStreamingCrosshairTracker(
             readonly detection: CrosshairCentroidDetection;
             readonly colorState: ReticleColorState;
         },
-        globalMotionEstimate: GlobalMotionEstimate | null
+        globalMotionEstimate: GlobalMotionEstimate | null,
+        currentFrameSequence: number
     ): StreamingCrosshairObservation {
         const reacquisitionFrames = consecutiveInvisibleFrames > 0
             ? consecutiveInvisibleFrames
             : undefined;
         const muzzleFlash = estimateMuzzleFlashDisturbance(imageData, visibleReticle.detection);
         const shake = estimateShakeDisturbance(globalMotionEstimate);
+        const cameraMotion = estimateCameraMotionDisturbance(globalMotionEstimate);
+        let displacementMagnitudePx = 0;
+        let flick = 0;
+        let targetSwap = 0;
+
+        if (lastReliableX !== null && lastReliableY !== null) {
+            displacementMagnitudePx = Math.hypot(
+                visibleReticle.detection.currentX - lastReliableX,
+                visibleReticle.detection.currentY - lastReliableY
+            );
+
+            if (displacementMagnitudePx > 28) {
+                flick = clampUnit((displacementMagnitudePx - 28) / 12);
+            }
+
+            if (displacementMagnitudePx > 40) {
+                if (
+                    recentLargeDisplacementFrame !== null &&
+                    currentFrameSequence - recentLargeDisplacementFrame <= 3
+                ) {
+                    targetSwap = clampUnit((displacementMagnitudePx - 40) / 12);
+                }
+
+                recentLargeDisplacementFrame = currentFrameSequence;
+            } else if (
+                recentLargeDisplacementFrame !== null &&
+                currentFrameSequence - recentLargeDisplacementFrame > 3
+            ) {
+                recentLargeDisplacementFrame = null;
+            }
+        }
+
+        const identityConfidence = clampUnit(1 - Math.max(flick * 0.85, targetSwap));
         const adjustedObservation = createDisturbanceAdjustedObservation(
             classifyConfidence(visibleReticle.detection.confidence),
             visibleReticle.detection.visiblePixels,
             visibleReticle.detection.confidence,
             muzzleFlash,
-            shake
+            shake,
+            {
+                cameraMotion,
+                flick,
+                targetSwap,
+                identityConfidence,
+            }
         );
         const adjustedDetection = {
             ...visibleReticle.detection,
@@ -633,8 +741,10 @@ export function createStreamingCrosshairTracker(
             motionDeltaY = visibleReticle.detection.currentY - lastReliableY;
         }
 
-        lastReliableX = visibleReticle.detection.currentX;
-        lastReliableY = visibleReticle.detection.currentY;
+        if (identityConfidence >= 0.6) {
+            lastReliableX = visibleReticle.detection.currentX;
+            lastReliableY = visibleReticle.detection.currentY;
+        }
         lastKnownX = visibleReticle.detection.currentX;
         lastKnownY = visibleReticle.detection.currentY;
         refreshTemplate(imageData, visibleReticle.detection.currentX, visibleReticle.detection.currentY);
@@ -776,29 +886,55 @@ export function createStreamingCrosshairTracker(
                 ? { sampleStepPx: fullConfig.globalMotionSampleStepPx }
                 : {}),
         };
-        const estimate = estimateGlobalMotion(previousTrackingFrame, imageData, motionOptions);
+        const estimate = classifyGlobalMotionTransition(previousTrackingFrame, imageData, motionOptions);
 
-        return estimate.confidence > 0.2 ? estimate : null;
+        return estimate.transitionKind === 'hard_cut' || estimate.confidence > 0.2
+            ? estimate
+            : null;
     }
 
     function rememberTrackingFrame(imageData: ImageData): void {
         previousTrackingFrame = cloneImageData(imageData);
     }
 
+    function clearIdentityLock(): void {
+        lastKnownX = null;
+        lastKnownY = null;
+        lastReliableX = null;
+        lastReliableY = null;
+        motionDeltaX = 0;
+        motionDeltaY = 0;
+        consecutiveInvisibleFrames = 0;
+        recentLargeDisplacementFrame = null;
+        templateData = null;
+    }
+
     return {
         track(imageData, options = {}) {
+            const currentFrameSequence = frameSequence;
+            frameSequence++;
             const trackingImage = fullConfig.normalizeBeforeTracking
                 ? normalizeTrackingFrame(imageData)
                 : imageData;
             const targetColor = options.targetColor;
             const globalMotionEstimate = estimateFrameGlobalMotion(trackingImage);
+
+            if (globalMotionEstimate?.transitionKind === 'hard_cut') {
+                const hadPriorLock = lastKnownX !== null && lastKnownY !== null;
+                const observation = createHardCutObservation(hadPriorLock, globalMotionEstimate);
+                clearIdentityLock();
+                rememberTrackingFrame(trackingImage);
+                return observation;
+            }
+
             const bestVisibleReticle = selectBestVisibleReticle(trackingImage, targetColor);
 
             if (bestVisibleReticle) {
                 const observation = commitVisibleDetection(
                     trackingImage,
                     bestVisibleReticle.visibleReticle,
-                    globalMotionEstimate
+                    globalMotionEstimate,
+                    currentFrameSequence
                 );
                 rememberTrackingFrame(trackingImage);
                 return observation;
@@ -828,7 +964,10 @@ export function createStreamingCrosshairTracker(
                         0,
                         fallbackConfidence,
                         0,
-                        shake
+                        shake,
+                        {
+                            cameraMotion: estimateCameraMotionDisturbance(globalMotionEstimate),
+                        }
                     );
                     const correctedX = globalMotionEstimate
                         ? templateMatch.x - globalMotionEstimate.dx
@@ -870,6 +1009,8 @@ export function createStreamingCrosshairTracker(
             motionDeltaX = 0;
             motionDeltaY = 0;
             consecutiveInvisibleFrames = 0;
+            frameSequence = 0;
+            recentLargeDisplacementFrame = null;
             templateData = null;
             templateSize = Math.max(1, fullConfig.templateSize);
             previousTrackingFrame = null;

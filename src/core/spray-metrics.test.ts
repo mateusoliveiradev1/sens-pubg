@@ -45,7 +45,17 @@ function generateTrackingPoints(count: number, options?: {
     return points;
 }
 
-function makeTrackingFrame(frame: number, status: TrackingFrameStatus = 'tracked'): TrackingFrameObservation {
+function makeTrackingFrame(
+    frame: number,
+    status: TrackingFrameStatus = 'tracked',
+    contamination: {
+        readonly cameraMotion?: number;
+        readonly hardCut?: number;
+        readonly flick?: number;
+        readonly targetSwap?: number;
+        readonly identityConfidence?: number;
+    } = {}
+): TrackingFrameObservation {
     const base = {
         frame,
         timestamp: asMilliseconds(frame * 33),
@@ -58,6 +68,11 @@ function makeTrackingFrame(frame: number, status: TrackingFrameStatus = 'tracked
             blur: status === 'tracked' ? 0 : 0.25,
             shake: 0,
             occlusion: status === 'tracked' ? 0 : 1,
+            cameraMotion: contamination.cameraMotion ?? 0,
+            hardCut: contamination.hardCut ?? 0,
+            flick: contamination.flick ?? 0,
+            targetSwap: contamination.targetSwap ?? 0,
+            identityConfidence: contamination.identityConfidence ?? 1,
         },
     };
 
@@ -302,6 +317,71 @@ describe('calculateSprayMetrics', () => {
         expect(quality?.disturbancePenalty).toBeGreaterThan(0);
         expect(quality?.reacquisitionPenalty).toBeGreaterThan(0);
         expect(quality?.confidenceSource).toBe('tracking_frames');
+    });
+
+    it('reduces evidence confidence for camera motion without changing vertical control', () => {
+        const points = generateTrackingPoints(12, { verticalDrift: 1 });
+        const cleanTrajectory = buildTrajectory({
+            points,
+            trackingFrames: Array.from({ length: 12 }, (_, frame) => makeTrackingFrame(frame)),
+            trackingQuality: 1,
+            framesTracked: 12,
+            framesLost: 0,
+            visibleFrames: 12,
+            framesProcessed: 12,
+        }, weapon);
+        const cameraMotionTrajectory = buildTrajectory({
+            points,
+            trackingFrames: Array.from({ length: 12 }, (_, frame) => (
+                frame >= 3 && frame <= 6
+                    ? makeTrackingFrame(frame, 'tracked', { cameraMotion: 0.8 })
+                    : makeTrackingFrame(frame)
+            )),
+            trackingQuality: 1,
+            framesTracked: 12,
+            framesLost: 0,
+            visibleFrames: 12,
+            framesProcessed: 12,
+        }, weapon);
+
+        const cleanMetrics = calculateSprayMetrics(cleanTrajectory, weapon, defaultLoadout);
+        const cameraMotionMetrics = calculateSprayMetrics(cameraMotionTrajectory, weapon, defaultLoadout);
+
+        expect(cameraMotionMetrics.verticalControlIndex).toBe(cleanMetrics.verticalControlIndex);
+        expect(cameraMotionMetrics.metricQuality?.sprayScore.cameraMotionPenalty).toBeGreaterThan(0);
+        expect(cameraMotionMetrics.metricQuality?.sprayScore.confidence).toBeLessThan(
+            cleanMetrics.metricQuality?.sprayScore.confidence ?? 0
+        );
+    });
+
+    it('caps metric confidence when identity contamination is too high', () => {
+        const points = generateTrackingPoints(12, { verticalDrift: 1 });
+        const trackingFrames = Array.from({ length: 12 }, (_, frame) => (
+            frame >= 2 && frame <= 5
+                ? makeTrackingFrame(frame, 'uncertain', {
+                    flick: 1,
+                    targetSwap: frame >= 4 ? 1 : 0,
+                    identityConfidence: 0.1,
+                })
+                : makeTrackingFrame(frame)
+        ));
+        const trajectory = buildTrajectory({
+            points,
+            trackingFrames,
+            trackingQuality: 1,
+            framesTracked: 12,
+            framesLost: 0,
+            visibleFrames: 12,
+            framesProcessed: 12,
+        }, weapon);
+
+        const metrics = calculateSprayMetrics(trajectory, weapon, defaultLoadout);
+        const quality = metrics.metricQuality?.sprayScore;
+
+        expect(quality?.contaminatedFrameCount).toBe(4);
+        expect(quality?.flickPenalty).toBeGreaterThan(0.25);
+        expect(quality?.targetSwapPenalty).toBeGreaterThan(0);
+        expect(quality?.confidence).toBeLessThan(0.8);
     });
 
     it('measures the temporal correction applied when dead lead-in frames are skipped', () => {

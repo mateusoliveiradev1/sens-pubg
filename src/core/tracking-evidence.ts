@@ -5,6 +5,7 @@ import type {
     TrackingFrameStatus,
     TrackingQualitySummary,
 } from '../types/engine';
+import { summarizeTrackingContamination } from './tracking-contamination';
 
 export interface TrackingEvidenceReferenceFrame {
     readonly frame: number;
@@ -165,6 +166,7 @@ export function createTrackingEvidence(input: CreateTrackingEvidenceInput): Trac
     const falseReacquisitionRate = reacquisitionFrames.length > 0
         ? falseReacquisitionCount / reacquisitionFrames.length
         : 0;
+    const contaminationEvidence = summarizeTrackingContamination(input.trackingFrames);
 
     return {
         trackingQuality: input.trackingQuality,
@@ -179,5 +181,6 @@ export function createTrackingEvidence(input: CreateTrackingEvidenceInput): Trac
         meanReacquisitionFrames,
         falseReacquisitionRate,
         confidenceCalibration: calculateConfidenceCalibration(input.trackingFrames, referencesByFrame),
+        ...contaminationEvidence,
     };
 }

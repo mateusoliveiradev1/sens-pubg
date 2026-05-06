@@ -49,7 +49,17 @@ describe('mapWorkerTrackingResultToEngine', () => {
                     colorState: 'red',
                     opticState: '1x',
                     opticStateConfidence: 1,
-                    exogenousDisturbance: { muzzleFlash: 0, blur: 0.27, shake: 0, occlusion: 0 },
+                    exogenousDisturbance: {
+                        muzzleFlash: 0,
+                        blur: 0.27,
+                        shake: 0,
+                        occlusion: 0,
+                        cameraMotion: 0.2,
+                        hardCut: 0,
+                        flick: 0.3,
+                        targetSwap: 0.4,
+                        identityConfidence: 0.55,
+                    },
                     x: 104,
                     y: 208,
                 },
@@ -94,6 +104,13 @@ describe('mapWorkerTrackingResultToEngine', () => {
             opticStateConfidence: 1,
         });
         expect(result.trackingFrames[4]?.exogenousDisturbance.blur).toBe(0.5);
+        expect(result.trackingFrames[2]?.exogenousDisturbance).toMatchObject({
+            cameraMotion: 0.2,
+            hardCut: 0,
+            flick: 0.3,
+            targetSwap: 0.4,
+            identityConfidence: 0.55,
+        });
     });
 });
 
