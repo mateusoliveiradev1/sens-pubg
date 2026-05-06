@@ -7,9 +7,11 @@ const PRODUCT_COPY_FILES = [
     'src/app/analyze/results-dashboard-view-model.ts',
     'src/app/dashboard/page.tsx',
     'src/app/dashboard/dashboard-truth-view-model.ts',
+    'src/actions/dashboard-active-coach-loop.ts',
     'src/app/analyze/analysis-guide.tsx',
     'src/app/page.tsx',
     'src/app/history/page.tsx',
+    'src/app/history/[id]/coach-protocol-outcome-panel.tsx',
     'src/app/profile/page.tsx',
     'src/app/setup/setup-form.tsx',
     'src/app/profile/settings/settings-form.tsx',
@@ -46,6 +48,14 @@ describe('product copy claim contract', () => {
             'mas preciso el diagnostico',
             'mais preciso o diagnostico',
             '60 fps (obrigatorio)',
+            'melhora garantida',
+            'resultado garantido',
+            'rank garantido',
+            'subir de rank',
+            'sensibilidade perfeita',
+            'veredito final',
+            'provou melhora sem validacao',
+            'ajuste definitivo garantido',
         ];
 
         for (const filePath of PRODUCT_COPY_FILES) {
@@ -84,5 +94,19 @@ describe('product copy claim contract', () => {
         expect(trendCopy).not.toContain('baseline criado como progresso');
         expect(trendCopy).not.toContain('sinal inicial validado');
         expect(trendCopy).not.toContain('falha do produto');
+    });
+
+    it('keeps adaptive coach loop copy honest about outcomes and conflicts', () => {
+        const analysisCopy = normalizeCopy(readProductCopy('src/app/analyze/results-dashboard-view-model.ts'));
+        const dashboardLoopCopy = normalizeCopy(readProductCopy('src/actions/dashboard-active-coach-loop.ts'));
+        const outcomePanelCopy = normalizeCopy(readProductCopy('src/app/history/[id]/coach-protocol-outcome-panel.tsx'));
+
+        expect(analysisCopy).toContain('validacao compativel');
+        expect(analysisCopy).toContain('conflito');
+        expect(dashboardLoopCopy).toContain('resultado em conflito');
+        expect(dashboardLoopCopy).toContain('grav');
+        expect(outcomePanelCopy).toContain('resultado');
+        expect(outcomePanelCopy).toContain('validacao');
+        expect(`${analysisCopy}\n${dashboardLoopCopy}\n${outcomePanelCopy}`).not.toContain('melhora comprovada');
     });
 });

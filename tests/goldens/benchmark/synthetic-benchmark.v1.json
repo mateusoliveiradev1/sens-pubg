@@ -50,6 +50,27 @@
             "failCondition": "Falha se sensibilidade nao melhorar ou se a evidencia cair abaixo do limite.",
             "nextClipValidation": "Validacao de sensibilidade"
           }
+        },
+        "adaptiveCoachContext": {
+          "outcomeMemoryState": "conflict",
+          "focusArea": "sensitivity",
+          "protocolId": "sensitivity-test-protocol",
+          "precisionTrendLabel": "validated_regression",
+          "precisionEvidenceLevel": "strong",
+          "compatibleCount": 3
+        },
+        "expectedAdaptiveCoach": {
+          "tier": "capture_again",
+          "primaryFocusArea": "capture_quality",
+          "secondaryFocusAreas": [
+            "validation",
+            "sensitivity"
+          ],
+          "protocolId": "capture-retry-protocol",
+          "outcomeMemoryState": "conflict",
+          "requiresCompatibleValidation": true,
+          "blocksApplyProtocol": true,
+          "nextBlockKey": "capture-retry-protocol"
         }
       },
       "quality": {
@@ -120,6 +141,19 @@
             "failCondition": "Falha se sensibilidade nao melhorar ou se a evidencia cair abaixo do limite.",
             "nextClipValidation": "Validacao de sensibilidade"
           }
+        },
+        "expectedAdaptiveCoach": {
+          "tier": "capture_again",
+          "primaryFocusArea": "sensitivity",
+          "secondaryFocusAreas": [
+            "capture_quality",
+            "validation"
+          ],
+          "protocolId": "capture-retry-protocol",
+          "outcomeMemoryState": "none",
+          "requiresCompatibleValidation": true,
+          "blocksApplyProtocol": true,
+          "nextBlockKey": "capture-retry-protocol"
         }
       },
       "quality": {

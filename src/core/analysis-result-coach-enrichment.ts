@@ -1,6 +1,7 @@
 import type { AnalysisResult } from '@/types/engine';
 
 import { adaptCoachResultWithOptionalLlm, type CoachLlmClient } from './coach-llm-adapter';
+import { buildCoachImmutableFacts } from './coach-llm-contract';
 import { attachCoachPlanToAnalysisResult } from './coach-engine';
 
 export async function enrichAnalysisResultCoaching(
@@ -22,7 +23,13 @@ export async function enrichAnalysisResultCoaching(
 
     const adaptedCoach = await adaptCoachResultWithOptionalLlm({
         coaching: resultWithCoachPlan.coaching,
-        ...(resultWithCoachPlan.coachPlan ? { coachPlan: resultWithCoachPlan.coachPlan } : {}),
+        ...(resultWithCoachPlan.coachPlan ? {
+            coachPlan: resultWithCoachPlan.coachPlan,
+            immutableFacts: buildCoachImmutableFacts({
+                coachPlan: resultWithCoachPlan.coachPlan,
+                result: resultWithCoachPlan,
+            }),
+        } : {}),
     }, client);
 
     return {

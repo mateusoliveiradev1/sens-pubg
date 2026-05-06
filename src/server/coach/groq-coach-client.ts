@@ -37,7 +37,7 @@ export function createGroqCoachClient(): CoachLlmClient | undefined {
     }
 
     return {
-        async generate(payload, coachPlan) {
+        async generate(payload, coachPlan, immutableFacts) {
             if (payload.length === 0 && !coachPlan) {
                 return { items: [] };
             }
@@ -45,7 +45,7 @@ export function createGroqCoachClient(): CoachLlmClient | undefined {
             const response = await getGroqClient().responses.create({
                 model: resolveCoachModel(),
                 instructions: buildCoachInstructions(),
-                input: buildCoachInput(payload, coachPlan),
+                input: buildCoachInput(payload, coachPlan, immutableFacts),
                 max_output_tokens: Math.max(1200, payload.length * 260 + (coachPlan ? 900 : 0)),
                 text: {
                     format: zodTextFormat(CoachBatchSchema, 'coach_feedback_batch'),

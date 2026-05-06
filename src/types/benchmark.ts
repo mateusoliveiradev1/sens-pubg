@@ -40,6 +40,33 @@ const visibilityTierSchema = z.enum(['clean', 'degraded', 'rejected']);
 const actionStateSchema = z.enum(['capture_again', 'inconclusive', 'testable', 'ready']);
 const mechanicalLevelSchema = z.enum(['initial', 'intermediate', 'advanced', 'elite']);
 const evidenceTierSchema = z.enum(['weak', 'moderate', 'strong']);
+const precisionTrendLabelSchema = z.enum([
+    'baseline',
+    'initial_signal',
+    'in_validation',
+    'validated_progress',
+    'validated_regression',
+    'oscillation',
+    'not_comparable',
+    'consolidated',
+]);
+const precisionEvidenceLevelSchema = z.enum([
+    'blocked',
+    'baseline',
+    'initial',
+    'weak',
+    'sufficient',
+    'strong',
+]);
+const adaptiveCoachOutcomeMemoryStateSchema = z.enum([
+    'none',
+    'pending',
+    'weak_self_report',
+    'confirmed_progress',
+    'conflict',
+    'invalid_capture',
+    'repeated_failure',
+]);
 
 export const benchmarkClipMediaSchema = z.object({
     videoPath: z.string().min(1),
@@ -118,12 +145,34 @@ export const benchmarkTruthExpectationSchema = z.object({
     nextBlock: benchmarkTruthNextBlockExpectationSchema,
 });
 
+export const benchmarkAdaptiveCoachContextSchema = z.object({
+    outcomeMemoryState: adaptiveCoachOutcomeMemoryStateSchema,
+    focusArea: coachFocusAreaSchema,
+    protocolId: z.string().min(1),
+    precisionTrendLabel: precisionTrendLabelSchema.optional(),
+    precisionEvidenceLevel: precisionEvidenceLevelSchema.optional(),
+    compatibleCount: z.number().int().nonnegative().optional(),
+});
+
+export const benchmarkAdaptiveCoachExpectationSchema = z.object({
+    tier: coachDecisionTierSchema,
+    primaryFocusArea: coachFocusAreaSchema,
+    secondaryFocusAreas: z.array(coachFocusAreaSchema).optional(),
+    protocolId: z.string().min(1),
+    outcomeMemoryState: adaptiveCoachOutcomeMemoryStateSchema,
+    requiresCompatibleValidation: z.boolean(),
+    blocksApplyProtocol: z.boolean(),
+    nextBlockKey: z.string().min(1),
+});
+
 export const benchmarkClipLabelsSchema = z.object({
     expectedDiagnoses: z.array(diagnosisTypeSchema),
     expectedCoachMode: coachModeSchema.optional(),
     expectedCoachPlan: benchmarkCoachPlanExpectationSchema.optional(),
     expectedTrackingTier: trackingTierSchema,
     expectedTruth: benchmarkTruthExpectationSchema,
+    adaptiveCoachContext: benchmarkAdaptiveCoachContextSchema.optional(),
+    expectedAdaptiveCoach: benchmarkAdaptiveCoachExpectationSchema.optional(),
     notes: z.string().min(1).optional(),
 }).superRefine((labels, ctx) => {
     if (labels.expectedDiagnoses.length === 0 && labels.expectedCoachMode !== undefined) {
@@ -175,6 +224,14 @@ export const benchmarkClipLabelsSchema = z.object({
             code: z.ZodIssueCode.custom,
             path: ['expectedTruth', 'actionState'],
             message: 'weakEvidenceDowngrade=true exige actionState capture_again ou inconclusive',
+        });
+    }
+
+    if (labels.adaptiveCoachContext !== undefined && labels.expectedAdaptiveCoach === undefined) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['expectedAdaptiveCoach'],
+            message: 'expectedAdaptiveCoach e obrigatorio quando adaptiveCoachContext existe',
         });
     }
 });
@@ -275,6 +332,8 @@ export type BenchmarkClipCapture = z.infer<typeof benchmarkClipCaptureSchema>;
 export type BenchmarkCoachPlanExpectation = z.infer<typeof benchmarkCoachPlanExpectationSchema>;
 export type BenchmarkTruthNextBlockExpectation = z.infer<typeof benchmarkTruthNextBlockExpectationSchema>;
 export type BenchmarkTruthExpectation = z.infer<typeof benchmarkTruthExpectationSchema>;
+export type BenchmarkAdaptiveCoachContext = z.infer<typeof benchmarkAdaptiveCoachContextSchema>;
+export type BenchmarkAdaptiveCoachExpectation = z.infer<typeof benchmarkAdaptiveCoachExpectationSchema>;
 export type BenchmarkClipLabels = z.infer<typeof benchmarkClipLabelsSchema>;
 export type BenchmarkClipReviewProvenance = z.infer<typeof benchmarkClipReviewProvenanceSchema>;
 export type BenchmarkClipQuality = z.infer<typeof benchmarkClipQualitySchema>;

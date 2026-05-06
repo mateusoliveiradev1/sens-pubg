@@ -1,4 +1,5 @@
 import type { CoachEvidence, CoachFeedback, CoachMode, CoachPlan } from '@/types/engine';
+import type { CoachImmutableFactsInput } from './coach-llm-contract';
 
 export interface CoachLlmPayloadItem {
     readonly mode: CoachMode;
@@ -39,13 +40,15 @@ export interface CoachLlmBatchOutput {
 export interface CoachLlmClient {
     generate(
         payload: readonly CoachLlmPayloadItem[],
-        coachPlan?: CoachPlan
+        coachPlan?: CoachPlan,
+        immutableFacts?: CoachImmutableFactsInput
     ): Promise<unknown>;
 }
 
 export interface AdaptCoachResultInput {
     readonly coaching: readonly CoachFeedback[];
     readonly coachPlan?: CoachPlan;
+    readonly immutableFacts?: CoachImmutableFactsInput;
 }
 
 export interface AdaptCoachResultOutput {
@@ -108,7 +111,10 @@ function isValidTextOutput(value: unknown): value is CoachLlmTextOutput {
     }
 
     return hasExactKeys(value, TEXT_OUTPUT_KEYS)
-        && TEXT_OUTPUT_KEYS.every((key) => typeof value[key] === 'string');
+        && TEXT_OUTPUT_KEYS.every((key) => (
+            typeof value[key] === 'string'
+            && !containsBlockedCoachCopy(value[key])
+        ));
 }
 
 function parseTextOutputs(
@@ -133,7 +139,7 @@ function isValidPlanProtocolOutput(value: unknown): value is CoachLlmPlanProtoco
 
     return hasExactKeys(value, PLAN_PROTOCOL_OUTPUT_KEYS)
         && PLAN_PROTOCOL_OUTPUT_KEYS.every((key) => typeof value[key] === 'string')
-        && !containsBlockedEnglishPlanCopy(value.instruction as string);
+        && !containsBlockedCoachCopy(value.instruction as string);
 }
 
 function isValidPlanOutput(value: unknown): value is CoachLlmPlanOutput {
@@ -146,12 +152,12 @@ function isValidPlanOutput(value: unknown): value is CoachLlmPlanOutput {
         && Array.isArray(value.actionProtocols)
         && value.actionProtocols.every(isValidPlanProtocolOutput)
         && typeof value.nextBlockTitle === 'string'
-        && !containsBlockedEnglishPlanCopy(value.sessionSummary)
-        && !containsBlockedEnglishPlanCopy(value.primaryFocusWhyNow)
-        && !containsBlockedEnglishPlanCopy(value.nextBlockTitle);
+        && !containsBlockedCoachCopy(value.sessionSummary)
+        && !containsBlockedCoachCopy(value.primaryFocusWhyNow)
+        && !containsBlockedCoachCopy(value.nextBlockTitle);
 }
 
-function containsBlockedEnglishPlanCopy(value: string): boolean {
+function containsBlockedCoachCopy(value: string): boolean {
     const normalized = value.toLowerCase();
 
     return [
@@ -174,6 +180,19 @@ function containsBlockedEnglishPlanCopy(value: string): boolean {
         'vertical control',
         'horizontal control',
         'sensitivity profile',
+        'sensibilidade perfeita',
+        'perfeito',
+        'perfeita',
+        'garantid',
+        'subir de rank',
+        'rank garantido',
+        'veredito final',
+        'veredito definitivo',
+        'ajuste definitivo garantido',
+        'provou melhora',
+        'melhora comprovada',
+        'sem precisar validar',
+        'sem validacao',
     ].some((marker) => normalized.includes(marker));
 }
 
@@ -238,11 +257,16 @@ function applyPlanOutput(
     coachPlan: CoachPlan,
     output: CoachLlmPlanOutput
 ): CoachPlan | null {
-    const protocolIds = new Set(coachPlan.actionProtocols.map((protocol) => protocol.id));
+    if (output.actionProtocols.length !== coachPlan.actionProtocols.length) {
+        return null;
+    }
+
     const instructionByProtocolId = new Map<string, string>();
 
-    for (const protocol of output.actionProtocols) {
-        if (!protocolIds.has(protocol.id) || instructionByProtocolId.has(protocol.id)) {
+    for (let index = 0; index < output.actionProtocols.length; index++) {
+        const protocol = output.actionProtocols[index]!;
+        const expectedProtocol = coachPlan.actionProtocols[index]!;
+        if (protocol.id !== expectedProtocol.id || instructionByProtocolId.has(protocol.id)) {
             return null;
         }
 
@@ -283,7 +307,7 @@ export async function adaptCoachResultWithOptionalLlm(
 
     try {
         const payload = buildCoachLlmPayload(input.coaching);
-        const rawOutput = await client.generate(payload, input.coachPlan);
+        const rawOutput = await client.generate(payload, input.coachPlan, input.immutableFacts);
         const parsedOutput = parseBatchOutput(rawOutput, input.coaching.length);
         if (!parsedOutput) {
             return deterministicResult(input);

@@ -4,13 +4,14 @@ import { pathToFileURL } from 'node:url';
 import { resolveSprayProjectionConfig } from '../src/app/analyze/analysis-session-config';
 import type { TrackingResult } from '../src/core/crosshair-tracking';
 import { buildTrajectory, calculateSprayMetrics, generateCoaching, generateSensitivityRecommendation, runDiagnostics as runCoreDiagnostics } from '../src/core';
+import { buildCoachMemorySnapshot, type CoachMemorySnapshot } from '../src/core/coach-memory';
 import { buildCoachPlan } from '../src/core/coach-plan-builder';
 import { resolveMeasurementTruth } from '../src/core/measurement-truth';
 import { getWeapon } from '../src/game/pubg';
 import { asMilliseconds, asPixels, asScore } from '../src/types/branded';
 import { parseCapturedFrameLabelTemplate, type CapturedFrameLabelTemplate } from '../src/types/captured-frame-labels';
-import { parseBenchmarkDataset, type BenchmarkClip, type BenchmarkCoachPlanExpectation, type BenchmarkDataset, type BenchmarkTruthExpectation } from '../src/types/benchmark';
-import type { AnalysisResult, CoachFeedback, CoachMode, Diagnosis, MetricEvidenceQuality, SprayMetricQuality, SprayMetricQualityKey, SprayMetrics, TrackingFrameStatus, VideoQualityReport, WeaponLoadout } from '../src/types/engine';
+import { parseBenchmarkDataset, type BenchmarkAdaptiveCoachContext, type BenchmarkAdaptiveCoachExpectation, type BenchmarkClip, type BenchmarkCoachPlanExpectation, type BenchmarkDataset, type BenchmarkTruthExpectation } from '../src/types/benchmark';
+import type { AnalysisResult, CoachFeedback, CoachMode, CoachProtocolOutcome, Diagnosis, MetricEvidenceQuality, SprayMetricQuality, SprayMetricQualityKey, SprayMetrics, TrackingFrameStatus, VideoQualityReport, WeaponLoadout } from '../src/types/engine';
 import {
     evaluateCoachGoldenFixture,
     loadCoachGoldenFixture,
@@ -67,6 +68,14 @@ export interface BenchmarkClipResult {
         readonly fixtureName: string;
         readonly expected: BenchmarkTruthExpectation;
         readonly actual?: BenchmarkTruthExpectation;
+        readonly mismatches: readonly string[];
+        readonly error?: string;
+    };
+    readonly adaptiveCoach?: {
+        readonly passed: boolean;
+        readonly fixtureName: string;
+        readonly expected: BenchmarkAdaptiveCoachExpectation;
+        readonly actual?: BenchmarkAdaptiveCoachExpectation;
         readonly mismatches: readonly string[];
         readonly error?: string;
     };
@@ -336,6 +345,12 @@ interface CapturedBenchmarkProxy {
     readonly coaching: readonly CoachFeedback[];
     readonly coachPlan: BenchmarkCoachPlanExpectation;
     readonly truth: BenchmarkTruthExpectation;
+    readonly adaptiveCoach?: BenchmarkAdaptiveCoachExpectation;
+}
+
+interface SyntheticBenchmarkProxy {
+    readonly analysisResult: AnalysisResult;
+    readonly coachPlan: ReturnType<typeof buildCoachPlan>;
 }
 
 type CapturedLabelStatus = Exclude<CapturedFrameLabelTemplate['frames'][number]['label']['status'], null>;
@@ -826,6 +841,65 @@ function toStableTruthExpectation(
     };
 }
 
+function toStableAdaptiveCoachExpectation(
+    coachPlan: ReturnType<typeof buildCoachPlan>,
+    memorySnapshot: CoachMemorySnapshot | undefined
+): BenchmarkAdaptiveCoachExpectation {
+    const primaryProtocol = coachPlan.actionProtocols[0];
+    const outcomeMemoryState = classifyBenchmarkOutcomeMemoryState(memorySnapshot);
+
+    return {
+        tier: coachPlan.tier,
+        primaryFocusArea: coachPlan.primaryFocus.area,
+        ...(coachPlan.secondaryFocuses.length > 0
+            ? { secondaryFocusAreas: coachPlan.secondaryFocuses.map((focus) => focus.area) }
+            : {}),
+        protocolId: primaryProtocol?.id ?? coachPlan.nextBlock.title,
+        outcomeMemoryState,
+        requiresCompatibleValidation: outcomeMemoryState !== 'confirmed_progress',
+        blocksApplyProtocol: coachPlan.tier !== 'apply_protocol',
+        nextBlockKey: primaryProtocol?.id ?? coachPlan.nextBlock.title,
+    };
+}
+
+function classifyBenchmarkOutcomeMemoryState(
+    memorySnapshot: CoachMemorySnapshot | undefined
+): BenchmarkAdaptiveCoachExpectation['outcomeMemoryState'] {
+    const memory = memorySnapshot?.outcomeMemory;
+    if (!memory || memory.activeLayer === 'none') {
+        return 'none';
+    }
+
+    if (memory.conflictCount > 0) {
+        return 'conflict';
+    }
+
+    if (memory.repeatedFailureCount > 0) {
+        return 'repeated_failure';
+    }
+
+    if (memory.invalidCount > 0) {
+        return 'invalid_capture';
+    }
+
+    if (memory.pendingCount > 0 || memory.neutralCount > 0) {
+        return 'pending';
+    }
+
+    if (memory.confirmedCount > 0) {
+        return 'confirmed_progress';
+    }
+
+    const activeLayer = memory.activeLayer === 'strict_compatible'
+        ? memory.strictCompatible
+        : memory.globalFallback;
+    if (activeLayer.weakSelfReportCount > 0) {
+        return 'weak_self_report';
+    }
+
+    return 'none';
+}
+
 function createCapturedBenchmarkProxyLoader(
     clip: BenchmarkClip
 ): (() => Promise<CapturedBenchmarkProxy>) | undefined {
@@ -848,7 +922,10 @@ function createCapturedBenchmarkProxyLoader(
     };
 }
 
-async function buildSyntheticTruthExpectation(clip: BenchmarkClip): Promise<BenchmarkTruthExpectation> {
+async function buildSyntheticBenchmarkProxy(
+    clip: BenchmarkClip,
+    memorySnapshot?: CoachMemorySnapshot
+): Promise<SyntheticBenchmarkProxy> {
     const weapon = getWeapon(clip.capture.weaponId);
     if (!weapon) {
         throw new Error(`weaponId "${clip.capture.weaponId}" nao existe para o clip ${clip.clipId}`);
@@ -913,7 +990,10 @@ async function buildSyntheticTruthExpectation(clip: BenchmarkClip): Promise<Benc
         sensitivity,
         coaching,
     };
-    const coachPlan = buildCoachPlan({ analysisResult: analysisResultBase });
+    const coachPlan = buildCoachPlan({
+        analysisResult: analysisResultBase,
+        ...(memorySnapshot ? { memorySnapshot } : {}),
+    });
     const mastery = resolveMeasurementTruth({
         metrics,
         trajectory,
@@ -923,11 +1003,128 @@ async function buildSyntheticTruthExpectation(clip: BenchmarkClip): Promise<Benc
         coachPlan,
     });
 
-    return toStableTruthExpectation({
-        ...analysisResultBase,
+    return {
+        analysisResult: {
+            ...analysisResultBase,
+            coachPlan,
+            mastery,
+        },
         coachPlan,
-        mastery,
+    };
+}
+
+async function buildSyntheticTruthExpectation(clip: BenchmarkClip): Promise<BenchmarkTruthExpectation> {
+    const { analysisResult, coachPlan } = await buildSyntheticBenchmarkProxy(clip);
+
+    return toStableTruthExpectation({
+        ...analysisResult,
+        coachPlan,
     }, coachPlan);
+}
+
+async function buildSyntheticAdaptiveCoachExpectation(clip: BenchmarkClip): Promise<BenchmarkAdaptiveCoachExpectation> {
+    const baseProxy = await buildSyntheticBenchmarkProxy(clip);
+    const memorySnapshot = clip.labels.adaptiveCoachContext
+        ? buildBenchmarkCoachMemorySnapshot(baseProxy.analysisResult, clip.labels.adaptiveCoachContext)
+        : undefined;
+    const { coachPlan } = await buildSyntheticBenchmarkProxy(clip, memorySnapshot);
+
+    return toStableAdaptiveCoachExpectation(coachPlan, memorySnapshot);
+}
+
+function buildBenchmarkCoachMemorySnapshot(
+    currentResult: AnalysisResult,
+    context: BenchmarkAdaptiveCoachContext
+): CoachMemorySnapshot {
+    const compatibleSession = {
+        id: 'benchmark-compatible-session',
+        createdAt: new Date(currentResult.timestamp.getTime() - 24 * 60 * 60 * 1000),
+        patchVersion: currentResult.patchVersion,
+        distance: currentResult.metrics.targetDistanceMeters,
+        loadout: currentResult.loadout,
+        fullResult: {
+            ...currentResult,
+            id: 'benchmark-compatible-session',
+        } as unknown as Record<string, unknown>,
+    };
+
+    return buildCoachMemorySnapshot({
+        currentResult,
+        historySessions: [compatibleSession],
+        protocolOutcomes: buildBenchmarkProtocolOutcomes(currentResult, context),
+    });
+}
+
+function buildBenchmarkProtocolOutcomes(
+    currentResult: AnalysisResult,
+    context: BenchmarkAdaptiveCoachContext
+): readonly CoachProtocolOutcome[] {
+    const recordedAt = currentResult.timestamp.toISOString();
+    const focusArea = context.focusArea;
+    const base = {
+        sessionId: 'benchmark-compatible-session',
+        coachPlanId: 'benchmark-plan',
+        protocolId: context.protocolId,
+        focusArea,
+        recordedAt,
+        evidenceStrength: 'none' as const,
+        coachSnapshot: {
+            tier: 'test_protocol' as const,
+            primaryFocusArea: focusArea,
+            primaryFocusTitle: focusArea,
+            protocolId: context.protocolId,
+            validationTarget: 'benchmark validation target',
+            ...(context.precisionTrendLabel ? { precisionTrendLabel: context.precisionTrendLabel } : {}),
+        },
+    };
+    const outcome = (
+        id: string,
+        status: CoachProtocolOutcome['status'],
+        reasonCodes: CoachProtocolOutcome['reasonCodes'] = []
+    ): CoachProtocolOutcome => ({
+        ...base,
+        id,
+        status,
+        reasonCodes,
+    });
+
+    switch (context.outcomeMemoryState) {
+        case 'none':
+            return [];
+        case 'pending':
+            return [outcome('benchmark-outcome-pending', 'completed')];
+        case 'weak_self_report':
+            return [outcome('benchmark-outcome-weak', 'improved', ['other'])];
+        case 'confirmed_progress':
+            return [{
+                ...outcome('benchmark-outcome-confirmed', 'improved', ['other']),
+                coachSnapshot: {
+                    ...base.coachSnapshot,
+                    precisionTrendLabel: 'validated_progress',
+                },
+            }];
+        case 'conflict':
+            return [{
+                ...outcome('benchmark-outcome-conflict', 'improved', ['other']),
+                coachSnapshot: {
+                    ...base.coachSnapshot,
+                    precisionTrendLabel: 'validated_regression',
+                },
+                conflict: {
+                    userOutcomeId: 'benchmark-outcome-conflict',
+                    precisionTrendLabel: 'validated_regression',
+                    reason: 'Benchmark self-report conflicts with compatible precision trend.',
+                    nextValidationCopy: 'Record a short compatible validation before advancing.',
+                },
+            }];
+        case 'invalid_capture':
+            return [outcome('benchmark-outcome-invalid', 'invalid_capture', ['capture_quality'])];
+        case 'repeated_failure':
+            return [
+                outcome('benchmark-outcome-worse-1', 'worse', ['other']),
+                outcome('benchmark-outcome-worse-2', 'worse', ['other']),
+            ];
+    }
 }
 
 function deriveTrackingTier(result: TrackingGoldenFixtureResult): 'clean' | 'degraded' {
@@ -1127,6 +1324,33 @@ function compareTruthExpectation(
     return mismatches;
 }
 
+function compareAdaptiveCoachExpectation(
+    expected: BenchmarkAdaptiveCoachExpectation,
+    actual: BenchmarkAdaptiveCoachExpectation
+): readonly string[] {
+    const mismatches: string[] = [];
+    const compareField = (pathName: string, expectedValue: unknown, actualValue: unknown): void => {
+        if (stableJson(expectedValue) !== stableJson(actualValue)) {
+            mismatches.push(`${pathName}: expected ${stableJson(expectedValue)} but received ${stableJson(actualValue)}`);
+        }
+    };
+
+    compareField('tier', expected.tier, actual.tier);
+    compareField('primaryFocusArea', expected.primaryFocusArea, actual.primaryFocusArea);
+    compareField(
+        'secondaryFocusAreas',
+        [...(expected.secondaryFocusAreas ?? [])].sort(),
+        [...(actual.secondaryFocusAreas ?? [])].sort()
+    );
+    compareField('protocolId', expected.protocolId, actual.protocolId);
+    compareField('outcomeMemoryState', expected.outcomeMemoryState, actual.outcomeMemoryState);
+    compareField('requiresCompatibleValidation', expected.requiresCompatibleValidation, actual.requiresCompatibleValidation);
+    compareField('blocksApplyProtocol', expected.blocksApplyProtocol, actual.blocksApplyProtocol);
+    compareField('nextBlockKey', expected.nextBlockKey, actual.nextBlockKey);
+
+    return mismatches;
+}
+
 async function runTruthBenchmark(
     clip: BenchmarkClip,
     loadCapturedProxy?: () => Promise<CapturedBenchmarkProxy>
@@ -1160,23 +1384,63 @@ async function runTruthBenchmark(
     }
 }
 
+async function runAdaptiveCoachBenchmark(
+    clip: BenchmarkClip,
+    loadCapturedProxy?: () => Promise<CapturedBenchmarkProxy>
+): Promise<BenchmarkClipResult['adaptiveCoach']> {
+    const expected = clip.labels.expectedAdaptiveCoach;
+    if (!expected) {
+        return undefined;
+    }
+
+    try {
+        const actual = clip.quality.sourceType === 'captured'
+            ? (await loadCapturedProxy?.())?.adaptiveCoach
+            : await buildSyntheticAdaptiveCoachExpectation(clip);
+
+        if (!actual) {
+            throw new Error(`Clip ${clip.clipId} nao possui proxy suficiente para validar adaptive coach`);
+        }
+
+        const mismatches = compareAdaptiveCoachExpectation(expected, actual);
+
+        return {
+            passed: mismatches.length === 0,
+            fixtureName: `${clip.quality.sourceType}-adaptive-coach:${clip.clipId}`,
+            expected,
+            actual,
+            mismatches,
+        };
+    } catch (error) {
+        return {
+            passed: false,
+            fixtureName: '(missing adaptive coach proxy)',
+            expected,
+            mismatches: [],
+            error: error instanceof Error ? error.message : 'erro desconhecido no benchmark adaptive coach',
+        };
+    }
+}
+
 async function evaluateClip(clip: BenchmarkClip): Promise<BenchmarkClipResult> {
     const loadCapturedProxy = createCapturedBenchmarkProxyLoader(clip);
     const tracking = await runTrackingBenchmark(clip, loadCapturedProxy);
     const diagnostics = await runDiagnosticBenchmark(clip, loadCapturedProxy);
     const coach = await runCoachBenchmark(clip, loadCapturedProxy);
     const truth = await runTruthBenchmark(clip, loadCapturedProxy);
+    const adaptiveCoach = await runAdaptiveCoachBenchmark(clip, loadCapturedProxy);
 
     return {
         clipId: clip.clipId,
         sourceType: clip.quality.sourceType,
         reviewStatus: clip.quality.reviewStatus,
         ...(clip.quality.reviewProvenance?.source ? { reviewProvenanceSource: clip.quality.reviewProvenance.source } : {}),
-        passed: tracking.passed && diagnostics.passed && coach.passed && truth.passed,
+        passed: tracking.passed && diagnostics.passed && coach.passed && truth.passed && (adaptiveCoach?.passed ?? true),
         tracking,
         diagnostics,
         coach,
         truth,
+        ...(adaptiveCoach ? { adaptiveCoach } : {}),
     };
 }
 

@@ -1,9 +1,26 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { AnalysisResult, CoachFeedback } from '@/types/engine';
 
 import { enrichAnalysisResultCoaching } from './analysis-result-coach-enrichment';
 import type { CoachLlmClient } from './coach-llm-adapter';
+
+const outcomeLayer = {
+    source: 'strict_compatible' as const,
+    outcomeCount: 1,
+    pendingCount: 0,
+    neutralCount: 0,
+    weakSelfReportCount: 1,
+    confirmedCount: 0,
+    invalidCount: 0,
+    conflictCount: 0,
+    repeatedFailureCount: 0,
+    staleOutcomeCount: 0,
+    technicalEvidenceCount: 0,
+    focusAreas: ['vertical_control' as const],
+    confidence: 0.62,
+    summary: 'Improvement needs compatible validation.',
+};
 
 function createFeedback(problem: string): CoachFeedback {
     return {
@@ -227,5 +244,84 @@ describe('enrichAnalysisResultCoaching', () => {
             }),
         }));
         expect(enriched.coachPlan?.actionProtocols[0]?.instruction).toContain('[IA]');
+    });
+
+    it('passes persisted outcome and memory facts to the LLM as immutable context', async () => {
+        const result = {
+            ...createResult('root', [createFeedback('Pulldown baixo')]),
+            coachDecisionSnapshot: {
+                tier: 'test_protocol' as const,
+                primaryFocusArea: 'vertical_control' as const,
+                primaryFocusTitle: 'Controle vertical',
+                secondaryFocusAreas: [],
+                protocolId: 'vertical-control-drill-protocol',
+                validationTarget: 'reduzir erro vertical',
+                memorySummary: 'Self-report fraco aguardando validacao compativel.',
+                outcomeMemory: {
+                    activeLayer: 'strict_compatible' as const,
+                    strictCompatible: outcomeLayer,
+                    globalFallback: { ...outcomeLayer, source: 'global_fallback' as const },
+                    pendingCount: 0,
+                    neutralCount: 0,
+                    confirmedCount: 0,
+                    invalidCount: 0,
+                    conflictCount: 0,
+                    repeatedFailureCount: 0,
+                    staleOutcomeCount: 0,
+                    confidence: 0.62,
+                    summary: 'Self-report fraco aguardando validacao compativel.',
+                },
+                outcomeEvidenceState: 'weak_self_report' as const,
+                conflicts: [],
+                blockerReasons: ['outcome.strict_compatible.weak_self_report.vertical_control'],
+                precisionTrendLabel: 'in_validation' as const,
+                createdAt: '2026-04-15T12:00:00.000Z',
+            },
+            coachOutcomeSnapshot: {
+                latest: {
+                    id: 'outcome-1',
+                    sessionId: 'session-1',
+                    coachPlanId: 'plan-1',
+                    protocolId: 'vertical-control-drill-protocol',
+                    focusArea: 'vertical_control' as const,
+                    status: 'improved' as const,
+                    reasonCodes: ['other' as const],
+                    recordedAt: '2026-04-15T12:00:00.000Z',
+                    evidenceStrength: 'weak_self_report' as const,
+                },
+                revisions: [],
+                pending: false,
+                validationCta: 'Gravar validacao compativel',
+                conflicts: [],
+            },
+        };
+        const generate = vi.fn<CoachLlmClient['generate']>().mockResolvedValue([
+            {
+                problem: 'Pulldown baixo [IA]',
+                likelyCause: 'Controle vertical insuficiente refinada',
+                adjustment: 'Ajuste o pulldown com contexto',
+                drill: 'Drill deterministico refinado',
+                verifyNextClip: 'Verifique no proximo clip com validacao',
+            },
+        ]);
+
+        await enrichAnalysisResultCoaching(result, { generate });
+
+        expect(generate).toHaveBeenCalled();
+        expect(generate.mock.calls[0]?.[2]).toMatchObject({
+            tier: expect.any(String),
+            outcome: {
+                status: 'improved',
+                evidenceStrength: 'weak_self_report',
+                reasonCodes: ['other'],
+                latestProtocolId: 'vertical-control-drill-protocol',
+            },
+            memory: {
+                activeLayer: 'strict_compatible',
+                weakSelfReportCount: 1,
+                summary: 'Self-report fraco aguardando validacao compativel.',
+            },
+            precisionTrendLabel: 'in_validation',
+        });
     });
 });
