@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready_to_execute
+status: ready_to_plan
 last_updated: "2026-05-06T02:47:55.226Z"
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 14
   completed_plans: 14
-  percent: 100
+  percent: 57
 ---
 
 # State: Sens PUBG
@@ -22,7 +22,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-05)
 
 ## Current Focus
 
-Phase 4: Adaptive Coach Loop
+Phase 5: Freemium Pro MVP
 
 ## Status
 
@@ -34,13 +34,14 @@ Phase 4: Adaptive Coach Loop
 - Phase 2 execution is complete with truth-aware benchmark expectations, a strict release benchmark gate, versioned baselines, release reports, and guided captured clip promotion.
 - Phase 3 execution is complete with strict compatible precision trends, persisted evolution lines/checkpoints, post-analysis trend copy, history audit timelines, and dashboard principal trend actions.
 - Phase 4 UI design contract is approved at `.planning/phases/04-adaptive-coach-loop/04-UI-SPEC.md`.
-- Phase 4 planning is complete with 4 executable plans across 4 waves: outcome contract/persistence, adaptive memory/aggressiveness, coach-loop surfaces, and LLM/benchmark hardening.
+- Phase 4 execution is complete with protocol outcome persistence, adaptive memory/aggressiveness, coach-loop UI surfaces, LLM fact preservation, and adaptive benchmark/copy gates.
+- Phase 5 is ready for discussion and planning before monetization implementation starts.
 
 ## Next Recommended Command
 
-`$gsd-execute-phase 4`
+`$gsd-discuss-phase 5`
 
-Execute Phase 4 to turn coach plans into an adaptive feedback loop using outcomes, memory, compatible precision evidence, and schema-bound LLM guardrails.
+Discuss Phase 5 before planning the Freemium Pro MVP so pricing, limits, payment provider, entitlement scope, and safe paywall copy are decided before implementation.
 
 ## Open Questions
 
