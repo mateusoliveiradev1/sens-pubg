@@ -757,6 +757,7 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
         trackingOverview,
         sensitivity,
         diagnoses,
+        analysisDecision: activeSession.analysisDecision,
     });
     const masteryPillars = activeSession.mastery
         ? buildMasteryPillarCards(activeSession.mastery)

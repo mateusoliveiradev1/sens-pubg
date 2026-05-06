@@ -1,4 +1,5 @@
 import type {
+    AnalysisDecision,
     Diagnosis,
     ProfileType,
     RecommendationEvidenceTier,
@@ -817,7 +818,16 @@ function resolveRecommendationTier(input: {
     readonly residualObjective: ResidualObjective;
     readonly diagnosticFallback: DiagnosticFallback;
     readonly clipCount: number;
+    readonly analysisDecision?: AnalysisDecision;
 }): SensitivityRecommendationTier {
+    if (
+        input.analysisDecision
+        && input.analysisDecision.level !== 'usable_analysis'
+        && input.analysisDecision.level !== 'strong_analysis'
+    ) {
+        return 'capture_again';
+    }
+
     const hasStrongEvidence = input.evidenceTier === 'strong' && input.confidenceScore >= 0.8;
     const hasActionableSignal = input.residualObjective.actionable || input.diagnosticFallback.actionable;
 
@@ -826,7 +836,9 @@ function resolveRecommendationTier(input: {
     }
 
     if (hasStrongEvidence && input.clipCount >= 3) {
-        return 'apply_ready';
+        return input.analysisDecision && input.analysisDecision.level !== 'strong_analysis'
+            ? 'test_profiles'
+            : 'apply_ready';
     }
 
     return 'test_profiles';
@@ -842,7 +854,8 @@ export function generateSensitivityRecommendation(
     currentScopeSens: Record<string, number>,
     currentVSM: number = 1.0,
     clipCount: number = 1,
-    deskSpaceCm: number = mousepadWidthCm
+    deskSpaceCm: number = mousepadWidthCm,
+    analysisDecision?: AnalysisDecision
 ): SensitivityRecommendation {
     const range = getBaseSensRange(playStyle, gripStyle);
     const normalizedCurrentScopeSens = normalizeScopeSensitivityMap(currentScopeSens);
@@ -858,12 +871,18 @@ export function generateSensitivityRecommendation(
         : adjustedIdeal * 0.8;
     const maxViable = range.maxCm360;
     const evidence = resolveRecommendationEvidence(residualObjective, diagnosticFallback);
+    const effectiveEvidence = analysisDecision && !analysisDecision.permissionMatrix.canDisplaySensitivity
+        ? {
+            evidenceTier: 'weak' as const,
+            confidenceScore: Math.min(evidence.confidenceScore, analysisDecision.confidence),
+        }
+        : evidence;
     const candidateProfiles = pickCandidateProfiles({
         targetCm360: Math.max(minViable, Math.min(maxViable, adjustedIdeal)),
         baseIdealCm360: range.idealCm360,
         minViable,
         maxViable,
-        evidenceTier: evidence.evidenceTier,
+        evidenceTier: effectiveEvidence.evidenceTier,
         diagnoses,
     });
     const profiles: [SensitivityProfile, SensitivityProfile, SensitivityProfile] = [
@@ -872,21 +891,21 @@ export function generateSensitivityRecommendation(
             gripStyle,
             mousepadWidthCm,
             deskSpaceCm,
-            evidenceTier: evidence.evidenceTier,
+            evidenceTier: effectiveEvidence.evidenceTier,
         }),
         buildProfile('balanced', candidateProfiles.balancedCm360, dpi, normalizedCurrentScopeSens, {
             playStyle,
             gripStyle,
             mousepadWidthCm,
             deskSpaceCm,
-            evidenceTier: evidence.evidenceTier,
+            evidenceTier: effectiveEvidence.evidenceTier,
         }),
         buildProfile('high', candidateProfiles.highCm360, dpi, normalizedCurrentScopeSens, {
             playStyle,
             gripStyle,
             mousepadWidthCm,
             deskSpaceCm,
-            evidenceTier: evidence.evidenceTier,
+            evidenceTier: effectiveEvidence.evidenceTier,
         }),
     ];
     const recommended = resolveRecommendedProfile(
@@ -895,11 +914,12 @@ export function generateSensitivityRecommendation(
     );
     const tier = resolveRecommendationTier({
         recommended,
-        evidenceTier: evidence.evidenceTier,
-        confidenceScore: evidence.confidenceScore,
+        evidenceTier: effectiveEvidence.evidenceTier,
+        confidenceScore: effectiveEvidence.confidenceScore,
         residualObjective,
         diagnosticFallback,
         clipCount,
+        ...(analysisDecision ? { analysisDecision } : {}),
     });
     const burstVCI = metrics.burstVCI ?? metrics.verticalControlIndex;
     let suggestedVSM: number | undefined;
@@ -924,8 +944,8 @@ export function generateSensitivityRecommendation(
         `confidence=${residualObjective.confidence.toFixed(2)}`,
         `sampleSize=${residualObjective.sampleSize}`,
         `clipCount=${clipCount}`,
-        `evidenceTier=${evidence.evidenceTier}`,
-        `confidenceScore=${evidence.confidenceScore.toFixed(3)}`,
+        `evidenceTier=${effectiveEvidence.evidenceTier}`,
+        `confidenceScore=${effectiveEvidence.confidenceScore.toFixed(3)}`,
         `tier=${tier}`,
         `diagnosticFallback=${diagnosticFallback.reason}`,
         `targetCm360=${adjustedIdeal.toFixed(2)}`,
@@ -939,12 +959,16 @@ export function generateSensitivityRecommendation(
         reasoningParts.push(`foco em ${dominant.type}`);
     }
 
+    if (analysisDecision) {
+        reasoningParts.push(`decisionLevel=${analysisDecision.level}`);
+    }
+
     return {
         profiles,
         recommended,
         tier,
-        evidenceTier: evidence.evidenceTier,
-        confidenceScore: evidence.confidenceScore,
+        evidenceTier: effectiveEvidence.evidenceTier,
+        confidenceScore: effectiveEvidence.confidenceScore,
         reasoning: reasoningParts.join(', ') + '.',
         ...(suggestedVSM !== undefined ? { suggestedVSM } : {}),
     };

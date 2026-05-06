@@ -94,7 +94,7 @@ describe('analysis worker tracking contract', () => {
         const historySource = readFileSync(new URL('../../actions/history.ts', import.meta.url), 'utf8');
 
         expect(engineTypes).toMatch(/readonly videoQualityReport\?: VideoQualityReport/);
-        expect(source).toMatch(/videoQualityReport:\s*video\.qualityReport/);
+        expect(source).toMatch(/attachSprayValidityToVideoQualityReport\(video\.qualityReport,\s*sprayValidity\)/);
         expect(historySource).toMatch(/videoQualityReport:\s*enrichedResult\.videoQualityReport/);
     });
 

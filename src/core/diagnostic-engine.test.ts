@@ -5,6 +5,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { runDiagnostics } from '@/core/diagnostic-engine';
+import { resolveAnalysisDecision } from '@/core/analysis-decision';
 import type { MetricEvidenceQuality, SprayMetricQuality, SprayMetricQualityKey, SprayMetrics } from '@/types/engine';
 import { asMilliseconds, asScore } from '@/types/branded';
 
@@ -169,6 +170,21 @@ describe('runDiagnostics', () => {
 
         expect(inconclusive).toBeDefined();
         expect(inconclusive?.description.toLowerCase()).toContain('evid');
+    });
+
+    it('forces only inconclusive diagnostics below usable_analysis decision level', () => {
+        const metrics = makeMetrics({ verticalControlIndex: 1.4, horizontalNoiseIndex: 20 });
+        const diagnoses = runDiagnostics(metrics, 'ar', {
+            analysisDecision: resolveAnalysisDecision({
+                blockerReasons: ['low_confidence'],
+                confidence: 0.55,
+                coverage: 0.7,
+            }),
+        });
+
+        expect(diagnoses).toHaveLength(1);
+        expect(diagnoses[0]?.type).toBe('inconclusive');
+        expect(diagnoses[0]?.description).toContain('partial_safe_read');
     });
 
     it('cites the dominant phase when vertical control is phase-localized', () => {

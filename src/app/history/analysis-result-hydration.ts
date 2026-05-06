@@ -7,6 +7,11 @@ import { localizeStoredCoachPlanPtBr } from '@/core/coach-plan-builder';
 import { resolveMeasurementTruth } from '@/core/measurement-truth';
 import { normalizePatchVersion } from '@/game/pubg';
 import type {
+    AnalysisBlockerReasonCode,
+    AnalysisClaimLevel,
+    AnalysisDecision,
+    AnalysisDecisionLevel,
+    AnalysisDecisionPermissionMatrix,
     AnalysisResult,
     CoachDecisionSnapshot,
     CoachOutcomeConflict,
@@ -153,6 +158,63 @@ function isFiniteNumber(value: unknown): value is number {
 
 function isStringArray(value: unknown): value is readonly string[] {
     return Array.isArray(value) && value.every((item) => typeof item === 'string');
+}
+
+function isAnalysisDecisionLevel(value: unknown): value is AnalysisDecisionLevel {
+    return value === 'blocked_invalid_clip'
+        || value === 'inconclusive_recapture'
+        || value === 'partial_safe_read'
+        || value === 'usable_analysis'
+        || value === 'strong_analysis';
+}
+
+function isAnalysisBlockerReasonCode(value: unknown): value is AnalysisBlockerReasonCode {
+    return value === 'too_short'
+        || value === 'hard_cut'
+        || value === 'flick'
+        || value === 'target_swap'
+        || value === 'camera_motion'
+        || value === 'crosshair_not_visible'
+        || value === 'not_spray_protocol'
+        || value === 'low_coverage'
+        || value === 'low_confidence'
+        || value === 'low_clip_quality';
+}
+
+function isAnalysisClaimLevel(value: unknown): value is AnalysisClaimLevel {
+    return value === 'none'
+        || value === 'capture_guidance'
+        || value === 'limited_read'
+        || value === 'analysis'
+        || value === 'commercial_supported';
+}
+
+function isAnalysisDecisionPermissionMatrix(value: unknown): value is AnalysisDecisionPermissionMatrix {
+    return isRecord(value)
+        && typeof value.canDisplayDiagnosis === 'boolean'
+        && typeof value.canDisplaySensitivity === 'boolean'
+        && typeof value.canDisplayCoach === 'boolean'
+        && typeof value.canSaveAuditResult === 'boolean'
+        && typeof value.countsAsUsefulAnalysis === 'boolean'
+        && typeof value.canEnterPrecisionTrend === 'boolean'
+        && typeof value.canEnterCorpus === 'boolean'
+        && isAnalysisClaimLevel(value.allowedClaimLevel);
+}
+
+function isAnalysisDecision(value: unknown): value is AnalysisDecision {
+    return isRecord(value)
+        && value.version === 'spray-truth-v2'
+        && isAnalysisDecisionLevel(value.level)
+        && Array.isArray(value.blockerReasons)
+        && value.blockerReasons.every(isAnalysisBlockerReasonCode)
+        && isAnalysisDecisionPermissionMatrix(value.permissionMatrix)
+        && typeof value.recommendedNextStep === 'string'
+        && isSprayActionState(value.legacyActionState)
+        && isFiniteNumber(value.confidence);
+}
+
+function normalizeAnalysisDecision(value: unknown): AnalysisDecision | undefined {
+    return isAnalysisDecision(value) ? value : undefined;
 }
 
 function isCoachDecisionTier(value: unknown): value is HistoryCoachPlan['tier'] {
@@ -616,7 +678,9 @@ function normalizeHistoryAnalysisResult(result: AnalysisResult): AnalysisResult 
     const normalizedCoachDecisionSnapshot = normalizeCoachDecisionSnapshot(result.coachDecisionSnapshot);
     const normalizedCoachOutcomeSnapshot = normalizeCoachOutcomeSnapshot(result.coachOutcomeSnapshot);
     const normalizedPrecisionTrend = normalizePrecisionTrend(result.precisionTrend);
+    const normalizedAnalysisDecision = normalizeAnalysisDecision(result.analysisDecision);
     const resultWithoutCoachPlan = { ...result };
+    delete resultWithoutCoachPlan.analysisDecision;
     delete resultWithoutCoachPlan.coachPlan;
     delete resultWithoutCoachPlan.coachDecisionSnapshot;
     delete resultWithoutCoachPlan.coachOutcomeSnapshot;
@@ -627,6 +691,7 @@ function normalizeHistoryAnalysisResult(result: AnalysisResult): AnalysisResult 
         : undefined;
     const baseResult = {
         ...resultWithoutCoachPlan,
+        ...(normalizedAnalysisDecision ? { analysisDecision: normalizedAnalysisDecision } : {}),
         ...(normalizedSensitivity ? { sensitivity: normalizedSensitivity } : {}),
         ...(normalizedCoachPlan ? { coachPlan: normalizedCoachPlan } : {}),
         ...(normalizedCoachDecisionSnapshot ? { coachDecisionSnapshot: normalizedCoachDecisionSnapshot } : {}),

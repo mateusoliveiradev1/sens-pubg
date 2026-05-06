@@ -5,6 +5,7 @@ import {
     analysisResultWithWeakCapture,
 } from './coach-test-fixtures';
 import { extractCoachSignals } from './coach-signal-extractor';
+import { resolveAnalysisDecision } from './analysis-decision';
 
 describe('extractCoachSignals', () => {
     it('extracts capture, diagnosis, sensitivity, and context signals from an analysis result', () => {
@@ -71,6 +72,29 @@ describe('extractCoachSignals', () => {
                 confidence: 0.34,
                 weight: 1,
                 summary: expect.stringContaining('bloqueia mudancas agressivas'),
+            }),
+        ]));
+    });
+
+    it('emits an analysis decision signal for downstream coach gating', () => {
+        const analysisDecision = resolveAnalysisDecision({
+            blockerReasons: ['low_confidence'],
+            confidence: 0.55,
+            coverage: 0.7,
+        });
+        const signals = extractCoachSignals({
+            analysisResult: {
+                ...analysisResultBase,
+                analysisDecision,
+            },
+        });
+
+        expect(signals).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                source: 'context',
+                key: 'analysis_decision.partial_safe_read',
+                confidence: 0.55,
+                coverage: 0.55,
             }),
         ]));
     });

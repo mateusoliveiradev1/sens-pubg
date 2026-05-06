@@ -8,6 +8,7 @@ import {
     resolvePrecisionTrend,
     STRICT_DISTANCE_TOLERANCE_METERS,
 } from './precision-loop';
+import { resolveAnalysisDecision } from './analysis-decision';
 import {
     analysisResultBase,
     analysisResultWithWeakCapture,
@@ -261,6 +262,28 @@ describe('precision loop contract', () => {
         ]));
         expect(blockerCodes(comparePrecisionCompatibility(analysisResultBase, weakQuality))).toContain('capture_quality_weak');
         expect(blockerCodes(comparePrecisionCompatibility(qualityFloor, incomparableQuality))).toContain('capture_quality_mismatch');
+    });
+
+    it('blocks precision math when the analysis decision is below usable or mixed with legacy results', () => {
+        const decisionBlocked = buildPrecisionCompatibilityKey(createAnalysisResultFixture({
+            analysisDecision: resolveAnalysisDecision({
+                blockerReasons: ['low_confidence'],
+                confidence: 0.55,
+                coverage: 0.7,
+            }),
+        }));
+        const current = {
+            ...withSprayWindow(),
+            analysisDecision: resolveAnalysisDecision({
+                confidence: 0.91,
+                coverage: 0.9,
+                commercialEvidence: true,
+            }),
+        };
+        const legacy = withSprayWindow();
+
+        expect(decisionBlocked.blockers.map((blocker) => blocker.code)).toContain('decision_level_insufficient');
+        expect(blockerCodes(comparePrecisionCompatibility(current, legacy))).toContain('engine_version_mismatch');
     });
 
     it('blocks spray protocol, duration, and cadence mismatches', () => {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildCoachMemorySnapshot } from './coach-memory';
+import { resolveAnalysisDecision } from './analysis-decision';
 import { buildCoachPlan } from './coach-plan-builder';
 import {
     analysisResultBase,
@@ -9,7 +10,7 @@ import {
     createAnalysisResultFixture,
 } from './coach-test-fixtures';
 import { asScore } from '../types/branded';
-import type { CoachProtocolOutcome, PrecisionTrendSummary } from '../types/engine';
+import type { AnalysisResult, CoachProtocolOutcome, PrecisionTrendSummary } from '../types/engine';
 
 function coachProtocolOutcome(
     overrides: Partial<CoachProtocolOutcome> = {},
@@ -84,10 +85,11 @@ function validatedProgressTrend(): PrecisionTrendSummary {
     };
 }
 
-function buildValidatedSensitivityPlan() {
+function buildValidatedSensitivityPlan(overrides: Partial<AnalysisResult> = {}) {
     const analysisResult = {
         ...analysisResultWithStrongSensitivity,
         precisionTrend: validatedProgressTrend(),
+        ...overrides,
     };
     const memorySnapshot = buildCoachMemorySnapshot({
         currentResult: analysisResult,
@@ -204,6 +206,29 @@ describe('buildCoachPlan', () => {
 
         expect(plan.primaryFocus.area).toBe('sensitivity');
         expect(plan.tier).toBe('apply_protocol');
+    });
+
+    it('requires strong_analysis decision before applying a protocol', () => {
+        const usablePlan = buildValidatedSensitivityPlan({
+            analysisDecision: resolveAnalysisDecision({
+                confidence: 0.91,
+                coverage: 0.9,
+            }),
+        });
+        const partialPlan = buildCoachPlan({
+            analysisResult: {
+                ...analysisResultBase,
+                analysisDecision: resolveAnalysisDecision({
+                    blockerReasons: ['low_confidence'],
+                    confidence: 0.55,
+                    coverage: 0.7,
+                }),
+            },
+        });
+
+        expect(usablePlan.tier).toBe('test_protocol');
+        expect(partialPlan.tier).toBe('test_protocol');
+        expect(partialPlan.tier).not.toBe('apply_protocol');
     });
 
     it('downgrades strong evidence to test_protocol when sensitivity history is conflicting', () => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AnalysisResult, CoachFeedback, CoachPlan, Diagnosis, PrecisionTrendSummary, SensitivityRecommendation, SprayMastery, SprayMetrics } from '@/types/engine';
+import { resolveAnalysisDecision } from '@/core/analysis-decision';
 import {
     buildAdaptiveCoachLoopModel,
     buildAnalysisQuotaNoticeModel,
@@ -340,6 +341,32 @@ describe('results dashboard view model', () => {
         expect(verdict.scoreTone).toBe('info');
         expect(verdict.blockedReasons).toContain('Cobertura abaixo de 60% nao sustenta uma recomendacao agressiva.');
         expect(verdict.primaryExplanation).toContain('evidencia ainda nao sustenta protocolo forte');
+    });
+
+    it('adds decision-level blocker reasons to the verdict copy', () => {
+        const verdict = buildResultVerdictModel({
+            mastery: createMastery({
+                actionState: 'inconclusive',
+                actionLabel: 'Incerto',
+            }),
+            coachPlan: createCoachPlan(),
+            trackingOverview: baseTrackingOverview,
+            sensitivity: {
+                ...baseSensitivity,
+                evidenceTier: 'weak',
+            },
+            diagnoses: [],
+            analysisDecision: resolveAnalysisDecision({
+                blockerReasons: ['low_confidence'],
+                confidence: 0.55,
+                coverage: 0.7,
+            }),
+        });
+
+        expect(verdict.blockedReasons).toEqual(expect.arrayContaining([
+            expect.stringContaining('partial_safe_read'),
+            expect.stringContaining('low_confidence'),
+        ]));
     });
 
     it('summarizes a testable result with the next controlled block', () => {

@@ -95,6 +95,19 @@ export function buildPrecisionCompatibilityKey(result: AnalysisResult): Precisio
     const grip = normalizeString(loadout?.grip);
     const stock = normalizeString(loadout?.stock);
     const evidence = readEvidenceSnapshot(result);
+    const decision = result.analysisDecision;
+
+    if (decision && String(decision.version) !== 'spray-truth-v2') {
+        blockers.push(blocker('engine_version_mismatch', 'analysisDecision.version', 'Versao do motor de verdade bloqueia trend preciso.', {
+            currentValue: String(decision.version),
+        }));
+    }
+
+    if (decision && !decision.permissionMatrix.canEnterPrecisionTrend) {
+        blockers.push(blocker('decision_level_insufficient', 'analysisDecision.level', 'Decision ladder abaixo de usable_analysis bloqueia trend preciso.', {
+            currentValue: decision.level,
+        }));
+    }
 
     if (!patchVersion) {
         blockers.push(blocker('missing_metadata', 'patchVersion', 'Patch ausente bloqueia trend preciso.'));
@@ -231,6 +244,7 @@ export function comparePrecisionCompatibility(
         compareSprayProtocol(blockers, currentKey, candidateKey);
         compareCaptureEvidence(blockers, current, candidate);
         compareSensitivity(blockers, currentKey, candidateKey);
+        compareAnalysisDecisionContract(blockers, current, candidate);
 
         const distanceTolerance = options.distanceToleranceMeters ?? STRICT_DISTANCE_TOLERANCE_METERS;
         if (Math.abs(currentKey.distanceMeters - candidateKey.distanceMeters) > distanceTolerance) {
@@ -637,6 +651,22 @@ export function summarizePrecisionBlockers(
     }
 
     return Array.from(grouped.values());
+}
+
+function compareAnalysisDecisionContract(
+    blockers: PrecisionCompatibilityBlocker[],
+    current: AnalysisResult,
+    candidate: AnalysisResult,
+): void {
+    const currentVersion = current.analysisDecision?.version;
+    const candidateVersion = candidate.analysisDecision?.version;
+
+    if ((currentVersion || candidateVersion) && currentVersion !== candidateVersion) {
+        blockers.push(blocker('engine_version_mismatch', 'analysisDecision.version', 'Versoes diferentes do contrato de verdade nao podem misturar trend preciso.', {
+            currentValue: currentVersion ?? 'legacy',
+            candidateValue: candidateVersion ?? 'legacy',
+        }));
+    }
 }
 
 function compareStringField(

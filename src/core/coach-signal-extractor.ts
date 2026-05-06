@@ -1,4 +1,5 @@
 import type {
+    AnalysisDecision,
     AnalysisResult,
     CoachFocusArea,
     CoachSignal,
@@ -16,10 +17,27 @@ export function extractCoachSignals(input: BuildCoachSignalInput): readonly Coac
 
     return [
         ...extractVideoQualitySignals(analysisResult.videoQualityReport),
+        ...extractAnalysisDecisionSignals(analysisResult.analysisDecision),
         ...analysisResult.diagnoses.map(extractDiagnosisSignal),
         extractSensitivitySignal(analysisResult.sensitivity),
         ...extractContextSignals(analysisResult),
     ];
+}
+
+function extractAnalysisDecisionSignals(decision: AnalysisDecision | undefined): readonly CoachSignal[] {
+    if (!decision) {
+        return [];
+    }
+
+    return [{
+        source: 'context',
+        area: decision.permissionMatrix.canDisplayCoach ? 'validation' : 'capture_quality',
+        key: `analysis_decision.${decision.level}`,
+        summary: `Decision ladder ${decision.level}; ${decision.recommendedNextStep}`,
+        confidence: clampUnit(decision.confidence),
+        coverage: clampUnit(decision.confidence),
+        weight: decision.permissionMatrix.canDisplayCoach ? 0.65 : 1,
+    }];
 }
 
 function extractVideoQualitySignals(report: VideoQualityReport | undefined): readonly CoachSignal[] {

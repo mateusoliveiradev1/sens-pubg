@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { hydrateAnalysisResultFromHistory } from './analysis-result-hydration';
+import { resolveAnalysisDecision } from '@/core/analysis-decision';
 import { resolveMeasurementTruth } from '@/core/measurement-truth';
 import { resolvePrecisionTrend } from '@/core/precision-loop';
 import {
@@ -509,6 +510,29 @@ describe('hydrateAnalysisResultFromHistory', () => {
         });
 
         expect(result.coachDecisionSnapshot).toBeUndefined();
+    });
+
+    it('preserves valid analysis decisions while leaving legacy payloads as legacy results', () => {
+        const analysisDecision = resolveAnalysisDecision({
+            blockerReasons: ['low_confidence'],
+            confidence: 0.55,
+            coverage: 0.7,
+        });
+        const hydrated = hydrateAnalysisResultFromHistory({
+            fullResult: createStoredResult({ analysisDecision }),
+            recordPatchVersion: '41.1',
+            scopeId: 'red-dot',
+            distanceMeters: 30,
+        });
+        const legacy = hydrateAnalysisResultFromHistory({
+            fullResult: createStoredResult(),
+            recordPatchVersion: '41.1',
+            scopeId: 'red-dot',
+            distanceMeters: 30,
+        });
+
+        expect(hydrated.analysisDecision).toEqual(analysisDecision);
+        expect(legacy.analysisDecision).toBeUndefined();
     });
 
     it('preserves valid stored mastery from history payloads', () => {

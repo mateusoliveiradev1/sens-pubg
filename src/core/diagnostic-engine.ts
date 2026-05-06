@@ -10,6 +10,7 @@
  */
 
 import type {
+    AnalysisDecision,
     SprayMetrics,
     Diagnosis,
     OverpullDiagnosis,
@@ -28,6 +29,10 @@ import type {
 import { asMilliseconds } from '@/types/branded';
 import type { WeaponCategory } from '@/game/pubg/weapon-data';
 import { getJitterThreshold } from '@/game/pubg/weapon-data';
+
+export interface RunDiagnosticsOptions {
+    readonly analysisDecision?: AnalysisDecision;
+}
 
 // ═══════════════════════════════════════════
 // Severity Helpers
@@ -175,6 +180,45 @@ function diagnoseInconclusive(metrics: SprayMetrics): InconclusiveDiagnosis | nu
     };
 }
 
+function diagnoseDecisionLimited(
+    metrics: SprayMetrics,
+    decision: AnalysisDecision
+): InconclusiveDiagnosis {
+    const evidenceQuality = getMetricEvidence(metrics, 'sprayScore')
+        ?? getMetricEvidence(metrics, 'verticalControlIndex')
+        ?? {
+            coverage: decision.confidence,
+            confidence: decision.confidence,
+            sampleSize: 0,
+            framesTracked: 0,
+            framesLost: 0,
+            framesProcessed: 0,
+        };
+    const evidence = buildDiagnosisEvidence(metrics, 'sprayScore');
+
+    return {
+        type: 'inconclusive',
+        severity: 1,
+        evidenceQuality,
+        confidence: Math.min(evidence.confidence, decision.confidence),
+        evidence: {
+            ...evidence,
+            confidence: Math.min(evidence.confidence, decision.confidence),
+        },
+        description: `Leitura inconclusiva pelo decision ladder: ${decision.level}.`,
+        cause: decision.blockerReasons.length > 0
+            ? `Bloqueios de validade: ${decision.blockerReasons.join(', ')}.`
+            : 'A permissao da leitura atual nao sustenta diagnostico acionavel.',
+        remediation: decision.recommendedNextStep,
+    };
+}
+
+function decisionForcesInconclusive(decision: AnalysisDecision | undefined): decision is AnalysisDecision {
+    return decision?.level === 'blocked_invalid_clip'
+        || decision?.level === 'inconclusive_recapture'
+        || decision?.level === 'partial_safe_read';
+}
+
 // ═══════════════════════════════════════════
 // Individual Diagnostics
 // ═══════════════════════════════════════════
@@ -301,9 +345,14 @@ function diagnoseInconsistency(metrics: SprayMetrics): InconsistencyDiagnosis | 
 
 export function runDiagnostics(
     metrics: SprayMetrics,
-    weaponCategory: WeaponCategory
+    weaponCategory: WeaponCategory,
+    options: RunDiagnosticsOptions = {}
 ): Diagnosis[] {
     const diagnoses: Diagnosis[] = [];
+
+    if (decisionForcesInconclusive(options.analysisDecision)) {
+        return [diagnoseInconclusive(metrics) ?? diagnoseDecisionLimited(metrics, options.analysisDecision)];
+    }
 
     const inconclusive = diagnoseInconclusive(metrics);
     if (inconclusive) {

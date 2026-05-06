@@ -866,6 +866,8 @@ export type PrecisionCompatibilityBlockerCode =
     | 'duration_mismatch'
     | 'cadence_mismatch'
     | 'sensitivity_change'
+    | 'engine_version_mismatch'
+    | 'decision_level_insufficient'
     | 'evidence_mismatch';
 
 export interface PrecisionCompatibilityBlocker {
@@ -1039,6 +1041,7 @@ export interface AnalysisResult {
     readonly loadout: WeaponLoadout;
     readonly metrics: SprayMetrics;
     readonly diagnoses: readonly Diagnosis[];
+    readonly analysisDecision?: AnalysisDecision;
     readonly sensitivity: SensitivityRecommendation;
     readonly coaching: readonly CoachFeedback[];
     readonly coachPlan?: CoachPlan;

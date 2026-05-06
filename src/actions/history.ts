@@ -275,6 +275,10 @@ function withQuotaNotice(result: AnalysisResult, quota: AnalysisSaveQuotaNotice)
 }
 
 function isNonBillableWeakCapture(result: AnalysisResult): boolean {
+    if (result.analysisDecision?.permissionMatrix.countsAsUsefulAnalysis === false) {
+        return true;
+    }
+
     const mastery = result.mastery;
     const unusableQuality = result.videoQualityReport?.usableForAnalysis === false
         || mastery?.evidence.usableForAnalysis === false;

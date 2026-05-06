@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: ready_to_execute
-last_updated: "2026-05-06T20:13:51.000Z"
+last_updated: "2026-05-06T20:29:50.000Z"
 progress:
   total_phases: 13
   completed_phases: 5
   total_plans: 28
-  completed_plans: 23
-  percent: 82
+  completed_plans: 24
+  percent: 86
 ---
 
 # State: Sens PUBG
@@ -47,6 +47,7 @@ Phase 6: Core Accuracy And Pro Validation Hardening
 - Phase 6 plan 06-01 is complete with the versioned `spray-truth-v2` decision ladder, explicit spray validity blockers, invalid-clip pre-tracking blocks, focused tests, full Vitest, typecheck, and benchmark gate passing.
 - Phase 6 plan 06-02 is complete with explicit camera motion, hard-cut, flick, target-swap, and identity contamination evidence; disturbance-aware metric quality; contamination-aware captured/synthetic benchmark expectations; focused tests, typecheck, and benchmark gate passing.
 - Phase 6 plan 06-03 is complete with per-clip consent/provenance/withdrawal schema, permissioned promotion blockers, `--consent` promotion CLI/reporting, public-video restrictions, release benchmark report refresh, full Vitest, typecheck, benchmark release, and benchmark gate passing.
+- Phase 6 plan 06-04 is complete with decision-aware measurement truth, diagnostics, sensitivity, coach tiers, precision trend blockers, legacy-safe history hydration, non-billable limited audit saves, result verdict blocker copy, full Vitest, typecheck, and benchmark gate passing.
 
 ## Next Recommended Command
 
@@ -80,3 +81,4 @@ Execute the Core Accuracy And Pro Validation Hardening phase.
 - Phase 6 06-01 executed: Added shared `spray-truth-v2` decision/permission contracts, `detectSprayValidity`, validity blocker recommendations, and analysis-client blocking before worker tracking for invalid clips.
 - Phase 6 06-02 executed: Added global motion transition classification, explicit exogenous reticle contamination fields, disturbance-aware tracking/metric evidence, worker mapper preservation, and contamination benchmark expectations with synthetic and captured gates passing.
 - Phase 6 06-03 executed: Added captured clip consent/provenance/withdrawal contracts, placeholder consent fixtures, strict permissioned promotion blockers, consent-aware reports/CLI/docs, and public video restrictions with full verification gates passing.
+- Phase 6 06-04 executed: Recalibrated downstream mastery, diagnostics, sensitivity, coach, precision trends, history hydration, quota, and verdict copy around optional `analysisDecision` while preserving legacy history readability.

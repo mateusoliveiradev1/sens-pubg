@@ -5,6 +5,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { generateSensitivityRecommendation } from '@/core/sensitivity-engine';
+import { resolveAnalysisDecision } from '@/core/analysis-decision';
 import type { ShotRecoilResidual, SprayMetrics, Diagnosis } from '@/types/engine';
 import { asMilliseconds, asScore } from '@/types/branded';
 
@@ -417,6 +418,63 @@ describe('generateSensitivityRecommendation', () => {
         );
 
         expect(rec.tier).toBe('apply_ready');
+    });
+
+    it('uses analysis decision permission to block or cap sensitivity tiers', () => {
+        const metrics = makeMetrics({
+            shotResiduals: [
+                makeResidual(0, -0.45),
+                makeResidual(1, -0.43),
+                makeResidual(2, -0.44),
+                makeResidual(3, -0.46),
+                makeResidual(4, -0.42),
+            ],
+            metricQuality: {
+                shotResiduals: {
+                    coverage: 0.94,
+                    confidence: 0.93,
+                    sampleSize: 5,
+                    framesTracked: 26,
+                    framesLost: 0,
+                    framesProcessed: 26,
+                },
+            } as never,
+        });
+        const blocked = generateSensitivityRecommendation(
+            metrics,
+            [],
+            800,
+            'hybrid',
+            'claw',
+            45,
+            {},
+            1.0,
+            3,
+            45,
+            resolveAnalysisDecision({
+                blockerReasons: ['low_confidence'],
+                confidence: 0.55,
+                coverage: 0.7,
+            })
+        );
+        const usable = generateSensitivityRecommendation(
+            metrics,
+            [],
+            800,
+            'hybrid',
+            'claw',
+            45,
+            {},
+            1.0,
+            3,
+            45,
+            resolveAnalysisDecision({ confidence: 0.94, coverage: 0.93 })
+        );
+
+        expect(blocked.tier).toBe('capture_again');
+        expect(blocked.evidenceTier).toBe('weak');
+        expect(blocked.reasoning).toContain('decisionLevel=partial_safe_read');
+        expect(usable.tier).toBe('test_profiles');
     });
 
     it('exposes objective variables in the reasoning string', () => {

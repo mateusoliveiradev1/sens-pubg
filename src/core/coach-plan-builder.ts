@@ -188,6 +188,11 @@ export function buildAdaptationWindow(tier: CoachDecisionTier): number {
 }
 
 export function resolveCoachDecisionTier(input: ResolveCoachDecisionTierInput): CoachDecisionTier {
+    const decisionOverride = resolveDecisionTierOverride(input.analysisResult?.analysisDecision);
+    if (decisionOverride) {
+        return decisionOverride;
+    }
+
     if (captureCannotSupportAnalysis(input)) {
         return 'capture_again';
     }
@@ -217,6 +222,22 @@ export function resolveCoachDecisionTier(input: ResolveCoachDecisionTierInput): 
     }
 
     return 'test_protocol';
+}
+
+function resolveDecisionTierOverride(
+    decision: AnalysisResult['analysisDecision'] | undefined,
+): CoachDecisionTier | null {
+    switch (decision?.level) {
+        case 'blocked_invalid_clip':
+        case 'inconclusive_recapture':
+            return 'capture_again';
+        case 'partial_safe_read':
+            return 'test_protocol';
+        case 'usable_analysis':
+        case 'strong_analysis':
+        case undefined:
+            return null;
+    }
 }
 
 function captureCannotSupportAnalysis(input: ResolveCoachDecisionTierInput): boolean {
@@ -277,6 +298,10 @@ function shouldApplyProtocol(input: ResolveCoachDecisionTierInput): boolean {
     const sensitivity = analysisResult?.sensitivity;
 
     if (!sensitivity) {
+        return false;
+    }
+
+    if (analysisResult?.analysisDecision && analysisResult.analysisDecision.level !== 'strong_analysis') {
         return false;
     }
 

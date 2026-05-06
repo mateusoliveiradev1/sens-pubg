@@ -1,4 +1,5 @@
 import type {
+    AnalysisDecision,
     AnalysisResult,
     CoachPlan,
     Diagnosis,
@@ -25,6 +26,7 @@ export interface ResolveMeasurementTruthInput {
     readonly sensitivity: SensitivityRecommendation;
     readonly videoQualityReport?: VideoQualityReport;
     readonly diagnoses?: readonly Diagnosis[];
+    readonly analysisDecision?: AnalysisDecision;
     readonly coachPlan?: CoachPlan;
     readonly subSessions?: readonly AnalysisResult[];
 }
@@ -82,6 +84,7 @@ export function resolveMeasurementTruth(input: ResolveMeasurementTruthInput): Sp
     } else {
         actionState = 'testable';
     }
+    actionState = capActionStateByDecision(actionState, input.analysisDecision);
 
     const actionLabel = actionLabelForState(actionState);
     const mechanicalLevel = resolveMechanicalLevel(mechanicalScore, evidence);
@@ -226,6 +229,14 @@ function resolveBlockedRecommendations(
         blocked.push('O coach pediu recaptura antes de promover treino ou ajuste.');
     }
 
+    if (input.analysisDecision && !input.analysisDecision.permissionMatrix.countsAsUsefulAnalysis) {
+        blocked.push(`Decision ladder ${input.analysisDecision.level} nao conta como analise util para recomendacoes fortes.`);
+    }
+
+    for (const reason of input.analysisDecision?.blockerReasons ?? []) {
+        blocked.push(`Decision ladder blocker: ${reason}.`);
+    }
+
     if (evidence.coverage < MIN_ACTIONABLE_EVIDENCE) {
         blocked.push('Cobertura abaixo de 60% nao sustenta uma recomendacao agressiva.');
     }
@@ -242,6 +253,7 @@ function shouldCaptureAgain(
     evidence: SprayMasteryEvidence,
 ): boolean {
     return !evidence.usableForAnalysis
+        || input.analysisDecision?.legacyActionState === 'capture_again'
         || input.sensitivity.tier === 'capture_again'
         || input.coachPlan?.tier === 'capture_again'
         || evidence.coverage < 0.45
@@ -253,6 +265,10 @@ function canResolveReady(
     evidence: SprayMasteryEvidence,
     mechanicalScore: number,
 ): boolean {
+    if (input.analysisDecision && input.analysisDecision.level !== 'strong_analysis') {
+        return false;
+    }
+
     const strongEvidence = evidence.usableForAnalysis
         && evidence.coverage >= STRONG_EVIDENCE
         && evidence.confidence >= STRONG_EVIDENCE
@@ -336,6 +352,10 @@ function resolveReasons(input: {
         reasons.push(`Sinal principal: ${formatDiagnosisTruthLabel(dominantDiagnosis.type)}.`);
     }
 
+    if (input.input.analysisDecision) {
+        reasons.push(`Decision ladder: ${input.input.analysisDecision.level}.`);
+    }
+
     switch (input.actionState) {
         case 'capture_again':
             reasons.push('A proxima acao correta e capturar outro spray comparavel antes de mudar o treino.');
@@ -356,6 +376,27 @@ function resolveReasons(input: {
     }
 
     return reasons;
+}
+
+function capActionStateByDecision(
+    actionState: SprayActionState,
+    decision: AnalysisDecision | undefined,
+): SprayActionState {
+    if (!decision) {
+        return actionState;
+    }
+
+    switch (decision.level) {
+        case 'blocked_invalid_clip':
+        case 'inconclusive_recapture':
+            return 'capture_again';
+        case 'partial_safe_read':
+            return actionState === 'capture_again' ? 'capture_again' : 'inconclusive';
+        case 'usable_analysis':
+            return actionState === 'ready' ? 'testable' : actionState;
+        case 'strong_analysis':
+            return actionState;
+    }
 }
 
 function actionLabelForState(state: SprayActionState): SprayActionLabel {

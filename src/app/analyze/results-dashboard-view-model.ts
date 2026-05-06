@@ -1,4 +1,5 @@
 import type {
+    AnalysisDecision,
     AnalysisResult,
     CoachBlockPlan,
     CoachFeedback,
@@ -202,6 +203,7 @@ interface BuildResultVerdictModelInput {
     readonly trackingOverview: TrackingEvidenceOverview;
     readonly sensitivity: Pick<SensitivityRecommendation, 'tier' | 'evidenceTier' | 'confidenceScore'>;
     readonly diagnoses?: readonly Diagnosis[] | undefined;
+    readonly analysisDecision?: AnalysisDecision | undefined;
 }
 
 interface BuildEvidenceBadgesInput {
@@ -970,6 +972,7 @@ export function buildResultVerdictModel(input: BuildResultVerdictModelInput): Re
     const { mastery, coachPlan, trackingOverview, sensitivity } = input;
     const dominantDiagnosis = input.diagnoses?.[0];
     const diagnosisLabel = dominantDiagnosis ? formatDiagnosisTruthLabel(dominantDiagnosis.type) : null;
+    const analysisDecisionReasons = buildAnalysisDecisionBlockedReasons(input.analysisDecision);
 
     if (!mastery) {
         return {
@@ -982,19 +985,24 @@ export function buildResultVerdictModel(input: BuildResultVerdictModelInput): Re
             blockedReasons: [
                 'Mastery ausente no resultado armazenado.',
                 `Evidencia atual: ${formatPercent(trackingOverview.coverage)} de cobertura e ${formatPercent(trackingOverview.confidence)} de confianca.`,
+                ...analysisDecisionReasons,
             ],
             nextBlock: buildNextBlockSummary(coachPlan?.nextBlock),
             scoreTone: 'info',
         };
     }
 
-    const blockedReasons = mastery.blockedRecommendations.length > 0
+    const masteryBlockedReasons = mastery.blockedRecommendations.length > 0
         ? mastery.blockedRecommendations
         : buildSoftCautionReasons({
             mastery,
             trackingOverview,
             sensitivity,
         });
+    const blockedReasons = Array.from(new Set([
+        ...masteryBlockedReasons,
+        ...analysisDecisionReasons,
+    ]));
     const primaryExplanation = buildVerdictExplanation({
         mastery,
         diagnosisLabel,
@@ -1013,6 +1021,29 @@ export function buildResultVerdictModel(input: BuildResultVerdictModelInput): Re
         nextBlock: buildNextBlockSummary(coachPlan?.nextBlock),
         scoreTone: toneFromActionLabel(mastery.actionLabel),
     };
+}
+
+function buildAnalysisDecisionBlockedReasons(
+    decision: AnalysisDecision | undefined,
+): readonly string[] {
+    if (!decision) {
+        return [];
+    }
+
+    const reasons = decision.blockerReasons.map((reason) => `Decision ladder blocker: ${reason}.`);
+
+    if (!decision.permissionMatrix.countsAsUsefulAnalysis) {
+        return [
+            `Decision ladder ${decision.level}: ${decision.recommendedNextStep}`,
+            ...reasons,
+        ];
+    }
+
+    if (decision.level === 'usable_analysis') {
+        return ['Decision ladder usable_analysis libera teste, mas ainda nao aplicacao direta.'];
+    }
+
+    return reasons;
 }
 
 export function buildEvidenceBadges(input: BuildEvidenceBadgesInput): readonly EvidenceBadgeModel[] {

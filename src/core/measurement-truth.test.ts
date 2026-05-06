@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { formatDiagnosisTruthLabel, resolveMeasurementTruth } from './measurement-truth';
+import { resolveAnalysisDecision } from './analysis-decision';
 import {
     analysisResultBase,
     analysisResultWithStrongSensitivity,
@@ -154,6 +155,42 @@ describe('resolveMeasurementTruth', () => {
         expect(mastery.actionLabel).toBe('Pronto');
         expect(mastery.mechanicalLevel).toBe('elite');
         expect(mastery.mechanicalLevelLabel).toBe('Elite');
+    });
+
+    it('uses the Phase 6 decision ladder to cap ready states and surface blockers', () => {
+        const strongCandidate = createAnalysisResultFixture({
+            ...analysisResultWithStrongSensitivity,
+            metrics: {
+                sprayScore: 92,
+                metricQuality: {
+                    sprayScore: strongEvidence,
+                } as never,
+            },
+            videoQualityReport: {
+                overallScore: asScore(91),
+                usableForAnalysis: true,
+                blockingReasons: [],
+            },
+            subSessions: [analysisResultBase, analysisResultBase, analysisResultBase],
+        });
+        const usableOnly = resolveMeasurementTruth({
+            ...strongCandidate,
+            analysisDecision: resolveAnalysisDecision({ confidence: 0.84, coverage: 0.83 }),
+        });
+        const partial = resolveMeasurementTruth({
+            ...strongCandidate,
+            analysisDecision: resolveAnalysisDecision({
+                blockerReasons: ['low_confidence'],
+                confidence: 0.55,
+                coverage: 0.72,
+            }),
+        });
+
+        expect(usableOnly.actionState).toBe('testable');
+        expect(partial.actionState).toBe('inconclusive');
+        expect(partial.blockedRecommendations).toEqual(expect.arrayContaining([
+            expect.stringContaining('low_confidence'),
+        ]));
     });
 
     it('uses the required labels for all primary states and mechanical levels', () => {

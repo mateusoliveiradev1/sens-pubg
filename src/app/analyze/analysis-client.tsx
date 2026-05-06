@@ -17,11 +17,13 @@ import {
     generateSensitivityRecommendation,
     generateCoaching,
     resolveMeasurementTruth,
+    resolveAnalysisDecision,
 } from '@/core';
 import type { VideoMetadata } from '@/core';
 import { buildCoachPlan } from '@/core/coach-plan-builder';
 import type {
     AnalysisDistanceMode,
+    AnalysisDecision,
     AnalysisResult,
     SprayValidityReport,
     GripAttachment,
@@ -152,6 +154,80 @@ function formatSprayValidityBlockerMessage(report: SprayValidityReport): string 
     const guidance = report.recaptureGuidance.join(' ');
 
     return `Clip bloqueado antes do rastreio (${reasons}). ${guidance}`;
+}
+
+function attachSprayValidityToVideoQualityReport(
+    report: AnalysisResult['videoQualityReport'],
+    sprayValidity: SprayValidityReport,
+): AnalysisResult['videoQualityReport'] {
+    if (!report) {
+        return report;
+    }
+
+    const diagnostic = report.diagnostic ?? {
+        tier: report.usableForAnalysis ? 'analysis_ready' as const : 'poor' as const,
+        summary: 'Auditoria de validade do spray salva junto com a analise.',
+        recommendations: sprayValidity.recaptureGuidance,
+        preprocessing: {
+            normalizationApplied: false,
+            sampledFrames: sprayValidity.frameCount,
+            selectedFrames: sprayValidity.shotLikeEvents,
+        },
+    };
+
+    return {
+        ...report,
+        diagnostic: {
+            ...diagnostic,
+            preprocessing: {
+                ...diagnostic.preprocessing,
+                ...(sprayValidity.window ? { sprayWindow: sprayValidity.window } : {}),
+                sprayValidity,
+                validityBlockerReasons: sprayValidity.blockerReasons,
+                recaptureGuidance: sprayValidity.recaptureGuidance,
+            },
+        },
+    };
+}
+
+function resolveDecisionEvidence(
+    metrics: AnalysisResult['metrics'],
+    trajectory: AnalysisResult['trajectory'],
+    sprayValidity?: SprayValidityReport,
+): { readonly confidence: number; readonly coverage: number } {
+    const quality = metrics.metricQuality?.sprayScore
+        ?? metrics.metricQuality?.shotResiduals
+        ?? metrics.metricQuality?.verticalControlIndex;
+    const framesProcessed = quality?.framesProcessed ?? trajectory.framesProcessed ?? trajectory.totalFrames ?? 0;
+    const framesTracked = quality?.framesTracked ?? trajectory.visibleFrames ?? trajectory.framesTracked ?? 0;
+    const fallbackCoverage = framesProcessed > 0
+        ? framesTracked / framesProcessed
+        : (sprayValidity ? sprayValidity.shotLikeEvents / Math.max(sprayValidity.frameCount - 1, 1) : 0);
+
+    return {
+        confidence: quality?.confidence ?? trajectory.trackingQuality ?? sprayValidity?.confidence ?? 0,
+        coverage: quality?.coverage ?? fallbackCoverage,
+    };
+}
+
+function resolveAnalysisDecisionForResult(input: {
+    readonly metrics: AnalysisResult['metrics'];
+    readonly trajectory: AnalysisResult['trajectory'];
+    readonly videoQualityReport: AnalysisResult['videoQualityReport'];
+    readonly sprayValidity?: SprayValidityReport;
+    readonly blockerReasons?: readonly AnalysisDecision['blockerReasons'][number][];
+    readonly commercialEvidence?: boolean;
+}): AnalysisDecision {
+    const evidence = resolveDecisionEvidence(input.metrics, input.trajectory, input.sprayValidity);
+
+    return resolveAnalysisDecision({
+        ...(input.sprayValidity ? { sprayValidity: input.sprayValidity } : {}),
+        ...(input.blockerReasons ? { blockerReasons: input.blockerReasons } : {}),
+        ...(input.videoQualityReport ? { videoQualityUsable: input.videoQualityReport.usableForAnalysis } : {}),
+        confidence: evidence.confidence,
+        coverage: evidence.coverage,
+        commercialEvidence: input.commercialEvidence === true,
+    });
 }
 
 function QualityTimelineEvidence({ timeline }: { readonly timeline: VideoQualityFrameTimeline }): React.JSX.Element {
@@ -462,7 +538,14 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                 const trajectory = buildTrajectory(mapWorkerTrackingResultToEngine(workerResult), weaponData);
                 const sprayMetrics = calculateSprayMetrics(trajectory, weaponData, loadout, projectionConfig, effectiveDistanceMeters);
                 const weaponCategory = (dbWeapon.category || 'ar').toLowerCase() as WeaponCategory;
-                const diagnoses = runDiagnostics(sprayMetrics, weaponCategory);
+                const videoQualityReport = attachSprayValidityToVideoQualityReport(video.qualityReport, sprayValidity);
+                const analysisDecision = resolveAnalysisDecisionForResult({
+                    metrics: sprayMetrics,
+                    trajectory,
+                    videoQualityReport,
+                    sprayValidity,
+                });
+                const diagnoses = runDiagnostics(sprayMetrics, weaponCategory, { analysisDecision });
                 const pMouseDpi = profile.mouseDpi ?? 800;
                 const pPlayStyle = (profile.playStyle as PlayStyle) || 'hybrid';
                 const pGripStyle = (profile.gripStyle as GripStyle) || 'claw';
@@ -476,12 +559,13 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                     timestamp: new Date(),
                     patchVersion: CURRENT_PUBG_PATCH_VERSION,
                     analysisContext,
-                    videoQualityReport: video.qualityReport,
+                    ...(videoQualityReport ? { videoQualityReport } : {}),
                     trajectory,
                     loadout,
                     metrics: sprayMetrics,
                     diagnoses,
-                    sensitivity: generateSensitivityRecommendation(sprayMetrics, diagnoses, pMouseDpi, pPlayStyle, pGripStyle, pMousepadWidth, pScopeSens as Record<string, number>, pVerticalMultiplier, 1, pDeskSpace),
+                    analysisDecision,
+                    sensitivity: generateSensitivityRecommendation(sprayMetrics, diagnoses, pMouseDpi, pPlayStyle, pGripStyle, pMousepadWidth, pScopeSens as Record<string, number>, pVerticalMultiplier, 1, pDeskSpace, analysisDecision),
                     coaching: generateCoaching(diagnoses, loadout, coachingContext),
                 };
                 const subSessionCoachPlan = buildCoachPlan({ analysisResult: subSessionWithoutMastery });
@@ -516,7 +600,20 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
             };
 
             const finalWeaponCategory = (dbWeapon.category || 'ar').toLowerCase() as WeaponCategory;
-            const finalDiagnoses = runDiagnostics(finalMetrics, finalWeaponCategory);
+            const finalVideoQualityReport = subSessions[0]?.videoQualityReport ?? video.qualityReport;
+            const finalBlockerReasons = Array.from(new Set(
+                subSessions.flatMap((session) => session.analysisDecision?.blockerReasons ?? [])
+            ));
+            const finalAnalysisDecision = resolveAnalysisDecisionForResult({
+                metrics: finalMetrics,
+                trajectory: subSessions[0]!.trajectory,
+                videoQualityReport: finalVideoQualityReport,
+                blockerReasons: finalBlockerReasons,
+                commercialEvidence: subSessions.length >= 3,
+            });
+            const finalDiagnoses = runDiagnostics(finalMetrics, finalWeaponCategory, {
+                analysisDecision: finalAnalysisDecision,
+            });
             const fMouseDpi = profile.mouseDpi ?? 800;
             const fPlayStyle = (profile.playStyle as PlayStyle) || 'hybrid';
             const fGripStyle = (profile.gripStyle as GripStyle) || 'claw';
@@ -530,12 +627,13 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                 timestamp: new Date(),
                 patchVersion: CURRENT_PUBG_PATCH_VERSION,
                 analysisContext,
-                videoQualityReport: video.qualityReport,
+                ...(finalVideoQualityReport ? { videoQualityReport: finalVideoQualityReport } : {}),
                 trajectory: subSessions[0]!.trajectory,
                 loadout: { stance, muzzle, grip, stock },
                 metrics: finalMetrics,
                 diagnoses: finalDiagnoses,
-                sensitivity: generateSensitivityRecommendation(finalMetrics, finalDiagnoses, fMouseDpi, fPlayStyle, fGripStyle, fMousepadWidth, fScopeSens as Record<string, number>, fVerticalMultiplier, subSessions.length, fDeskSpace),
+                analysisDecision: finalAnalysisDecision,
+                sensitivity: generateSensitivityRecommendation(finalMetrics, finalDiagnoses, fMouseDpi, fPlayStyle, fGripStyle, fMousepadWidth, fScopeSens as Record<string, number>, fVerticalMultiplier, subSessions.length, fDeskSpace, finalAnalysisDecision),
                 coaching: generateCoaching(finalDiagnoses, { stance, muzzle, grip, stock }, coachingContext),
                 subSessions,
             };

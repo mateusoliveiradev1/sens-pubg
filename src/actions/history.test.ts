@@ -8,6 +8,7 @@ import {
     sensitivityHistory,
 } from '@/db/schema';
 import { createAnalysisContext } from '@/app/analyze/analysis-context';
+import { resolveAnalysisDecision } from '@/core/analysis-decision';
 import { CURRENT_PUBG_PATCH_VERSION } from '@/game/pubg/patch';
 import type { AnalysisResult, CoachPlan, PrecisionTrendSummary } from '@/types/engine';
 
@@ -1206,6 +1207,42 @@ describe('saveAnalysisResult', () => {
             analysisSessionId: 'session-1',
         }));
         expect(mocks.finalizeAnalysisQuota).not.toHaveBeenCalled();
+    });
+
+    it('voids quota and preserves audit payload when decision does not count as useful analysis', async () => {
+        const analysisDecision = resolveAnalysisDecision({
+            blockerReasons: ['low_confidence'],
+            confidence: 0.55,
+            coverage: 0.7,
+        });
+        const result = createPrecisionReadyAnalysisResult({
+            id: 'decision-partial-capture',
+            timestamp: '2026-04-18T12:00:00.000Z',
+            sprayScore: 76,
+        });
+
+        const saved = await saveAnalysisResult({
+            ...result,
+            analysisDecision,
+        }, 'beryl-m762', 'red-dot', 30);
+
+        expect(mocks.reserveAnalysisQuota).toHaveBeenCalledWith(expect.objectContaining({
+            billable: false,
+            nonBillableReason: 'non_billable_weak_capture',
+        }));
+        expect(mocks.sessionValues).toHaveBeenCalledWith(expect.objectContaining({
+            fullResult: expect.objectContaining({
+                analysisDecision: expect.objectContaining({
+                    level: 'partial_safe_read',
+                    recommendedNextStep: analysisDecision.recommendedNextStep,
+                }),
+            }),
+        }));
+        expect(saved.quota?.status).toBe('non_billable');
+        expect(mocks.voidAnalysisQuota).toHaveBeenCalledWith(expect.objectContaining({
+            reasonCode: 'non_billable_weak_capture',
+            analysisSessionId: 'session-1',
+        }));
     });
 
     it('voids quota as technical failure when persistence fails after reservation', async () => {
