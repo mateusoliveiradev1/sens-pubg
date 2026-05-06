@@ -54,6 +54,20 @@ import type {
     CommunitySquadStatus,
     CommunitySquadVisibility,
 } from '@/types/community';
+import type {
+    BillingStatus,
+    MonetizationEventType,
+    MonetizationFlagKey,
+    ProductAccessState,
+    ProductEntitlementKey,
+    ProductEntitlementStatus,
+    ProductEntitlementGatingMode,
+    ProductFeatureTier,
+    ProductPriceKey,
+    ProductQuotaState,
+    ProductTier,
+    QuotaReasonCode,
+} from '@/types/monetization';
 
 export type WeaponProfileAttachmentSlot = 'muzzle' | 'grip' | 'stock';
 
@@ -1434,6 +1448,346 @@ export const userEntitlementsRelations = relations(userEntitlements, ({ one }) =
     }),
 }));
 
+export const productFeatureEntitlements = pgTable('product_feature_entitlements', {
+    key: text('key').$type<ProductEntitlementKey>().primaryKey(),
+    status: text('status')
+        .$type<ProductEntitlementStatus>()
+        .notNull()
+        .default('active'),
+    tier: text('tier').$type<ProductFeatureTier>().notNull(),
+    surface: text('surface').notNull(),
+    labelKey: text('label_key').notNull(),
+    internalDescription: text('internal_description').notNull(),
+    introducedPhase: text('introduced_phase').notNull().default('05'),
+    ownerDomain: text('owner_domain').notNull(),
+    gatingMode: text('gating_mode').$type<ProductEntitlementGatingMode>().notNull(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+});
+
+export const productCheckoutAttempts = pgTable(
+    'product_checkout_attempts',
+    {
+        id: uuid('id').defaultRandom().primaryKey(),
+        userId: uuid('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        internalPriceKey: text('internal_price_key').$type<ProductPriceKey>().notNull(),
+        status: text('status').notNull().default('created'),
+        stripeCheckoutSessionId: text('stripe_checkout_session_id'),
+        stripeCustomerId: text('stripe_customer_id'),
+        idempotencyKey: text('idempotency_key').notNull(),
+        environment: text('environment').notNull().default('test'),
+        metadata: jsonb('metadata').notNull().default('{}').$type<Record<string, unknown>>(),
+        expiresAt: timestamp('expires_at', { mode: 'date' }),
+        completedAt: timestamp('completed_at', { mode: 'date' }),
+        createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+        updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+    },
+    (table) => [
+        uniqueIndex('product_checkout_attempts_session_uidx').on(table.stripeCheckoutSessionId),
+        uniqueIndex('product_checkout_attempts_idempotency_uidx').on(table.idempotencyKey),
+        index('product_checkout_attempts_user_status_idx').on(table.userId, table.status),
+    ],
+);
+
+export const productSubscriptions = pgTable(
+    'product_subscriptions',
+    {
+        id: uuid('id').defaultRandom().primaryKey(),
+        userId: uuid('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        stripeCustomerId: text('stripe_customer_id').notNull(),
+        stripeSubscriptionId: text('stripe_subscription_id').notNull(),
+        internalPriceKey: text('internal_price_key').$type<ProductPriceKey>().notNull(),
+        tier: text('tier').$type<ProductTier>().notNull().default('pro'),
+        billingStatus: text('billing_status').$type<BillingStatus>().notNull(),
+        accessState: text('access_state').$type<ProductAccessState>().notNull(),
+        currentPeriodStart: timestamp('current_period_start', { mode: 'date' }),
+        currentPeriodEnd: timestamp('current_period_end', { mode: 'date' }),
+        cancelAtPeriodEnd: boolean('cancel_at_period_end').notNull().default(false),
+        canceledAt: timestamp('canceled_at', { mode: 'date' }),
+        graceEndsAt: timestamp('grace_ends_at', { mode: 'date' }),
+        suspendedAt: timestamp('suspended_at', { mode: 'date' }),
+        suspensionReason: text('suspension_reason'),
+        metadata: jsonb('metadata').notNull().default('{}').$type<Record<string, unknown>>(),
+        createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+        updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+    },
+    (table) => [
+        uniqueIndex('product_subscriptions_subscription_uidx').on(table.stripeSubscriptionId),
+        index('product_subscriptions_user_status_idx').on(table.userId, table.billingStatus),
+        index('product_subscriptions_customer_idx').on(table.stripeCustomerId),
+    ],
+);
+
+export const processedStripeEvents = pgTable(
+    'processed_stripe_events',
+    {
+        id: uuid('id').defaultRandom().primaryKey(),
+        stripeEventId: text('stripe_event_id').notNull(),
+        eventType: text('event_type').notNull(),
+        livemode: boolean('livemode').notNull().default(false),
+        processingStatus: text('processing_status').notNull().default('received'),
+        checkoutAttemptId: uuid('checkout_attempt_id').references(() => productCheckoutAttempts.id, {
+            onDelete: 'set null',
+        }),
+        subscriptionId: uuid('subscription_id').references(() => productSubscriptions.id, {
+            onDelete: 'set null',
+        }),
+        payloadHash: text('payload_hash'),
+        errorMessage: text('error_message'),
+        metadata: jsonb('metadata').notNull().default('{}').$type<Record<string, unknown>>(),
+        receivedAt: timestamp('received_at', { mode: 'date' }).defaultNow().notNull(),
+        processedAt: timestamp('processed_at', { mode: 'date' }),
+    },
+    (table) => [
+        uniqueIndex('processed_stripe_events_event_uidx').on(table.stripeEventId),
+        index('processed_stripe_events_status_idx').on(table.processingStatus, table.receivedAt),
+    ],
+);
+
+export const productUserGrants = pgTable(
+    'product_user_grants',
+    {
+        id: uuid('id').defaultRandom().primaryKey(),
+        userId: uuid('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        entitlementKey: text('entitlement_key')
+            .$type<ProductEntitlementKey>()
+            .notNull()
+            .references(() => productFeatureEntitlements.key),
+        tier: text('tier').$type<ProductTier>().notNull().default('pro'),
+        source: text('source').notNull(),
+        status: text('status').notNull().default('active'),
+        reasonCode: text('reason_code').notNull(),
+        quotaBoost: integer('quota_boost').default(0).notNull(),
+        actorUserId: uuid('actor_user_id').references(() => users.id, { onDelete: 'set null' }),
+        auditMetadata: jsonb('audit_metadata').notNull().default('{}').$type<Record<string, unknown>>(),
+        startsAt: timestamp('starts_at', { mode: 'date' }).defaultNow().notNull(),
+        endsAt: timestamp('ends_at', { mode: 'date' }),
+        revokedAt: timestamp('revoked_at', { mode: 'date' }),
+        createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+        updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+    },
+    (table) => [
+        index('product_user_grants_user_status_idx').on(table.userId, table.status),
+        index('product_user_grants_entitlement_idx').on(table.entitlementKey),
+        index('product_user_grants_actor_idx').on(table.actorUserId),
+    ],
+);
+
+export const productQuotaLedger = pgTable(
+    'product_quota_ledger',
+    {
+        id: uuid('id').defaultRandom().primaryKey(),
+        userId: uuid('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        analysisSessionId: uuid('analysis_session_id').references(() => analysisSessions.id, {
+            onDelete: 'set null',
+        }),
+        analysisSaveAttemptId: text('analysis_save_attempt_id').notNull(),
+        idempotencyKey: text('idempotency_key').notNull(),
+        state: text('state').$type<ProductQuotaState>().notNull(),
+        reasonCode: text('reason_code').$type<QuotaReasonCode>().notNull(),
+        amount: integer('amount').default(1).notNull(),
+        quotaLimit: integer('quota_limit').notNull(),
+        periodStart: timestamp('period_start', { mode: 'date' }).notNull(),
+        periodEnd: timestamp('period_end', { mode: 'date' }).notNull(),
+        finalizedAt: timestamp('finalized_at', { mode: 'date' }),
+        voidedAt: timestamp('voided_at', { mode: 'date' }),
+        metadata: jsonb('metadata').notNull().default('{}').$type<Record<string, unknown>>(),
+        createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    },
+    (table) => [
+        uniqueIndex('product_quota_ledger_idempotency_uidx').on(table.idempotencyKey),
+        index('product_quota_ledger_user_period_idx').on(table.userId, table.periodStart, table.periodEnd),
+        index('product_quota_ledger_attempt_idx').on(table.analysisSaveAttemptId),
+        index('product_quota_ledger_session_idx').on(table.analysisSessionId),
+    ],
+);
+
+export const monetizationAnalyticsEvents = pgTable(
+    'monetization_analytics_events',
+    {
+        id: uuid('id').defaultRandom().primaryKey(),
+        userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+        eventType: text('event_type').$type<MonetizationEventType>().notNull(),
+        surface: text('surface'),
+        featureKey: text('feature_key').$type<ProductEntitlementKey>(),
+        accessState: text('access_state').$type<ProductAccessState>(),
+        quotaState: text('quota_state').$type<ProductQuotaState>(),
+        priceKey: text('price_key').$type<ProductPriceKey>(),
+        billingStatus: text('billing_status').$type<BillingStatus>(),
+        reasonCode: text('reason_code').$type<QuotaReasonCode>(),
+        cohortTag: text('cohort_tag'),
+        creatorCode: text('creator_code'),
+        eventSource: text('event_source').notNull().default('server'),
+        metadata: jsonb('metadata').notNull().default('{}').$type<Record<string, unknown>>(),
+        createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    },
+    (table) => [
+        index('monetization_analytics_events_type_created_idx').on(table.eventType, table.createdAt),
+        index('monetization_analytics_events_user_created_idx').on(table.userId, table.createdAt),
+    ],
+);
+
+export const monetizationFlags = pgTable('monetization_flags', {
+    key: text('key').$type<MonetizationFlagKey>().primaryKey(),
+    enabled: boolean('enabled').notNull().default(false),
+    environment: text('environment').notNull().default('test'),
+    reason: text('reason'),
+    updatedByUserId: uuid('updated_by_user_id').references(() => users.id, {
+        onDelete: 'set null',
+    }),
+    metadata: jsonb('metadata').notNull().default('{}').$type<Record<string, unknown>>(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+});
+
+export const productSupportNotes = pgTable(
+    'product_support_notes',
+    {
+        id: uuid('id').defaultRandom().primaryKey(),
+        userId: uuid('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        actorUserId: uuid('actor_user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'no action' }),
+        category: text('category').notNull(),
+        note: text('note').notNull(),
+        visibility: text('visibility').notNull().default('internal'),
+        metadata: jsonb('metadata').notNull().default('{}').$type<Record<string, unknown>>(),
+        createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    },
+    (table) => [
+        index('product_support_notes_user_created_idx').on(table.userId, table.createdAt),
+        index('product_support_notes_actor_idx').on(table.actorUserId),
+    ],
+);
+
+export const productBillingEvents = pgTable(
+    'product_billing_events',
+    {
+        id: uuid('id').defaultRandom().primaryKey(),
+        userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+        actorUserId: uuid('actor_user_id').references(() => users.id, { onDelete: 'set null' }),
+        eventType: text('event_type').notNull(),
+        targetType: text('target_type').notNull(),
+        targetId: text('target_id'),
+        severity: text('severity').notNull().default('info'),
+        metadata: jsonb('metadata').notNull().default('{}').$type<Record<string, unknown>>(),
+        createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    },
+    (table) => [
+        index('product_billing_events_user_created_idx').on(table.userId, table.createdAt),
+        index('product_billing_events_type_created_idx').on(table.eventType, table.createdAt),
+    ],
+);
+
+export const productFeatureEntitlementsRelations = relations(productFeatureEntitlements, ({ many }) => ({
+    grants: many(productUserGrants),
+}));
+
+export const productCheckoutAttemptsRelations = relations(productCheckoutAttempts, ({ one, many }) => ({
+    user: one(users, {
+        fields: [productCheckoutAttempts.userId],
+        references: [users.id],
+    }),
+    stripeEvents: many(processedStripeEvents),
+}));
+
+export const productSubscriptionsRelations = relations(productSubscriptions, ({ one, many }) => ({
+    user: one(users, {
+        fields: [productSubscriptions.userId],
+        references: [users.id],
+    }),
+    stripeEvents: many(processedStripeEvents),
+}));
+
+export const processedStripeEventsRelations = relations(processedStripeEvents, ({ one }) => ({
+    checkoutAttempt: one(productCheckoutAttempts, {
+        fields: [processedStripeEvents.checkoutAttemptId],
+        references: [productCheckoutAttempts.id],
+    }),
+    subscription: one(productSubscriptions, {
+        fields: [processedStripeEvents.subscriptionId],
+        references: [productSubscriptions.id],
+    }),
+}));
+
+export const productUserGrantsRelations = relations(productUserGrants, ({ one }) => ({
+    user: one(users, {
+        relationName: 'product_user_grants_user',
+        fields: [productUserGrants.userId],
+        references: [users.id],
+    }),
+    actor: one(users, {
+        relationName: 'product_user_grants_actor',
+        fields: [productUserGrants.actorUserId],
+        references: [users.id],
+    }),
+    entitlement: one(productFeatureEntitlements, {
+        fields: [productUserGrants.entitlementKey],
+        references: [productFeatureEntitlements.key],
+    }),
+}));
+
+export const productQuotaLedgerRelations = relations(productQuotaLedger, ({ one }) => ({
+    user: one(users, {
+        fields: [productQuotaLedger.userId],
+        references: [users.id],
+    }),
+    analysisSession: one(analysisSessions, {
+        fields: [productQuotaLedger.analysisSessionId],
+        references: [analysisSessions.id],
+    }),
+}));
+
+export const monetizationAnalyticsEventsRelations = relations(monetizationAnalyticsEvents, ({ one }) => ({
+    user: one(users, {
+        fields: [monetizationAnalyticsEvents.userId],
+        references: [users.id],
+    }),
+}));
+
+export const monetizationFlagsRelations = relations(monetizationFlags, ({ one }) => ({
+    updatedByUser: one(users, {
+        fields: [monetizationFlags.updatedByUserId],
+        references: [users.id],
+    }),
+}));
+
+export const productSupportNotesRelations = relations(productSupportNotes, ({ one }) => ({
+    user: one(users, {
+        relationName: 'product_support_notes_user',
+        fields: [productSupportNotes.userId],
+        references: [users.id],
+    }),
+    actor: one(users, {
+        relationName: 'product_support_notes_actor',
+        fields: [productSupportNotes.actorUserId],
+        references: [users.id],
+    }),
+}));
+
+export const productBillingEventsRelations = relations(productBillingEvents, ({ one }) => ({
+    user: one(users, {
+        relationName: 'product_billing_events_user',
+        fields: [productBillingEvents.userId],
+        references: [users.id],
+    }),
+    actor: one(users, {
+        relationName: 'product_billing_events_actor',
+        fields: [productBillingEvents.actorUserId],
+        references: [users.id],
+    }),
+}));
+
 export const precisionEvolutionLinesRelations = relations(precisionEvolutionLines, ({ one, many }) => ({
     user: one(users, {
         fields: [precisionEvolutionLines.userId],
@@ -1567,6 +1921,26 @@ export type FeatureEntitlementRow = typeof featureEntitlements.$inferSelect;
 export type NewFeatureEntitlement = typeof featureEntitlements.$inferInsert;
 export type UserEntitlementRow = typeof userEntitlements.$inferSelect;
 export type NewUserEntitlement = typeof userEntitlements.$inferInsert;
+export type ProductFeatureEntitlementRow = typeof productFeatureEntitlements.$inferSelect;
+export type NewProductFeatureEntitlement = typeof productFeatureEntitlements.$inferInsert;
+export type ProductCheckoutAttemptRow = typeof productCheckoutAttempts.$inferSelect;
+export type NewProductCheckoutAttempt = typeof productCheckoutAttempts.$inferInsert;
+export type ProductSubscriptionRow = typeof productSubscriptions.$inferSelect;
+export type NewProductSubscription = typeof productSubscriptions.$inferInsert;
+export type ProcessedStripeEventRow = typeof processedStripeEvents.$inferSelect;
+export type NewProcessedStripeEvent = typeof processedStripeEvents.$inferInsert;
+export type ProductUserGrantRow = typeof productUserGrants.$inferSelect;
+export type NewProductUserGrant = typeof productUserGrants.$inferInsert;
+export type ProductQuotaLedgerRow = typeof productQuotaLedger.$inferSelect;
+export type NewProductQuotaLedger = typeof productQuotaLedger.$inferInsert;
+export type MonetizationAnalyticsEventRow = typeof monetizationAnalyticsEvents.$inferSelect;
+export type NewMonetizationAnalyticsEvent = typeof monetizationAnalyticsEvents.$inferInsert;
+export type MonetizationFlagRow = typeof monetizationFlags.$inferSelect;
+export type NewMonetizationFlag = typeof monetizationFlags.$inferInsert;
+export type ProductSupportNoteRow = typeof productSupportNotes.$inferSelect;
+export type NewProductSupportNote = typeof productSupportNotes.$inferInsert;
+export type ProductBillingEventRow = typeof productBillingEvents.$inferSelect;
+export type NewProductBillingEvent = typeof productBillingEvents.$inferInsert;
 export type CommunitySeasonRow = typeof communitySeasons.$inferSelect;
 export type NewCommunitySeason = typeof communitySeasons.$inferInsert;
 export type CommunityUserProgressionAggregateRow =

@@ -765,3 +765,208 @@ describe('userEntitlements schema', () => {
         expect(entitlementForeignKey.onDelete).toBe('no action');
     });
 });
+
+describe('product monetization schema', () => {
+    it('defines a separate product entitlement catalog instead of reusing community keys blindly', () => {
+        const table = getExportedTable('productFeatureEntitlements');
+
+        const key = getColumn(table, 'key');
+        const status = getColumn(table, 'status');
+        const tier = getColumn(table, 'tier');
+        const surface = getColumn(table, 'surface');
+        const labelKey = getColumn(table, 'label_key');
+        const internalDescription = getColumn(table, 'internal_description');
+        const gatingMode = getColumn(table, 'gating_mode');
+
+        expect(key.primary).toBe(true);
+        expect(status.notNull).toBe(true);
+        expect(status.default).toBe('active');
+        expect(tier.notNull).toBe(true);
+        expect(surface.notNull).toBe(true);
+        expect(labelKey.notNull).toBe(true);
+        expect(internalDescription.notNull).toBe(true);
+        expect(gatingMode.notNull).toBe(true);
+    });
+
+    it('defines checkout attempts with session and idempotency uniqueness', () => {
+        const table = getExportedTable('productCheckoutAttempts');
+
+        const userId = getColumn(table, 'user_id');
+        const internalPriceKey = getColumn(table, 'internal_price_key');
+        const stripeCheckoutSessionId = getColumn(table, 'stripe_checkout_session_id');
+        const idempotencyKey = getColumn(table, 'idempotency_key');
+        const metadata = getColumn(table, 'metadata');
+
+        expect(userId.notNull).toBe(true);
+        expect(internalPriceKey.notNull).toBe(true);
+        expect(stripeCheckoutSessionId.notNull).toBe(false);
+        expect(idempotencyKey.notNull).toBe(true);
+        expect(metadata.default).toBe('{}');
+
+        const userForeignKey = getForeignKey(
+            table,
+            'product_checkout_attempts_user_id_users_id_fk',
+        );
+        const sessionIndex = getIndex(table, 'product_checkout_attempts_session_uidx');
+        const idempotencyIndex = getIndex(table, 'product_checkout_attempts_idempotency_uidx');
+
+        expect(userForeignKey.onDelete).toBe('cascade');
+        expect(sessionIndex.config.unique).toBe(true);
+        expect(idempotencyIndex.config.unique).toBe(true);
+    });
+
+    it('defines subscription truth with Stripe subscription uniqueness and lifecycle fields', () => {
+        const table = getExportedTable('productSubscriptions');
+
+        const userId = getColumn(table, 'user_id');
+        const stripeCustomerId = getColumn(table, 'stripe_customer_id');
+        const stripeSubscriptionId = getColumn(table, 'stripe_subscription_id');
+        const billingStatus = getColumn(table, 'billing_status');
+        const accessState = getColumn(table, 'access_state');
+        const currentPeriodEnd = getColumn(table, 'current_period_end');
+        const graceEndsAt = getColumn(table, 'grace_ends_at');
+        const suspendedAt = getColumn(table, 'suspended_at');
+
+        expect(userId.notNull).toBe(true);
+        expect(stripeCustomerId.notNull).toBe(true);
+        expect(stripeSubscriptionId.notNull).toBe(true);
+        expect(billingStatus.notNull).toBe(true);
+        expect(accessState.notNull).toBe(true);
+        expect(currentPeriodEnd.notNull).toBe(false);
+        expect(graceEndsAt.notNull).toBe(false);
+        expect(suspendedAt.notNull).toBe(false);
+
+        const subscriptionIndex = getIndex(table, 'product_subscriptions_subscription_uidx');
+        const statusIndex = getIndex(table, 'product_subscriptions_user_status_idx');
+
+        expect(subscriptionIndex.config.unique).toBe(true);
+        expect(statusIndex.config.columns.map((column) => column.name)).toEqual([
+            'user_id',
+            'billing_status',
+        ]);
+    });
+
+    it('defines processed Stripe events with unique event IDs and processing status', () => {
+        const table = getExportedTable('processedStripeEvents');
+
+        const stripeEventId = getColumn(table, 'stripe_event_id');
+        const processingStatus = getColumn(table, 'processing_status');
+        const checkoutAttemptId = getColumn(table, 'checkout_attempt_id');
+        const subscriptionId = getColumn(table, 'subscription_id');
+        const payloadHash = getColumn(table, 'payload_hash');
+
+        expect(stripeEventId.notNull).toBe(true);
+        expect(processingStatus.notNull).toBe(true);
+        expect(processingStatus.default).toBe('received');
+        expect(checkoutAttemptId.notNull).toBe(false);
+        expect(subscriptionId.notNull).toBe(false);
+        expect(payloadHash.notNull).toBe(false);
+
+        const eventIndex = getIndex(table, 'processed_stripe_events_event_uidx');
+        expect(eventIndex.config.unique).toBe(true);
+    });
+
+    it('defines product grants with actor, timing, quota boost, and audit metadata', () => {
+        const table = getExportedTable('productUserGrants');
+
+        const userId = getColumn(table, 'user_id');
+        const entitlementKey = getColumn(table, 'entitlement_key');
+        const quotaBoost = getColumn(table, 'quota_boost');
+        const actorUserId = getColumn(table, 'actor_user_id');
+        const auditMetadata = getColumn(table, 'audit_metadata');
+        const startsAt = getColumn(table, 'starts_at');
+        const endsAt = getColumn(table, 'ends_at');
+
+        expect(userId.notNull).toBe(true);
+        expect(entitlementKey.notNull).toBe(true);
+        expect(quotaBoost.default).toBe(0);
+        expect(actorUserId.notNull).toBe(false);
+        expect(auditMetadata.default).toBe('{}');
+        expect(startsAt.notNull).toBe(true);
+        expect(endsAt.notNull).toBe(false);
+
+        const entitlementForeignKey = getForeignKey(
+            table,
+            'product_user_grants_entitlement_key_product_feature_entitlements_key_fk',
+        );
+        const statusIndex = getIndex(table, 'product_user_grants_user_status_idx');
+
+        expect(entitlementForeignKey.onDelete).toBe('no action');
+        expect(statusIndex.config.columns.map((column) => column.name)).toEqual([
+            'user_id',
+            'status',
+        ]);
+    });
+
+    it('defines an auditable quota ledger with attempt and idempotency keys', () => {
+        const table = getExportedTable('productQuotaLedger');
+
+        const userId = getColumn(table, 'user_id');
+        const analysisSessionId = getColumn(table, 'analysis_session_id');
+        const analysisSaveAttemptId = getColumn(table, 'analysis_save_attempt_id');
+        const idempotencyKey = getColumn(table, 'idempotency_key');
+        const state = getColumn(table, 'state');
+        const reasonCode = getColumn(table, 'reason_code');
+        const periodStart = getColumn(table, 'period_start');
+        const periodEnd = getColumn(table, 'period_end');
+
+        expect(userId.notNull).toBe(true);
+        expect(analysisSessionId.notNull).toBe(false);
+        expect(analysisSaveAttemptId.notNull).toBe(true);
+        expect(idempotencyKey.notNull).toBe(true);
+        expect(state.notNull).toBe(true);
+        expect(reasonCode.notNull).toBe(true);
+        expect(periodStart.notNull).toBe(true);
+        expect(periodEnd.notNull).toBe(true);
+
+        const idempotencyIndex = getIndex(table, 'product_quota_ledger_idempotency_uidx');
+        const attemptIndex = getIndex(table, 'product_quota_ledger_attempt_idx');
+
+        expect(idempotencyIndex.config.unique).toBe(true);
+        expect(attemptIndex.config.columns.map((column) => column.name)).toEqual([
+            'analysis_save_attempt_id',
+        ]);
+    });
+
+    it('defines privacy-minimal analytics events without storing private clip or payment payloads', () => {
+        const table = getExportedTable('monetizationAnalyticsEvents');
+
+        const eventType = getColumn(table, 'event_type');
+        const userId = getColumn(table, 'user_id');
+        const surface = getColumn(table, 'surface');
+        const featureKey = getColumn(table, 'feature_key');
+        const accessState = getColumn(table, 'access_state');
+        const quotaState = getColumn(table, 'quota_state');
+        const priceKey = getColumn(table, 'price_key');
+        const billingStatus = getColumn(table, 'billing_status');
+        const metadata = getColumn(table, 'metadata');
+
+        expect(eventType.notNull).toBe(true);
+        expect(userId.notNull).toBe(false);
+        expect(surface.notNull).toBe(false);
+        expect(featureKey.notNull).toBe(false);
+        expect(accessState.notNull).toBe(false);
+        expect(quotaState.notNull).toBe(false);
+        expect(priceKey.notNull).toBe(false);
+        expect(billingStatus.notNull).toBe(false);
+        expect(metadata.default).toBe('{}');
+    });
+
+    it('defines monetization flags and support/billing audit surfaces', () => {
+        const flags = getExportedTable('monetizationFlags');
+        const supportNotes = getExportedTable('productSupportNotes');
+        const billingEvents = getExportedTable('productBillingEvents');
+
+        expect(getColumn(flags, 'key').primary).toBe(true);
+        expect(getColumn(flags, 'enabled').default).toBe(false);
+        expect(getColumn(flags, 'updated_by_user_id').notNull).toBe(false);
+
+        expect(getColumn(supportNotes, 'user_id').notNull).toBe(true);
+        expect(getColumn(supportNotes, 'actor_user_id').notNull).toBe(true);
+        expect(getColumn(supportNotes, 'note').notNull).toBe(true);
+
+        expect(getColumn(billingEvents, 'event_type').notNull).toBe(true);
+        expect(getColumn(billingEvents, 'target_type').notNull).toBe(true);
+        expect(getColumn(billingEvents, 'metadata').default).toBe('{}');
+    });
+});

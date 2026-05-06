@@ -7,7 +7,17 @@ export type AuditAction =
     | 'TOGGLE_MAINTENANCE'
     | 'DELETE_ANALYSIS'
     | 'EXPORT_DATA'
-    | 'BOT_HEARTBEAT';
+    | 'BOT_HEARTBEAT'
+    | 'CHECKOUT_CREATED'
+    | 'WEBHOOK_PROCESSED'
+    | 'WEBHOOK_REJECTED'
+    | 'ENTITLEMENT_GRANTED'
+    | 'ENTITLEMENT_REVOKED'
+    | 'ENTITLEMENT_SUSPENDED'
+    | 'GRANT_CHANGED'
+    | 'MONETIZATION_FLAG_CHANGED'
+    | 'REFUND_DISPUTE_HANDLED'
+    | 'QUOTA_ADJUSTMENT';
 
 /**
  * Records an administrative action in the audit_logs table.
