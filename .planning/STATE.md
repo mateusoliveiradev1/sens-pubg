@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: ready_to_execute
-last_updated: "2026-05-06T19:39:38.084Z"
+last_updated: "2026-05-06T19:58:17.000Z"
 progress:
   total_phases: 13
   completed_phases: 5
@@ -45,6 +45,7 @@ Phase 6: Core Accuracy And Pro Validation Hardening
 - Roadmap has been expanded to 13 launch-perfect phases to preserve core validation, premium UI/UX, complete training, PUBG Spray Lab, guided Pro programs, social Pro/community value, revenue operations, and team/coach expansion.
 - Phase 6 planning is complete with 6 executable plans across 5 waves, backed by `06-RESEARCH.md`, `06-VALIDATION.md`, `06-PATTERNS.md`, and full decision coverage from `06-CONTEXT.md`.
 - Phase 6 plan 06-01 is complete with the versioned `spray-truth-v2` decision ladder, explicit spray validity blockers, invalid-clip pre-tracking blocks, focused tests, full Vitest, typecheck, and benchmark gate passing.
+- Phase 6 plan 06-02 is complete with explicit camera motion, hard-cut, flick, target-swap, and identity contamination evidence; disturbance-aware metric quality; contamination-aware captured/synthetic benchmark expectations; focused tests, typecheck, and benchmark gate passing.
 
 ## Next Recommended Command
 
@@ -76,3 +77,4 @@ Execute the Core Accuracy And Pro Validation Hardening phase.
 - Phase 5 05-08 executed: Added `npm run test:monetization`, final verification checklist, manual Stripe checklist, and No False Done evidence. Automated gates passed; paid founder beta remains manually blocked.
 - Phase 6 planned: 6 executable Core Accuracy And Pro Validation Hardening plans across 5 waves, covering the `spray-truth-v2` decision ladder, spray validity, tracking contamination, permissioned corpus provenance, downstream coach/sensitivity/trend recalibration, calibration reports, commercial benchmark gates, copy safety, and No False Done evidence.
 - Phase 6 06-01 executed: Added shared `spray-truth-v2` decision/permission contracts, `detectSprayValidity`, validity blocker recommendations, and analysis-client blocking before worker tracking for invalid clips.
+- Phase 6 06-02 executed: Added global motion transition classification, explicit exogenous reticle contamination fields, disturbance-aware tracking/metric evidence, worker mapper preservation, and contamination benchmark expectations with synthetic and captured gates passing.
