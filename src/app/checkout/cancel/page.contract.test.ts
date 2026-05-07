@@ -9,6 +9,8 @@ describe('checkout cancel page contract', () => {
 
         expect(normalized).toContain('nada foi alterado no seu historico');
         expect(normalized).toContain('nao sao apagados');
+        expect(normalized).toContain('free continua disponivel');
+        expect(normalized).toContain('sem pressao');
         expect(normalized).not.toMatch(/perder tudo|punicao|vergonha|culpa/);
     });
 });

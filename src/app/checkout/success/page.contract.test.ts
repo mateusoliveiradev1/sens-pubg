@@ -8,6 +8,8 @@ describe('checkout success page contract', () => {
 
         expect(source).toMatch(/resolveServerProductAccess/);
         expect(source).toContain('A URL de sucesso nao concede Pro');
+        expect(source).toContain('Pagamento recebido, aguardando webhook');
+        expect(source).toContain('Pro confirmado pelo webhook');
         expect(source).toMatch(/session_id/);
         expect(source).not.toMatch(/localStorage|setItem|grantPro|pro_active.*session_id/);
     });

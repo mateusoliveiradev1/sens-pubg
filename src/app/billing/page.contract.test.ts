@@ -8,6 +8,7 @@ describe('billing page contract', () => {
 
         expect(source).toMatch(/openBillingPortal/);
         expect(source).toMatch(/redirect\(result\.portalUrl\)/);
+        expect(source).toContain('Abrir Portal Stripe');
         expect(source).not.toMatch(/stripe\.billingPortal|localStorage|customerId.*input/);
     });
 
@@ -17,6 +18,13 @@ describe('billing page contract', () => {
             .replace(/[\u0300-\u036f]/g, '')
             .toLowerCase();
 
+        expect(normalized).toContain('assinatura');
+        expect(normalized).toContain('seu acesso sens pubg');
+        expect(normalized).toContain('success url');
+        expect(normalized).toContain('checkout em verificacao');
+        expect(normalized).toContain('pagamento em graca');
+        expect(normalized).toContain('cancelamento agendado');
+        expect(normalized).toContain('acesso suspenso');
         expect(normalized).toContain('quota');
         expect(normalized).toContain('historico salvo fica preservado');
         expect(normalized).toContain('brasil');
