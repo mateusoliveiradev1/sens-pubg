@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: ready_to_execute
-last_updated: "2026-05-07T20:33:09.255Z"
+last_updated: "2026-05-07T21:08:23.443Z"
 progress:
   total_phases: 13
   completed_phases: 7
   total_plans: 41
-  completed_plans: 39
-  percent: 95
+  completed_plans: 40
+  percent: 98
 ---
 
 # State: Sens PUBG
@@ -67,12 +67,13 @@ Phase 8: Complete Training Protocols
 - Phase 8 planning is complete with 6 executable plans across 5 waves, backed by `08-RESEARCH.md` and full decision coverage from `08-CONTEXT.md`.
 - Phase 8 plan 08-01 is complete with `CompleteTrainingProtocol` v1 contracts, stable PUBG drill masters, context limitation adapters, deterministic complete protocol composition, safe preparation, validation/transfer plans, CoachPlan attachment, full Vitest, typecheck, and benchmark gate passing.
 - Phase 8 plans 08-02 through 08-04 are complete with protocol revision/transfer persistence, conservative outcome statuses, compatible validation checklists, Free/Pro protocol projection, post-analysis protocol ficha, dashboard/history protocol continuity, transfer audit surfaces, focused tests, full Vitest, typecheck, and benchmark gate passing.
+- Phase 8 plan 08-05 is complete with complete protocol LLM immutable facts, adapter rewrite preservation checks, coach golden protocol matrix, benchmark completeProtocol truth checks, expanded copy-safety gates, focused tests, full Vitest, typecheck, and benchmark gate passing.
 
 ## Next Recommended Command
 
-`$gsd-execute-phase 08 --wave 4`
+`$gsd-execute-phase 08 --wave 5`
 
-Execute Phase 8 Wave 4: LLM guardrails, coach goldens, benchmark, and copy safety.
+Execute Phase 8 Wave 5: No False Done Training Protocol Evidence Matrix.
 
 ## Open Questions
 
@@ -118,3 +119,4 @@ Execute Phase 8 Wave 4: LLM guardrails, coach goldens, benchmark, and copy safet
 - Phase 8 08-02 executed: Added protocol revision and transfer tables/migration, saved complete protocol snapshot proof, authenticated revision and transfer actions, compatible validation checklist helper, new fatigue/confusion/variable-change outcome semantics, history/dashboard label coverage, focused tests, full Vitest, typecheck, and benchmark gate passing.
 - Phase 8 08-03 executed: Added server-owned Free/Pro complete protocol projection, compact protocol view model, post-analysis protocol ficha, Pro lock copy, protocol panel CSS in `analysis.module.css`, copy-safety contracts, focused tests, full Vitest, typecheck, and benchmark gate passing.
 - Phase 8 08-04 executed: Added active dashboard protocol state, history/detail protocol audit modeling, saved protocol/outcome/validation/transfer labels, safe fatigue/confusion/variable-change outcome paths, real-match/TDM transfer action, focused tests, full Vitest, typecheck, and benchmark gate passing.
+- Phase 8 08-05 executed: Added complete protocol LLM immutable facts, display-only adapter rewrite checks, complete protocol coach goldens for normal/weak/conflict/fatigue cases, synthetic benchmark completeProtocol truth locks, medical/strength copy-safety gates, focused tests, full Vitest, typecheck, and benchmark gate passing.
