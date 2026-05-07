@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import type { AnalysisResult, CoachPlan } from '@/types/engine';
 
@@ -143,7 +144,7 @@ describe('dashboard active coach loop model', () => {
 
         expect(loop).toMatchObject({
             status: 'pending',
-            ctaLabel: 'Fechar protocolo pendente',
+            ctaLabel: 'Continuar protocolo',
             ctaHref: '/history/session-1',
             primaryFocusTitle: 'Controle vertical',
             memorySummary: 'Memoria compativel ainda curta.',
@@ -169,5 +170,14 @@ describe('dashboard active coach loop model', () => {
             ctaHref: '/analyze',
         });
         expect(loop?.body).not.toContain('Aplicar');
+    });
+
+    it('keeps Free dashboard payload on compact projection instead of exposing full Pro protocol audit', () => {
+        const source = readFileSync(new URL('./dashboard.ts', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/activeCoachLoop: access\.features\['coach\.validation_loop'\]\.granted \? activeCoachLoop : null/);
+        expect(source).toMatch(/premiumProjection: createPremiumProjectionSummary\(access, latestTruthResult \?\? undefined\)/);
+        expect(source).not.toMatch(/activeCoachLoop: activeCoachLoop/);
+        expect(source).not.toMatch(/timer|sessionRunner|benchmarkRunner/);
     });
 });

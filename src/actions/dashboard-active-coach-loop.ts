@@ -1,6 +1,7 @@
 import type {
     AnalysisResult,
     CoachProtocolOutcomeStatus,
+    CompleteTrainingProtocol,
 } from '@/types/engine';
 
 export type DashboardActiveCoachLoopStatus =
@@ -10,15 +11,31 @@ export type DashboardActiveCoachLoopStatus =
     | 'validation_needed'
     | 'conflict';
 
+export const DASHBOARD_PROTOCOL_EVIDENCE_HIERARCHY_LABEL = 'Resultado registra execucao; clip compativel valida tecnica; partida/TDM valida transferencia pratica.';
+
+export interface DashboardActiveCompleteProtocol {
+    readonly protocolTitle: string;
+    readonly protocolTier: CompleteTrainingProtocol['tier'];
+    readonly durationLabel: string;
+    readonly environmentLabel: string;
+    readonly primaryFocusTitle: string;
+    readonly nextCompatibleClipChecklist: readonly string[];
+    readonly repairActionLabel: string | null;
+    readonly transferPromptLabel: string;
+    readonly safetyStopLabel: string | null;
+    readonly evidenceHierarchyLabel: typeof DASHBOARD_PROTOCOL_EVIDENCE_HIERARCHY_LABEL;
+}
+
 export interface DashboardActiveCoachLoop {
     readonly sessionId: string;
     readonly status: DashboardActiveCoachLoopStatus;
     readonly statusLabel: string;
     readonly body: string;
-    readonly ctaLabel: 'Fechar protocolo pendente' | 'Gravar validacao compativel';
+    readonly ctaLabel: 'Continuar protocolo' | 'Gravar validacao compativel';
     readonly ctaHref: string;
     readonly primaryFocusTitle: string;
     readonly nextBlockTitle: string;
+    readonly completeProtocol: DashboardActiveCompleteProtocol | null;
     readonly memorySummary: string | null;
     readonly updatedAt: string;
 }
@@ -50,6 +67,73 @@ function toIsoDate(value: Date | string): string {
     return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
 
+function formatProtocolEnvironment(environment: CompleteTrainingProtocol['environment']): string {
+    switch (environment) {
+        case 'training_mode':
+            return 'Training Mode';
+        case 'training_mode_custom':
+            return 'Training Mode custom';
+        case 'ugc_range':
+            return 'UGC experimental';
+        case 'aim_sound_lab':
+            return 'Aim/Sound Lab';
+        case 'tdm_warmup':
+            return 'TDM warmup';
+        case 'real_match_transfer':
+            return 'Partida/TDM';
+        case 'future_spray_lab':
+            return 'Spray Lab futuro';
+    }
+}
+
+function buildCompatibleChecklist(protocol: CompleteTrainingProtocol): readonly string[] {
+    const checklist = [...protocol.validation.compatibleClipChecklist];
+    const successCriterion = protocol.validation.successCriteria[0];
+
+    if (successCriterion && !checklist.includes(successCriterion)) {
+        checklist.push(successCriterion);
+    }
+
+    return checklist;
+}
+
+function buildSafetyStopLabel(protocol: CompleteTrainingProtocol): string | null {
+    const stopRule = protocol.preparation.find((item) => (
+        item.safetyKind === 'stop_rule'
+        || /dor|fadiga|dormencia|formigamento/i.test(`${item.label} ${item.reason}`)
+    ));
+
+    if (!stopRule) {
+        return null;
+    }
+
+    return `${stopRule.label}: dor, formigamento ou dormencia interrompe o bloco.`;
+}
+
+function buildDashboardCompleteProtocol(
+    protocol: CompleteTrainingProtocol | undefined,
+    primaryFocusTitle: string,
+): DashboardActiveCompleteProtocol | null {
+    if (!protocol) {
+        return null;
+    }
+
+    return {
+        protocolTitle: protocol.title,
+        protocolTier: protocol.tier,
+        durationLabel: `${protocol.dose.durationMinutes} min`,
+        environmentLabel: formatProtocolEnvironment(protocol.environment),
+        primaryFocusTitle,
+        nextCompatibleClipChecklist: buildCompatibleChecklist(protocol),
+        repairActionLabel: protocol.downgrade.reasons.length > 0
+            ? protocol.downgrade.repairCtas[0] ?? protocol.downgrade.userCopy
+            : null,
+        transferPromptLabel: protocol.transfer.conservativeConfidenceCopy,
+        safetyStopLabel: buildSafetyStopLabel(protocol),
+        evidenceHierarchyLabel: DASHBOARD_PROTOCOL_EVIDENCE_HIERARCHY_LABEL,
+    };
+}
+
 export function buildDashboardActiveCoachLoop(input: {
     readonly sessionId: string | null;
     readonly result: AnalysisResult | null;
@@ -71,6 +155,10 @@ export function buildDashboardActiveCoachLoop(input: {
     const memorySummary = input.result?.coachDecisionSnapshot?.memorySummary
         ?? input.result?.coachDecisionSnapshot?.outcomeMemory.summary
         ?? null;
+    const completeProtocol = buildDashboardCompleteProtocol(
+        coachPlan.completeProtocol,
+        coachPlan.primaryFocus.title,
+    );
 
     if (!latestOutcome) {
         return {
@@ -78,10 +166,11 @@ export function buildDashboardActiveCoachLoop(input: {
             status: 'pending',
             statusLabel: 'Protocolo pendente',
             body: 'Execute o bloco curto e registre o resultado antes do coach usar esse sinal como memoria.',
-            ctaLabel: 'Fechar protocolo pendente',
+            ctaLabel: 'Continuar protocolo',
             ctaHref: `/history/${input.sessionId}`,
             primaryFocusTitle: coachPlan.primaryFocus.title,
             nextBlockTitle: coachPlan.nextBlock.title,
+            completeProtocol,
             memorySummary,
             updatedAt: toIsoDate(input.result.timestamp),
         };
@@ -97,6 +186,7 @@ export function buildDashboardActiveCoachLoop(input: {
             ctaHref: '/analyze',
             primaryFocusTitle: coachPlan.primaryFocus.title,
             nextBlockTitle: coachPlan.nextBlock.title,
+            completeProtocol,
             memorySummary,
             updatedAt: latestOutcome.createdAt.toISOString(),
         };
@@ -110,10 +200,11 @@ export function buildDashboardActiveCoachLoop(input: {
             body: latestOutcome.status === 'completed'
                 ? 'Voce completou o bloco, mas ainda falta dizer o efeito. Feche o resultado antes do coach ficar mais agressivo.'
                 : 'Bloco iniciado. Feche o resultado quando terminar para manter a memoria do coach honesta.',
-            ctaLabel: 'Fechar protocolo pendente',
+            ctaLabel: 'Continuar protocolo',
             ctaHref: `/history/${input.sessionId}`,
             primaryFocusTitle: coachPlan.primaryFocus.title,
             nextBlockTitle: coachPlan.nextBlock.title,
+            completeProtocol,
             memorySummary,
             updatedAt: latestOutcome.createdAt.toISOString(),
         };
@@ -132,6 +223,7 @@ export function buildDashboardActiveCoachLoop(input: {
         ctaHref: '/analyze',
         primaryFocusTitle: coachPlan.primaryFocus.title,
         nextBlockTitle: coachPlan.nextBlock.title,
+        completeProtocol,
         memorySummary,
         updatedAt: latestOutcome.createdAt.toISOString(),
     };

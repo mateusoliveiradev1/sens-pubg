@@ -611,6 +611,28 @@ export default async function DashboardPage() {
                                         <p className="text-xs leading-relaxed text-zinc-400">
                                             {activeCoachLoop.nextBlockTitle}. {activeCoachLoop.memorySummary ?? 'Memoria do coach em formacao.'}
                                         </p>
+                                        {activeCoachLoop.completeProtocol ? (
+                                            <div className="mt-4 grid gap-3 border-t border-white/10 pt-4">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className="badge badge-info">{activeCoachLoop.completeProtocol.protocolTitle}</span>
+                                                    <span className="badge badge-info">{activeCoachLoop.completeProtocol.durationLabel}</span>
+                                                    <span className="badge badge-info">{activeCoachLoop.completeProtocol.environmentLabel}</span>
+                                                </div>
+                                                <p className="text-xs leading-relaxed text-zinc-400">
+                                                    {activeCoachLoop.completeProtocol.evidenceHierarchyLabel}
+                                                </p>
+                                                <ul className="grid gap-1 text-xs leading-relaxed text-zinc-500">
+                                                    {activeCoachLoop.completeProtocol.nextCompatibleClipChecklist.slice(0, 4).map((item) => (
+                                                        <li key={item}>{item}</li>
+                                                    ))}
+                                                </ul>
+                                                {activeCoachLoop.completeProtocol.repairActionLabel || activeCoachLoop.completeProtocol.safetyStopLabel ? (
+                                                    <p className="text-xs leading-relaxed text-amber-200">
+                                                        {activeCoachLoop.completeProtocol.repairActionLabel ?? activeCoachLoop.completeProtocol.safetyStopLabel}
+                                                    </p>
+                                                ) : null}
+                                            </div>
+                                        ) : null}
                                     </div>
                                 ) : null}
                                 {truthView.nextBlock ? (
