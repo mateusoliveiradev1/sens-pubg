@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: ready_to_plan
-last_updated: "2026-05-07T00:56:27.067Z"
+last_updated: "2026-05-07T02:33:25.377Z"
 progress:
   total_phases: 13
   completed_phases: 6
@@ -52,12 +52,13 @@ Phase 7: Premium Visual UI UX
 - Phase 6 plan 06-06 is complete with commercial accuracy readiness docs, copy-safety gates for public overclaims, No False Done evidence matrix, refreshed 2026-05-07 benchmark release report, and final Partially delivered status.
 - Phase 6 automated gates pass: `npm run typecheck`, `npx vitest run`, `npm run benchmark:gate`, copy claims/workflow tests, captured label validation, tracking goldens, diagnostic goldens, and coach goldens.
 - Phase 6 final status is Partially delivered: implementation and automated verification are complete, but `benchmark:release` remains PARTIAL because there are 0 reviewed permissioned commercial benchmark clips; strong public accuracy claims remain blocked until commercial corpus consent, calibration PASS, and specialist/human review evidence exist.
+- Phase 7 discussion/context is complete at `.planning/phases/07-premium-visual-ui-ux/07-CONTEXT.md`, with a full premium visual/UI/UX refactor scope, 29 authored weapon SVG requirement, mobile navigation paid-route fix, deep visual research requirement, and No False Perfect verification gate captured.
 
 ## Next Recommended Command
 
-`$gsd-discuss-phase 07`
+`$gsd-ui-phase 07`
 
-Discuss and plan the Premium Visual UI UX phase while preserving Phase 6 commercial claim boundaries.
+Create the Phase 7 UI design contract before implementation planning, preserving Phase 6 commercial claim boundaries and the Phase 7 No False Perfect evidence requirements.
 
 ## Open Questions
 
@@ -88,3 +89,4 @@ Discuss and plan the Premium Visual UI UX phase while preserving Phase 6 commerc
 - Phase 6 06-04 executed: Recalibrated downstream mastery, diagnostics, sensitivity, coach, precision trends, history hydration, quota, and verdict copy around optional `analysisDecision` while preserving legacy history readability.
 - Phase 6 06-05 executed: Added calibration reports for overconfidence, underconfidence, inconclusive correctness, blocker accuracy, sensitivity safety, coach handoff safety, and corpus coverage; `benchmark:release` now emits `PARTIAL` when commercial benchmark consent evidence is missing.
 - Phase 6 06-06 executed: Added `docs/commercial-accuracy-readiness.md`, Phase 6 `06-VERIFY-CHECKLIST.md`, commercial overclaim copy tests, readiness/checklist workflow tests, refreshed `docs/benchmark-reports/2026-05-07.md`, and final No False Done status of Partially delivered.
+- Phase 7 discussed: Captured the premium visual/UI/UX refactor context and discussion log for a launch-grade solo-player product loop across home, navigation, analyze/upload/result, dashboard, history, pricing, billing, Free/Pro states, locks, brand/logo, typography/copy, spray visualization, and 29 authored weapon SVGs.
