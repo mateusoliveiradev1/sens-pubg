@@ -16,11 +16,25 @@ export const CoachPlanProtocolTextOutputSchema = z.object({
     instruction: z.string().min(1).max(420),
 }).strict();
 
+export const CoachPlanCompleteProtocolPreparationTextOutputSchema = z.object({
+    id: z.string().min(1).max(140),
+    label: z.string().min(1).max(320),
+}).strict();
+
+export const CoachPlanCompleteProtocolTextOutputSchema = z.object({
+    id: z.string().min(1).max(220),
+    title: z.string().min(1).max(180).optional(),
+    summary: z.string().min(1).max(420).optional(),
+    executionSteps: z.array(z.string().min(1).max(320)).max(12).optional(),
+    preparation: z.array(CoachPlanCompleteProtocolPreparationTextOutputSchema).max(8).optional(),
+}).strict();
+
 export const CoachPlanTextOutputSchema = z.object({
     sessionSummary: z.string().min(1).max(420),
     primaryFocusWhyNow: z.string().min(1).max(360),
     actionProtocols: z.array(CoachPlanProtocolTextOutputSchema).max(8),
     nextBlockTitle: z.string().min(1).max(180),
+    completeProtocol: CoachPlanCompleteProtocolTextOutputSchema.optional(),
 }).strict();
 
 export const CoachBatchSchema = z.object({
@@ -76,6 +90,70 @@ export interface CoachImmutableFactsInput {
         readonly confidence: number;
     };
     readonly precisionTrendLabel: string | null;
+    readonly completeProtocol?: {
+        readonly version: string;
+        readonly id: string;
+        readonly drillId: string;
+        readonly tier: CoachPlan['tier'];
+        readonly primaryFocus: {
+            readonly area: string;
+            readonly title: string;
+        };
+        readonly secondaryFocusOrder: readonly {
+            readonly id: string;
+            readonly area: string;
+        }[];
+        readonly environment: string;
+        readonly context: {
+            readonly weaponId: string | null;
+            readonly weaponName: string | null;
+            readonly opticId: string | null;
+            readonly opticName: string | null;
+            readonly distanceMeters: number | null;
+            readonly distanceMode: string;
+            readonly stance: string | null;
+            readonly attachments: {
+                readonly muzzle: string | null;
+                readonly grip: string | null;
+                readonly stock: string | null;
+                readonly missing: readonly string[];
+            };
+            readonly sensitivityProfile: string | null;
+            readonly patchVersion: string | null;
+            readonly supportStatus: string;
+            readonly personalizationLimited: boolean;
+            readonly limitationReasons: readonly string[];
+        };
+        readonly dose: {
+            readonly durationMinutes: number;
+            readonly sprayReps: number;
+            readonly spraysPerRep: number;
+            readonly restBetweenSpraysSeconds: number;
+            readonly restBetweenRepsSeconds: number;
+            readonly stopAfterMinutes: number;
+        };
+        readonly target: string;
+        readonly validation: {
+            readonly compatibleClipChecklistCount: number;
+            readonly minimumCoverage: number;
+            readonly minimumConfidence: number;
+            readonly successCriteria: readonly string[];
+            readonly failCriteria: readonly string[];
+            readonly variableControlChecklist: readonly string[];
+            readonly nextClipCopy: string;
+        };
+        readonly stopConditions: readonly string[];
+        readonly continueCriteria: readonly string[];
+        readonly downgrade: {
+            readonly tierBefore: CoachPlan['tier'];
+            readonly tierAfter: CoachPlan['tier'];
+            readonly reasons: readonly string[];
+            readonly blockedFields: readonly string[];
+            readonly repairCtas: readonly string[];
+        };
+        readonly preparationIds: readonly string[];
+        readonly transferCountsAsTechnicalValidation: false;
+    };
 }
 
 export function buildCoachInstructions(): string {
@@ -86,8 +164,8 @@ export function buildCoachInstructions(): string {
         'Termos de jogo muito comuns podem ficar como spray, ADS, VSM, DPI, FPS e PUBG; o restante deve ficar em portugues.',
         'Use apenas os fatos presentes no payload; nunca invente metricas, anexos, armas, distancias ou causas novas.',
         'Mantenha o mesmo diagnostico e a mesma ordem dos itens.',
-        'No coachPlan, voce so pode reescrever sessionSummary, primaryFocusWhyNow, actionProtocols[].instruction e nextBlockTitle.',
-        'O bloco immutableFacts e apenas contexto de seguranca: nunca copie novos campos dele para a saida, nunca altere outcome, memoria, conflitos, status, reason codes, tier, scores, dependencies, blockedBy, thresholds, ids, checks, duracao, ordem de prioridade ou stopConditions.',
+        'No coachPlan, voce so pode reescrever sessionSummary, primaryFocusWhyNow, actionProtocols[].instruction, nextBlockTitle e, quando existir completeProtocol, apenas title, summary, executionSteps e preparation[].label mantendo ids e quantidades.',
+        'O bloco immutableFacts e apenas contexto de seguranca: nunca copie novos campos dele para a saida, nunca altere outcome, memoria, conflitos, status, reason codes, tier, scores, dependencies, blockedBy, thresholds, ids, checks, duracao, drillId, dose, validacao, transferencia, blockers, ordem de prioridade ou stopConditions.',
         'Nao prometa sensibilidade perfeita, melhoria garantida, subida de rank ou veredito definitivo.',
         'Se o item estiver com baixa confianca ou inconclusivo, explicite cautela sem soar robotico.',
         'Cada campo deve ser curto, direto e util para o jogador.',
@@ -144,6 +222,10 @@ export function buildCoachImmutableFacts(input: {
         : memory?.activeLayer === 'global_fallback'
             ? memory.globalFallback
             : undefined;
+
+    const completeProtocol = input.coachPlan.completeProtocol
+        ? buildCompleteProtocolImmutableFacts(input.coachPlan)
+        : undefined;
 
     return {
         tier: input.coachPlan.tier,
@@ -205,6 +287,78 @@ export function buildCoachImmutableFacts(input: {
             ?? input.result?.precisionTrend?.label
             ?? latestOutcome?.coachSnapshot?.precisionTrendLabel
             ?? null,
+        ...(completeProtocol ? { completeProtocol } : {}),
+    };
+}
+
+function buildCompleteProtocolImmutableFacts(
+    coachPlan: CoachPlan,
+): NonNullable<CoachImmutableFactsInput['completeProtocol']> {
+    const protocol = coachPlan.completeProtocol!;
+
+    return {
+        version: protocol.version,
+        id: protocol.id,
+        drillId: protocol.drillId,
+        tier: protocol.tier,
+        primaryFocus: {
+            area: coachPlan.primaryFocus.area,
+            title: coachPlan.primaryFocus.title,
+        },
+        secondaryFocusOrder: coachPlan.secondaryFocuses.map((focus) => ({
+            id: focus.id,
+            area: focus.area,
+        })),
+        environment: protocol.environment,
+        context: {
+            weaponId: protocol.context.weaponId ?? null,
+            weaponName: protocol.context.weaponName ?? null,
+            opticId: protocol.context.opticId ?? null,
+            opticName: protocol.context.opticName ?? null,
+            distanceMeters: protocol.context.distanceMeters ?? null,
+            distanceMode: protocol.context.distanceMode,
+            stance: protocol.context.stance ?? null,
+            attachments: {
+                muzzle: protocol.context.attachments.muzzle ?? null,
+                grip: protocol.context.attachments.grip ?? null,
+                stock: protocol.context.attachments.stock ?? null,
+                missing: protocol.context.attachments.missing,
+            },
+            sensitivityProfile: protocol.context.sensitivityProfile ?? null,
+            patchVersion: protocol.context.patchVersion ?? null,
+            supportStatus: protocol.context.supportStatus,
+            personalizationLimited: protocol.context.personalizationLimited,
+            limitationReasons: protocol.context.limitationReasons,
+        },
+        dose: {
+            durationMinutes: protocol.dose.durationMinutes,
+            sprayReps: protocol.dose.sprayReps,
+            spraysPerRep: protocol.dose.spraysPerRep,
+            restBetweenSpraysSeconds: protocol.dose.restBetweenSpraysSeconds,
+            restBetweenRepsSeconds: protocol.dose.restBetweenRepsSeconds,
+            stopAfterMinutes: protocol.dose.stopAfterMinutes,
+        },
+        target: protocol.target,
+        validation: {
+            compatibleClipChecklistCount: protocol.validation.compatibleClipChecklist.length,
+            minimumCoverage: protocol.validation.minimumCoverage,
+            minimumConfidence: protocol.validation.minimumConfidence,
+            successCriteria: protocol.validation.successCriteria,
+            failCriteria: protocol.validation.failCriteria,
+            variableControlChecklist: protocol.validation.variableControlChecklist,
+            nextClipCopy: protocol.validation.nextClipCopy,
+        },
+        stopConditions: protocol.stopConditions,
+        continueCriteria: protocol.continueCriteria,
+        downgrade: {
+            tierBefore: protocol.downgrade.tierBefore,
+            tierAfter: protocol.downgrade.tierAfter,
+            reasons: protocol.downgrade.reasons,
+            blockedFields: protocol.downgrade.blockedFields,
+            repairCtas: protocol.downgrade.repairCtas,
+        },
+        preparationIds: protocol.preparation.map((item) => item.id),
+        transferCountsAsTechnicalValidation: protocol.transfer.countsAsTechnicalValidation,
     };
 }
 
@@ -249,5 +403,17 @@ function buildCoachPlanInput(coachPlan: CoachPlan) {
         },
         stopConditions: coachPlan.stopConditions,
         adaptationWindowDays: coachPlan.adaptationWindowDays,
+        ...(coachPlan.completeProtocol ? {
+            completeProtocol: {
+                id: coachPlan.completeProtocol.id,
+                title: coachPlan.completeProtocol.title,
+                summary: coachPlan.completeProtocol.summary,
+                executionSteps: coachPlan.completeProtocol.executionSteps,
+                preparation: coachPlan.completeProtocol.preparation.map((item) => ({
+                    id: item.id,
+                    label: item.label,
+                })),
+            },
+        } : {}),
     };
 }

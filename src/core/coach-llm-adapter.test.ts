@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { AnalysisResult, CoachFeedback, CoachPlan } from '@/types/engine';
+import type { AnalysisResult, CoachFeedback, CoachPlan, CompleteTrainingProtocol } from '@/types/engine';
 import {
     adaptCoachResultWithOptionalLlm,
     adaptCoachWithOptionalLlm,
@@ -94,6 +94,108 @@ const deterministicCoachPlan: CoachPlan = {
     stopConditions: ['Stop if capture quality drops.'],
     adaptationWindowDays: 2,
     llmRewriteAllowed: false,
+};
+
+const deterministicCompleteProtocol: CompleteTrainingProtocol = {
+    version: 'complete-protocol-v1',
+    id: 'complete-protocol-v1:session-1:vertical_recoil_lane:test_protocol',
+    drillId: 'vertical_recoil_lane',
+    tier: 'test_protocol',
+    title: 'Teste curto de controle vertical',
+    summary: 'Ficha pratica de controle vertical com validacao controlada.',
+    environment: 'training_mode',
+    context: {
+        weaponId: 'beryl-m762',
+        weaponName: 'Beryl M762',
+        opticId: 'scope-3x',
+        opticName: '3x',
+        distanceMeters: 50,
+        distanceMode: 'exact',
+        stance: 'standing',
+        attachments: {
+            muzzle: 'compensator',
+            grip: 'vertical',
+            stock: 'tactical',
+            missing: [],
+        },
+        sensitivityProfile: 'balanced',
+        patchVersion: '41.1',
+        supportStatus: 'full',
+        personalizationLimited: false,
+        limitationReasons: [],
+    },
+    objective: 'Treinar puxada vertical constante durante burst, sustain e fadiga.',
+    dose: {
+        durationMinutes: 12,
+        sprayReps: 4,
+        spraysPerRep: 1,
+        restBetweenSpraysSeconds: 60,
+        restBetweenRepsSeconds: 70,
+        stopAfterMinutes: 12,
+    },
+    target: 'Linha vertical mais curta e repetivel no alvo.',
+    executionSteps: [
+        'Escolha um alvo fixo e preserve a mesma mira.',
+        'Puxe para baixo de forma progressiva sem trocar sensibilidade.',
+    ],
+    preparation: [
+        {
+            id: 'pull-space',
+            label: 'Deixe espaco livre no mousepad para puxar para baixo.',
+            reason: 'Controle vertical depende de espaco consistente para a puxada.',
+            required: true,
+            safetyKind: 'setup_control',
+        },
+        {
+            id: 'pain-stop-rule',
+            label: 'Pare se houver dor, dormencia, formigamento ou desconforto forte.',
+            reason: 'Isso rebaixa o bloco para seguranca/aprendizado.',
+            required: true,
+            safetyKind: 'stop_rule',
+        },
+    ],
+    validation: {
+        compatibleClipChecklist: ['Arma: Beryl M762.'],
+        minimumConfidence: 0.86,
+        minimumCoverage: 0.9,
+        successCriteria: ['Erro vertical sustentado cai no proximo clip compativel.'],
+        failCriteria: ['Cansaco ou desconforto aparece antes da validacao.'],
+        variableControlChecklist: ['Nao mudar sensibilidade durante o bloco.'],
+        nextClipCopy: 'Grave o proximo clip assim para validar sem forcar conclusao.',
+    },
+    transfer: {
+        situationChecklist: ['Use em TDM apenas quando aparecer spray parecido.'],
+        conservativeConfidenceCopy: 'Transferencia em partida e evidencia pratica, nao prova tecnica.',
+        countsAsTechnicalValidation: false,
+    },
+    downgrade: {
+        tierBefore: 'test_protocol',
+        tierAfter: 'test_protocol',
+        reasons: [],
+        blockedFields: [],
+        repairCtas: [],
+        userCopy: 'Sem downgrade: a ficha segue o nivel deterministico do coach.',
+    },
+    audit: {
+        createdAt: '2026-04-15T12:00:00.000Z',
+        analysisDecisionLevel: 'usable_analysis',
+        primaryFocusArea: 'vertical_control',
+        secondaryFocusAreas: [],
+        confidence: 0.86,
+        coverage: 0.9,
+        source: 'deterministic_coach',
+    },
+    stopConditions: ['Pare se a captura cair abaixo da confianca ou cobertura minima.'],
+    continueCriteria: ['Use o proximo clip compativel antes de subir agressividade.'],
+    antiMixingNotes: ['Execute um protocolo por vez.'],
+    freeSummary: ['Controle vertical por 12 min em modo teste curto.'],
+    proSections: ['Dose completa e criterio de validacao'],
+    llmRewriteAllowed: false,
+};
+
+const completeProtocolCoachPlan: CoachPlan = {
+    ...deterministicCoachPlan,
+    completeProtocol: deterministicCompleteProtocol,
 };
 
 const twoProtocolCoachPlan: CoachPlan = {
@@ -247,6 +349,166 @@ describe('adaptCoachWithOptionalLlm', () => {
                 durationMinutes: deterministicCoachPlan.nextBlock.durationMinutes,
                 checks: deterministicCoachPlan.nextBlock.checks,
             },
+        });
+    });
+
+    it('falls back when complete protocol output tries to mutate duration facts', async () => {
+        const client: CoachLlmClient = {
+            generate: async () => ({
+                items: [
+                    {
+                        problem: 'Pulldown baixo, explicado melhor',
+                        likelyCause: 'Controle vertical insuficiente sustentado',
+                        adjustment: 'Ajuste o pulldown com cautela',
+                        drill: 'Drill deterministico refinado',
+                        verifyNextClip: 'Verifique no proximo clip com o mesmo equipamento',
+                    },
+                ],
+                coachPlan: {
+                    sessionSummary: 'Resumo humano do bloco.',
+                    primaryFocusWhyNow: 'Motivo reescrito.',
+                    actionProtocols: [
+                        {
+                            id: 'vertical-control-drill-protocol',
+                            instruction: 'Instrucao reescrita.',
+                        },
+                    ],
+                    nextBlockTitle: 'Titulo reescrito',
+                    completeProtocol: {
+                        id: deterministicCompleteProtocol.id,
+                        title: 'Ficha polida',
+                        durationMinutes: 5,
+                    },
+                },
+            }),
+        };
+
+        await expect(adaptCoachResultWithOptionalLlm({
+            coaching: [deterministicFeedback],
+            coachPlan: completeProtocolCoachPlan,
+        }, client)).resolves.toEqual({
+            coaching: [deterministicFeedback],
+            coachPlan: completeProtocolCoachPlan,
+        });
+    });
+
+    it('falls back when complete protocol output tries to mutate validation or transfer facts', async () => {
+        const client: CoachLlmClient = {
+            generate: async () => ({
+                items: [
+                    {
+                        problem: 'Pulldown baixo, explicado melhor',
+                        likelyCause: 'Controle vertical insuficiente sustentado',
+                        adjustment: 'Ajuste o pulldown com cautela',
+                        drill: 'Drill deterministico refinado',
+                        verifyNextClip: 'Verifique no proximo clip com o mesmo equipamento',
+                    },
+                ],
+                coachPlan: {
+                    sessionSummary: 'Resumo humano do bloco.',
+                    primaryFocusWhyNow: 'Motivo reescrito.',
+                    actionProtocols: [
+                        {
+                            id: 'vertical-control-drill-protocol',
+                            instruction: 'Instrucao reescrita.',
+                        },
+                    ],
+                    nextBlockTitle: 'Titulo reescrito',
+                    completeProtocol: {
+                        id: deterministicCompleteProtocol.id,
+                        validationTarget: 'novo alvo inventado',
+                        countsAsTechnicalValidation: true,
+                    },
+                },
+            }),
+        };
+
+        await expect(adaptCoachResultWithOptionalLlm({
+            coaching: [deterministicFeedback],
+            coachPlan: completeProtocolCoachPlan,
+        }, client)).resolves.toEqual({
+            coaching: [deterministicFeedback],
+            coachPlan: completeProtocolCoachPlan,
+        });
+    });
+
+    it('accepts safe complete protocol display rewrites while preserving immutable facts', async () => {
+        const client: CoachLlmClient = {
+            generate: async () => ({
+                items: [
+                    {
+                        problem: 'Pulldown baixo, explicado melhor',
+                        likelyCause: 'Controle vertical insuficiente sustentado',
+                        adjustment: 'Ajuste o pulldown com cautela',
+                        drill: 'Drill deterministico refinado',
+                        verifyNextClip: 'Verifique no proximo clip com o mesmo equipamento',
+                    },
+                ],
+                coachPlan: {
+                    sessionSummary: 'Resumo humano do bloco.',
+                    primaryFocusWhyNow: 'Motivo reescrito sem alterar score.',
+                    actionProtocols: [
+                        {
+                            id: 'vertical-control-drill-protocol',
+                            instruction: 'Execute sprays iguais e observe apenas o eixo principal.',
+                        },
+                    ],
+                    nextBlockTitle: 'Titulo reescrito',
+                    completeProtocol: {
+                        id: deterministicCompleteProtocol.id,
+                        title: 'Ficha curta de puxada controlada',
+                        summary: 'Resumo polido sem mudar dose, alvo ou validacao.',
+                        executionSteps: [
+                            'Escolha um alvo fixo e mantenha a mesma mira.',
+                            'Puxe de forma progressiva sem trocar sensibilidade.',
+                        ],
+                        preparation: [
+                            {
+                                id: 'pull-space',
+                                label: 'Garanta espaco livre no mousepad antes do bloco.',
+                            },
+                            {
+                                id: 'pain-stop-rule',
+                                label: 'Pare se sentir dor, dormencia ou formigamento.',
+                            },
+                        ],
+                    },
+                },
+            }),
+        };
+
+        const adapted = await adaptCoachResultWithOptionalLlm({
+            coaching: [deterministicFeedback],
+            coachPlan: completeProtocolCoachPlan,
+        }, client);
+
+        expect(adapted.coachPlan?.completeProtocol).toMatchObject({
+            id: deterministicCompleteProtocol.id,
+            drillId: deterministicCompleteProtocol.drillId,
+            tier: deterministicCompleteProtocol.tier,
+            dose: deterministicCompleteProtocol.dose,
+            validation: deterministicCompleteProtocol.validation,
+            transfer: {
+                countsAsTechnicalValidation: false,
+            },
+            title: 'Ficha curta de puxada controlada',
+            summary: 'Resumo polido sem mudar dose, alvo ou validacao.',
+            executionSteps: [
+                'Escolha um alvo fixo e mantenha a mesma mira.',
+                'Puxe de forma progressiva sem trocar sensibilidade.',
+            ],
+            preparation: [
+                {
+                    id: 'pull-space',
+                    label: 'Garanta espaco livre no mousepad antes do bloco.',
+                    reason: deterministicCompleteProtocol.preparation[0]!.reason,
+                },
+                {
+                    id: 'pain-stop-rule',
+                    label: 'Pare se sentir dor, dormencia ou formigamento.',
+                    reason: deterministicCompleteProtocol.preparation[1]!.reason,
+                },
+            ],
         });
     });
 

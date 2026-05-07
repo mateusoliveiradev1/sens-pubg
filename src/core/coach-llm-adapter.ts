@@ -1,4 +1,10 @@
-import type { CoachEvidence, CoachFeedback, CoachMode, CoachPlan } from '@/types/engine';
+import type {
+    CoachEvidence,
+    CoachFeedback,
+    CoachMode,
+    CoachPlan,
+    CompleteTrainingProtocol,
+} from '@/types/engine';
 import type { CoachImmutableFactsInput } from './coach-llm-contract';
 
 export interface CoachLlmPayloadItem {
@@ -25,11 +31,25 @@ export interface CoachLlmPlanProtocolOutput {
     readonly instruction: string;
 }
 
+export interface CoachLlmCompleteProtocolPreparationOutput {
+    readonly id: string;
+    readonly label: string;
+}
+
+export interface CoachLlmCompleteProtocolOutput {
+    readonly id: string;
+    readonly title?: string;
+    readonly summary?: string;
+    readonly executionSteps?: readonly string[];
+    readonly preparation?: readonly CoachLlmCompleteProtocolPreparationOutput[];
+}
+
 export interface CoachLlmPlanOutput {
     readonly sessionSummary: string;
     readonly primaryFocusWhyNow: string;
     readonly actionProtocols: readonly CoachLlmPlanProtocolOutput[];
     readonly nextBlockTitle: string;
+    readonly completeProtocol?: CoachLlmCompleteProtocolOutput;
 }
 
 export interface CoachLlmBatchOutput {
@@ -64,16 +84,36 @@ const TEXT_OUTPUT_KEYS = [
     'verifyNextClip',
 ] as const;
 
-const PLAN_OUTPUT_KEYS = [
+const PLAN_OUTPUT_REQUIRED_KEYS = [
     'sessionSummary',
     'primaryFocusWhyNow',
     'actionProtocols',
     'nextBlockTitle',
 ] as const;
 
+const PLAN_OUTPUT_OPTIONAL_KEYS = [
+    'completeProtocol',
+] as const;
+
 const PLAN_PROTOCOL_OUTPUT_KEYS = [
     'id',
     'instruction',
+] as const;
+
+const COMPLETE_PROTOCOL_OUTPUT_REQUIRED_KEYS = [
+    'id',
+] as const;
+
+const COMPLETE_PROTOCOL_OUTPUT_OPTIONAL_KEYS = [
+    'title',
+    'summary',
+    'executionSteps',
+    'preparation',
+] as const;
+
+const COMPLETE_PROTOCOL_PREPARATION_OUTPUT_KEYS = [
+    'id',
+    'label',
 ] as const;
 
 export function buildCoachLlmPayload(
@@ -103,6 +143,18 @@ function hasExactKeys(
 
     return keys.length === expectedKeys.length
         && expectedKeys.every((key) => Object.prototype.hasOwnProperty.call(value, key));
+}
+
+function hasRequiredAndOptionalKeys(
+    value: Record<string, unknown>,
+    requiredKeys: readonly string[],
+    optionalKeys: readonly string[],
+): boolean {
+    const keys = Object.keys(value);
+    const expected = new Set([...requiredKeys, ...optionalKeys]);
+
+    return requiredKeys.every((key) => Object.prototype.hasOwnProperty.call(value, key))
+        && keys.every((key) => expected.has(key));
 }
 
 function isValidTextOutput(value: unknown): value is CoachLlmTextOutput {
@@ -142,8 +194,84 @@ function isValidPlanProtocolOutput(value: unknown): value is CoachLlmPlanProtoco
         && !containsBlockedCoachCopy(value.instruction as string);
 }
 
+function isValidCompleteProtocolPreparationOutput(
+    value: unknown,
+): value is CoachLlmCompleteProtocolPreparationOutput {
+    if (!isRecord(value)) {
+        return false;
+    }
+
+    return hasExactKeys(value, COMPLETE_PROTOCOL_PREPARATION_OUTPUT_KEYS)
+        && typeof value.id === 'string'
+        && typeof value.label === 'string'
+        && !containsBlockedCoachCopy(value.label);
+}
+
+function hasOnlySafeOptionalTextFields(
+    value: Record<string, unknown>,
+    textKeys: readonly string[],
+): boolean {
+    return textKeys.every((key) => (
+        !Object.prototype.hasOwnProperty.call(value, key)
+        || (
+            typeof value[key] === 'string'
+            && !containsBlockedCoachCopy(value[key] as string)
+        )
+    ));
+}
+
+function isValidCompleteProtocolOutput(value: unknown): value is CoachLlmCompleteProtocolOutput {
+    if (!isRecord(value)) {
+        return false;
+    }
+
+    if (!hasRequiredAndOptionalKeys(
+        value,
+        COMPLETE_PROTOCOL_OUTPUT_REQUIRED_KEYS,
+        COMPLETE_PROTOCOL_OUTPUT_OPTIONAL_KEYS,
+    )) {
+        return false;
+    }
+
+    if (typeof value.id !== 'string') {
+        return false;
+    }
+
+    if (!hasOnlySafeOptionalTextFields(value, ['title', 'summary'])) {
+        return false;
+    }
+
+    if (
+        Object.prototype.hasOwnProperty.call(value, 'executionSteps')
+        && (
+            !Array.isArray(value.executionSteps)
+            || !value.executionSteps.every((step) => (
+                typeof step === 'string'
+                && !containsBlockedCoachCopy(step)
+            ))
+        )
+    ) {
+        return false;
+    }
+
+    if (
+        Object.prototype.hasOwnProperty.call(value, 'preparation')
+        && (
+            !Array.isArray(value.preparation)
+            || !value.preparation.every(isValidCompleteProtocolPreparationOutput)
+        )
+    ) {
+        return false;
+    }
+
+    return true;
+}
+
 function isValidPlanOutput(value: unknown): value is CoachLlmPlanOutput {
-    if (!isRecord(value) || !hasExactKeys(value, PLAN_OUTPUT_KEYS)) {
+    if (
+        !isRecord(value)
+        || !hasRequiredAndOptionalKeys(value, PLAN_OUTPUT_REQUIRED_KEYS, PLAN_OUTPUT_OPTIONAL_KEYS)
+    ) {
         return false;
     }
 
@@ -154,7 +282,11 @@ function isValidPlanOutput(value: unknown): value is CoachLlmPlanOutput {
         && typeof value.nextBlockTitle === 'string'
         && !containsBlockedCoachCopy(value.sessionSummary)
         && !containsBlockedCoachCopy(value.primaryFocusWhyNow)
-        && !containsBlockedCoachCopy(value.nextBlockTitle);
+        && !containsBlockedCoachCopy(value.nextBlockTitle)
+        && (
+            !Object.prototype.hasOwnProperty.call(value, 'completeProtocol')
+            || isValidCompleteProtocolOutput(value.completeProtocol)
+        );
 }
 
 function containsBlockedCoachCopy(value: string): boolean {
@@ -193,6 +325,22 @@ function containsBlockedCoachCopy(value: string): boolean {
         'melhora comprovada',
         'sem precisar validar',
         'sem validacao',
+        'diagnostico medico',
+        'diagnóstico medico',
+        'diagnóstico médico',
+        'tratamento',
+        'cura',
+        'lesao diagnosticada',
+        'lesão diagnosticada',
+        'continue com dor',
+        'dor e falha de mira',
+        '3 series',
+        '3 séries',
+        'carga',
+        'progressao de musculacao',
+        'progressão de musculação',
+        'treino de antebraco pesado',
+        'treino de antebraço pesado',
     ].some((marker) => normalized.includes(marker));
 }
 
@@ -253,12 +401,70 @@ function applyTextOutput(
     };
 }
 
+function applyCompleteProtocolOutput(
+    completeProtocol: CompleteTrainingProtocol,
+    output: CoachLlmCompleteProtocolOutput,
+): CompleteTrainingProtocol | null {
+    if (output.id !== completeProtocol.id) {
+        return null;
+    }
+
+    if (
+        output.executionSteps
+        && output.executionSteps.length !== completeProtocol.executionSteps.length
+    ) {
+        return null;
+    }
+
+    if (output.preparation) {
+        if (output.preparation.length !== completeProtocol.preparation.length) {
+            return null;
+        }
+
+        for (let index = 0; index < output.preparation.length; index++) {
+            if (output.preparation[index]!.id !== completeProtocol.preparation[index]!.id) {
+                return null;
+            }
+        }
+    }
+
+    return {
+        ...completeProtocol,
+        ...(output.title ? { title: output.title } : {}),
+        ...(output.summary ? { summary: output.summary } : {}),
+        ...(output.executionSteps ? { executionSteps: output.executionSteps } : {}),
+        ...(output.preparation ? {
+            preparation: completeProtocol.preparation.map((item, index) => ({
+                ...item,
+                label: output.preparation![index]!.label,
+            })),
+        } : {}),
+    };
+}
+
 function applyPlanOutput(
     coachPlan: CoachPlan,
     output: CoachLlmPlanOutput
 ): CoachPlan | null {
     if (output.actionProtocols.length !== coachPlan.actionProtocols.length) {
         return null;
+    }
+
+    let completeProtocol = coachPlan.completeProtocol;
+    if (output.completeProtocol) {
+        if (!coachPlan.completeProtocol) {
+            return null;
+        }
+
+        const adaptedCompleteProtocol = applyCompleteProtocolOutput(
+            coachPlan.completeProtocol,
+            output.completeProtocol,
+        );
+        if (!adaptedCompleteProtocol) {
+            return null;
+        }
+
+        completeProtocol = adaptedCompleteProtocol;
     }
 
     const instructionByProtocolId = new Map<string, string>();
@@ -288,6 +494,7 @@ function applyPlanOutput(
             ...coachPlan.nextBlock,
             title: output.nextBlockTitle,
         },
+        ...(completeProtocol ? { completeProtocol } : {}),
     };
 }
 
