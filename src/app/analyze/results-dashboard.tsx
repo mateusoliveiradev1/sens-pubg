@@ -27,6 +27,11 @@ import { formatAnalysisDistancePresentation } from './analysis-distance-presenta
 import { SprayVisualization } from './spray-visualization';
 import { summarizeAnalysisTracking } from './tracking-summary';
 import { createTrackingTimeline } from './tracking-timeline';
+import { EvidenceChip } from '@/ui/components/evidence-chip';
+import { LoopRail, type LoopStageKey } from '@/ui/components/loop-rail';
+import { MetricTile } from '@/ui/components/metric-tile';
+import { PageCommandHeader } from '@/ui/components/page-command-header';
+import { ProLockPreview } from '@/ui/components/pro-lock-preview';
 import {
     buildAdaptiveCoachLoopModel,
     buildAnalysisQuotaNoticeModel,
@@ -386,6 +391,63 @@ function resultToneClass(tone: ResultMetricTone): string {
         case 'info':
             return styles.toneInfo ?? '';
     }
+}
+
+function formatReportEvidenceLabel(confidence: number, coverage: number): string {
+    return `${Math.round(confidence * 100)}% confianca / ${Math.round(coverage * 100)}% cobertura`;
+}
+
+function resolveReportLoopStage(input: {
+    readonly quotaTone: ResultMetricTone | undefined;
+    readonly adaptiveState: 'unsaved' | 'pending' | 'validation_needed' | 'conflict' | 'ready' | undefined;
+    readonly hasNextBlock: boolean;
+}): LoopStageKey {
+    if (input.quotaTone === 'error') {
+        return 'evidence';
+    }
+
+    if (input.adaptiveState === 'validation_needed' || input.adaptiveState === 'conflict') {
+        return 'validation';
+    }
+
+    if (input.adaptiveState === 'pending' || input.adaptiveState === 'ready' || input.hasNextBlock) {
+        return 'block';
+    }
+
+    return 'evidence';
+}
+
+function resolveReportPrimaryAction(input: {
+    readonly quotaNotice: ReturnType<typeof buildAnalysisQuotaNoticeModel>;
+    readonly adaptiveCoachLoop: ReturnType<typeof buildAdaptiveCoachLoopModel>;
+    readonly historySessionId: string | null | undefined;
+}): { readonly label: string; readonly href: string; readonly disabled?: boolean } {
+    if (input.quotaNotice?.tone === 'error' && input.quotaNotice.href) {
+        return {
+            label: input.quotaNotice.href === '/billing' ? 'Ver Assinatura' : 'Ver Planos',
+            href: input.quotaNotice.href,
+        };
+    }
+
+    if (input.adaptiveCoachLoop?.cta.href) {
+        return {
+            label: input.adaptiveCoachLoop.cta.label,
+            href: input.adaptiveCoachLoop.cta.href,
+        };
+    }
+
+    if (input.historySessionId) {
+        return {
+            label: 'Registrar resultado do bloco',
+            href: `/history/${input.historySessionId}`,
+        };
+    }
+
+    return {
+        label: 'Gravar analise util',
+        href: '#save-analysis',
+        disabled: true,
+    };
 }
 
 function handleCardKeyboardActivation(
@@ -803,9 +865,43 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
     const quotaNotice = buildAnalysisQuotaNoticeModel({ quota: activeSession.quota ?? null });
     const premiumLocks = buildPremiumLockCards(activeSession.premiumProjection);
     const captureGuidance = buildCaptureGuidanceModel(activeSession);
+    const reportEvidenceLabel = formatReportEvidenceLabel(trackingOverview.confidence, trackingOverview.coverage);
+    const reportLoopStage = resolveReportLoopStage({
+        quotaTone: quotaNotice?.tone,
+        adaptiveState: adaptiveCoachLoop?.state,
+        hasNextBlock: verdictModel.nextBlock !== null,
+    });
+    const primaryReportAction = resolveReportPrimaryAction({
+        quotaNotice,
+        adaptiveCoachLoop,
+        historySessionId: activeSession.historySessionId,
+    });
+    const reportBlocked = verdictModel.scoreTone === 'error'
+        || quotaNotice?.tone === 'error'
+        || verdictModel.actionLabel === 'Capturar de novo'
+        || verdictModel.actionLabel === 'Incerto';
+    const visibleTruthLabel = `Confianca ${Math.round(trackingOverview.confidence * 100)}%, cobertura ${Math.round(trackingOverview.coverage * 100)}%, bloqueadores ${verdictModel.blockedReasons.length}.`;
 
     return (
         <div className={styles.dashboard}>
+            <PageCommandHeader
+                body={verdictModel.primaryExplanation}
+                className={styles.reportCommandHeader ?? ''}
+                evidenceItems={[
+                    { label: 'Confianca', value: `${Math.round(trackingOverview.confidence * 100)}%`, tone: verdictModel.scoreTone === 'error' ? 'warning' : 'info' },
+                    { label: 'Cobertura', value: `${Math.round(trackingOverview.coverage * 100)}%`, tone: trackingOverview.coverage >= 0.8 ? 'success' : 'warning' },
+                    { label: 'Bloqueadores', value: `${verdictModel.blockedReasons.length}`, tone: verdictModel.blockedReasons.length > 0 ? 'warning' : 'success' },
+                ]}
+                primaryAction={primaryReportAction}
+                roleLabel="Relatorio de spray"
+                title={`Resultado: ${verdictModel.actionLabel}`}
+            />
+            <LoopRail
+                blocked={reportBlocked}
+                currentStage={reportLoopStage}
+                evidenceLabel={reportEvidenceLabel}
+                nextActionLabel={primaryReportAction.label}
+            />
             <div
                 style={{
                     display: 'flex',
@@ -889,16 +985,19 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                 {premiumLocks.length > 0 ? (
                     <div className={styles.premiumLockGrid}>
                         {premiumLocks.map((lock) => (
-                            <article key={`${lock.featureKey}-${lock.reasonLabel}`} className={styles.premiumLockCard}>
-                                <span className="badge badge-info">{lock.reasonLabel}</span>
-                                <h4>{lock.title}</h4>
-                                <p>{lock.body}</p>
-                                {lock.href && lock.ctaLabel ? (
-                                    <a href={lock.href} className="btn btn-ghost btn-sm">
-                                        {lock.ctaLabel}
-                                    </a>
-                                ) : null}
-                            </article>
+                            <ProLockPreview
+                                key={`${lock.featureKey}-${lock.reasonLabel}`}
+                                {...(lock.ctaLabel === 'Abrir billing' ? { ctaLabel: 'Ver Assinatura' } : {})}
+                                currentValueLabel={visibleTruthLabel}
+                                lock={{
+                                    featureKey: lock.featureKey,
+                                    reason: lock.reason,
+                                    title: lock.title,
+                                    body: lock.body,
+                                    ctaHref: lock.href,
+                                }}
+                                proValueLabel="Pro adiciona protocolo completo, historico profundo e validacao compativel quando a evidencia sustenta."
+                            />
                         ))}
                     </div>
                 ) : null}
@@ -954,16 +1053,18 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                         ) : null}
                     </div>
                     <div className={styles.verdictScoreGrid}>
-                        <div className={`${styles.verdictScore} ${resultToneClass(verdictModel.scoreTone)}`}>
-                            <span>Acao</span>
-                            <strong>{Math.round(verdictModel.actionableScore)}</strong>
-                            <small>score acionavel</small>
-                        </div>
-                        <div className={`${styles.verdictScore} ${resultToneClass('info')}`}>
-                            <span>Mecanica</span>
-                            <strong>{verdictModel.mechanicalLevelLabel}</strong>
-                            <small>{Math.round(verdictModel.mechanicalScore)}/100</small>
-                        </div>
+                        <MetricTile
+                            helper="score acionavel"
+                            label="Acao"
+                            tone={verdictModel.scoreTone}
+                            value={String(Math.round(verdictModel.actionableScore))}
+                        />
+                        <MetricTile
+                            helper={`${Math.round(verdictModel.mechanicalScore)}/100`}
+                            label="Mecanica"
+                            tone="info"
+                            value={verdictModel.mechanicalLevelLabel}
+                        />
                     </div>
                 </div>
 
@@ -992,11 +1093,13 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
 
                     <div className={styles.evidenceBadgeGrid} aria-label="Evidencia do resultado">
                         {evidenceBadges.map((badge) => (
-                            <div key={badge.key} className={`${styles.evidenceBadge} ${resultToneClass(badge.tone)}`}>
-                                <span>{badge.label}</span>
-                                <strong>{badge.value}</strong>
-                                <small>{badge.detail}</small>
-                            </div>
+                            <EvidenceChip
+                                key={badge.key}
+                                detail={badge.detail}
+                                label={badge.label}
+                                tone={badge.tone}
+                                value={badge.value}
+                            />
                         ))}
                     </div>
                 </div>
@@ -1012,16 +1115,13 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                 {masteryPillars.length > 0 ? (
                     <div className={styles.pillarGrid} aria-label="Pilares de mastery">
                         {masteryPillars.map((pillar) => (
-                            <div key={pillar.key} className={`${styles.pillarCard} ${resultToneClass(pillar.tone)}`}>
-                                <div className={styles.pillarHeader}>
-                                    <span>{pillar.label}</span>
-                                    <strong>{Math.round(pillar.value)}</strong>
-                                </div>
-                                <div className={styles.pillarMeter} aria-hidden="true">
-                                    <span style={{ width: `${Math.max(0, Math.min(100, Math.round(pillar.value)))}%` }} />
-                                </div>
-                                <p>{pillar.summary}</p>
-                            </div>
+                            <MetricTile
+                                key={pillar.key}
+                                helper={pillar.summary}
+                                label={pillar.label}
+                                tone={pillar.tone}
+                                value={String(Math.round(pillar.value))}
+                            />
                         ))}
                     </div>
                 ) : null}

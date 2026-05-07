@@ -127,6 +127,7 @@ export interface AnalysisQuotaNoticeModel {
 
 export interface PremiumLockCardModel {
     readonly featureKey: PremiumFeatureLock['featureKey'];
+    readonly reason: PremiumFeatureLock['reason'];
     readonly title: string;
     readonly body: string;
     readonly reasonLabel: string;
@@ -423,6 +424,7 @@ export function buildPremiumLockCards(
         .slice(0, 5)
         .map((lock) => ({
             featureKey: lock.featureKey,
+            reason: lock.reason,
             title: lock.title,
             body: lock.body,
             reasonLabel: formatPremiumLockReason(lock.reason),

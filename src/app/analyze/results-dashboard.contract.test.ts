@@ -112,6 +112,10 @@ describe('results dashboard visualization contract', () => {
     it('shows the next block, evidence badges, mastery pillars, and spray proof in the report', () => {
         const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
 
+        expect(source).toMatch(/PageCommandHeader/);
+        expect(source).toMatch(/LoopRail/);
+        expect(source).toMatch(/EvidenceChip/);
+        expect(source).toMatch(/MetricTile/);
         expect(source).toMatch(/buildEvidenceBadges/);
         expect(source).toMatch(/buildMasteryPillarCards/);
         expect(source).toMatch(/verdictModel\.nextBlock\.steps/);
@@ -125,6 +129,29 @@ describe('results dashboard visualization contract', () => {
 
         expect(sprayIndex).toBeGreaterThan(verdictIndex);
         expect(sensitivityIndex).toBeGreaterThan(sprayIndex);
+    });
+
+    it('renders contextual Pro lock previews without hiding truth evidence', () => {
+        const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
+        const viewModelSource = readFileSync(new URL('./results-dashboard-view-model.ts', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/ProLockPreview/);
+        expect(source).toMatch(/visibleTruthLabel/);
+        expect(source).toMatch(/Confianca \$\{Math\.round\(trackingOverview\.confidence \* 100\)\}%/);
+        expect(source).toMatch(/cobertura \$\{Math\.round\(trackingOverview\.coverage \* 100\)\}%/);
+        expect(source).toMatch(/bloqueadores \$\{verdictModel\.blockedReasons\.length\}/);
+        expect(source).toMatch(/Pro adiciona protocolo completo/);
+        expect(viewModelSource).toMatch(/reason: lock\.reason/);
+    });
+
+    it('derives the report primary action from quota, billing, outcome, or save state', () => {
+        const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/resolveReportPrimaryAction/);
+        expect(source).toMatch(/quotaNotice\.href === '\/billing' \? 'Ver Assinatura' : 'Ver Planos'/);
+        expect(source).toMatch(/Registrar resultado do bloco/);
+        expect(source).toMatch(/Gravar analise util/);
+        expect(source).toMatch(/nextActionLabel=\{primaryReportAction\.label\}/);
     });
 
     it('uses user-facing diagnosis truth labels instead of uppercase engine labels', () => {
