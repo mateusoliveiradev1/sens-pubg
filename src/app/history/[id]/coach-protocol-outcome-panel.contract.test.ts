@@ -46,8 +46,17 @@ describe('history coach protocol outcome panel contract', () => {
 
         expect(source).toMatch(/getCoachProtocolOutcomesForSession/);
         expect(source).toMatch(/CoachProtocolOutcomePanel/);
+        expect(source).toMatch(/PageCommandHeader/);
+        expect(source).toMatch(/LoopRail/);
+        expect(source).toMatch(/MetricTile/);
+        expect(source).toMatch(/EvidenceChip/);
+        expect(source).toMatch(/Header/);
+        expect(source).toMatch(/Navegacao da analise/);
+        expect(source).toMatch(/Analise salva/);
+        expect(source).toMatch(/Resultado completo do clip salvo/);
         expect(source).toMatch(/coachOutcomeSnapshot: buildHistoryCoachOutcomeSnapshot/);
         expect(source).toMatch(/analysisResult\.coachPlan \? \(/);
         expect(source).toMatch(/SensitivityAcceptancePanel/);
+        expect(source).not.toMatch(/<span>\{'<-'\}<\/span> Voltar/);
     });
 });

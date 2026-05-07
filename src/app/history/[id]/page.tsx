@@ -9,6 +9,11 @@ import { formatAnalysisDistancePresentation } from '@/app/analyze/analysis-dista
 import { ResultsDashboard } from '@/app/analyze/results-dashboard';
 import { getCoachProtocolOutcomesForSession } from '@/actions/history';
 import { formatPrecisionTrendLabel } from '@/core/precision-loop';
+import { EvidenceChip, type EvidenceTone } from '@/ui/components/evidence-chip';
+import { Header } from '@/ui/components/header';
+import { LoopRail, type LoopStageKey } from '@/ui/components/loop-rail';
+import { MetricTile } from '@/ui/components/metric-tile';
+import { PageCommandHeader } from '@/ui/components/page-command-header';
 import { hydrateAnalysisResultFromHistory } from '../analysis-result-hydration';
 import { CoachProtocolOutcomePanel } from './coach-protocol-outcome-panel';
 import { PublishAnalysisButton } from './publish-analysis-button';
@@ -153,6 +158,49 @@ function precisionLineContextLabel(compatibilityKey: string | null | undefined):
     }
 }
 
+function formatPercent(value: number): string {
+    return `${Math.round(value * 100)}%`;
+}
+
+function resolveDetailEvidenceTone(result: AnalysisResult): EvidenceTone {
+    const mastery = result.mastery;
+
+    if (!mastery || !mastery.evidence.usableForAnalysis || mastery.actionState === 'capture_again' || mastery.actionState === 'inconclusive') {
+        return 'warning';
+    }
+
+    if (mastery.evidence.confidence >= 0.8 && mastery.evidence.coverage >= 0.8) {
+        return 'success';
+    }
+
+    return 'info';
+}
+
+function resolveDetailLoopStage(input: {
+    readonly hasCoachPlan: boolean;
+    readonly hasOutcome: boolean;
+    readonly hasCheckpoint: boolean;
+    readonly actionState: NonNullable<AnalysisResult['mastery']>['actionState'] | undefined;
+}): LoopStageKey {
+    if (input.actionState === 'capture_again') {
+        return 'clip';
+    }
+
+    if (input.actionState === 'inconclusive') {
+        return 'validation';
+    }
+
+    if (input.hasOutcome || input.hasCheckpoint) {
+        return 'checkpoint';
+    }
+
+    if (input.hasCoachPlan) {
+        return 'outcome';
+    }
+
+    return 'evidence';
+}
+
 export default async function HistoryDetailRoute({ params }: Props) {
     const session = await auth();
     if (!session?.user?.id) {
@@ -229,15 +277,18 @@ export default async function HistoryDetailRoute({ params }: Props) {
 
     if (!analysisResult || !analysisResult.trajectory) {
         return (
-            <div className="container center" style={{ marginTop: 'var(--space-3xl)' }}>
-                <h2 style={{ color: 'var(--color-error)' }}>Analise Incompleta</h2>
-                <p style={{ color: 'var(--color-text-muted)' }}>
-                    Esta sessao e antiga e nao possui os dados detalhados salvos na nuvem.
-                </p>
-                <Link href="/history" className="btn btn-outline" style={{ marginTop: 'var(--space-md)' }}>
-                    Voltar
-                </Link>
-            </div>
+            <>
+                <Header />
+                <div className="container center" style={{ marginTop: 'calc(var(--header-height) + var(--space-3xl))' }}>
+                    <h2 style={{ color: 'var(--color-error)' }}>Analise Incompleta</h2>
+                    <p style={{ color: 'var(--color-text-muted)' }}>
+                        Esta sessao e antiga e nao possui os dados detalhados salvos na nuvem.
+                    </p>
+                    <Link href="/history" className="btn btn-outline" style={{ marginTop: 'var(--space-md)' }}>
+                        Voltar para o historico
+                    </Link>
+                </div>
+            </>
         );
     }
 
@@ -263,49 +314,124 @@ export default async function HistoryDetailRoute({ params }: Props) {
             coachOutcomeSnapshot: buildHistoryCoachOutcomeSnapshot(coachProtocolOutcomes),
         } : {}),
     };
+    const detailEvidenceTone = resolveDetailEvidenceTone(analysisResultForDisplay);
+    const detailBlockerCount = (analysisResultForDisplay.mastery?.blockedRecommendations.length ?? 0)
+        + checkpointBlockers.length
+        + (analysisResultForDisplay.coachDecisionSnapshot?.blockerReasons.length ?? 0);
+    const detailPrimaryAction = analysisResultForDisplay.coachPlan
+        ? {
+            label: coachProtocolOutcomes.length > 0 ? 'Gravar validacao compativel' : 'Registrar resultado do bloco',
+            href: coachProtocolOutcomes.length > 0 ? '/analyze' : '#coach-outcome-panel',
+        }
+        : {
+            label: 'Registrar resultado de campo',
+            href: '#sensitivity-feedback',
+        };
+    const detailLoopStage = resolveDetailLoopStage({
+        hasCoachPlan: Boolean(analysisResultForDisplay.coachPlan),
+        hasOutcome: coachProtocolOutcomes.length > 0,
+        hasCheckpoint: Boolean(precisionCheckpoint || checkpointTrend),
+        actionState: analysisResultForDisplay.mastery?.actionState,
+    });
+    const detailEvidenceLabel = analysisResultForDisplay.mastery
+        ? `${formatPercent(analysisResultForDisplay.mastery.evidence.confidence)} confianca / ${formatPercent(analysisResultForDisplay.mastery.evidence.coverage)} cobertura`
+        : 'Sem mastery salvo';
 
     return (
         <>
+            <Header />
             <div className="bg-glow bg-glow-primary" style={{ top: '-10%', left: '-10%' }} />
 
             <div
                 className="container"
-                style={{ padding: 'calc(var(--header-height) + var(--space-2xl)) var(--space-md) var(--space-3xl)' }}
+                style={{
+                    overflowX: 'hidden',
+                    padding: 'calc(var(--header-height) + var(--space-xl)) var(--space-md) var(--space-3xl)',
+                }}
             >
-                <div style={{ maxWidth: 800, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 'var(--space-xl)' }}>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-md)' }}>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-sm)' }}>
-                            <Link
-                                href="/history"
-                                className="btn btn-outline"
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-sm)' }}
-                            >
-                                <span>{'<-'}</span> Voltar
-                            </Link>
-                            <PublishAnalysisButton
-                                analysisSessionId={record.id}
-                                weaponName={displayName}
-                                scopeName={scope?.name || record.scopeId}
-                                patchVersion={analysisResult.patchVersion}
-                                createdAtIso={record.createdAt.toISOString()}
-                            />
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                            <h1
-                                style={{
-                                    margin: 0,
-                                    fontSize: 'var(--text-3xl)',
-                                    letterSpacing: '-0.02em',
-                                    textShadow: '0 0 20px rgba(121, 40, 202, 0.3)',
-                                }}
-                            >
-                                {displayName}
-                            </h1>
-                            <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }}>
-                                {scope?.name || record.scopeId} | <span title={distancePresentation.note}>{distancePresentation.inlineLabel}</span> | Patch {analysisResult.patchVersion} |{' '}
-                                {new Date(record.createdAt).toLocaleString('pt-BR')}
-                            </p>
-                        </div>
+                <div
+                    style={{
+                        width: '100%',
+                        maxWidth: 1040,
+                        minWidth: 0,
+                        margin: '0 auto',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 'var(--space-xl)',
+                    }}
+                >
+                    <nav
+                        aria-label="Navegacao da analise"
+                        className="glass-card"
+                        style={{
+                            minWidth: 0,
+                            padding: 'var(--space-md)',
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 'var(--space-md)',
+                        }}
+                    >
+                        <Link
+                            href="/history"
+                            className="btn btn-secondary"
+                            style={{ flex: '0 1 auto', minWidth: 0 }}
+                        >
+                            <span aria-hidden="true">{'<-'}</span>
+                            Historico
+                        </Link>
+                        <PublishAnalysisButton
+                            analysisSessionId={record.id}
+                            weaponName={displayName}
+                            scopeName={scope?.name || record.scopeId}
+                            patchVersion={analysisResult.patchVersion}
+                            createdAtIso={record.createdAt.toISOString()}
+                        />
+                    </nav>
+                    <PageCommandHeader
+                        body="Resultado completo do clip salvo, com evidencia, coach, outcome, revisoes, checkpoint de precisao e bloqueadores preservados antes de qualquer proxima acao."
+                        evidenceItems={[
+                            { label: 'Veredito', value: analysisResultForDisplay.mastery?.actionLabel ?? 'Sem mastery', tone: detailEvidenceTone },
+                            { label: 'Confianca', value: analysisResultForDisplay.mastery ? formatPercent(analysisResultForDisplay.mastery.evidence.confidence) : 'Aguardando', tone: detailEvidenceTone },
+                            { label: 'Cobertura', value: analysisResultForDisplay.mastery ? formatPercent(analysisResultForDisplay.mastery.evidence.coverage) : 'Aguardando', tone: detailEvidenceTone },
+                            { label: 'Bloqueadores', value: String(detailBlockerCount), tone: detailBlockerCount > 0 ? 'warning' : 'success' },
+                        ]}
+                        primaryAction={detailPrimaryAction}
+                        roleLabel="Analise salva"
+                        title={displayName}
+                    />
+                    <LoopRail
+                        blocked={detailBlockerCount > 0 || analysisResultForDisplay.mastery?.actionState === 'capture_again' || analysisResultForDisplay.mastery?.actionState === 'inconclusive'}
+                        currentStage={detailLoopStage}
+                        evidenceLabel={detailEvidenceLabel}
+                        nextActionLabel={detailPrimaryAction.label}
+                    />
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: 'var(--space-md)' }}>
+                        <MetricTile
+                            helper="score acionavel salvo"
+                            label="Acao"
+                            tone={detailEvidenceTone}
+                            value={analysisResultForDisplay.mastery ? String(Math.round(analysisResultForDisplay.mastery.actionableScore)) : 'n/a'}
+                        />
+                        <MetricTile
+                            helper="mecanica salva"
+                            label="Mecanica"
+                            tone="info"
+                            value={analysisResultForDisplay.mastery ? String(Math.round(analysisResultForDisplay.mastery.mechanicalScore)) : 'n/a'}
+                        />
+                        <MetricTile
+                            helper="bloqueadores auditaveis"
+                            label="Bloqueios"
+                            tone={detailBlockerCount > 0 ? 'warning' : 'success'}
+                            value={String(detailBlockerCount)}
+                        />
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', minWidth: 0 }} aria-label="Contexto salvo da auditoria">
+                        <EvidenceChip label="Patch" tone="info" value={analysisResult.patchVersion} />
+                        <EvidenceChip label="Mira" tone="info" value={scope?.name || record.scopeId} />
+                        <EvidenceChip label="Distancia" tone="info" value={distancePresentation.inlineLabel} />
+                        <EvidenceChip label="Data" tone="info" value={new Date(record.createdAt).toLocaleString('pt-BR')} />
                     </div>
 
                     {analysisResult.coachPlan ? (
@@ -326,7 +452,7 @@ export default async function HistoryDetailRoute({ params }: Props) {
                                     alignItems: 'flex-start',
                                 }}
                             >
-                                <div style={{ maxWidth: 520 }}>
+                                <div style={{ maxWidth: 520, minWidth: 0 }}>
                                     <p
                                         style={{
                                             margin: '0 0 var(--space-xs) 0',
@@ -347,7 +473,7 @@ export default async function HistoryDetailRoute({ params }: Props) {
                                     </p>
                                 </div>
 
-                                <div style={{ display: 'grid', gap: '8px', minWidth: 220 }}>
+                                <div style={{ display: 'grid', gap: '8px', minWidth: 'min(100%, 220px)' }}>
                                     <span className="badge badge-info">
                                         {HISTORY_COACH_TIER_LABELS[analysisResult.coachPlan.tier]}
                                     </span>
@@ -528,7 +654,7 @@ export default async function HistoryDetailRoute({ params }: Props) {
                                     alignItems: 'flex-start',
                                 }}
                             >
-                                <div style={{ maxWidth: 540 }}>
+                                <div style={{ maxWidth: 540, minWidth: 0 }}>
                                     <p
                                         style={{
                                             margin: '0 0 var(--space-xs) 0',
@@ -558,7 +684,7 @@ export default async function HistoryDetailRoute({ params }: Props) {
                                     </p>
                                 </div>
 
-                                <div style={{ display: 'grid', gap: '8px', minWidth: 220 }}>
+                                <div style={{ display: 'grid', gap: '8px', minWidth: 'min(100%, 220px)' }}>
                                     {precisionCheckpoint ? (
                                         <span className="badge badge-info">
                                             variavel em teste: {precisionVariableLabel(precisionCheckpoint.variableInTest)}
@@ -612,16 +738,20 @@ export default async function HistoryDetailRoute({ params }: Props) {
                     ) : null}
 
                     {analysisResult.coachPlan ? (
-                        <CoachProtocolOutcomePanel
-                            sessionId={record.id}
-                            coachPlan={analysisResult.coachPlan}
-                            outcomes={coachProtocolOutcomes}
-                        />
+                        <div id="coach-outcome-panel">
+                            <CoachProtocolOutcomePanel
+                                sessionId={record.id}
+                                coachPlan={analysisResult.coachPlan}
+                                outcomes={coachProtocolOutcomes}
+                            />
+                        </div>
                     ) : (
-                        <SensitivityAcceptancePanel
-                            sessionId={record.id}
-                            sensitivity={analysisResult.sensitivity}
-                        />
+                        <div id="sensitivity-feedback">
+                            <SensitivityAcceptancePanel
+                                sessionId={record.id}
+                                sensitivity={analysisResult.sensitivity}
+                            />
+                        </div>
                     )}
                     <ResultsDashboard result={analysisResultForDisplay} />
                 </div>

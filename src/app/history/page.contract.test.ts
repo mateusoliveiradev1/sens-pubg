@@ -56,6 +56,14 @@ describe('history page field evolution contract', () => {
 
         expect(source).toMatch(/analysisResult\.coachPlan \?/);
         expect(source).toMatch(/Coach da sessao salva/);
+        expect(source).toMatch(/PageCommandHeader/);
+        expect(source).toMatch(/LoopRail/);
+        expect(source).toMatch(/MetricTile/);
+        expect(source).toMatch(/EvidenceChip/);
+        expect(source).toMatch(/Header/);
+        expect(source).toMatch(/Navegacao da analise/);
+        expect(source).toMatch(/Analise salva/);
+        expect(source).toMatch(/resolveDetailLoopStage/);
         expect(source).toMatch(/analysisResult\.coachPlan\.sessionSummary/);
         expect(source).toMatch(/analysisResult\.coachPlan\.primaryFocus\.title/);
         expect(source).toMatch(/analysisResult\.coachPlan\.nextBlock\.title/);
@@ -71,6 +79,8 @@ describe('history page field evolution contract', () => {
         expect(listSource).toMatch(/Ver auditoria do coach/);
 
         expect(detailSource).toMatch(/Auditoria do coach/);
+        expect(detailSource).toMatch(/id="coach-outcome-panel"/);
+        expect(detailSource).toMatch(/id="sensitivity-feedback"/);
         expect(detailSource).toMatch(/coachDecisionSnapshot/);
         expect(detailSource).toMatch(/coachProtocolOutcomes\.map/);
         expect(detailSource).toMatch(/Linha de outcomes e revisoes/);

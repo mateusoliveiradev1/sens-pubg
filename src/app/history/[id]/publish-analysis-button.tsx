@@ -49,9 +49,11 @@ export function PublishAnalysisButton(props: Props) {
         <div
             style={{
                 display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'flex-start',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
                 gap: '8px',
+                minWidth: 0,
             }}
         >
             <button
@@ -61,22 +63,27 @@ export function PublishAnalysisButton(props: Props) {
                 disabled={isPending || hasPublishedPost}
                 aria-describedby={statusMessage || errorMessage ? 'publish-analysis-entry-status' : undefined}
             >
-                {isPending ? 'Publicando...' : hasPublishedPost ? 'Publicado' : 'Publicar na comunidade'}
+                {isPending ? 'Publicando...' : hasPublishedPost ? 'Publicado' : 'Publicar analise'}
             </button>
 
             <Link
-                className="btn btn-ghost"
+                className="btn btn-secondary"
                 href="/community"
-                style={{ paddingInline: '0.75rem' }}
             >
-                Ir para comunidade
+                Comunidade
             </Link>
 
             {statusMessage ? (
                 <p
                     id="publish-analysis-entry-status"
                     aria-live="polite"
-                    style={{ margin: 0, color: 'var(--color-success)', fontSize: 'var(--text-xs)' }}
+                    style={{
+                        flexBasis: '100%',
+                        margin: 0,
+                        color: 'var(--color-success)',
+                        fontSize: 'var(--text-xs)',
+                        textAlign: 'right',
+                    }}
                 >
                     {statusMessage}
                 </p>
@@ -88,7 +95,7 @@ export function PublishAnalysisButton(props: Props) {
                     href={`/community/${createdSlug}`}
                     style={{ paddingInline: '0.75rem' }}
                 >
-                    Abrir publicacao
+                    Abrir post
                 </Link>
             ) : null}
 
@@ -96,7 +103,14 @@ export function PublishAnalysisButton(props: Props) {
                 <p
                     id="publish-analysis-entry-status"
                     aria-live="polite"
-                    style={{ margin: 0, color: 'var(--color-error)', fontSize: 'var(--text-xs)', maxWidth: 320 }}
+                    style={{
+                        flexBasis: '100%',
+                        margin: 0,
+                        color: 'var(--color-error)',
+                        fontSize: 'var(--text-xs)',
+                        maxWidth: 360,
+                        textAlign: 'right',
+                    }}
                 >
                     {errorMessage}
                 </p>
