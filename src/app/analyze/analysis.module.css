@@ -633,6 +633,40 @@
     margin-top: var(--space-xl);
 }
 
+.dashboardAuditDetail {
+    display: grid;
+    gap: var(--space-2xl);
+    margin-top: var(--space-lg);
+}
+
+.dashboardAuditDetail .section {
+    margin-bottom: 0;
+    padding-top: var(--space-xl);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dashboardAuditDetail .sectionTitle {
+    margin: 0 0 var(--space-lg);
+    padding-bottom: var(--space-sm);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    color: var(--color-text-primary);
+    font-size: var(--text-xl);
+    line-height: 1.2;
+}
+
+.dashboardAuditDetail .metricsReportGrid {
+    display: grid;
+    gap: 0;
+}
+
+.dashboardAuditDetail :global(.glass-card) {
+    box-shadow: none;
+}
+
+.dashboardAuditDetail :global(.glass-card):hover {
+    transform: none;
+}
+
 .reportCommandHeader {
     margin-bottom: var(--space-md);
 }
@@ -1292,6 +1326,15 @@
     display: grid;
 }
 
+.gaugeRow {
+    display: flex;
+    justify-content: center;
+    gap: clamp(18px, 4vw, 48px);
+    flex-wrap: wrap;
+    margin-bottom: var(--space-xl);
+    padding: var(--space-md) 0 var(--space-lg);
+}
+
 .radialGauge {
     display: flex;
     flex-direction: column;
@@ -1357,6 +1400,47 @@
     height: 4px;
     background: linear-gradient(90deg, transparent, var(--result-tone, var(--color-accent-primary)), transparent);
     opacity: 0.8;
+}
+
+.dashboardAuditDetail .metricCard,
+.dashboardAuditDetail .diagnosisCard,
+.dashboardAuditDetail .profileCard,
+.dashboardAuditDetail .selectedProfilePanel,
+.dashboardAuditDetail .coachPlanSummary,
+.dashboardAuditDetail .coachCard {
+    border-radius: 8px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.018));
+    border-color: rgba(116, 215, 255, 0.12);
+}
+
+.dashboardAuditDetail .metricCard:hover,
+.dashboardAuditDetail .diagnosisCard:hover,
+.dashboardAuditDetail .profileCard:hover,
+.dashboardAuditDetail .profileRecommended:hover,
+.dashboardAuditDetail .coachCard:hover {
+    transform: none;
+    border-color: rgba(116, 215, 255, 0.22);
+    box-shadow: none;
+}
+
+.dashboardAuditDetail .profileRecommended {
+    animation: none;
+    transform: none;
+    border-color: rgba(0, 230, 118, 0.34);
+    box-shadow: none;
+}
+
+.dashboardAuditDetail .diagnosisActionGrid,
+.dashboardAuditDetail .sensitivityInsight,
+.dashboardAuditDetail .profileStat,
+.dashboardAuditDetail .profileHighlight,
+.dashboardAuditDetail .profileMiniScope,
+.dashboardAuditDetail .scopeTableContainer,
+.dashboardAuditDetail .coachPlanGrid,
+.dashboardAuditDetail .coachPlanValidation {
+    border-radius: 8px;
+    border-color: rgba(255, 255, 255, 0.075);
+    background: rgba(0, 0, 0, 0.18);
 }
 
 .metricCardHeader {

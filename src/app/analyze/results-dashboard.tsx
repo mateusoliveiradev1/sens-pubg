@@ -886,7 +886,7 @@ export function ResultsDashboard({ result, mode = 'full' }: Props): React.JSX.El
     const showReportChrome = mode === 'full';
 
     return (
-        <div className={styles.dashboard}>
+        <div className={`${styles.dashboard} ${mode === 'audit-detail' ? styles.dashboardAuditDetail : ''}`}>
             {showReportChrome ? (
                 <PageCommandHeader
                 body={verdictModel.primaryExplanation}
@@ -1461,10 +1461,10 @@ export function ResultsDashboard({ result, mode = 'full' }: Props): React.JSX.El
             {/* ═══ Metrics & Visualization ═══ */}
             <div className={styles.metricsReportGrid}>
                 <section className={styles.section}>
-                    <h3 className={styles.sectionTitle}>📊 Métricas {isAggregated ? '(Médias)' : ''}</h3>
+                    <h3 className={styles.sectionTitle}>Metricas salvas {isAggregated ? '(medias)' : ''}</h3>
 
                     {/* Gauge Charts for key scores */}
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: '48px', marginBottom: '24px', padding: '20px 0' }}>
+                    <div className={styles.gaugeRow}>
                         <RadialGauge value={stabilityVal} label="Estabilidade" color={stabilityColor} />
                         <RadialGauge value={consistencyVal} label="Consistência" color={consistencyColor} />
                         <RadialGauge value={Number(metrics.sprayScore || 0)} label="Spray Score" color={Number(metrics.sprayScore || 0) >= 60 ? '#22c55e' : Number(metrics.sprayScore || 0) >= 30 ? '#f59e0b' : '#ef4444'} />
@@ -1520,7 +1520,7 @@ export function ResultsDashboard({ result, mode = 'full' }: Props): React.JSX.El
             {/* ═══ Diagnoses — Improved ═══ */}
             {sortedDiagnoses.length > 0 && (
                 <section className={styles.section}>
-                    <h3 className={styles.sectionTitle}>🩺 Leituras da Análise</h3>
+                    <h3 className={styles.sectionTitle}>Leituras da analise</h3>
                     <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-md)', lineHeight: 1.6 }}>
                         A análise destaca primeiro o que mais está derrubando o spray agora. Use os blocos abaixo como priorização prática, não como rótulo fechado.
                     </p>
@@ -1575,10 +1575,10 @@ export function ResultsDashboard({ result, mode = 'full' }: Props): React.JSX.El
                                     {matchingCoach && (
                                         <div style={{ marginTop: '12px', overflow: 'hidden', maxHeight: isExpanded ? '300px' : '0', opacity: isExpanded ? 1 : 0, transition: 'all 0.3s ease' }}>
                                             <div style={{ padding: '12px', background: 'rgba(6, 182, 212, 0.05)', borderRadius: '8px', border: '1px solid rgba(6, 182, 212, 0.15)' }}>
-                                                <span style={{ fontSize: '10px', fontWeight: 700, color: '#06b6d4', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🏋️ Drill Profissional</span>
+                                                <span style={{ fontSize: '10px', fontWeight: 700, color: '#06b6d4', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Drill profissional</span>
                                                 <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: 1.6, marginTop: '6px' }}>{matchingCoach.howToTest}</p>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                                                    <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>⏱️ Adaptação estimada</span>
+                                                    <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>Adaptacao estimada</span>
                                                     <span style={{ fontSize: '14px', fontWeight: 700, color: '#06b6d4', fontFamily: 'var(--font-mono)' }}>
                                                         {matchingCoach.adaptationTimeDays} {matchingCoach.adaptationTimeDays === 1 ? 'dia' : 'dias'}
                                                     </span>
@@ -1588,7 +1588,7 @@ export function ResultsDashboard({ result, mode = 'full' }: Props): React.JSX.El
                                     )}
                                     {matchingCoach && (
                                         <div style={{ textAlign: 'center', marginTop: '8px', fontSize: '10px', color: 'var(--color-text-muted)', opacity: 0.6 }}>
-                                            {isExpanded ? '▲ Fechar drill' : '▼ Ver drill profissional'}
+                                            {isExpanded ? 'Fechar drill' : 'Ver drill profissional'}
                                         </div>
                                     )}
                                 </div>
@@ -1607,7 +1607,7 @@ export function ResultsDashboard({ result, mode = 'full' }: Props): React.JSX.El
                                         fontFamily: 'var(--font-mono)', transition: 'all 0.2s',
                                     }}
                                 >
-                                    {showMinorDiags ? '▲ Esconder' : '▼ Mostrar'} {minorDiags.length} diagnóstico{minorDiags.length > 1 ? 's' : ''} menor{minorDiags.length > 1 ? 'es' : ''}
+                                    {showMinorDiags ? 'Esconder' : 'Mostrar'} {minorDiags.length} diagnostico{minorDiags.length > 1 ? 's' : ''} menor{minorDiags.length > 1 ? 'es' : ''}
                                 </button>
 
                                 {showMinorDiags && minorDiags.map((d, i) => {
@@ -1639,7 +1639,7 @@ export function ResultsDashboard({ result, mode = 'full' }: Props): React.JSX.El
 
             {/* ═══ Sensitivity Profiles — Improved ═══ */}
             <section className={styles.section}>
-                <h3 className={styles.sectionTitle}>⚙️ Calibração de Sensibilidade</h3>
+                <h3 className={styles.sectionTitle}>Sensibilidade recomendada</h3>
                 <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-sm)', lineHeight: 1.6 }}>
                     {sensitivitySummary}
                 </p>
@@ -1832,7 +1832,7 @@ export function ResultsDashboard({ result, mode = 'full' }: Props): React.JSX.El
             {/* ═══ Coach Feedback — Accordion + Grouped ═══ */}
             {(coachPlan || groupedCoaching.length > 0) && (
                 <section className={styles.section}>
-                    <h3 className={styles.sectionTitle}>🏆 Plano do Coach</h3>
+                    <h3 className={styles.sectionTitle}>Plano do coach</h3>
                     <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-md)', lineHeight: 1.6 }}>
                         O coach abaixo prioriza o que mexe mais no resultado agora. Quando a amostra ainda está curta, a orientação vira plano de teste, não resultado fechado.
                     </p>
@@ -1977,14 +1977,14 @@ export function ResultsDashboard({ result, mode = 'full' }: Props): React.JSX.El
                                                 <p>{c.verifyNextClip}</p>
                                             </div>
                                             <div className={styles.coachRow}>
-                                                <span className={styles.coachLabel}>🏋️ Drill Profissional</span>
+                                                <span className={styles.coachLabel}>Drill profissional</span>
                                                 <p>{c.howToTest}</p>
                                             </div>
 
                                             {/* Adaptation bar */}
                                             <div className={styles.coachAdapt}>
                                                 <div style={{ flex: 1 }}>
-                                                    <span>⏱️ Ciclo de Adaptação Estimado</span>
+                                                    <span>Ciclo de adaptacao estimado</span>
                                                     <div style={{ height: '4px', width: '100%', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', marginTop: '8px', overflow: 'hidden' }}>
                                                         <div style={{ height: '100%', width: `${(c.adaptationTimeDays / 7) * 100}%`, background: 'linear-gradient(90deg, #06b6d4, #0ea5e9)', borderRadius: '4px', transition: 'width 1s ease' }} />
                                                     </div>

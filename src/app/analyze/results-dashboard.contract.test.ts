@@ -28,7 +28,7 @@ describe('results dashboard visualization contract', () => {
         expect(source).toMatch(/c\.verifyNextClip/);
         expect(source).toMatch(/coachEvidence\.recommendedAttachments/);
         expect(source).toMatch(/Evidencia legada/);
-        expect(source).toMatch(/Plano do Coach/);
+        expect(source).toMatch(/Plano do coach/);
     });
 
     it('renders the coachPlan session verdict, primary focus, and next block before detailed cards', () => {
@@ -57,7 +57,7 @@ describe('results dashboard visualization contract', () => {
 
         const verdictIndex = source.indexOf('styles.verdictReport');
         const trackingIndex = source.indexOf('Leitura tecnica do tracking');
-        const metricsIndex = source.indexOf('Métricas');
+        const metricsIndex = source.indexOf('Metricas salvas');
 
         expect(verdictIndex).toBeGreaterThan(-1);
         expect(trackingIndex).toBeGreaterThan(verdictIndex);
@@ -132,7 +132,7 @@ describe('results dashboard visualization contract', () => {
 
         const verdictIndex = source.indexOf('styles.verdictReport');
         const sprayIndex = source.indexOf('<SprayTrailPanel', verdictIndex);
-        const sensitivityIndex = source.indexOf('Calibração de Sensibilidade');
+        const sensitivityIndex = source.indexOf('Sensibilidade recomendada');
 
         expect(sprayIndex).toBeGreaterThan(verdictIndex);
         expect(sensitivityIndex).toBeGreaterThan(sprayIndex);
@@ -148,6 +148,21 @@ describe('results dashboard visualization contract', () => {
         expect(source).toMatch(/type="button"/);
         expect(source).not.toMatch(/Segmenta..o de Sprays/);
         expect(source).not.toMatch(/M.dia Geral/);
+    });
+
+    it('uses saved-analysis audit detail polish for lower report sections', () => {
+        const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
+        const stylesSource = readFileSync(new URL('./analysis.module.css', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/styles\.dashboardAuditDetail/);
+        expect(source).toMatch(/Metricas salvas/);
+        expect(source).toMatch(/Leituras da analise/);
+        expect(source).toMatch(/Sensibilidade recomendada/);
+        expect(source).toMatch(/Plano do coach/);
+        expect(source).toMatch(/Drill profissional/);
+        expect(source).toMatch(/Ciclo de adaptacao estimado/);
+        expect(stylesSource).toMatch(/\.dashboardAuditDetail/);
+        expect(stylesSource).toMatch(/\.gaugeRow/);
     });
 
     it('renders contextual Pro lock previews without hiding truth evidence', () => {
