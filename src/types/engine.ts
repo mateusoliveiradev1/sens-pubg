@@ -563,6 +563,145 @@ export interface CoachPriority {
     readonly signals: readonly CoachSignal[];
 }
 
+export type CompleteTrainingProtocolVersion = 'complete-protocol-v1';
+
+export type TrainingProtocolEnvironmentType =
+    | 'training_mode'
+    | 'training_mode_custom'
+    | 'ugc_range'
+    | 'aim_sound_lab'
+    | 'tdm_warmup'
+    | 'real_match_transfer'
+    | 'future_spray_lab';
+
+export type TrainingProtocolDrillId =
+    | 'capture_guided_recapture'
+    | 'validation_controlled_spray'
+    | 'vertical_recoil_lane'
+    | 'horizontal_tracking_lane'
+    | 'timing_first_ten'
+    | 'consistency_repeatability'
+    | 'sensitivity_one_variable_test'
+    | 'loadout_one_variable_test';
+
+export type TrainingProtocolDowngradeReasonCode =
+    | 'low_confidence'
+    | 'low_coverage'
+    | 'invalid_clip'
+    | 'partial_safe_read'
+    | 'missing_distance'
+    | 'missing_optic'
+    | 'missing_attachment'
+    | 'outcome_conflict'
+    | 'fatigue_or_pain'
+    | 'variable_changed'
+    | 'limited_weapon_support'
+    | 'insufficient_compatible_validation';
+
+export type TrainingProtocolDistanceMode = AnalysisDistanceMode | 'estimated_range';
+
+export interface TrainingProtocolAttachmentSnapshot {
+    readonly muzzle?: MuzzleAttachment;
+    readonly grip?: GripAttachment;
+    readonly stock?: StockAttachment;
+    readonly missing: readonly ('muzzle' | 'grip' | 'stock')[];
+}
+
+export interface TrainingProtocolContextSnapshot {
+    readonly weaponId?: string;
+    readonly weaponName?: string;
+    readonly opticId?: string;
+    readonly opticName?: string;
+    readonly distanceMeters?: number;
+    readonly distanceMode: TrainingProtocolDistanceMode;
+    readonly stance?: PlayerStance;
+    readonly attachments: TrainingProtocolAttachmentSnapshot;
+    readonly sensitivityProfile?: ProfileType;
+    readonly patchVersion?: string;
+    readonly supportStatus: 'full' | 'visual' | 'technical_limited' | 'removed' | 'deprecated' | 'unknown';
+    readonly limitedSupportReason?: string;
+    readonly personalizationLimited: boolean;
+    readonly limitationReasons: readonly TrainingProtocolDowngradeReasonCode[];
+}
+
+export interface TrainingProtocolDose {
+    readonly durationMinutes: number;
+    readonly sprayReps: number;
+    readonly spraysPerRep: number;
+    readonly restBetweenSpraysSeconds: number;
+    readonly restBetweenRepsSeconds: number;
+    readonly stopAfterMinutes: number;
+}
+
+export interface TrainingProtocolPreparationItem {
+    readonly id: string;
+    readonly label: string;
+    readonly reason: string;
+    readonly required: boolean;
+    readonly safetyKind: 'setup_control' | 'variable_control' | 'rest' | 'stop_rule';
+}
+
+export interface TrainingProtocolValidationPlan {
+    readonly compatibleClipChecklist: readonly string[];
+    readonly minimumConfidence: number;
+    readonly minimumCoverage: number;
+    readonly successCriteria: readonly string[];
+    readonly failCriteria: readonly string[];
+    readonly variableControlChecklist: readonly string[];
+    readonly nextClipCopy: string;
+}
+
+export interface TrainingProtocolTransferPlan {
+    readonly situationChecklist: readonly string[];
+    readonly conservativeConfidenceCopy: string;
+    readonly countsAsTechnicalValidation: false;
+}
+
+export interface TrainingProtocolDowngrade {
+    readonly tierBefore: CoachDecisionTier;
+    readonly tierAfter: CoachDecisionTier;
+    readonly reasons: readonly TrainingProtocolDowngradeReasonCode[];
+    readonly blockedFields: readonly string[];
+    readonly repairCtas: readonly string[];
+    readonly userCopy: string;
+}
+
+export interface TrainingProtocolAudit {
+    readonly createdAt: string;
+    readonly analysisDecisionLevel?: AnalysisDecisionLevel;
+    readonly primaryFocusArea: CoachFocusArea;
+    readonly secondaryFocusAreas: readonly CoachFocusArea[];
+    readonly confidence: number;
+    readonly coverage: number;
+    readonly source: 'deterministic_coach';
+}
+
+export interface CompleteTrainingProtocol {
+    readonly version: CompleteTrainingProtocolVersion;
+    readonly id: string;
+    readonly drillId: TrainingProtocolDrillId;
+    readonly tier: CoachDecisionTier;
+    readonly title: string;
+    readonly summary: string;
+    readonly environment: TrainingProtocolEnvironmentType;
+    readonly context: TrainingProtocolContextSnapshot;
+    readonly objective: string;
+    readonly dose: TrainingProtocolDose;
+    readonly target: string;
+    readonly executionSteps: readonly string[];
+    readonly preparation: readonly TrainingProtocolPreparationItem[];
+    readonly validation: TrainingProtocolValidationPlan;
+    readonly transfer: TrainingProtocolTransferPlan;
+    readonly downgrade: TrainingProtocolDowngrade;
+    readonly audit: TrainingProtocolAudit;
+    readonly stopConditions: readonly string[];
+    readonly continueCriteria: readonly string[];
+    readonly antiMixingNotes: readonly string[];
+    readonly freeSummary: readonly string[];
+    readonly proSections: readonly string[];
+    readonly llmRewriteAllowed: boolean;
+}
+
 export interface CoachActionProtocol {
     readonly id: string;
     readonly kind: 'capture' | 'technique' | 'sens' | 'loadout' | 'drill';
@@ -599,6 +738,7 @@ export interface CoachPlan {
     readonly stopConditions: readonly string[];
     readonly adaptationWindowDays: number;
     readonly llmRewriteAllowed: boolean;
+    readonly completeProtocol?: CompleteTrainingProtocol;
 }
 
 export type CoachProtocolOutcomeStatus =
