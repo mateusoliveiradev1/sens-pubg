@@ -25,10 +25,12 @@ import { db } from '@/db';
 import {
     analysisSessions,
     coachProtocolOutcomes,
+    completeTrainingProtocolRevisions,
     playerProfiles,
     precisionCheckpoints,
     precisionEvolutionLines,
     sensitivityHistory,
+    trainingProtocolTransferRecords,
     weaponProfiles,
     type CoachProtocolOutcomeRow,
 } from '@/db/schema';
@@ -61,11 +63,13 @@ import type {
 import type {
     AnalysisResult,
     CoachDecisionSnapshot,
+    CoachDecisionTier,
     CoachFocusArea,
     CoachProtocolOutcome,
     CoachProtocolOutcomeCoachSnapshot,
     CoachProtocolOutcomeReasonCode,
     CoachProtocolOutcomeStatus,
+    CompleteTrainingProtocol,
     PrecisionCheckpointState,
     PrecisionCompatibilityKey,
     PrecisionTrendLabel,
@@ -148,6 +152,58 @@ export interface RecordCoachProtocolOutcomeInput {
     readonly reasonCodes?: readonly CoachProtocolOutcomeReasonCode[];
     readonly note?: string;
     readonly revisionOfOutcomeId?: string;
+}
+
+export interface RecordCompleteTrainingProtocolRevisionInput {
+    readonly sessionId: string;
+    readonly coachPlanId: string;
+    readonly revisionReason: string;
+    readonly changedFields: readonly string[] | Record<string, unknown>;
+    readonly revisedProtocol: CompleteTrainingProtocol;
+    readonly evidencePayload: Record<string, unknown>;
+}
+
+export interface CompleteTrainingProtocolRevisionRecord {
+    readonly id: string;
+    readonly sessionId: string;
+    readonly coachPlanId: string;
+    readonly protocolId: string;
+    readonly revisionReason: string;
+    readonly tierDirection: 'stronger' | 'same' | 'more_conservative';
+    readonly changedFields: readonly string[] | Record<string, unknown>;
+    readonly previousProtocol: CompleteTrainingProtocol;
+    readonly revisedProtocol: CompleteTrainingProtocol;
+    readonly evidencePayload: Record<string, unknown>;
+    readonly createdAt: string;
+}
+
+export interface RecordTrainingProtocolTransferInput {
+    readonly sessionId: string;
+    readonly protocolId: string;
+    readonly situation: string;
+    readonly weaponId?: string;
+    readonly opticId?: string;
+    readonly approximateDistanceMeters?: number;
+    readonly pressureLevel: string;
+    readonly feltControl: string;
+    readonly result: string;
+    readonly note?: string;
+}
+
+export interface TrainingProtocolTransferRecord {
+    readonly id: string;
+    readonly sessionId: string;
+    readonly protocolId: string;
+    readonly situation: string;
+    readonly weaponId?: string;
+    readonly opticId?: string;
+    readonly approximateDistanceMeters?: number;
+    readonly pressureLevel: string;
+    readonly feltControl: string;
+    readonly result: string;
+    readonly note?: string;
+    readonly countsAsTechnicalValidation: false;
+    readonly createdAt: string;
 }
 
 type SaveAnalysisResultQuotaCode = 'limit_reached' | 'save_failed';
@@ -1391,10 +1447,12 @@ function buildCoachOutcomeCoachSnapshot(
     const coachPlan = isRecord(fullResult.coachPlan) ? fullResult.coachPlan : undefined;
     const primaryFocus = isRecord(coachPlan?.primaryFocus) ? coachPlan.primaryFocus : undefined;
     const nextBlock = isRecord(coachPlan?.nextBlock) ? coachPlan.nextBlock : undefined;
+    const completeProtocol = isRecord(coachPlan?.completeProtocol) ? coachPlan.completeProtocol : undefined;
     const protocols = Array.isArray(coachPlan?.actionProtocols)
         ? coachPlan.actionProtocols.filter(isRecord)
         : [];
     const protocol = protocols.find((candidate) => candidate.id === input.protocolId);
+    const completeProtocolMatches = completeProtocol?.id === input.protocolId;
     const tier = coachPlan?.tier;
     const primaryFocusArea = primaryFocus?.area;
     const primaryFocusTitle = readString(primaryFocus, 'title');
@@ -1407,16 +1465,21 @@ function buildCoachOutcomeCoachSnapshot(
         return { ok: false, error: 'O foco informado nao corresponde ao foco principal salvo.' };
     }
 
-    if (!protocol) {
+    if (!protocol && !completeProtocolMatches) {
         return { ok: false, error: 'Protocolo nao encontrado no plano salvo.' };
     }
 
     const validationCheck = Array.isArray(nextBlock?.checks)
         ? nextBlock.checks.find(isRecord)
         : undefined;
+    const completeValidation = isRecord(completeProtocol?.validation) ? completeProtocol.validation : undefined;
+    const completeSuccessCriteria = Array.isArray(completeValidation?.successCriteria)
+        ? completeValidation.successCriteria.find((criterion) => typeof criterion === 'string')
+        : undefined;
     const precisionTrend = readPrecisionTrendForOutcome(fullResult);
     const validationTarget = readString(validationCheck, 'target')
         ?? precisionTrend?.nextValidationHint
+        ?? (typeof completeSuccessCriteria === 'string' ? completeSuccessCriteria : undefined)
         ?? readString(protocol, 'applyWhen')
         ?? 'Gravar validacao compativel mantendo o contexto controlado.';
 
@@ -1452,6 +1515,322 @@ function toCoachProtocolOutcome(row: CoachProtocolOutcomeRow): CoachProtocolOutc
         ...(conflictPayload ? { conflict: conflictPayload } : {}),
         ...(coachSnapshot ? { coachSnapshot } : {}),
     };
+}
+
+function isCompleteTrainingProtocol(value: unknown): value is CompleteTrainingProtocol {
+    if (!isRecord(value)) {
+        return false;
+    }
+
+    return value.version === 'complete-protocol-v1'
+        && typeof value.id === 'string'
+        && isCoachDecisionTier(value.tier)
+        && typeof value.title === 'string'
+        && isRecord(value.context)
+        && isRecord(value.dose)
+        && Array.isArray(value.executionSteps)
+        && Array.isArray(value.preparation)
+        && isRecord(value.validation)
+        && isRecord(value.transfer)
+        && isRecord(value.downgrade)
+        && isRecord(value.audit);
+}
+
+const TRAINING_PROTOCOL_TIER_ORDER: Record<CoachDecisionTier, number> = {
+    capture_again: 0,
+    test_protocol: 1,
+    stabilize_block: 2,
+    apply_protocol: 3,
+};
+
+function resolveProtocolTierDirection(
+    previous: CoachDecisionTier,
+    revised: CoachDecisionTier,
+): CompleteTrainingProtocolRevisionRecord['tierDirection'] {
+    const previousRank = TRAINING_PROTOCOL_TIER_ORDER[previous];
+    const revisedRank = TRAINING_PROTOCOL_TIER_ORDER[revised];
+
+    if (revisedRank > previousRank) {
+        return 'stronger';
+    }
+
+    if (revisedRank < previousRank) {
+        return 'more_conservative';
+    }
+
+    return 'same';
+}
+
+function normalizeActionText(
+    value: unknown,
+    field: string,
+    maxLength = 160,
+): { readonly ok: true; readonly value: string } | { readonly ok: false; readonly error: string } {
+    if (typeof value !== 'string') {
+        return { ok: false, error: `${field} precisa ser texto.` };
+    }
+
+    const trimmed = value.trim();
+
+    if (trimmed.length === 0) {
+        return { ok: false, error: `${field} e obrigatorio.` };
+    }
+
+    if (trimmed.length > maxLength) {
+        return { ok: false, error: `${field} deve ter no maximo ${maxLength} caracteres.` };
+    }
+
+    return { ok: true, value: trimmed };
+}
+
+function normalizeOptionalActionText(value: unknown, field: string, maxLength = 300): string | { readonly error: string } | undefined {
+    if (value === undefined || value === null) {
+        return undefined;
+    }
+
+    const normalized = normalizeActionText(value, field, maxLength);
+    return normalized.ok ? normalized.value : { error: normalized.error };
+}
+
+export async function recordCompleteTrainingProtocolRevision(
+    input: RecordCompleteTrainingProtocolRevisionInput,
+) {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return {
+            success: false as const,
+            error: 'Nao autenticado.',
+        };
+    }
+
+    const reason = normalizeActionText(input.revisionReason, 'revisionReason', 240);
+    if (!reason.ok) {
+        return { success: false as const, error: reason.error };
+    }
+
+    if (!isCompleteTrainingProtocol(input.revisedProtocol)) {
+        return {
+            success: false as const,
+            error: 'Protocolo revisado invalido.',
+        };
+    }
+
+    try {
+        const [storedSession] = await db
+            .select({
+                id: analysisSessions.id,
+                fullResult: analysisSessions.fullResult,
+            })
+            .from(analysisSessions)
+            .where(
+                and(
+                    eq(analysisSessions.id, input.sessionId),
+                    eq(analysisSessions.userId, session.user.id),
+                ),
+            )
+            .limit(1);
+
+        if (!storedSession) {
+            return {
+                success: false as const,
+                error: 'Sessao nao encontrada.',
+            };
+        }
+
+        const fullResult = isRecord(storedSession.fullResult) ? storedSession.fullResult : {};
+        const coachPlan = isRecord(fullResult.coachPlan) ? fullResult.coachPlan : undefined;
+        const previousProtocol = isCompleteTrainingProtocol(coachPlan?.completeProtocol)
+            ? coachPlan.completeProtocol
+            : undefined;
+
+        if (!previousProtocol) {
+            return {
+                success: false as const,
+                error: 'Sessao sem protocolo completo salvo.',
+            };
+        }
+
+        if (input.revisedProtocol.version !== 'complete-protocol-v1') {
+            return {
+                success: false as const,
+                error: 'Versao do protocolo revisado nao suportada.',
+            };
+        }
+
+        if (input.revisedProtocol.id !== previousProtocol.id) {
+            return {
+                success: false as const,
+                error: 'Revisao precisa preservar o mesmo protocolo base.',
+            };
+        }
+
+        const revisionId = randomUUID();
+        const createdAt = new Date();
+        const tierDirection = resolveProtocolTierDirection(previousProtocol.tier, input.revisedProtocol.tier);
+
+        await db.insert(completeTrainingProtocolRevisions).values({
+            id: revisionId,
+            userId: session.user.id,
+            analysisSessionId: input.sessionId,
+            coachPlanId: input.coachPlanId,
+            protocolId: previousProtocol.id,
+            revisionReason: reason.value,
+            tierDirection,
+            changedFields: input.changedFields,
+            previousProtocol,
+            revisedProtocol: input.revisedProtocol,
+            evidencePayload: input.evidencePayload,
+            createdAt,
+        });
+
+        revalidatePath('/history');
+        revalidatePath(`/history/${input.sessionId}`);
+        revalidatePath('/dashboard');
+
+        return {
+            success: true as const,
+            revision: {
+                id: revisionId,
+                sessionId: input.sessionId,
+                coachPlanId: input.coachPlanId,
+                protocolId: previousProtocol.id,
+                revisionReason: reason.value,
+                tierDirection,
+                changedFields: input.changedFields,
+                previousProtocol,
+                revisedProtocol: input.revisedProtocol,
+                evidencePayload: input.evidencePayload,
+                createdAt: createdAt.toISOString(),
+            } satisfies CompleteTrainingProtocolRevisionRecord,
+        };
+    } catch (err) {
+        console.error('[recordCompleteTrainingProtocolRevision] Error:', err);
+        return {
+            success: false as const,
+            error: 'Nao foi possivel registrar a revisao.',
+        };
+    }
+}
+
+export async function recordTrainingProtocolTransfer(
+    input: RecordTrainingProtocolTransferInput,
+) {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return {
+            success: false as const,
+            error: 'Nao autenticado.',
+        };
+    }
+
+    const situation = normalizeActionText(input.situation, 'situation');
+    const pressureLevel = normalizeActionText(input.pressureLevel, 'pressureLevel');
+    const feltControl = normalizeActionText(input.feltControl, 'feltControl');
+    const result = normalizeActionText(input.result, 'result');
+    const note = normalizeOptionalActionText(input.note, 'note');
+
+    if (!situation.ok) {
+        return { success: false as const, error: situation.error };
+    }
+
+    if (!pressureLevel.ok) {
+        return { success: false as const, error: pressureLevel.error };
+    }
+
+    if (!feltControl.ok) {
+        return { success: false as const, error: feltControl.error };
+    }
+
+    if (!result.ok) {
+        return { success: false as const, error: result.error };
+    }
+
+    if (typeof note === 'object' && note !== null) {
+        return { success: false as const, error: note.error };
+    }
+
+    if (
+        input.approximateDistanceMeters !== undefined
+        && (!Number.isInteger(input.approximateDistanceMeters) || input.approximateDistanceMeters < 0)
+    ) {
+        return {
+            success: false as const,
+            error: 'approximateDistanceMeters precisa ser inteiro positivo.',
+        };
+    }
+
+    try {
+        const [storedSession] = await db
+            .select({ id: analysisSessions.id })
+            .from(analysisSessions)
+            .where(
+                and(
+                    eq(analysisSessions.id, input.sessionId),
+                    eq(analysisSessions.userId, session.user.id),
+                ),
+            )
+            .limit(1);
+
+        if (!storedSession) {
+            return {
+                success: false as const,
+                error: 'Sessao nao encontrada.',
+            };
+        }
+
+        const transferId = randomUUID();
+        const createdAt = new Date();
+
+        await db.insert(trainingProtocolTransferRecords).values({
+            id: transferId,
+            userId: session.user.id,
+            analysisSessionId: input.sessionId,
+            protocolId: input.protocolId,
+            situation: situation.value,
+            ...(input.weaponId ? { weaponId: input.weaponId } : {}),
+            ...(input.opticId ? { opticId: input.opticId } : {}),
+            ...(input.approximateDistanceMeters !== undefined ? {
+                approximateDistanceMeters: input.approximateDistanceMeters,
+            } : {}),
+            pressureLevel: pressureLevel.value,
+            feltControl: feltControl.value,
+            result: result.value,
+            ...(typeof note === 'string' ? { note } : {}),
+            countsAsTechnicalValidation: false,
+            createdAt,
+        });
+
+        revalidatePath('/history');
+        revalidatePath(`/history/${input.sessionId}`);
+        revalidatePath('/dashboard');
+
+        return {
+            success: true as const,
+            transfer: {
+                id: transferId,
+                sessionId: input.sessionId,
+                protocolId: input.protocolId,
+                situation: situation.value,
+                ...(input.weaponId ? { weaponId: input.weaponId } : {}),
+                ...(input.opticId ? { opticId: input.opticId } : {}),
+                ...(input.approximateDistanceMeters !== undefined ? {
+                    approximateDistanceMeters: input.approximateDistanceMeters,
+                } : {}),
+                pressureLevel: pressureLevel.value,
+                feltControl: feltControl.value,
+                result: result.value,
+                ...(typeof note === 'string' ? { note } : {}),
+                countsAsTechnicalValidation: false,
+                createdAt: createdAt.toISOString(),
+            } satisfies TrainingProtocolTransferRecord,
+        };
+    } catch (err) {
+        console.error('[recordTrainingProtocolTransfer] Error:', err);
+        return {
+            success: false as const,
+            error: 'Nao foi possivel registrar a transferencia.',
+        };
+    }
 }
 
 export async function recordCoachProtocolOutcome(
@@ -1780,6 +2159,12 @@ function formatCoachOutcomeStatusLabel(status: CoachProtocolOutcomeStatus): stri
             return 'Piorou no treino';
         case 'invalid_capture':
             return 'Captura invalida';
+        case 'fatigue_or_pain':
+            return 'Dor ou fadiga';
+        case 'confused':
+            return 'Protocolo confuso';
+        case 'variable_changed':
+            return 'Variavel mudou';
     }
 }
 

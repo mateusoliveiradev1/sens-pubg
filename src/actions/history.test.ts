@@ -3,14 +3,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     analysisSessions,
     coachProtocolOutcomes,
+    completeTrainingProtocolRevisions,
     precisionCheckpoints,
     precisionEvolutionLines,
     sensitivityHistory,
+    trainingProtocolTransferRecords,
 } from '@/db/schema';
 import { createAnalysisContext } from '@/app/analyze/analysis-context';
 import { resolveAnalysisDecision } from '@/core/analysis-decision';
+import { buildCompatibleValidationChecklistFromProtocol } from '@/core/complete-training-protocol-validation';
 import { CURRENT_PUBG_PATCH_VERSION } from '@/game/pubg/patch';
-import type { AnalysisResult, CoachPlan, PrecisionTrendSummary } from '@/types/engine';
+import type { AnalysisResult, CoachPlan, CompleteTrainingProtocol, PrecisionTrendSummary } from '@/types/engine';
 
 const mocks = vi.hoisted(() => {
     const auth = vi.fn();
@@ -28,6 +31,8 @@ const mocks = vi.hoisted(() => {
     const lineReturning = vi.fn();
     const checkpointValues = vi.fn();
     const outcomeValues = vi.fn();
+    const revisionValues = vi.fn();
+    const transferValues = vi.fn();
     const historyValues = vi.fn();
     const update = vi.fn();
     const updateSet = vi.fn();
@@ -57,6 +62,8 @@ const mocks = vi.hoisted(() => {
         lineReturning,
         checkpointValues,
         outcomeValues,
+        revisionValues,
+        transferValues,
         historyValues,
         update,
         updateSet,
@@ -112,7 +119,9 @@ import {
     getAnalysisSaveAccess,
     getHistorySessions,
     getPrecisionHistoryLines,
+    recordCompleteTrainingProtocolRevision,
     recordCoachProtocolOutcome,
+    recordTrainingProtocolTransfer,
     recordSensitivityAcceptance,
     saveAnalysisResult,
 } from './history';
@@ -483,6 +492,106 @@ function createStoredCoachPlan(): CoachPlan {
     };
 }
 
+function createCompleteProtocol(overrides: Partial<CompleteTrainingProtocol> = {}): CompleteTrainingProtocol {
+    return {
+        version: 'complete-protocol-v1',
+        id: 'complete-protocol-1',
+        drillId: 'vertical_recoil_lane',
+        tier: 'test_protocol',
+        title: 'Ficha de controle vertical',
+        summary: 'Bloco controlado para validar pull vertical.',
+        environment: 'training_mode',
+        context: {
+            weaponId: 'beryl-m762',
+            weaponName: 'Beryl M762',
+            opticId: 'red-dot',
+            opticName: 'Red Dot',
+            distanceMeters: 30,
+            distanceMode: 'exact',
+            stance: 'standing',
+            attachments: {
+                muzzle: 'compensator',
+                grip: 'vertical',
+                stock: 'none',
+                missing: [],
+            },
+            sensitivityProfile: 'balanced',
+            patchVersion: CURRENT_PUBG_PATCH_VERSION,
+            supportStatus: 'full',
+            personalizationLimited: false,
+            limitationReasons: [],
+        },
+        objective: 'Controlar recoil vertical sem misturar variaveis.',
+        dose: {
+            durationMinutes: 12,
+            sprayReps: 4,
+            spraysPerRep: 3,
+            restBetweenSpraysSeconds: 20,
+            restBetweenRepsSeconds: 60,
+            stopAfterMinutes: 12,
+        },
+        target: 'Parede do Training Mode a 30m',
+        executionSteps: [
+            'Faça tres sprays mantendo a mira no mesmo alvo.',
+            'Descanse entre sprays.',
+            'Grave o ultimo spray para comparacao.',
+        ],
+        preparation: [
+            {
+                id: 'mousepad-space',
+                label: 'Liberar espaco do mousepad',
+                reason: 'Evita travar o pull vertical.',
+                required: true,
+                safetyKind: 'setup_control',
+            },
+        ],
+        validation: {
+            compatibleClipChecklist: [
+                'Mesma arma',
+                'Mesma mira',
+                'Mesma distancia',
+                'Mesma postura',
+                'Mesma sensibilidade',
+            ],
+            minimumConfidence: 0.75,
+            minimumCoverage: 0.8,
+            successCriteria: ['VCI melhora sem piorar ruido horizontal.'],
+            failCriteria: ['Captura perde cobertura.'],
+            variableControlChecklist: ['Nao trocar grip', 'Nao trocar sensibilidade'],
+            nextClipCopy: 'Grave o proximo clip igual para validar.',
+        },
+        transfer: {
+            situationChecklist: ['TDM curta', 'Mesma arma/mira', 'Pressao moderada'],
+            conservativeConfidenceCopy: 'Transferencia em partida e pratica; nao substitui clip compativel.',
+            countsAsTechnicalValidation: false,
+        },
+        downgrade: {
+            tierBefore: 'test_protocol',
+            tierAfter: 'test_protocol',
+            reasons: [],
+            blockedFields: [],
+            repairCtas: [],
+            userCopy: 'Sem downgrade ativo.',
+        },
+        audit: {
+            createdAt: '2026-05-07T12:00:00.000Z',
+            analysisDecisionLevel: 'usable_analysis',
+            primaryFocusArea: 'vertical_control',
+            secondaryFocusAreas: [],
+            confidence: 0.84,
+            coverage: 0.86,
+            source: 'deterministic_coach',
+        },
+        stopConditions: ['Parar se houver dor ou formigamento.'],
+        continueCriteria: ['Continuar se cobertura e confianca ficarem acima do minimo.'],
+        antiMixingNotes: ['Nao misturar sensibilidade e grip no mesmo bloco.'],
+        freeSummary: ['Foco, duracao e passos essenciais ficam visiveis.'],
+        proSections: ['Reps completas', 'Auditoria completa'],
+        llmRewriteAllowed: false,
+        ...overrides,
+    };
+}
+
 function createStoredCoachOutcomeRow(overrides: Record<string, unknown> = {}) {
     return {
         id: 'outcome-1',
@@ -525,6 +634,8 @@ describe('saveAnalysisResult', () => {
         mocks.orderBy.mockReset();
         mocks.insert.mockReset();
         mocks.outcomeValues.mockReset();
+        mocks.revisionValues.mockReset();
+        mocks.transferValues.mockReset();
         mocks.update.mockReset();
 
         mocks.auth.mockResolvedValue({
@@ -573,6 +684,18 @@ describe('saveAnalysisResult', () => {
                 };
             }
 
+            if (table === completeTrainingProtocolRevisions) {
+                return {
+                    values: mocks.revisionValues,
+                };
+            }
+
+            if (table === trainingProtocolTransferRecords) {
+                return {
+                    values: mocks.transferValues,
+                };
+            }
+
             if (table === sensitivityHistory) {
                 return {
                     values: mocks.historyValues,
@@ -595,6 +718,8 @@ describe('saveAnalysisResult', () => {
         mocks.lineReturning.mockResolvedValue([{ id: 'precision-line-1' }]);
         mocks.checkpointValues.mockResolvedValue(undefined);
         mocks.outcomeValues.mockResolvedValue(undefined);
+        mocks.revisionValues.mockResolvedValue(undefined);
+        mocks.transferValues.mockResolvedValue(undefined);
         mocks.limit.mockResolvedValueOnce([{ id: 'profile-1' }]).mockResolvedValue([]);
         mocks.historyValues.mockResolvedValue(undefined);
         mocks.update.mockReturnValue({
@@ -636,6 +761,20 @@ describe('saveAnalysisResult', () => {
         }));
         expect(mocks.finalizeAnalysisQuota).toHaveBeenCalledWith(expect.objectContaining({
             analysisSessionId: 'session-1',
+        }));
+    });
+
+    it('persists a versioned complete protocol snapshot inside the saved full result', async () => {
+        await saveAnalysisResult(createAnalysisResult(), 'beryl-m762', 'red-dot', 30);
+
+        expect(mocks.sessionValues).toHaveBeenCalledWith(expect.objectContaining({
+            fullResult: expect.objectContaining({
+                coachPlan: expect.objectContaining({
+                    completeProtocol: expect.objectContaining({
+                        version: 'complete-protocol-v1',
+                    }),
+                }),
+            }),
         }));
     });
 
@@ -1482,6 +1621,181 @@ describe('recordCoachProtocolOutcome', () => {
             }),
         }));
         expect(mocks.update).not.toHaveBeenCalled();
+    });
+});
+
+describe('complete training protocol revision and transfer actions', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mocks.limit.mockReset();
+        mocks.insert.mockReset();
+
+        mocks.auth.mockResolvedValue({
+            user: { id: 'user-1' },
+        });
+        mocks.select.mockReturnValue({
+            from: mocks.from,
+        });
+        mocks.from.mockReturnValue({
+            where: mocks.where,
+        });
+        mocks.where.mockReturnValue({
+            limit: mocks.limit,
+        });
+        mocks.insert.mockImplementation((table) => {
+            if (table === completeTrainingProtocolRevisions) {
+                return {
+                    values: mocks.revisionValues,
+                };
+            }
+
+            if (table === trainingProtocolTransferRecords) {
+                return {
+                    values: mocks.transferValues,
+                };
+            }
+
+            throw new Error('Unexpected table');
+        });
+        mocks.revisionValues.mockResolvedValue(undefined);
+        mocks.transferValues.mockResolvedValue(undefined);
+    });
+
+    it('rejects unauthenticated protocol revision attempts', async () => {
+        mocks.auth.mockResolvedValue(null);
+
+        const result = await recordCompleteTrainingProtocolRevision({
+            sessionId: 'session-1',
+            coachPlanId: 'plan-1',
+            revisionReason: 'Nova validacao compativel.',
+            changedFields: ['tier'],
+            revisedProtocol: createCompleteProtocol(),
+            evidencePayload: { source: 'compatible_clip' },
+        });
+
+        expect(result).toEqual({
+            success: false,
+            error: 'Nao autenticado.',
+        });
+        expect(mocks.insert).not.toHaveBeenCalled();
+    });
+
+    it('rejects protocol revisions for sessions the user does not own', async () => {
+        mocks.limit.mockResolvedValueOnce([]);
+
+        const result = await recordCompleteTrainingProtocolRevision({
+            sessionId: 'other-session',
+            coachPlanId: 'plan-1',
+            revisionReason: 'Nova validacao compativel.',
+            changedFields: ['tier'],
+            revisedProtocol: createCompleteProtocol(),
+            evidencePayload: { source: 'compatible_clip' },
+        });
+
+        expect(result).toEqual({
+            success: false,
+            error: 'Sessao nao encontrada.',
+        });
+        expect(mocks.insert).not.toHaveBeenCalled();
+    });
+
+    it('records protocol revision direction as more conservative when the revised tier is weaker', async () => {
+        const previousProtocol = createCompleteProtocol({ tier: 'stabilize_block' });
+        const revisedProtocol = createCompleteProtocol({ tier: 'test_protocol' });
+
+        mocks.limit.mockResolvedValueOnce([{
+            id: 'session-1',
+            fullResult: {
+                coachPlan: {
+                    ...createStoredCoachPlan(),
+                    completeProtocol: previousProtocol,
+                },
+            },
+        }]);
+
+        const result = await recordCompleteTrainingProtocolRevision({
+            sessionId: 'session-1',
+            coachPlanId: 'plan-1',
+            revisionReason: 'Fadiga no bloco anterior.',
+            changedFields: ['tier', 'dose.durationMinutes'],
+            revisedProtocol,
+            evidencePayload: { source: 'outcome', status: 'fatigue_or_pain' },
+        });
+
+        expect(result).toEqual({
+            success: true,
+            revision: expect.objectContaining({
+                sessionId: 'session-1',
+                protocolId: 'complete-protocol-1',
+                tierDirection: 'more_conservative',
+                previousProtocol,
+                revisedProtocol,
+            }),
+        });
+        expect(mocks.revisionValues).toHaveBeenCalledWith(expect.objectContaining({
+            userId: 'user-1',
+            analysisSessionId: 'session-1',
+            coachPlanId: 'plan-1',
+            protocolId: 'complete-protocol-1',
+            revisionReason: 'Fadiga no bloco anterior.',
+            tierDirection: 'more_conservative',
+            previousProtocol,
+            revisedProtocol,
+        }));
+        expect(mocks.revalidatePath).toHaveBeenCalledWith('/history/session-1');
+    });
+
+    it('records real-match transfer as practical evidence, never technical validation', async () => {
+        mocks.limit.mockResolvedValueOnce([{ id: 'session-1' }]);
+
+        const result = await recordTrainingProtocolTransfer({
+            sessionId: 'session-1',
+            protocolId: 'complete-protocol-1',
+            situation: 'TDM em pressao media',
+            weaponId: 'beryl-m762',
+            opticId: 'red-dot',
+            approximateDistanceMeters: 32,
+            pressureLevel: 'media',
+            feltControl: 'melhor',
+            result: 'improved',
+            note: 'controle sustentou no primeiro spray',
+        });
+
+        expect(result).toEqual({
+            success: true,
+            transfer: expect.objectContaining({
+                sessionId: 'session-1',
+                protocolId: 'complete-protocol-1',
+                result: 'improved',
+                countsAsTechnicalValidation: false,
+            }),
+        });
+        expect(mocks.transferValues).toHaveBeenCalledWith(expect.objectContaining({
+            userId: 'user-1',
+            analysisSessionId: 'session-1',
+            protocolId: 'complete-protocol-1',
+            result: 'improved',
+            countsAsTechnicalValidation: false,
+        }));
+    });
+});
+
+describe('buildCompatibleValidationChecklistFromProtocol', () => {
+    it('returns the strict fields needed to record the next compatible clip', () => {
+        const checklist = buildCompatibleValidationChecklistFromProtocol(createCompleteProtocol());
+
+        expect(checklist).toEqual(expect.objectContaining({
+            weapon: 'Beryl M762',
+            optic: 'Red Dot',
+            distance: '30m',
+            stance: 'standing',
+            sensitivity: 'balanced',
+            duration: '12 min',
+            successCriterion: 'VCI melhora sem piorar ruido horizontal.',
+        }));
+        expect(checklist.checklist.join(' ')).toContain('Arma');
+        expect(checklist.checklist.join(' ')).toContain('Mira');
+        expect(checklist.checklist.join(' ')).toContain('Distancia');
     });
 });
 

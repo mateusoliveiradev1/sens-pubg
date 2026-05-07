@@ -4,11 +4,13 @@ import * as dbSchema from './schema';
 import {
     analysisSessions,
     coachProtocolOutcomes,
+    completeTrainingProtocolRevisions,
     communityPostAnalysisSnapshots,
     communityPosts,
     communityProfiles,
     precisionCheckpoints,
     precisionEvolutionLines,
+    trainingProtocolTransferRecords,
     weaponPatchProfiles,
     weaponProfiles,
     weaponRegistry,
@@ -242,6 +244,79 @@ describe('coach protocol outcome schema', () => {
         expect(revisionIndex.config.columns.map((column) => column.name)).toEqual([
             'revision_of_id',
         ]);
+    });
+});
+
+describe('complete training protocol schema', () => {
+    it('defines auditable protocol revision rows with old and revised snapshots', () => {
+        expect(completeTrainingProtocolRevisions).toBeDefined();
+
+        const id = getColumn(completeTrainingProtocolRevisions, 'id');
+        const userId = getColumn(completeTrainingProtocolRevisions, 'user_id');
+        const analysisSessionId = getColumn(completeTrainingProtocolRevisions, 'analysis_session_id');
+        const coachPlanId = getColumn(completeTrainingProtocolRevisions, 'coach_plan_id');
+        const protocolId = getColumn(completeTrainingProtocolRevisions, 'protocol_id');
+        const revisionReason = getColumn(completeTrainingProtocolRevisions, 'revision_reason');
+        const tierDirection = getColumn(completeTrainingProtocolRevisions, 'tier_direction');
+        const changedFields = getColumn(completeTrainingProtocolRevisions, 'changed_fields');
+        const previousProtocol = getColumn(completeTrainingProtocolRevisions, 'previous_protocol');
+        const revisedProtocol = getColumn(completeTrainingProtocolRevisions, 'revised_protocol');
+        const evidencePayload = getColumn(completeTrainingProtocolRevisions, 'evidence_payload');
+
+        expect(id.primary).toBe(true);
+        expect(userId.notNull).toBe(true);
+        expect(analysisSessionId.notNull).toBe(true);
+        expect(coachPlanId.notNull).toBe(true);
+        expect(protocolId.notNull).toBe(true);
+        expect(revisionReason.notNull).toBe(true);
+        expect(tierDirection.notNull).toBe(true);
+        expect(changedFields.notNull).toBe(true);
+        expect(previousProtocol.notNull).toBe(true);
+        expect(revisedProtocol.notNull).toBe(true);
+        expect(evidencePayload.notNull).toBe(true);
+
+        expect(getIndex(
+            completeTrainingProtocolRevisions,
+            'complete_training_protocol_revisions_user_session_idx',
+        ).config.columns.map((column) => column.name)).toEqual(['user_id', 'analysis_session_id']);
+        expect(getIndex(
+            completeTrainingProtocolRevisions,
+            'complete_training_protocol_revisions_protocol_idx',
+        ).config.columns.map((column) => column.name)).toEqual(['protocol_id']);
+    });
+
+    it('defines conservative real-match transfer records that never replace technical validation', () => {
+        expect(trainingProtocolTransferRecords).toBeDefined();
+
+        const id = getColumn(trainingProtocolTransferRecords, 'id');
+        const userId = getColumn(trainingProtocolTransferRecords, 'user_id');
+        const analysisSessionId = getColumn(trainingProtocolTransferRecords, 'analysis_session_id');
+        const protocolId = getColumn(trainingProtocolTransferRecords, 'protocol_id');
+        const situation = getColumn(trainingProtocolTransferRecords, 'situation');
+        const pressureLevel = getColumn(trainingProtocolTransferRecords, 'pressure_level');
+        const feltControl = getColumn(trainingProtocolTransferRecords, 'felt_control');
+        const result = getColumn(trainingProtocolTransferRecords, 'result');
+        const countsAsTechnicalValidation = getColumn(trainingProtocolTransferRecords, 'counts_as_technical_validation');
+
+        expect(id.primary).toBe(true);
+        expect(userId.notNull).toBe(true);
+        expect(analysisSessionId.notNull).toBe(true);
+        expect(protocolId.notNull).toBe(true);
+        expect(situation.notNull).toBe(true);
+        expect(pressureLevel.notNull).toBe(true);
+        expect(feltControl.notNull).toBe(true);
+        expect(result.notNull).toBe(true);
+        expect(countsAsTechnicalValidation.notNull).toBe(true);
+        expect(countsAsTechnicalValidation.default).toBe(false);
+
+        expect(getIndex(
+            trainingProtocolTransferRecords,
+            'training_protocol_transfer_records_user_session_idx',
+        ).config.columns.map((column) => column.name)).toEqual(['user_id', 'analysis_session_id']);
+        expect(getIndex(
+            trainingProtocolTransferRecords,
+            'training_protocol_transfer_records_protocol_idx',
+        ).config.columns.map((column) => column.name)).toEqual(['protocol_id']);
     });
 });
 

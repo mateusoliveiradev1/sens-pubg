@@ -747,7 +747,10 @@ export type CoachProtocolOutcomeStatus =
     | 'improved'
     | 'unchanged'
     | 'worse'
-    | 'invalid_capture';
+    | 'invalid_capture'
+    | 'fatigue_or_pain'
+    | 'confused'
+    | 'variable_changed';
 
 export type CoachProtocolOutcomeReasonCode =
     | 'capture_quality'

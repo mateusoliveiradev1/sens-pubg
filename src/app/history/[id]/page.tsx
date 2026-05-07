@@ -64,6 +64,12 @@ function historyOutcomeStatusLabel(status: CoachProtocolOutcome['status']): stri
             return 'Piorou no treino';
         case 'invalid_capture':
             return 'Captura invalida';
+        case 'fatigue_or_pain':
+            return 'Dor ou fadiga';
+        case 'confused':
+            return 'Protocolo confuso';
+        case 'variable_changed':
+            return 'Variavel mudou';
     }
 }
 

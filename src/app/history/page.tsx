@@ -90,6 +90,21 @@ const COACH_OUTCOME_META = {
         background: 'rgba(255, 193, 7, 0.1)',
         border: 'rgba(255, 193, 7, 0.24)',
     },
+    fatigue_or_pain: {
+        color: 'var(--color-warning)',
+        background: 'rgba(255, 193, 7, 0.1)',
+        border: 'rgba(255, 193, 7, 0.24)',
+    },
+    confused: {
+        color: '#74d7ff',
+        background: 'rgba(116, 215, 255, 0.12)',
+        border: 'rgba(116, 215, 255, 0.22)',
+    },
+    variable_changed: {
+        color: 'var(--color-warning)',
+        background: 'rgba(255, 193, 7, 0.1)',
+        border: 'rgba(255, 193, 7, 0.24)',
+    },
     conflict: {
         color: 'var(--color-error)',
         background: 'rgba(239, 68, 68, 0.12)',

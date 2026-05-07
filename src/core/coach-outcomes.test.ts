@@ -19,6 +19,9 @@ describe('coach protocol outcome contract', () => {
             'unchanged',
             'worse',
             'invalid_capture',
+            'fatigue_or_pain',
+            'confused',
+            'variable_changed',
         ];
 
         for (const status of statuses) {
@@ -116,6 +119,31 @@ describe('coach protocol outcome contract', () => {
             evidenceStrength: 'invalid',
             countsAsTechnicalEvidence: false,
             invalidBecauseOfExecutionOrCapture: true,
+        }));
+    });
+
+    it('keeps fatigue or pain and variable changes out of technical evidence', () => {
+        expect(resolveCoachOutcomeEvidence({ status: 'fatigue_or_pain' })).toEqual(expect.objectContaining({
+            evidenceStrength: 'invalid',
+            countsAsTechnicalEvidence: false,
+            needsCompatibleValidation: true,
+            invalidBecauseOfExecutionOrCapture: true,
+        }));
+
+        expect(resolveCoachOutcomeEvidence({ status: 'variable_changed' })).toEqual(expect.objectContaining({
+            evidenceStrength: 'invalid',
+            countsAsTechnicalEvidence: false,
+            needsCompatibleValidation: true,
+            invalidBecauseOfExecutionOrCapture: true,
+        }));
+    });
+
+    it('treats confusion as neutral repair evidence that still needs compatible validation', () => {
+        expect(resolveCoachOutcomeEvidence({ status: 'confused' })).toEqual(expect.objectContaining({
+            evidenceStrength: 'neutral',
+            countsAsTechnicalEvidence: false,
+            needsCompatibleValidation: true,
+            invalidBecauseOfExecutionOrCapture: false,
         }));
     });
 

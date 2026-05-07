@@ -84,6 +84,9 @@ const COACH_PROTOCOL_OUTCOME_STATUSES = new Set<CoachProtocolOutcomeStatus>([
     'unchanged',
     'worse',
     'invalid_capture',
+    'fatigue_or_pain',
+    'confused',
+    'variable_changed',
 ]);
 
 const COACH_PROTOCOL_OUTCOME_REASON_CODES = new Set<CoachProtocolOutcomeReasonCode>([
@@ -254,6 +257,33 @@ export function resolveCoachOutcomeEvidence(
                 invalidBecauseOfExecutionOrCapture: true,
                 summary: 'Invalid capture becomes learning for the next controlled validation, not protocol failure evidence.',
             };
+        case 'fatigue_or_pain':
+            return {
+                evidenceStrength: 'invalid',
+                countsAsTechnicalEvidence: false,
+                pendingClosure: false,
+                needsCompatibleValidation: true,
+                invalidBecauseOfExecutionOrCapture: true,
+                summary: 'Fatigue or pain is an execution safety signal; reduce the block and validate with a compatible clip later.',
+            };
+        case 'confused':
+            return {
+                evidenceStrength: 'neutral',
+                countsAsTechnicalEvidence: false,
+                pendingClosure: false,
+                needsCompatibleValidation: true,
+                invalidBecauseOfExecutionOrCapture: false,
+                summary: 'Confusion means the protocol needs clearer repair or a short validation before coach aggressiveness changes.',
+            };
+        case 'variable_changed':
+            return {
+                evidenceStrength: 'invalid',
+                countsAsTechnicalEvidence: false,
+                pendingClosure: false,
+                needsCompatibleValidation: true,
+                invalidBecauseOfExecutionOrCapture: true,
+                summary: 'A changed variable invalidates strong technical validation but can still inform the next controlled block.',
+            };
     }
 }
 
@@ -328,7 +358,12 @@ function resolveFailureMode(
         return 'protocol';
     }
 
-    if (outcome.status === 'started' || outcome.status === 'completed' || outcome.status === 'unchanged') {
+    if (
+        outcome.status === 'started'
+        || outcome.status === 'completed'
+        || outcome.status === 'unchanged'
+        || outcome.status === 'confused'
+    ) {
         return 'neutral';
     }
 

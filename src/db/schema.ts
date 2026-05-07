@@ -27,6 +27,7 @@ import type {
     CoachProtocolOutcomeCoachSnapshot,
     CoachProtocolOutcomeReasonCode,
     CoachProtocolOutcomeStatus,
+    CompleteTrainingProtocol,
     PrecisionCheckpointState,
     PrecisionTrendSummary,
     PrecisionVariableInTest,
@@ -186,6 +187,22 @@ export interface CoachProtocolOutcomePayload {
     readonly metadata?: Record<string, unknown>;
 }
 
+export type CompleteTrainingProtocolRevisionTierDirection =
+    | 'stronger'
+    | 'same'
+    | 'more_conservative';
+
+export type CompleteTrainingProtocolChangedFieldsPayload =
+    | readonly string[]
+    | Record<string, unknown>;
+
+export interface CompleteTrainingProtocolRevisionEvidencePayload {
+    readonly source?: 'compatible_clip' | 'outcome' | 'transfer' | 'manual_review' | 'system';
+    readonly summary?: string;
+    readonly metadata?: Record<string, unknown>;
+    readonly [key: string]: unknown;
+}
+
 // ═══════════════════════════════════════════
 // Auth.js Tables (NextAuth adapter)
 // ═══════════════════════════════════════════
@@ -235,6 +252,8 @@ export const usersRelations = relations(users, ({ one, many }) => ({
         relationName: 'community_progression_events_beneficiary',
     }),
     coachProtocolOutcomes: many(coachProtocolOutcomes),
+    completeTrainingProtocolRevisions: many(completeTrainingProtocolRevisions),
+    trainingProtocolTransferRecords: many(trainingProtocolTransferRecords),
     squadOwnerships: many(communitySquads, {
         relationName: 'community_squads_owner',
     }),
@@ -467,6 +486,62 @@ export const coachProtocolOutcomes = pgTable('coach_protocol_outcomes', {
     index('coach_protocol_outcomes_revision_idx').on(table.revisionOfId),
 ]);
 
+export const completeTrainingProtocolRevisions = pgTable('complete_training_protocol_revisions', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    analysisSessionId: uuid('analysis_session_id')
+        .notNull()
+        .references(() => analysisSessions.id, { onDelete: 'cascade' }),
+    coachPlanId: text('coach_plan_id').notNull(),
+    protocolId: text('protocol_id').notNull(),
+    revisionReason: text('revision_reason').notNull(),
+    tierDirection: text('tier_direction')
+        .$type<CompleteTrainingProtocolRevisionTierDirection>()
+        .notNull(),
+    changedFields: jsonb('changed_fields')
+        .notNull()
+        .$type<CompleteTrainingProtocolChangedFieldsPayload>(),
+    previousProtocol: jsonb('previous_protocol')
+        .notNull()
+        .$type<CompleteTrainingProtocol>(),
+    revisedProtocol: jsonb('revised_protocol')
+        .notNull()
+        .$type<CompleteTrainingProtocol>(),
+    evidencePayload: jsonb('evidence_payload')
+        .notNull()
+        .$type<CompleteTrainingProtocolRevisionEvidencePayload>(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => [
+    index('complete_training_protocol_revisions_user_session_idx').on(table.userId, table.analysisSessionId),
+    index('complete_training_protocol_revisions_protocol_idx').on(table.protocolId),
+]);
+
+export const trainingProtocolTransferRecords = pgTable('training_protocol_transfer_records', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    analysisSessionId: uuid('analysis_session_id')
+        .notNull()
+        .references(() => analysisSessions.id, { onDelete: 'cascade' }),
+    protocolId: text('protocol_id').notNull(),
+    situation: text('situation').notNull(),
+    weaponId: text('weapon_id'),
+    opticId: text('optic_id'),
+    approximateDistanceMeters: integer('approximate_distance_meters'),
+    pressureLevel: text('pressure_level').notNull(),
+    feltControl: text('felt_control').notNull(),
+    result: text('result').notNull(),
+    note: text('note'),
+    countsAsTechnicalValidation: boolean('counts_as_technical_validation').default(false).notNull(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => [
+    index('training_protocol_transfer_records_user_session_idx').on(table.userId, table.analysisSessionId),
+    index('training_protocol_transfer_records_protocol_idx').on(table.protocolId),
+]);
+
 export const analysisSessionsRelations = relations(analysisSessions, ({ one, many }) => ({
     user: one(users, {
         fields: [analysisSessions.userId],
@@ -481,6 +556,8 @@ export const analysisSessionsRelations = relations(analysisSessions, ({ one, man
     }),
     precisionCheckpoints: many(precisionCheckpoints),
     coachProtocolOutcomes: many(coachProtocolOutcomes),
+    completeTrainingProtocolRevisions: many(completeTrainingProtocolRevisions),
+    trainingProtocolTransferRecords: many(trainingProtocolTransferRecords),
     communitySourcePosts: many(communityPosts),
     communityPostAnalysisSnapshots: many(communityPostAnalysisSnapshots),
 }));
@@ -1840,6 +1917,28 @@ export const coachProtocolOutcomesRelations = relations(coachProtocolOutcomes, (
 // System / Bot Status
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
+export const completeTrainingProtocolRevisionsRelations = relations(completeTrainingProtocolRevisions, ({ one }) => ({
+    user: one(users, {
+        fields: [completeTrainingProtocolRevisions.userId],
+        references: [users.id],
+    }),
+    analysisSession: one(analysisSessions, {
+        fields: [completeTrainingProtocolRevisions.analysisSessionId],
+        references: [analysisSessions.id],
+    }),
+}));
+
+export const trainingProtocolTransferRecordsRelations = relations(trainingProtocolTransferRecords, ({ one }) => ({
+    user: one(users, {
+        fields: [trainingProtocolTransferRecords.userId],
+        references: [users.id],
+    }),
+    analysisSession: one(analysisSessions, {
+        fields: [trainingProtocolTransferRecords.analysisSessionId],
+        references: [analysisSessions.id],
+    }),
+}));
+
 export const botHeartbeat = pgTable('bot_heartbeat', {
     id: text('id').primaryKey().default('main_bot'),
     lastSeen: timestamp('last_seen', { mode: 'date' }).defaultNow().notNull(),
@@ -1889,6 +1988,10 @@ export type PrecisionCheckpointRow = typeof precisionCheckpoints.$inferSelect;
 export type NewPrecisionCheckpoint = typeof precisionCheckpoints.$inferInsert;
 export type CoachProtocolOutcomeRow = typeof coachProtocolOutcomes.$inferSelect;
 export type NewCoachProtocolOutcome = typeof coachProtocolOutcomes.$inferInsert;
+export type CompleteTrainingProtocolRevisionRow = typeof completeTrainingProtocolRevisions.$inferSelect;
+export type NewCompleteTrainingProtocolRevision = typeof completeTrainingProtocolRevisions.$inferInsert;
+export type TrainingProtocolTransferRecordRow = typeof trainingProtocolTransferRecords.$inferSelect;
+export type NewTrainingProtocolTransferRecord = typeof trainingProtocolTransferRecords.$inferInsert;
 export type SensitivityHistoryRow = typeof sensitivityHistory.$inferSelect;
 export type NewSensitivityHistory = typeof sensitivityHistory.$inferInsert;
 export type WeaponProfile = typeof weaponProfiles.$inferSelect;

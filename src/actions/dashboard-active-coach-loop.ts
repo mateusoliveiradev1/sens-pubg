@@ -37,6 +37,12 @@ function formatCoachOutcomeStatus(status: CoachProtocolOutcomeStatus): string {
             return 'Piorou no treino';
         case 'invalid_capture':
             return 'Captura invalida';
+        case 'fatigue_or_pain':
+            return 'Dor ou fadiga';
+        case 'confused':
+            return 'Protocolo confuso';
+        case 'variable_changed':
+            return 'Variavel mudou';
     }
 }
 
@@ -118,6 +124,8 @@ export function buildDashboardActiveCoachLoop(input: {
         status: 'validation_needed',
         statusLabel: formatCoachOutcomeStatus(latestOutcome.status),
         body: latestOutcome.status === 'invalid_capture'
+            || latestOutcome.status === 'fatigue_or_pain'
+            || latestOutcome.status === 'variable_changed'
             ? 'Nao conte isso contra o protocolo ainda. A captura ou execucao invalidou a leitura; repita com contexto controlado.'
             : 'Resultado registrado. Agora grave um clip compativel para confirmar se o efeito aparece na leitura controlada.',
         ctaLabel: 'Gravar validacao compativel',
