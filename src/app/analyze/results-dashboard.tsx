@@ -102,13 +102,13 @@ interface Props {
 
 // ═══ Diagnosis Icons & Labels ═══
 const DIAG_META: Record<DiagnosisType, { icon: string; color: string }> = {
-    overpull: { icon: '⬇️', color: '#ff3d3d' },
-    underpull: { icon: '⬆️', color: '#f59e0b' },
-    late_compensation: { icon: '⏱️', color: '#f97316' },
-    excessive_jitter: { icon: '〰️', color: '#ef4444' },
-    horizontal_drift: { icon: '↔️', color: '#a855f7' },
-    inconsistency: { icon: '🎲', color: '#eab308' },
-    inconclusive: { icon: '⚠️', color: '#f59e0b' },
+    overpull: { icon: 'DOWN', color: '#ff3d3d' },
+    underpull: { icon: 'UP', color: '#f59e0b' },
+    late_compensation: { icon: 'LATE', color: '#f97316' },
+    excessive_jitter: { icon: 'NOISE', color: '#ef4444' },
+    horizontal_drift: { icon: 'DRIFT', color: '#a855f7' },
+    inconsistency: { icon: 'VAR', color: '#eab308' },
+    inconclusive: { icon: 'CHECK', color: '#f59e0b' },
 };
 
 function getDiagnosisMeta(type: DiagnosisType): { icon: string; label: string; color: string } {

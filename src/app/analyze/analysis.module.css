@@ -667,6 +667,24 @@
     transform: none;
 }
 
+.dashboardAuditDetail .section :global(.glass-card) {
+    border-radius: 8px !important;
+    box-shadow: none !important;
+}
+
+.dashboardAuditDetail .section > :global(.glass-card) {
+    border: 1px solid rgba(116, 215, 255, 0.12) !important;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.014)) !important;
+}
+
+.dashboardAuditDetail .radialGaugeSvg {
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.dashboardAuditDetail .radialGaugeSvg circle {
+    filter: none !important;
+}
+
 .reportCommandHeader {
     margin-bottom: var(--space-md);
 }
@@ -1413,6 +1431,17 @@
     border-color: rgba(116, 215, 255, 0.12);
 }
 
+.dashboardAuditDetail .metricCard {
+    min-height: 140px;
+    padding: var(--space-lg);
+}
+
+.dashboardAuditDetail .metricCard::after {
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--result-tone, rgba(116, 215, 255, 0.72)), transparent);
+    opacity: 0.55;
+}
+
 .dashboardAuditDetail .metricCard:hover,
 .dashboardAuditDetail .diagnosisCard:hover,
 .dashboardAuditDetail .profileCard:hover,
@@ -1428,6 +1457,57 @@
     transform: none;
     border-color: rgba(0, 230, 118, 0.34);
     box-shadow: none;
+}
+
+.dashboardAuditDetail .diagnosisCard {
+    padding: var(--space-lg);
+}
+
+.dashboardAuditDetail .diagnosisCard::after {
+    width: 2px;
+    box-shadow: none;
+    opacity: 0.75;
+}
+
+.dashboardAuditDetail .diagnosisHeader {
+    gap: var(--space-md);
+}
+
+.dashboardAuditDetail .diagnosisHeader > div > span:first-child {
+    min-width: 42px;
+    padding: 5px 7px;
+    border: 1px solid var(--result-tone-border, rgba(255, 255, 255, 0.12));
+    border-radius: 8px;
+    background: var(--result-tone-soft, rgba(255, 255, 255, 0.04));
+    color: var(--result-tone, var(--color-accent-primary));
+    font-family: var(--font-mono);
+    font-size: 10px !important;
+    font-weight: 800;
+    text-align: center;
+}
+
+.dashboardAuditDetail .diagnosisType {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+}
+
+.dashboardAuditDetail .profilesGrid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+}
+
+.dashboardAuditDetail .profileCard {
+    gap: var(--space-md);
+    padding: var(--space-lg);
+}
+
+.dashboardAuditDetail .profileCard::before {
+    display: none;
+}
+
+.dashboardAuditDetail .profileIconWrap {
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
 }
 
 .dashboardAuditDetail .diagnosisActionGrid,

@@ -161,7 +161,14 @@ describe('results dashboard visualization contract', () => {
         expect(source).toMatch(/Plano do coach/);
         expect(source).toMatch(/Drill profissional/);
         expect(source).toMatch(/Ciclo de adaptacao estimado/);
+        expect(source).toMatch(/overpull: \{ icon: 'DOWN'/);
+        expect(source).toMatch(/inconsistency: \{ icon: 'VAR'/);
         expect(stylesSource).toMatch(/\.dashboardAuditDetail/);
+        expect(stylesSource).toMatch(/\.dashboardAuditDetail \.section > :global\(\.glass-card\)/);
+        expect(stylesSource).toMatch(/\.dashboardAuditDetail \.radialGaugeSvg circle/);
+        expect(stylesSource).toMatch(/\.dashboardAuditDetail \.metricCard::after/);
+        expect(stylesSource).toMatch(/\.dashboardAuditDetail \.diagnosisCard::after/);
+        expect(stylesSource).toMatch(/\.dashboardAuditDetail \.profileCard::before/);
         expect(stylesSource).toMatch(/\.gaugeRow/);
     });
 
