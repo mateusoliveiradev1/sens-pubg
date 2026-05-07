@@ -44,8 +44,10 @@ import {
     buildResultVerdictModel,
     groupCoachFeedbackByDiagnosis,
     splitDiagnosesBySeverity,
+    type PremiumLockCardModel,
     type ResultMetricTone,
 } from './results-dashboard-view-model';
+import type { CompleteTrainingProtocolViewModel } from './complete-training-protocol-view-model';
 import styles from './analysis.module.css';
 
 // ═══ Radial Gauge Component ═══
@@ -463,6 +465,122 @@ function handleCardKeyboardActivation(
     action();
 }
 
+function CompleteTrainingProtocolPanel({
+    protocol,
+    lock,
+}: {
+    readonly protocol: CompleteTrainingProtocolViewModel;
+    readonly lock?: PremiumLockCardModel;
+}): React.JSX.Element {
+    return (
+        <section className={styles.completeProtocolPanel} aria-labelledby="complete-training-protocol-title">
+            <div className={styles.completeProtocolHeader}>
+                <div>
+                    <span className={styles.reportEyebrow}>Protocolo completo</span>
+                    <h3 id="complete-training-protocol-title" className={styles.completeProtocolTitle}>
+                        {protocol.headline}
+                    </h3>
+                    <p className={styles.completeProtocolMeta}>
+                        {protocol.tierLabel} · {protocol.durationLabel} · {protocol.environmentLabel}
+                    </p>
+                </div>
+                <a className={styles.completeProtocolCta} href="/analyze">
+                    {protocol.primaryCtaLabel}
+                </a>
+            </div>
+
+            <div className={styles.protocolSummaryRows} aria-label="Resumo do protocolo">
+                {protocol.summaryRows.map((row) => (
+                    <span key={row.label}>
+                        <strong>{row.label}</strong>
+                        {row.value}
+                    </span>
+                ))}
+            </div>
+
+            {protocol.blockerPanel ? (
+                <div className={styles.protocolBlockerPanel} role="status">
+                    <strong>{protocol.blockerPanel.reason}</strong>
+                    <span>{protocol.blockerPanel.impact}</span>
+                    <span>{protocol.blockerPanel.repairAction}</span>
+                    <small>{protocol.blockerPanel.unlocksNext}</small>
+                </div>
+            ) : null}
+
+            <div className={styles.protocolFichaGrid}>
+                <div className={styles.protocolFichaSection}>
+                    <span className={styles.reportEyebrow}>O que treinar agora</span>
+                    <ol>
+                        {protocol.essentialSteps.map((step) => (
+                            <li key={step}>{step}</li>
+                        ))}
+                    </ol>
+                </div>
+
+                <div className={styles.protocolFichaSection}>
+                    <span className={styles.reportEyebrow}>Preparar antes do spray</span>
+                    <ul>
+                        {protocol.preparationItems.map((item) => (
+                            <li key={`${item.label}-${item.safety}`}>
+                                <strong>{item.label}</strong>
+                                <span>{item.reason}</span>
+                                <small>{item.safety}</small>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+
+                <div className={styles.protocolFichaSection}>
+                    <span className={styles.reportEyebrow}>Grave o proximo clip assim</span>
+                    <ul>
+                        {protocol.validationCard.checklist.map((item) => (
+                            <li key={item}>{item}</li>
+                        ))}
+                    </ul>
+                    <p>{protocol.validationCard.successCriterion}</p>
+                </div>
+
+                <div className={styles.protocolFichaSection}>
+                    <span className={styles.reportEyebrow}>Transferir para TDM/partida</span>
+                    <ul>
+                        {protocol.transferCard.checklist.map((item) => (
+                            <li key={item}>{item}</li>
+                        ))}
+                    </ul>
+                    <p>{protocol.transferCard.technicalProofCopy}</p>
+                </div>
+            </div>
+
+            <details className={styles.protocolAuditDisclosure}>
+                <summary>Auditoria tecnica</summary>
+                <div>
+                    <span>Drill: {protocol.auditDisclosure.drillId}</span>
+                    <span>Versao: {protocol.auditDisclosure.version}</span>
+                    <span>Confianca: {protocol.auditDisclosure.confidence}</span>
+                    <span>Cobertura: {protocol.auditDisclosure.coverage}</span>
+                    <span>Downgrades: {protocol.auditDisclosure.downgradeCodes.join(', ') || 'nenhum'}</span>
+                    <span>Personalizacao: {protocol.auditDisclosure.limitedPersonalizationReasons.join(', ') || 'completa'}</span>
+                </div>
+            </details>
+
+            {lock ? (
+                <ProLockPreview
+                    {...(styles.protocolLockPreview ? { className: styles.protocolLockPreview } : {})}
+                    currentValueLabel="Free mantem foco, duracao, preparo compacto, validacao basica, confianca, cobertura e bloqueios."
+                    lock={{
+                        featureKey: lock.featureKey,
+                        reason: lock.reason,
+                        title: lock.title,
+                        body: lock.body,
+                        ctaHref: lock.href,
+                    }}
+                    proValueLabel="Pro adiciona reps, local, alvo, criterios, preparacao completa, auditoria, revisao, validacao compativel e transferencia real."
+                />
+            ) : null}
+        </section>
+    );
+}
+
 function formatCoachMode(mode: 'standard' | 'low-confidence' | 'inconclusive'): string {
     if (mode === 'inconclusive') {
         return 'Leitura inconclusiva';
@@ -866,6 +984,7 @@ export function ResultsDashboard({ result, mode = 'full' }: Props): React.JSX.El
     const precisionTrendBlock = buildPrecisionTrendBlockModel(activeSession.precisionTrend);
     const quotaNotice = buildAnalysisQuotaNoticeModel({ quota: activeSession.quota ?? null });
     const premiumLocks = buildPremiumLockCards(activeSession.premiumProjection);
+    const completeProtocolLock = premiumLocks.find((lock) => lock.featureKey === 'training.next_block_protocol');
     const captureGuidance = buildCaptureGuidanceModel(activeSession);
     const reportEvidenceLabel = formatReportEvidenceLabel(trackingOverview.confidence, trackingOverview.coverage);
     const reportLoopStage = resolveReportLoopStage({
@@ -1146,6 +1265,19 @@ export function ResultsDashboard({ result, mode = 'full' }: Props): React.JSX.El
                     trajectory={activeSession.trajectory}
                 />
             </section>
+
+            {verdictModel.completeTrainingProtocol ? (
+                completeProtocolLock ? (
+                    <CompleteTrainingProtocolPanel
+                        lock={completeProtocolLock}
+                        protocol={verdictModel.completeTrainingProtocol}
+                    />
+                ) : (
+                    <CompleteTrainingProtocolPanel
+                        protocol={verdictModel.completeTrainingProtocol}
+                    />
+                )
+            ) : null}
 
             {adaptiveCoachLoop ? (
                 <section

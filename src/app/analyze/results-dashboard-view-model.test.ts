@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AnalysisResult, CoachFeedback, CoachPlan, Diagnosis, PrecisionTrendSummary, SensitivityRecommendation, SprayMastery, SprayMetrics } from '@/types/engine';
+import type { AnalysisResult, CoachFeedback, CoachPlan, CompleteTrainingProtocol, Diagnosis, PrecisionTrendSummary, SensitivityRecommendation, SprayMastery, SprayMetrics } from '@/types/engine';
 import { resolveAnalysisDecision } from '@/core/analysis-decision';
 import {
     buildAdaptiveCoachLoopModel,
@@ -13,6 +13,7 @@ import {
     groupCoachFeedbackByDiagnosis,
     splitDiagnosesBySeverity,
 } from './results-dashboard-view-model';
+import { buildCompleteTrainingProtocolViewModel } from './complete-training-protocol-view-model';
 
 const baseMetrics = {
     verticalControlIndex: 0.59,
@@ -104,6 +105,93 @@ function createCoachPlan(overrides: Partial<CoachPlan> = {}): CoachPlan {
         },
         stopConditions: [],
         adaptationWindowDays: 2,
+        llmRewriteAllowed: false,
+        ...overrides,
+    };
+}
+
+function createCompleteProtocol(overrides: Partial<CompleteTrainingProtocol> = {}): CompleteTrainingProtocol {
+    return {
+        version: 'complete-protocol-v1',
+        id: 'complete-protocol-1',
+        drillId: 'vertical_recoil_lane',
+        tier: 'test_protocol',
+        title: 'Ficha de controle vertical',
+        summary: 'Treino controlado para pull vertical.',
+        environment: 'training_mode',
+        context: {
+            weaponId: 'beryl-m762',
+            weaponName: 'Beryl M762',
+            opticId: 'red-dot',
+            opticName: 'Red Dot',
+            distanceMode: 'unknown',
+            stance: 'standing',
+            attachments: {
+                muzzle: 'compensator',
+                grip: 'vertical',
+                stock: 'none',
+                missing: [],
+            },
+            sensitivityProfile: 'balanced',
+            supportStatus: 'full',
+            personalizationLimited: true,
+            limitationReasons: ['missing_distance'],
+        },
+        objective: 'Treinar controle vertical sem misturar variaveis.',
+        dose: {
+            durationMinutes: 12,
+            sprayReps: 4,
+            spraysPerRep: 3,
+            restBetweenSpraysSeconds: 20,
+            restBetweenRepsSeconds: 60,
+            stopAfterMinutes: 12,
+        },
+        target: 'Parede do Training Mode',
+        executionSteps: ['Spray 1', 'Spray 2', 'Spray 3', 'Spray 4'],
+        preparation: [
+            { id: 'space', label: 'Espaco do mousepad', reason: 'Evita travar o pull.', required: true, safetyKind: 'setup_control' },
+            { id: 'grip', label: 'Grip repetivel', reason: 'Mantem variavel fixa.', required: true, safetyKind: 'variable_control' },
+            { id: 'rest', label: 'Pausa curta', reason: 'Evita fadiga.', required: true, safetyKind: 'rest' },
+            { id: 'stop', label: 'Parar com dor', reason: 'Seguranca do bloco.', required: true, safetyKind: 'stop_rule' },
+            { id: 'posture', label: 'Postura repetivel', reason: 'Controla setup.', required: true, safetyKind: 'setup_control' },
+            { id: 'extra', label: 'Item extra', reason: 'Nao deve aparecer.', required: false, safetyKind: 'setup_control' },
+        ],
+        validation: {
+            compatibleClipChecklist: ['Mesma arma', 'Mesma mira', 'Mesma distancia', 'Mesma postura'],
+            minimumConfidence: 0.75,
+            minimumCoverage: 0.8,
+            successCriteria: ['VCI melhora sem piorar ruido.'],
+            failCriteria: ['Cobertura cai.'],
+            variableControlChecklist: ['Nao trocar grip'],
+            nextClipCopy: 'Grave o proximo clip igual.',
+        },
+        transfer: {
+            situationChecklist: ['TDM curta', 'Mesma arma/mira', 'Pressao media'],
+            conservativeConfidenceCopy: 'Transferencia pratica.',
+            countsAsTechnicalValidation: false,
+        },
+        downgrade: {
+            tierBefore: 'test_protocol',
+            tierAfter: 'test_protocol',
+            reasons: ['missing_distance'],
+            blockedFields: ['distance'],
+            repairCtas: ['Confirmar distancia do clip'],
+            userCopy: 'Distancia ausente bloqueia criterio exato.',
+        },
+        audit: {
+            createdAt: '2026-05-07T12:00:00.000Z',
+            analysisDecisionLevel: 'usable_analysis',
+            primaryFocusArea: 'vertical_control',
+            secondaryFocusAreas: [],
+            confidence: 0.84,
+            coverage: 0.86,
+            source: 'deterministic_coach',
+        },
+        stopConditions: ['Parar se houver dor.'],
+        continueCriteria: ['Continuar com cobertura suficiente.'],
+        antiMixingNotes: ['Nao misturar sens e grip.'],
+        freeSummary: ['Foco e duracao visiveis.'],
+        proSections: ['Auditoria completa'],
         llmRewriteAllowed: false,
         ...overrides,
     };
@@ -387,6 +475,49 @@ describe('results dashboard view model', () => {
             validationLabel: 'Validacao de controle vertical',
         });
         expect(verdict.nextBlock?.steps).toHaveLength(3);
+    });
+
+    it('adds the complete training protocol model to usable verdicts', () => {
+        const verdict = buildResultVerdictModel({
+            mastery: createMastery(),
+            coachPlan: createCoachPlan({
+                completeProtocol: createCompleteProtocol(),
+            }),
+            trackingOverview: baseTrackingOverview,
+            sensitivity: baseSensitivity,
+            diagnoses: [{ type: 'underpull', severity: 4 }] as readonly Diagnosis[],
+        });
+
+        expect(verdict.completeTrainingProtocol).toEqual(expect.objectContaining({
+            headline: 'Ficha de controle vertical',
+            durationLabel: '12 min',
+            preparationItems: expect.arrayContaining([
+                expect.objectContaining({ label: 'Espaco do mousepad' }),
+            ]),
+            blockerPanel: expect.objectContaining({
+                reason: 'Distancia ausente',
+            }),
+        }));
+        expect(verdict.completeTrainingProtocol?.preparationItems).toHaveLength(5);
+        expect(verdict.completeTrainingProtocol?.transferCard.technicalProofCopy)
+            .toContain('nao substitui a validacao compativel');
+    });
+
+    it('builds a standalone complete protocol view model from an analysis result', () => {
+        const model = buildCompleteTrainingProtocolViewModel(createAnalysisResultForCoachLoop({
+            coachPlan: createCoachPlan({
+                completeProtocol: createCompleteProtocol(),
+            }),
+        }));
+
+        expect(model?.summaryRows.map((row) => row.label)).toEqual([
+            'Arma',
+            'Mira',
+            'Distancia',
+            'Foco',
+            'Alvo',
+        ]);
+        expect(model?.validationCard.checklist.length).toBeLessThanOrEqual(8);
     });
 
     it('uses validation language for ready verdicts instead of final-skill claims', () => {

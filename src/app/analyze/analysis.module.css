@@ -1218,6 +1218,175 @@
     font-weight: 800;
 }
 
+.completeProtocolPanel {
+    display: grid;
+    gap: var(--space-lg);
+    margin-bottom: var(--space-3xl);
+    padding: var(--space-xl);
+    border: 1px solid rgba(0, 240, 255, 0.22);
+    border-radius: 8px;
+    background: linear-gradient(180deg, rgba(0, 240, 255, 0.07), rgba(0, 0, 0, 0.18));
+}
+
+.completeProtocolHeader {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-lg);
+    align-items: flex-start;
+}
+
+.completeProtocolTitle {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: var(--text-2xl);
+    line-height: 1.15;
+}
+
+.completeProtocolMeta {
+    margin: var(--space-xs) 0 0;
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+    line-height: 1.6;
+}
+
+.completeProtocolCta {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    padding: 0 var(--space-md);
+    border: 1px solid rgba(0, 240, 255, 0.32);
+    border-radius: 8px;
+    background: rgba(0, 240, 255, 0.12);
+    color: var(--color-text-primary);
+    font-size: var(--text-sm);
+    font-weight: 800;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.protocolSummaryRows {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: var(--space-sm);
+}
+
+.protocolSummaryRows span {
+    display: grid;
+    gap: 4px;
+    min-height: 68px;
+    padding: var(--space-sm);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.14);
+    color: var(--color-text-secondary);
+    font-size: var(--text-xs);
+    line-height: 1.4;
+}
+
+.protocolSummaryRows strong {
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+}
+
+.protocolBlockerPanel {
+    display: grid;
+    gap: var(--space-xs);
+    padding: var(--space-md);
+    border: 1px solid rgba(255, 193, 7, 0.28);
+    border-radius: 8px;
+    background: rgba(255, 193, 7, 0.09);
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+    line-height: 1.55;
+}
+
+.protocolBlockerPanel strong {
+    color: var(--color-warning);
+}
+
+.protocolBlockerPanel small {
+    color: var(--color-text-muted);
+}
+
+.protocolFichaGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-lg);
+}
+
+.protocolFichaSection {
+    display: grid;
+    gap: var(--space-sm);
+    min-height: 220px;
+    padding: var(--space-lg);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.14);
+}
+
+.protocolFichaSection ol,
+.protocolFichaSection ul {
+    display: grid;
+    gap: var(--space-sm);
+    margin: 0;
+    padding-left: 1.1rem;
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+    line-height: 1.6;
+}
+
+.protocolFichaSection li {
+    min-width: 0;
+}
+
+.protocolFichaSection li strong,
+.protocolFichaSection li span,
+.protocolFichaSection li small {
+    display: block;
+}
+
+.protocolFichaSection li strong {
+    color: var(--color-text-primary);
+}
+
+.protocolFichaSection li small,
+.protocolFichaSection p {
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+    line-height: 1.55;
+}
+
+.protocolAuditDisclosure {
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+}
+
+.protocolAuditDisclosure summary {
+    cursor: pointer;
+    color: var(--color-text-primary);
+    font-weight: 800;
+}
+
+.protocolAuditDisclosure div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    margin-top: var(--space-sm);
+}
+
+.protocolAuditDisclosure span {
+    padding: 6px 9px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.protocolLockPreview {
+    margin-top: 0;
+}
+
 .precisionTrendHeader {
     display: flex;
     justify-content: space-between;
@@ -2374,11 +2543,13 @@
 @media (max-width: 1024px) {
     .verdictHeader,
     .verdictContentGrid,
-    .precisionTrendGrid {
+    .precisionTrendGrid,
+    .protocolFichaGrid {
         grid-template-columns: 1fr;
     }
 
-    .precisionTrendHeader {
+    .precisionTrendHeader,
+    .completeProtocolHeader {
         flex-direction: column;
     }
 
@@ -2388,6 +2559,10 @@
     }
 
     .pillarGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .protocolSummaryRows {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
@@ -2450,7 +2625,8 @@
 
     .verdictReport,
     .adaptiveCoachLoop,
-    .precisionTrendBlock {
+    .precisionTrendBlock,
+    .completeProtocolPanel {
         padding: var(--space-lg);
     }
 
@@ -2458,12 +2634,14 @@
     .evidenceBadgeGrid,
     .pillarGrid,
     .adaptiveCoachGrid,
-    .precisionTrendDeltas {
+    .precisionTrendDeltas,
+    .protocolSummaryRows {
         grid-template-columns: 1fr;
     }
 
     .adaptiveCoachHeader,
-    .adaptiveCoachFooter {
+    .adaptiveCoachFooter,
+    .completeProtocolHeader {
         flex-direction: column;
     }
 

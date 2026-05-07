@@ -138,6 +138,28 @@ describe('results dashboard visualization contract', () => {
         expect(sensitivityIndex).toBeGreaterThan(sprayIndex);
     });
 
+    it('renders the complete training protocol ficha without unsafe claims', () => {
+        const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
+        const stylesSource = readFileSync(new URL('./analysis.module.css', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/CompleteTrainingProtocolPanel/);
+        expect(source).toMatch(/verdictModel\.completeTrainingProtocol/);
+        expect(source).toMatch(/O que treinar agora/);
+        expect(source).toMatch(/Preparar antes do spray/);
+        expect(source).toMatch(/Grave o proximo clip assim/);
+        expect(source).toMatch(/Transferir para TDM\/partida/);
+        expect(source).toMatch(/Auditoria tecnica/);
+        expect(stylesSource).toMatch(/\.completeProtocolPanel/);
+        expect(stylesSource).toMatch(/\.protocolFichaGrid/);
+
+        const normalized = source
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase();
+
+        expect(normalized).not.toMatch(/perfeito|garantido|rank garantido|diagnostico medico|continue com dor/);
+    });
+
     it('only renders spray segmentation when multiple sprays can actually be selected', () => {
         const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
 

@@ -4,9 +4,10 @@ import { resolveProductAccess } from './product-entitlements';
 import {
     createPremiumProjectionSummary,
     isPremiumFeatureGranted,
+    projectCompleteTrainingProtocolForAccess,
     projectAnalysisForAccess,
 } from './premium-projection';
-import type { AnalysisResult, CoachPlan, SprayMastery } from '@/types/engine';
+import type { AnalysisResult, CoachPlan, CompleteTrainingProtocol, SprayMastery } from '@/types/engine';
 import type { ProductQuotaSummary } from '@/types/monetization';
 
 const now = new Date('2026-05-06T12:00:00.000Z');
@@ -80,6 +81,94 @@ function coachPlan(): CoachPlan {
         stopConditions: ['Pare se a captura cair.'],
         adaptationWindowDays: 3,
         llmRewriteAllowed: false,
+        completeProtocol: completeProtocol(),
+    };
+}
+
+function completeProtocol(overrides: Partial<CompleteTrainingProtocol> = {}): CompleteTrainingProtocol {
+    return {
+        version: 'complete-protocol-v1',
+        id: 'complete-protocol-1',
+        drillId: 'vertical_recoil_lane',
+        tier: 'test_protocol',
+        title: 'Ficha vertical',
+        summary: 'Bloco completo para controle vertical.',
+        environment: 'training_mode',
+        context: {
+            weaponId: 'beryl-m762',
+            weaponName: 'Beryl M762',
+            opticId: 'red-dot',
+            opticName: 'Red Dot',
+            distanceMeters: 30,
+            distanceMode: 'exact',
+            stance: 'standing',
+            attachments: {
+                muzzle: 'compensator',
+                grip: 'vertical',
+                stock: 'none',
+                missing: [],
+            },
+            sensitivityProfile: 'balanced',
+            patchVersion: '36.1',
+            supportStatus: 'full',
+            personalizationLimited: false,
+            limitationReasons: [],
+        },
+        objective: 'Treinar pull vertical sem trocar variaveis.',
+        dose: {
+            durationMinutes: 12,
+            sprayReps: 6,
+            spraysPerRep: 3,
+            restBetweenSpraysSeconds: 20,
+            restBetweenRepsSeconds: 60,
+            stopAfterMinutes: 12,
+        },
+        target: 'Training Mode 30m',
+        executionSteps: ['Passo 1', 'Passo 2', 'Passo 3', 'Passo 4'],
+        preparation: [
+            { id: 'space', label: 'Espaco livre', reason: 'Controle do pull.', required: true, safetyKind: 'setup_control' },
+            { id: 'grip', label: 'Grip repetivel', reason: 'Controla variavel.', required: true, safetyKind: 'variable_control' },
+            { id: 'rest', label: 'Pausa curta', reason: 'Evita fadiga.', required: true, safetyKind: 'rest' },
+            { id: 'stop', label: 'Parar com dor', reason: 'Seguranca.', required: true, safetyKind: 'stop_rule' },
+        ],
+        validation: {
+            compatibleClipChecklist: ['Mesma arma', 'Mesma mira', 'Mesma distancia'],
+            minimumConfidence: 0.75,
+            minimumCoverage: 0.8,
+            successCriteria: ['VCI melhora'],
+            failCriteria: ['Cobertura cai'],
+            variableControlChecklist: ['Nao trocar grip', 'Nao trocar sens'],
+            nextClipCopy: 'Grave o proximo clip igual.',
+        },
+        transfer: {
+            situationChecklist: ['TDM curta', 'Mesma arma/mira'],
+            conservativeConfidenceCopy: 'Transferencia nao substitui validacao compativel.',
+            countsAsTechnicalValidation: false,
+        },
+        downgrade: {
+            tierBefore: 'test_protocol',
+            tierAfter: 'test_protocol',
+            reasons: ['missing_distance'],
+            blockedFields: ['distance'],
+            repairCtas: ['Confirmar distancia'],
+            userCopy: 'Distancia limita criterio exato.',
+        },
+        audit: {
+            createdAt: '2026-05-07T12:00:00.000Z',
+            analysisDecisionLevel: 'usable_analysis',
+            primaryFocusArea: 'vertical_control',
+            secondaryFocusAreas: [],
+            confidence: 0.84,
+            coverage: 0.86,
+            source: 'deterministic_coach',
+        },
+        stopConditions: ['Pare se a execucao degradar.', 'Pare se houver dor.'],
+        continueCriteria: ['Cobertura acima do minimo.'],
+        antiMixingNotes: ['Nao misture sens e grip.'],
+        freeSummary: ['Foco e duracao visiveis.'],
+        proSections: ['Reps completas', 'Auditoria completa'],
+        llmRewriteAllowed: false,
+        ...overrides,
     };
 }
 
@@ -143,6 +232,9 @@ describe('premium projection policy', () => {
         expect(projected.coachPlan?.primaryFocus.title).toBe('Controle vertical');
         expect(projected.coachPlan?.actionProtocols).toEqual([]);
         expect(projected.coachPlan?.nextBlock.steps).toHaveLength(1);
+        expect(projected.coachPlan?.completeProtocol?.dose.durationMinutes).toBe(12);
+        expect(projected.coachPlan?.completeProtocol?.dose.sprayReps).toBeLessThan(6);
+        expect(projected.coachPlan?.completeProtocol?.proSections).toEqual([]);
         expect(projected.premiumProjection?.canSeeFullCoachPlan).toBe(false);
         expect(projected.premiumProjection?.locks).toContainEqual(expect.objectContaining({
             featureKey: 'coach.full_plan',
@@ -171,8 +263,31 @@ describe('premium projection policy', () => {
 
         expect(projected.coachPlan?.actionProtocols).toHaveLength(1);
         expect(projected.coachPlan?.nextBlock.steps).toHaveLength(3);
+        expect(projected.coachPlan?.completeProtocol).toEqual(coachPlan().completeProtocol);
         expect(projected.premiumProjection?.canSeeFullCoachPlan).toBe(true);
         expect(projected.premiumProjection?.canSeeAdvancedMetrics).toBe(true);
+    });
+
+    it('projects complete protocols directly for Free and Pro access', () => {
+        const protocol = completeProtocol();
+        const freeProjection = createPremiumProjectionSummary(resolveProductAccess({ now }), analysisResult());
+        const proProjection = createPremiumProjectionSummary(resolveProductAccess({
+            now,
+            subscription: {
+                status: 'active',
+                tier: 'pro',
+                currentPeriodStart: new Date('2026-05-01T00:00:00.000Z'),
+                currentPeriodEnd: new Date('2026-06-01T00:00:00.000Z'),
+            },
+        }), analysisResult());
+
+        expect(projectCompleteTrainingProtocolForAccess(protocol, freeProjection)).toEqual(expect.objectContaining({
+            version: 'complete-protocol-v1',
+            dose: expect.objectContaining({ durationMinutes: 12, sprayReps: 3 }),
+            executionSteps: ['Passo 1', 'Passo 2', 'Passo 3'],
+            proSections: [],
+        }));
+        expect(projectCompleteTrainingProtocolForAccess(protocol, proProjection)).toBe(protocol);
     });
 
     it('uses payment issue and limit reasons instead of fake blurred values', () => {
@@ -261,6 +376,8 @@ describe('premium projection policy', () => {
         expect(proFeatureLock?.body).toContain('Visivel agora');
         expect(proFeatureLock?.body).toContain('Com Pro');
         expect(proFeatureLock?.body).toContain('continuidade Pro');
+        expect(freeProjection.locks.find((lock) => lock.featureKey === 'training.next_block_protocol')?.body)
+            .toContain('Pro adiciona reps');
         expect(weakEvidenceLock?.body).toContain('confianca, cobertura, bloqueios e estado inconclusivo');
         expect(weakEvidenceLock?.ctaHref).toBeNull();
     });

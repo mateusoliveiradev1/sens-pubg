@@ -16,6 +16,10 @@ import type {
 } from '@/types/engine';
 import { formatDiagnosisTruthLabel } from '@/core/measurement-truth';
 import { formatPrecisionTrendLabel } from '@/core/precision-loop';
+import {
+    buildCompleteTrainingProtocolViewModelFromProtocol,
+    type CompleteTrainingProtocolViewModel,
+} from './complete-training-protocol-view-model';
 import type {
     AnalysisSaveAccessState,
     AnalysisSaveQuotaNotice,
@@ -75,6 +79,7 @@ export interface ResultVerdictModel {
     readonly diagnosisLabel: string | null;
     readonly blockedReasons: readonly string[];
     readonly nextBlock: ResultVerdictNextBlockModel | null;
+    readonly completeTrainingProtocol: CompleteTrainingProtocolViewModel | null;
     readonly scoreTone: ResultMetricTone;
 }
 
@@ -990,6 +995,7 @@ export function buildResultVerdictModel(input: BuildResultVerdictModelInput): Re
                 ...analysisDecisionReasons,
             ],
             nextBlock: buildNextBlockSummary(coachPlan?.nextBlock),
+            completeTrainingProtocol: buildCompleteTrainingProtocolViewModelFromProtocol(coachPlan?.completeProtocol),
             scoreTone: 'info',
         };
     }
@@ -1021,6 +1027,7 @@ export function buildResultVerdictModel(input: BuildResultVerdictModelInput): Re
         diagnosisLabel,
         blockedReasons,
         nextBlock: buildNextBlockSummary(coachPlan?.nextBlock),
+        completeTrainingProtocol: buildCompleteTrainingProtocolViewModelFromProtocol(coachPlan?.completeProtocol),
         scoreTone: toneFromActionLabel(mastery.actionLabel),
     };
 }

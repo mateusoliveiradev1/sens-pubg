@@ -2,7 +2,7 @@ import {
     hasProductEntitlement,
     type ProductAccessResolution,
 } from '@/lib/product-entitlements';
-import type { AnalysisResult, CoachPlan } from '@/types/engine';
+import type { AnalysisResult, CoachPlan, CompleteTrainingProtocol } from '@/types/engine';
 import type {
     PremiumFeatureLock,
     PremiumLockReason,
@@ -11,6 +11,7 @@ import type {
 } from '@/types/monetization';
 
 const FULL_COACH_FEATURE: ProductEntitlementKey = 'coach.full_plan';
+const TRAINING_PROTOCOL_FEATURE: ProductEntitlementKey = 'training.next_block_protocol';
 const HISTORY_FEATURE: ProductEntitlementKey = 'history.full';
 const ADVANCED_METRICS_FEATURE: ProductEntitlementKey = 'metrics.advanced';
 const OUTCOME_FEATURE: ProductEntitlementKey = 'coach.outcome_capture';
@@ -21,6 +22,7 @@ const VALIDATION_FEATURE: ProductEntitlementKey = 'coach.validation_loop';
 
 const PREMIUM_FEATURES = [
     FULL_COACH_FEATURE,
+    TRAINING_PROTOCOL_FEATURE,
     HISTORY_FEATURE,
     ADVANCED_METRICS_FEATURE,
     OUTCOME_FEATURE,
@@ -68,6 +70,7 @@ const FEATURE_TITLES: Record<ProductEntitlementKey, string> = {
 
 const FREE_VISIBLE_COPY: Partial<Record<ProductEntitlementKey, string>> = {
     'coach.full_plan': 'resumo do coach, foco primario, confianca, cobertura e bloqueios continuam visiveis no Free',
+    'training.next_block_protocol': 'foco, duracao, passos essenciais, preparo compacto, validacao basica, confianca, cobertura e bloqueios continuam visiveis no Free',
     'history.full': 'historico recente, evidencia basica e bloqueios continuam visiveis no Free',
     'metrics.advanced': 'mastery, confianca, cobertura e metricas basicas continuam visiveis no Free',
     'coach.outcome_capture': 'resultado do clip e proximo passo curto continuam visiveis no Free',
@@ -79,6 +82,7 @@ const FREE_VISIBLE_COPY: Partial<Record<ProductEntitlementKey, string>> = {
 
 const PRO_VALUE_COPY: Partial<Record<ProductEntitlementKey, string>> = {
     'coach.full_plan': 'Pro adiciona plano completo, protocolo de bloco, checagens e criterios de parada',
+    'training.next_block_protocol': 'Pro adiciona reps, local, alvo, criterios, preparacao completa, auditoria, revisao, validacao compativel e transferencia real',
     'history.full': 'Pro adiciona historico profundo, auditoria longa e comparacao entre sessoes',
     'metrics.advanced': 'Pro adiciona metricas avancadas para diagnostico e revisao de treino',
     'coach.outcome_capture': 'Pro adiciona registro do resultado do treino para fechar o bloco e alimentar memoria',
@@ -206,10 +210,63 @@ export function createPremiumProjectionSummary(
     };
 }
 
-function summarizeCoachPlan(plan: CoachPlan | undefined): CoachPlan | undefined {
+function canSeeCompleteTrainingProtocol(projection: PremiumProjectionSummary): boolean {
+    return projection.canSeeFullCoachPlan
+        && projection.visibleFeatureKeys.includes(TRAINING_PROTOCOL_FEATURE);
+}
+
+export function projectCompleteTrainingProtocolForAccess(
+    protocol: CompleteTrainingProtocol | undefined,
+    projection: PremiumProjectionSummary,
+): CompleteTrainingProtocol | undefined {
+    if (!protocol) {
+        return undefined;
+    }
+
+    if (canSeeCompleteTrainingProtocol(projection)) {
+        return protocol;
+    }
+
+    return {
+        ...protocol,
+        dose: {
+            ...protocol.dose,
+            sprayReps: Math.min(protocol.dose.sprayReps, 3),
+            spraysPerRep: Math.min(protocol.dose.spraysPerRep, 1),
+            restBetweenRepsSeconds: 0,
+        },
+        executionSteps: protocol.executionSteps.slice(0, 3),
+        preparation: protocol.preparation.slice(0, 3),
+        validation: {
+            ...protocol.validation,
+            compatibleClipChecklist: protocol.validation.compatibleClipChecklist.slice(0, 1),
+            successCriteria: protocol.validation.successCriteria.slice(0, 1),
+            failCriteria: [],
+            variableControlChecklist: protocol.validation.variableControlChecklist.slice(0, 1),
+        },
+        stopConditions: [],
+        continueCriteria: [],
+        antiMixingNotes: protocol.antiMixingNotes.slice(0, 1),
+        proSections: [],
+        freeSummary: [
+            ...protocol.freeSummary,
+            `Auditoria resumida: confianca ${Math.round(protocol.audit.confidence * 100)}%, cobertura ${Math.round(protocol.audit.coverage * 100)}%.`,
+        ],
+    };
+}
+
+function summarizeCoachPlan(
+    plan: CoachPlan | undefined,
+    projection: PremiumProjectionSummary,
+): CoachPlan | undefined {
     if (!plan) {
         return undefined;
     }
+
+    const projectedCompleteProtocol = projectCompleteTrainingProtocolForAccess(
+        plan.completeProtocol,
+        projection,
+    );
 
     return {
         ...plan,
@@ -222,6 +279,7 @@ function summarizeCoachPlan(plan: CoachPlan | undefined): CoachPlan | undefined 
             checks: plan.nextBlock.checks.slice(0, 1),
         },
         stopConditions: [],
+        ...(projectedCompleteProtocol ? { completeProtocol: projectedCompleteProtocol } : {}),
     };
 }
 
@@ -231,14 +289,14 @@ export function projectAnalysisForAccess(
 ): AnalysisResult {
     const projection = createPremiumProjectionSummary(access, result);
 
-    if (projection.canSeeFullCoachPlan && projection.canSeeAdvancedMetrics) {
+    if (projection.canSeeFullCoachPlan && projection.canSeeAdvancedMetrics && canSeeCompleteTrainingProtocol(projection)) {
         return {
             ...result,
             premiumProjection: projection,
         };
     }
 
-    const summarizedCoachPlan = summarizeCoachPlan(result.coachPlan);
+    const summarizedCoachPlan = summarizeCoachPlan(result.coachPlan, projection);
     const projected: AnalysisResult = {
         ...result,
         ...(summarizedCoachPlan ? { coachPlan: summarizedCoachPlan } : {}),
