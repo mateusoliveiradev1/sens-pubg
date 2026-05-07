@@ -23,6 +23,22 @@ async function expectNoHorizontalOverflow(page: Page) {
     expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 2);
 }
 
+async function expectPricingHeroColumnsDoNotOverlap(page: Page) {
+    const viewport = page.viewportSize();
+    if (!viewport || viewport.width <= 840) {
+        return;
+    }
+
+    const [titleBox, pricePanelBox] = await Promise.all([
+        page.getByRole('heading', { name: /Pro e continuidade/i }).boundingBox(),
+        page.locator('aside').first().boundingBox(),
+    ]);
+
+    expect(titleBox).not.toBeNull();
+    expect(pricePanelBox).not.toBeNull();
+    expect(titleBox!.x + titleBox!.width).toBeLessThanOrEqual(pricePanelBox!.x - 8);
+}
+
 async function createSessionToken(user: { id: string; email: string; name: string }) {
     const { encode } = await import('next-auth/jwt');
 
@@ -90,6 +106,7 @@ for (const [label, viewport] of Object.entries(VIEWPORTS)) {
             await expect(page.getByText('Free: 3 analises uteis salvas por mes')).toBeVisible();
             await expect(page.getByText('Pro: 100 analises uteis salvas por ciclo Stripe')).toBeVisible();
             await expect(page.getByText(/webhook precisa confirmar/i)).toBeVisible();
+            await expectPricingHeroColumnsDoNotOverlap(page);
             await expectNoHorizontalOverflow(page);
             await page.screenshot({
                 fullPage: true,
