@@ -36,7 +36,7 @@ export default async function AdminLayout({
                         <span className={styles.navIcon}>👥</span> Usuários
                     </Link>
                     <Link href="/admin/billing" className={styles.navItem}>
-                        <span className={styles.navIcon}>$</span> Billing
+                        <span className={styles.navIcon}>$</span> Assinaturas
                     </Link>
                     <Link href="/admin/bot" className={styles.navItem}>
                         <span className={styles.navIcon}>🤖</span> Bot Status

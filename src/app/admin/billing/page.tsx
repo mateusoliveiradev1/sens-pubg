@@ -88,20 +88,32 @@ export default async function AdminBillingPage({
         <div className={styles.adminPage}>
             <header className={styles.pageHeader}>
                 <div>
-                    <h1>Billing e entitlements</h1>
-                    <p>Suporte operacional para Pro Founder, grants, suspensoes, quota e eventos auditaveis.</p>
+                    <span className={styles.pageEyebrow}>Operacoes Pro</span>
+                    <h1>Assinaturas e entitlements</h1>
+                    <p>Suporte operacional Sens PUBG para Pro Founder, grants, suspensoes, quota e eventos auditaveis.</p>
                 </div>
                 <Link href="/admin" className={styles.backButton}>
                     Voltar
                 </Link>
             </header>
 
+            <section className={styles.trustPanel} aria-label="Escopo operacional de billing">
+                <div>
+                    <span>Verdade de acesso</span>
+                    <strong>Stripe + resolver servidor</strong>
+                </div>
+                <p>
+                    Esta tela ajuda suporte a investigar estados Pro. Ela nao e dashboard de receita
+                    e nao altera acesso por URL, client state ou recibo visual.
+                </p>
+            </section>
+
             <section className={styles.section}>
                 <div className={styles.sectionHeader}>
                     <h2>Lookup seguro</h2>
                     <p>Busque por email, nome ou UUID. Mutacoes ficam restritas a admin; suporte ve estado e registra notas.</p>
                 </div>
-                <form style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
+                <form className={styles.lookupForm}>
                     <input
                         aria-label="Buscar usuario"
                         defaultValue={query}
@@ -114,7 +126,7 @@ export default async function AdminBillingPage({
                     </button>
                 </form>
                 {lookupResults.length > 0 ? (
-                    <div className={styles.tableWrapper} style={{ marginTop: 'var(--space-md)' }}>
+                    <div className={`${styles.tableWrapper} ${styles.sectionOffset}`}>
                         <table className={styles.table}>
                             <thead>
                                 <tr>
@@ -171,7 +183,7 @@ export default async function AdminBillingPage({
                         </div>
                     </div>
 
-                    <div className={styles.tableWrapper} style={{ marginTop: 'var(--space-lg)' }}>
+                    <div className={`${styles.tableWrapper} ${styles.sectionOffsetLarge}`}>
                         <table className={styles.table}>
                             <thead>
                                 <tr>
@@ -210,7 +222,7 @@ export default async function AdminBillingPage({
                         </table>
                     </div>
 
-                    <div className={styles.statsGrid} style={{ marginTop: 'var(--space-lg)' }}>
+                    <div className={`${styles.statsGrid} ${styles.sectionOffsetLarge}`}>
                         <form action={supportNoteAction} className={styles.statCard}>
                             <input type="hidden" name="userId" value={snapshot.user.id} />
                             <span>Nota de suporte</span>
@@ -257,7 +269,7 @@ export default async function AdminBillingPage({
 
                                 <form action={reconciliationAction} className={styles.statCard}>
                                     <input type="hidden" name="userId" value={snapshot.user.id} />
-                                    <span>Stripe reconciliation</span>
+                    <span>Reconciliacao Stripe</span>
                                     <p>Registra pedido auditavel para conferir a verdade Stripe sem mudar acesso local diretamente.</p>
                                     <button className={styles.actionButton} type="submit">
                                         Forcar reconciliacao
@@ -268,7 +280,7 @@ export default async function AdminBillingPage({
                     </div>
 
                     {canMutate && snapshot.grants.length > 0 ? (
-                        <div className={styles.tableWrapper} style={{ marginTop: 'var(--space-lg)' }}>
+                        <div className={`${styles.tableWrapper} ${styles.sectionOffsetLarge}`}>
                             <table className={styles.table}>
                                 <thead>
                                     <tr>
@@ -283,7 +295,7 @@ export default async function AdminBillingPage({
                                             <td>{grant.entitlementKey}</td>
                                             <td>{grant.status}</td>
                                             <td>
-                                                <form action={revokeGrantAction} style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                                <form action={revokeGrantAction} className={styles.revokeForm}>
                                                     <input type="hidden" name="grantId" value={grant.id} />
                                                     <input name="reasonCode" defaultValue="manual_revoke" aria-label="Reason revoke" />
                                                     <input name="auditNote" defaultValue="Revogado via suporte operacional de billing." aria-label="Audit revoke" />

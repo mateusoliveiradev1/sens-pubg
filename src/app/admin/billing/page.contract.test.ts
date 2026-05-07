@@ -24,6 +24,7 @@ describe('admin billing page contract', () => {
         expect(normalized).toContain('suporte operacional');
         expect(normalized).toContain('admin-only');
         expect(normalized).toContain('sem mudar acesso local diretamente');
+        expect(normalized).toContain('nao e dashboard de receita');
         expect(normalized).not.toMatch(/mrr|arr|revenue dashboard|receita total/);
     });
 });

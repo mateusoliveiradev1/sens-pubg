@@ -20,24 +20,24 @@ import { CommunityFilters } from './community-filters';
 import styles from './community-hub.module.css';
 
 export const metadata: Metadata = {
-    title: 'Comunidade PUBG Aim Analyzer',
+    title: 'Comunidade Sens PUBG',
     description:
-        'Veja posts publicos, setups e leituras de spray por arma, patch e diagnostico.',
+        'Veja posts publicos, setups e leituras de spray Sens PUBG por arma, patch e diagnostico.',
     alternates: {
         canonical: '/community',
     },
     openGraph: {
-        title: 'Comunidade PUBG Aim Analyzer',
+        title: 'Comunidade Sens PUBG',
         description:
-            'Veja posts publicos, setups e leituras de spray por arma, patch e diagnostico.',
+            'Veja posts publicos, setups e leituras de spray Sens PUBG por arma, patch e diagnostico.',
         url: '/community',
         type: 'website',
     },
     twitter: {
         card: 'summary_large_image',
-        title: 'Comunidade PUBG Aim Analyzer',
+        title: 'Comunidade Sens PUBG',
         description:
-            'Veja posts publicos, setups e leituras de spray por arma, patch e diagnostico.',
+            'Veja posts publicos, setups e leituras de spray Sens PUBG por arma, patch e diagnostico.',
     },
 };
 
@@ -381,7 +381,7 @@ function SquadBoard({ viewModel }: {
                     <div className={styles.boardTitleGroup}>
                         <h1 className={styles.boardTitle}>Comunidade</h1>
                         <p className={styles.boardLead}>
-                            Progresso do spray primeiro, sinais publicos de verdade logo ao lado e
+                            Comunidade Sens PUBG com progresso do spray primeiro, sinais publicos de verdade logo ao lado e
                             descoberta util sem transformar a pagina em uma pilha de modulos.
                         </p>
                     </div>

@@ -155,17 +155,68 @@
 .adminPage {
     display: flex;
     flex-direction: column;
-    gap: 2rem;
+    gap: var(--space-lg);
+    color: var(--color-text-primary);
 }
 
 .pageHeader h1 {
-    font-size: 2rem;
+    font-size: var(--text-3xl);
     font-weight: 800;
     margin-bottom: 0.25rem;
+    letter-spacing: 0;
 }
 
 .pageHeader p {
-    color: var(--text-secondary);
+    color: var(--color-text-secondary);
+    max-width: 720px;
+    line-height: 1.6;
+}
+
+.pageEyebrow {
+    display: inline-flex;
+    width: fit-content;
+    margin-bottom: var(--space-xs);
+    color: var(--color-pro-semantic);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 800;
+    letter-spacing: 0;
+    text-transform: uppercase;
+}
+
+.trustPanel {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.34fr) minmax(0, 1fr);
+    gap: var(--space-lg);
+    align-items: center;
+    padding: var(--space-lg);
+    border: 1px solid rgba(215, 181, 109, 0.32);
+    border-radius: 8px;
+    background:
+        linear-gradient(135deg, rgba(215, 181, 109, 0.1), transparent 44%),
+        linear-gradient(90deg, rgba(121, 240, 255, 0.06), transparent 62%),
+        var(--color-surface);
+}
+
+.trustPanel span {
+    display: block;
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.trustPanel strong {
+    color: var(--color-pro-semantic);
+    font-family: var(--font-mono);
+    font-size: var(--text-lg);
+    line-height: 1.1;
+}
+
+.trustPanel p {
+    margin: 0;
+    color: var(--color-text-secondary);
+    line-height: 1.6;
 }
 
 .statsGrid {
@@ -175,10 +226,10 @@
 }
 
 .statCard {
-    background: var(--bg-primary);
-    border: 1px solid var(--border-subtle);
-    padding: 1.5rem;
-    border-radius: 1.25rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-divider);
+    padding: var(--space-lg);
+    border-radius: 8px;
     display: flex;
     align-items: center;
     gap: 1.25rem;
@@ -186,8 +237,8 @@
 }
 
 .statCard:hover {
-    transform: translateY(-5px);
-    border-color: var(--accent-primary);
+    transform: translateY(-2px);
+    border-color: rgba(255, 107, 0, 0.32);
 }
 
 .statIcon {
@@ -342,10 +393,10 @@
 }
 
 .section {
-    background: var(--bg-primary);
-    border: 1px solid var(--border-subtle);
-    border-radius: 1.25rem;
-    padding: 2rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-divider);
+    border-radius: 8px;
+    padding: var(--space-lg);
 }
 
 .sectionHeader {
@@ -452,10 +503,25 @@
 }
 
 .tableWrapper {
-    background: var(--bg-primary);
-    border: 1px solid var(--border-subtle);
-    border-radius: 1rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-divider);
+    border-radius: 8px;
     overflow-x: auto;
+}
+
+.lookupForm,
+.revokeForm {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+}
+
+.sectionOffset {
+    margin-top: var(--space-md);
+}
+
+.sectionOffsetLarge {
+    margin-top: var(--space-lg);
 }
 
 .actionButton,
@@ -466,16 +532,23 @@
     justify-content: center;
     min-height: 38px;
     padding: 0 1rem;
-    border: 1px solid var(--border-subtle);
-    border-radius: 0.5rem;
+    border: 1px solid var(--color-divider);
+    border-radius: 8px;
     background: rgba(255, 255, 255, 0.04);
-    color: var(--text-primary);
+    color: var(--color-text-primary);
     font-weight: 700;
     text-decoration: none;
 }
 
 .actionButton {
     cursor: pointer;
+}
+
+.actionButton:hover,
+.backButton:hover,
+.actionLink:hover {
+    border-color: rgba(121, 240, 255, 0.34);
+    color: var(--color-accent-cyan);
 }
 
 .table {
