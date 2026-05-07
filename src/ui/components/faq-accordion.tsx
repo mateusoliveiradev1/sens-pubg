@@ -15,19 +15,19 @@ const FAQS: FaqItem[] = [
     },
     {
         q: 'Preciso enviar meu video para algum servidor?',
-        a: 'Nao. Os quadros sao processados localmente no seu navegador com Web Workers e APIs visuais do browser. O video nao precisa ser enviado para um servidor de processamento.',
+        a: 'Nao. A leitura roda no seu navegador. O servidor cuida de conta, historico salvo, quota e assinatura; o video nao precisa ir para um servidor de processamento.',
     },
     {
         q: 'Como o app descobre minha sensibilidade?',
-        a: 'Voce configura seu perfil de hardware e de jogo. O motor combina rastreio visual, qualidade do clip, dados patch-aware da arma, mira e distancia para sugerir faixas de teste. Ele mostra confianca, cobertura e sinais de tracking para voce validar no proximo bloco de sprays.',
+        a: 'Voce informa seu mouse e configuracoes do jogo. O app cruza a leitura visual do spray com arma, mira, distancia e dados patch-aware para sugerir uma faixa de teste. Ele mostra confianca, cobertura e o que atrapalhou a captura para voce validar no proximo bloco.',
     },
     {
         q: 'O app encontra minha sensibilidade ideal sozinho?',
-        a: 'Nao. Ele entrega uma leitura tecnica do clip e uma faixa de teste baseada nos sinais medidos. Se a qualidade do video, a cobertura ou a re-aquisicao do tracking forem fracas, trate o resultado como ponto de partida ou grave outro clip.',
+        a: 'Nao. Ele entrega uma leitura do clip e uma faixa de teste baseada nos sinais medidos. Se o video estiver ruim, com pouca cobertura ou com mira dificil de acompanhar, trate como ponto de partida ou grave outro clip.',
     },
     {
         q: 'Funciona com qualquer arma do PUBG?',
-        a: 'Hoje o projeto cobre um conjunto importante das armas mais usadas do meta. O catalogo do dominio ainda esta evoluindo para cobertura patch-aware mais completa, entao armas ou patches sem base confiavel geram leitura mais conservadora.',
+        a: 'Hoje o projeto cobre um conjunto importante das armas mais usadas. O catalogo ainda esta evoluindo para cobertura patch-aware mais completa, entao armas ou patches com pouca base geram leitura mais conservadora.',
     },
     {
         q: 'Qual a diferenca entre Pro e Sens dos Pros?',
@@ -35,7 +35,7 @@ const FAQS: FaqItem[] = [
     },
     {
         q: 'Quais sao os limites da analise?',
-        a: 'Clipes com fumaca, overlays, baixa nitidez, compressao pesada, FPS instavel ou mira fora do centro reduzem a confianca. O app pode bloquear videos ruins e, quando analisa, mostra score de qualidade, motivos de degradacao, frames perdidos, re-aquisicao e patch para voce julgar a forca do sinal.',
+        a: 'Fumaca, overlay, baixa nitidez, compressao pesada, FPS instavel ou mira fora do centro reduzem a confianca. O app pode bloquear videos ruins e, quando analisa, mostra qualidade do clip, motivos de degradacao, frames perdidos, re-aquisicao e patch para voce julgar a forca do sinal.',
     },
     {
         q: 'O que e o Vertical Sensitivity Multiplier (VSM) e como ajustar?',

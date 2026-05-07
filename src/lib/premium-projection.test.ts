@@ -261,7 +261,7 @@ describe('premium projection policy', () => {
         expect(proFeatureLock?.body).toContain('Visivel agora');
         expect(proFeatureLock?.body).toContain('Com Pro');
         expect(proFeatureLock?.body).toContain('continuidade Pro');
-        expect(weakEvidenceLock?.body).toContain('confianca, cobertura, blockers e estado inconclusivo');
+        expect(weakEvidenceLock?.body).toContain('confianca, cobertura, bloqueios e estado inconclusivo');
         expect(weakEvidenceLock?.ctaHref).toBeNull();
     });
 });

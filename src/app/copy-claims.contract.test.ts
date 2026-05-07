@@ -194,10 +194,10 @@ describe('product copy claim contract', () => {
         const lockCopy = normalizeCopy(`${readProductCopy('src/app/analyze/results-dashboard-view-model.ts')}\n${readProductCopy('src/lib/premium-projection.ts')}`);
 
         expect(pricingCopy).toContain('free: 3 analises uteis salvas por mes');
-        expect(pricingCopy).toContain('pro: 100 analises uteis salvas por ciclo stripe');
+        expect(pricingCopy).toContain('pro: 100 analises uteis salvas por mes de assinatura');
         expect(pricingCopy).toContain('nao e afiliado');
         expect(pricingCopy).toContain('nao sao vendidos como acesso exclusivo');
-        expect(pricingCopy).toContain('webhook precisa confirmar');
+        expect(pricingCopy).toContain('confirmacao da stripe (webhook) precisa chegar');
 
         expect(billingCopy).toContain('historico salvo fica preservado');
         expect(billingCopy).toContain('brasil precisa de revisao humana');

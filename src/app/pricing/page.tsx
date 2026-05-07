@@ -14,7 +14,7 @@ import styles from './page.module.css';
 
 export const metadata: Metadata = {
     title: 'Sens PUBG Pro Founder',
-    description: 'Solo-player Pro mensal para analise de clips, coach completo, historico e validacao de treino.',
+    description: 'Plano Pro mensal para transformar clips de spray em treino continuo, historico comparavel e coach completo.',
 };
 
 function formatPrice(cents: number, currency: 'BRL' | 'USD'): string {
@@ -33,16 +33,29 @@ async function startFounderCheckout() {
 
 const freeFeatures = [
     '3 analises uteis salvas por mes',
-    'Mastery, confianca, cobertura e blockers sempre visiveis',
-    'Resumo de coach e historico recente para testar o fluxo',
-    'Estados inconclusivos continuam honestos, sem esconder evidencia',
+    'Confianca, cobertura e bloqueios sempre visiveis',
+    'Resumo de coach para saber o proximo spray',
+    'Resultado inconclusivo continua honesto, sem maquiar o clip',
 ] as const;
 
 const proFeatures = [
-    '100 analises uteis salvas por ciclo Stripe',
-    'Plano completo do coach, protocolo de bloco e outcome',
-    'Historico profundo, trends compativeis e validacao de checkpoint',
+    '100 analises uteis salvas por mes de assinatura',
+    'Coach completo com protocolo de bloco e resultado do treino',
+    'Historico profundo, tendencias comparaveis e checkpoints',
     'Metricas avancadas e suporte de founder beta controlado',
+] as const;
+
+const decisionSignals = [
+    'Clip curto',
+    'Leitura honesta',
+    'Treino guiado',
+    'Validacao',
+] as const;
+
+const priceHighlights = [
+    { label: 'Free', value: '3', helper: 'analises uteis salvas por mes' },
+    { label: 'Pro', value: '100', helper: 'analises uteis por mes de assinatura' },
+    { label: 'Acesso', value: 'servidor', helper: 'confirmacao Stripe antes de liberar' },
 ] as const;
 
 export default async function PricingPage(): Promise<React.JSX.Element> {
@@ -64,17 +77,21 @@ export default async function PricingPage(): Promise<React.JSX.Element> {
                 <div className={`${styles.shell} ${styles.hero}`}>
                     <section className={styles.heroCopy}>
                         <p className={styles.eyebrow}>Sens PUBG Pro Founder</p>
-                        <h1 className={styles.title}>Pro e continuidade, nao promessa.</h1>
+                        <h1 className={styles.title}>Treine o proximo spray, nao uma promessa.</h1>
                         <p className={styles.lead}>
-                            O Pro vende o loop original do Sens PUBG: clip analisado no navegador, coach completo,
-                            historico profundo, trends compativeis, outcomes e validacao do proximo bloco. Free continua
-                            util e ve a verdade do clip; Pro abre continuidade e profundidade, mas nao promete certeza de
-                            ajuste, rank ou melhora.
+                            Comece gratis vendo a verdade do clip. Entre no Pro quando quiser acompanhar
+                            historico, coach completo, tendencias comparaveis e o proximo bloco de treino
+                            com mais profundidade. Sem promessa de ajuste final, rank ou atalho milagroso.
                         </p>
+                        <div className={styles.decisionRail} aria-label="Loop de decisao Pro">
+                            {decisionSignals.map((signal) => (
+                                <span key={signal}>{signal}</span>
+                            ))}
+                        </div>
                         <LoopRail
                             currentStage="coach"
-                            evidenceLabel="verdade visivel no Free"
-                            nextActionLabel="continuar no Pro"
+                            evidenceLabel="Free mostra a leitura"
+                            nextActionLabel="Pro acompanha o treino"
                             className={styles.loopRail ?? ''}
                         />
                         <div className={styles.heroActions}>
@@ -103,42 +120,51 @@ export default async function PricingPage(): Promise<React.JSX.Element> {
                         </div>
                         <div className={styles.evidenceBar} aria-label="Resumo de valor e limites">
                             <span>Free: 3 analises uteis salvas por mes</span>
-                            <span>Pro: 100 analises uteis salvas por ciclo Stripe</span>
-                            <span>Webhook confirma acesso Pro</span>
+                            <span>Pro: 100 analises uteis salvas por mes de assinatura</span>
+                            <span>Webhook confirma o acesso Pro</span>
                         </div>
                     </section>
 
                     <aside className={styles.pricePanel}>
-                        <p className={styles.eyebrow}>Mensal beta controlado</p>
+                        <p className={styles.eyebrow}>Founder mensal</p>
                         <div className={styles.price}>
                             <strong>{formatPrice(founderPrice.amountCents, founderPrice.currency)}</strong>
                             <span>Founder mensal no Brasil. Publico planejado: {formatPrice(publicPrice.amountCents, publicPrice.currency)}.</span>
                         </div>
+                        <div className={styles.priceHighlights} aria-label="Resumo rapido do plano">
+                            {priceHighlights.map((highlight) => (
+                                <span key={highlight.label}>
+                                    <strong>{highlight.value}</strong>
+                                    <small>{highlight.label}</small>
+                                    {highlight.helper}
+                                </span>
+                            ))}
+                        </div>
                         <div className={styles.founderStatus}>
-                            <span>{flags.checkoutEnabled ? 'Checkout habilitado pelo servidor' : 'Checkout desabilitado pelo servidor'}</span>
-                            <span>{flags.founderPricingEnabled ? 'Founder liberado por flag' : 'Founder beta por convite'}</span>
+                            <span>{flags.checkoutEnabled ? 'Checkout disponivel' : 'Checkout fechado no momento'}</span>
+                            <span>{flags.founderPricingEnabled ? 'Founder liberado para sua conta' : 'Founder beta por convite'}</span>
                         </div>
                         <p className={styles.note}>
                             Checkout e Portal sao hospedados pela Stripe. URL de sucesso nunca libera Pro sozinha;
-                            o webhook precisa confirmar antes de qualquer acesso pago.
+                            a confirmacao da Stripe (webhook) precisa chegar antes de qualquer acesso pago.
                         </p>
                     </aside>
                 </div>
 
                 <section className={`${styles.shell} ${styles.compareSection}`} aria-labelledby="free-pro-title">
                     <div className={styles.sectionHeader}>
-                        <h2 id="free-pro-title">Free util. Pro continuo.</h2>
+                        <h2 id="free-pro-title">Free para testar. Pro para continuar.</h2>
                         <p>
-                            Os dois tiers parecem produto de verdade. O Free mostra evidencias e um caminho curto;
-                            o Pro aprofunda coach, historico e validacao sem esconder a verdade do clip.
+                            O Free responde se esse clip da para ler. O Pro mostra como seguir treinando
+                            sem perder contexto.
                         </p>
                     </div>
                     <div className={styles.planGrid}>
                         <article className={styles.planColumn}>
                             <div>
                                 <span className={styles.planBadge}>Free</span>
-                                <h3>Comecar com verdade do clip</h3>
-                                <p>Para testar captura, ver blockers, receber resumo e decidir o proximo spray sem pagar.</p>
+                                <h3>Comecar com a leitura do clip</h3>
+                                <p>Para testar captura, ver bloqueios, receber resumo e decidir o proximo spray sem pagar.</p>
                             </div>
                             <ul className={styles.list}>
                                 {freeFeatures.map((feature) => (
@@ -152,8 +178,8 @@ export default async function PricingPage(): Promise<React.JSX.Element> {
                         <article className={`${styles.planColumn} ${styles.proColumn}`}>
                             <div>
                                 <span className={styles.planBadge}>Pro Founder</span>
-                                <h3>Continuar o loop completo</h3>
-                                <p>Para quem quer transformar clips repetidos em protocolo, historico, outcome e validacao compativel.</p>
+                                <h3>Continuar com historico e coach</h3>
+                                <p>Para transformar sprays repetidos em protocolo, historico, resultado do treino e validacao comparavel.</p>
                             </div>
                             <ul className={styles.list}>
                                 {proFeatures.map((feature) => (
@@ -183,19 +209,19 @@ export default async function PricingPage(): Promise<React.JSX.Element> {
                     <div className={styles.sectionHeader}>
                         <h2>Compra com guarda-corpo</h2>
                         <p>
-                            A superficie paga deixa claro o que e produto, o que e Stripe e o que ainda depende de verificacao manual.
+                            A pagina vende continuidade, mas deixa claro quem confirma pagamento, acesso e limites.
                         </p>
                     </div>
                     <div className={styles.trustGrid}>
                         <article>
                             <span>01</span>
                             <h3>Servidor decide</h3>
-                            <p>Pricing inicia checkout por action interna. Cliente nao envia price id, valor, moeda, tier ou periodo.</p>
+                            <p>Voce escolhe entrar no Pro; o servidor usa o preco aprovado. O navegador nao decide valor, moeda, plano ou periodo.</p>
                         </article>
                         <article>
                             <span>02</span>
                             <h3>Stripe confirma</h3>
-                            <p>Portal e checkout ficam na Stripe; webhook e assinatura confiavel liberam o acesso, nao o URL.</p>
+                            <p>Portal e checkout ficam na Stripe; webhook e assinatura confiavel liberam o acesso, nao o URL de sucesso.</p>
                         </article>
                         <article>
                             <span>03</span>

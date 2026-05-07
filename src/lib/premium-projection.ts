@@ -39,13 +39,13 @@ const FEATURE_TITLES: Record<ProductEntitlementKey, string> = {
     'training.next_block_protocol': 'Protocolo completo',
     'history.basic_recent': 'Historico recente',
     'history.full': 'Historico completo',
-    'trends.compatible_summary': 'Resumo de trend compativel',
-    'trends.compatible_full': 'Trend compativel completo',
+    'trends.compatible_summary': 'Resumo de tendencia comparavel',
+    'trends.compatible_full': 'Tendencia comparavel completa',
     'precision.evolution_lines': 'Linhas de evolucao',
     'precision.checkpoints': 'Checkpoints de precisao',
     'metrics.basic': 'Metricas basicas',
     'metrics.advanced': 'Metricas avancadas',
-    'coach.outcome_capture': 'Registro de outcome',
+    'coach.outcome_capture': 'Registro do resultado do treino',
     'coach.validation_loop': 'Loop de validacao',
     'billing.portal_access': 'Portal de billing',
     'admin.entitlements.view': 'Admin: ver entitlements',
@@ -67,23 +67,23 @@ const FEATURE_TITLES: Record<ProductEntitlementKey, string> = {
 };
 
 const FREE_VISIBLE_COPY: Partial<Record<ProductEntitlementKey, string>> = {
-    'coach.full_plan': 'resumo do coach, foco primario, confianca, cobertura e blockers continuam visiveis no Free',
-    'history.full': 'historico recente, evidencia basica e blockers continuam visiveis no Free',
+    'coach.full_plan': 'resumo do coach, foco primario, confianca, cobertura e bloqueios continuam visiveis no Free',
+    'history.full': 'historico recente, evidencia basica e bloqueios continuam visiveis no Free',
     'metrics.advanced': 'mastery, confianca, cobertura e metricas basicas continuam visiveis no Free',
     'coach.outcome_capture': 'resultado do clip e proximo passo curto continuam visiveis no Free',
-    'coach.validation_loop': 'verdade do clip, blockers e inconclusivo continuam visiveis no Free',
-    'trends.compatible_full': 'resumo de trend e motivo de bloqueio continuam visiveis no Free',
+    'coach.validation_loop': 'verdade do clip, bloqueios e inconclusivo continuam visiveis no Free',
+    'trends.compatible_full': 'resumo de tendencia e motivo de bloqueio continuam visiveis no Free',
     'precision.evolution_lines': 'direcao principal e checkpoints essenciais continuam visiveis no Free',
     'precision.checkpoints': 'estado atual do clip e proxima validacao continuam visiveis no Free',
 };
 
 const PRO_VALUE_COPY: Partial<Record<ProductEntitlementKey, string>> = {
-    'coach.full_plan': 'Pro adiciona plano completo, protocolo de bloco, checks e stop conditions',
+    'coach.full_plan': 'Pro adiciona plano completo, protocolo de bloco, checagens e criterios de parada',
     'history.full': 'Pro adiciona historico profundo, auditoria longa e comparacao entre sessoes',
     'metrics.advanced': 'Pro adiciona metricas avancadas para diagnostico e revisao de treino',
-    'coach.outcome_capture': 'Pro adiciona registro de outcome para fechar o bloco e alimentar memoria',
+    'coach.outcome_capture': 'Pro adiciona registro do resultado do treino para fechar o bloco e alimentar memoria',
     'coach.validation_loop': 'Pro adiciona validacao compativel e continuidade do coach',
-    'trends.compatible_full': 'Pro adiciona trend compativel completo com deltas e blockers auditaveis',
+    'trends.compatible_full': 'Pro adiciona tendencia comparavel completa com deltas e bloqueios auditaveis',
     'precision.evolution_lines': 'Pro adiciona linhas de evolucao por contexto estrito',
     'precision.checkpoints': 'Pro adiciona checkpoints antigos e retomada de linha ativa',
 };
@@ -132,7 +132,7 @@ function buildLockBody(
         case 'payment_issue':
             return `Visivel agora: ${visibleNow}. Com Pro: ${proValue}. Motivo: ${title} espera o billing voltar para um estado confiavel.`;
         case 'weak_evidence':
-            return `Visivel agora: confianca, cobertura, blockers e estado inconclusivo. Com Pro: ${proValue}, mas so quando a evidencia sustentar. Motivo: evidencia fraca.`;
+            return `Visivel agora: confianca, cobertura, bloqueios e estado inconclusivo. Com Pro: ${proValue}, mas so quando a evidencia sustentar. Motivo: evidencia fraca.`;
         case 'not_enough_history':
             return `Visivel agora: ${visibleNow}. Com Pro: ${proValue}. Motivo: ainda faltam clips compativeis para uma leitura honesta.`;
         case 'pro_feature':

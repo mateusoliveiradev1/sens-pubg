@@ -178,10 +178,10 @@ export async function generateMetadata({
         };
     }
 
-    const title = `${viewModel.identity.displayName} | Comunidade PUBG Aim Analyzer`;
+    const title = `${viewModel.identity.displayName} | Comunidade Sens PUBG`;
     const description = viewModel.identity.headline
         ?? viewModel.identity.bio
-        ?? `Perfil publico de @${viewModel.identity.slug} na comunidade PUBG Aim Analyzer.`;
+        ?? `Perfil publico de @${viewModel.identity.slug} na comunidade Sens PUBG.`;
 
     return {
         title,

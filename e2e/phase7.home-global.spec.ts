@@ -66,8 +66,8 @@ for (const [label, viewport] of Object.entries(VIEWPORTS)) {
             await expect(page.getByLabel('Loop Sens PUBG').first()).toBeVisible();
             await expect(page.getByText(/confianca/i).first()).toBeVisible();
             await expect(page.getByText(/cobertura/i).first()).toBeVisible();
-            await expect(page.getByText(/blockers/i).first()).toBeVisible();
-            await expect(page.getByText(/Proximo: loop solo/i)).toBeVisible();
+            await expect(page.getByText(/bloqueios/i).first()).toBeVisible();
+            await expect(page.getByText(/Ver o caminho completo/i)).toBeVisible();
             await expectNoHorizontalOverflow(page);
 
             await page.screenshot({

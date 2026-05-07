@@ -25,43 +25,49 @@ const HERO_WEAPONS = [
 
 const LOOP_FACTS = [
     {
-        label: 'Clip Free',
-        value: 'util',
-        detail: 'A primeira leitura continua premium: evidencia, blockers e proximo teste aparecem sem esconder incerteza.',
+        label: 'Clip gratis',
+        value: 'claro',
+        detail: 'Voce ve o que deu para ler, o que atrapalhou e qual spray gravar em seguida.',
     },
     {
         label: 'Pro',
-        value: 'continuidade',
-        detail: 'O Pro aprofunda historico, tendencias compativeis e coach completo sem vender certeza final.',
+        value: 'treino continuo',
+        detail: 'O Pro junta historico, tendencias comparaveis e coach completo para continuar o treino com contexto.',
     },
     {
-        label: 'Verdade',
-        value: 'visivel',
-        detail: 'Confianca, cobertura e motivos de bloqueio ficam na tela quando o clip nao sustenta uma recomendacao forte.',
+        label: 'Sem chute',
+        value: 'evidencia visivel',
+        detail: 'Confianca, cobertura e motivos de bloqueio continuam na tela quando o clip nao sustenta uma decisao forte.',
     },
 ] as const;
 
 const PROCESS_STEPS = [
     {
         number: '01',
-        title: 'Envie um spray curto',
-        body: 'Grave 5 a 15 segundos, reticulo visivel, uma arma e um spray continuo. A leitura acontece no navegador.',
+        title: 'Grave um spray curto',
+        body: 'Use 5 a 15 segundos, reticulo visivel, uma arma e um spray continuo. O video fica no navegador.',
     },
     {
         number: '02',
-        title: 'Leia a evidencia',
-        body: 'O relatorio mostra patch, cobertura, confianca, frames visiveis, frames perdidos e blockers quando o sinal fica fraco.',
+        title: 'Veja o que o clip provou',
+        body: 'O relatorio mostra patch, confianca, cobertura, frames uteis e o que atrapalhou quando o sinal fica fraco.',
     },
     {
         number: '03',
-        title: 'Teste um bloco',
-        body: 'A sens sai como faixa de teste e protocolo. Se o clip nao sustenta decisao, o coach reduz agressividade ou bloqueia o passo.',
+        title: 'Treine o proximo bloco',
+        body: 'A sens vira faixa de teste e protocolo. Se o clip nao sustenta decisao, o coach reduz o passo ou pede nova captura.',
     },
     {
         number: '04',
         title: 'Valide com outro clip',
-        body: 'Historico e Pro conectam clips compativeis, checkpoints e tendencias sem misturar contexto ou vender certeza de resultado.',
+        body: 'Historico e Pro conectam sprays comparaveis, checkpoints e tendencias sem misturar contexto ou prometer resultado.',
     },
+] as const;
+
+const HERO_SIGNALS = [
+    'Reticulo visivel',
+    'Spray continuo',
+    'Proximo bloco pronto',
 ] as const;
 
 async function getLandingStats(): Promise<{
@@ -98,9 +104,17 @@ function ProductLoopPreview({
             <div className={styles.previewHeader}>
                 <div>
                     <span className={styles.kicker}>Leitura do clip</span>
-                    <h2 className={styles.previewTitle}>Spray testavel, nao chute de sens</h2>
+                    <h2 className={styles.previewTitle}>Pare de mexer na sens no escuro</h2>
                 </div>
-                <span className={styles.previewState}>evidencia forte</span>
+                <span className={styles.previewState}>leitura forte</span>
+            </div>
+
+            <div className={styles.signalStack} aria-label="Sinais vivos da leitura">
+                {HERO_SIGNALS.map((signal, index) => (
+                    <span key={signal} style={{ '--signal-delay': `${index * 140}ms` } as React.CSSProperties}>
+                        {signal}
+                    </span>
+                ))}
             </div>
 
             <div className={styles.weaponRail} aria-label="Catalogo visual de armas">
@@ -125,14 +139,14 @@ function ProductLoopPreview({
                     value="84%"
                 />
                 <MetricTile
-                    helper="Frames uteis entram no score antes de qualquer coach."
+                    helper="Quanto do spray deu para ler antes do coach."
                     label="Cobertura"
                     value="82%"
                     tone="success"
                 />
                 <MetricTile
-                    helper="Blockers aparecem quando compressao, fumaca ou corte contaminam o clip."
-                    label="Blockers"
+                    helper="Fumaca, corte ou compressao entram como alerta."
+                    label="Bloqueios"
                     value="0"
                     tone="warning"
                 />
@@ -144,10 +158,10 @@ function ProductLoopPreview({
                         Ver continuidade Pro
                     </Link>
                 )}
-                body={`Free preserva a leitura util. Pro aprofunda coach, historico e tendencias com ate 100 analises uteis salvas por ciclo Stripe.`}
+                body={`Free mostra a leitura util. Pro aprofunda coach, historico e tendencias com ate 100 analises uteis salvas por mes de assinatura.`}
                 className={styles.previewStateCard ?? ''}
                 state="locked"
-                title="Continuidade sem esconder a verdade"
+                title="Mais treino, nao mais promessa"
                 tone="pro"
             />
 
@@ -176,7 +190,7 @@ export default async function HomePage(): Promise<React.JSX.Element> {
                 name: 'Como funciona a analise de spray?',
                 acceptedAnswer: {
                     '@type': 'Answer',
-                    text: 'Sens PUBG analisa o clip no navegador, mede sinais de tracking e mostra patch, cobertura, confianca e blockers antes de sugerir um proximo bloco testavel.',
+                    text: 'Sens PUBG analisa o clip no navegador, mede sinais de tracking e mostra patch, cobertura, confianca e bloqueios antes de sugerir um proximo treino testavel.',
                 },
             },
             {
@@ -211,8 +225,8 @@ export default async function HomePage(): Promise<React.JSX.Element> {
                             <span className={styles.kicker}>Analise de spray para PUBG</span>
                             <h1>Sens PUBG</h1>
                             <p className={styles.heroLead}>
-                                Envie um clip curto, veja a evidencia do tracking e transforme
-                                confianca, cobertura e blockers em um proximo bloco de treino testavel.
+                                Envie um spray curto e descubra o que o clip realmente sustenta:
+                                confianca, cobertura, alertas de captura e um proximo treino para testar.
                             </p>
 
                             <div className={styles.heroActions}>
@@ -236,7 +250,7 @@ export default async function HomePage(): Promise<React.JSX.Element> {
                                 ))}
                             </div>
                             <a className={styles.nextHint} href="#loop-sens-pubg">
-                                Proximo: loop solo com clip, evidencia, coach e validacao
+                                Ver o caminho completo: clip, leitura, treino e validacao
                             </a>
                         </div>
 
@@ -248,10 +262,10 @@ export default async function HomePage(): Promise<React.JSX.Element> {
                     <div className={`container ${styles.loopSectionGrid}`}>
                         <div className={styles.sectionIntro}>
                             <span className={styles.kicker}>Loop solo</span>
-                            <h2>O primeiro clique ja entra no produto</h2>
+                            <h2>Do clip para o treino, sem enrolar</h2>
                             <p>
-                                A home mostra o caminho que o jogador vai usar: clip, evidencia,
-                                coach, bloco e validacao compativel. Marketing fica em segundo plano.
+                                O jogador entende rapido o que fazer: mandar um spray, ler a prova,
+                                treinar o bloco certo e voltar com outro clip comparavel.
                             </p>
                         </div>
 
@@ -275,7 +289,7 @@ export default async function HomePage(): Promise<React.JSX.Element> {
                                     Abrir analise
                                 </Link>
                             )}
-                            body="Free mostra a leitura essencial, qualidade do clip, blockers e a proxima acao segura. Resultado fraco continua fraco, mesmo quando a tela esta bonita."
+                            body="Free mostra a leitura essencial, qualidade do clip, bloqueios e a proxima acao segura. Resultado fraco continua fraco, mesmo quando a tela esta bonita."
                             state="empty"
                             title="Free continua util"
                         />
@@ -285,7 +299,7 @@ export default async function HomePage(): Promise<React.JSX.Element> {
                                     Entrar no Pro Founder
                                 </Link>
                             )}
-                            body="Pro conecta historico, tendencias compativeis, coach completo e continuidade de treino. O desbloqueio e profundidade, nao uma promessa de certeza."
+                            body="Pro conecta historico, tendencias comparaveis, coach completo e continuidade de treino. O desbloqueio e profundidade, nao uma promessa de certeza."
                             state="locked"
                             title="Pro da continuidade"
                             tone="pro"
@@ -310,8 +324,8 @@ export default async function HomePage(): Promise<React.JSX.Element> {
                             <span className={styles.kicker}>Perguntas frequentes</span>
                             <h2>Leitura honesta antes de decisao forte</h2>
                             <p>
-                                O FAQ reforca browser-first, patch-aware, confianca, cobertura,
-                                limites de captura e a diferenca entre Pro pago e Sens dos Pros.
+                                O FAQ explica em linguagem direta o que o app le, o que ele nao promete
+                                e onde termina o Free, o Pro pago e o Sens dos Pros.
                             </p>
                         </div>
 

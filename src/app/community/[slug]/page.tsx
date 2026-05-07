@@ -170,7 +170,7 @@ export async function generateMetadata({
     if (!post) {
         return {
             title: 'Post da comunidade',
-            description: 'Post publico da comunidade do PUBG Aim Analyzer.',
+            description: 'Post publico da comunidade Sens PUBG.',
         };
     }
 

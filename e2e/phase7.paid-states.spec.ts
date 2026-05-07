@@ -30,7 +30,7 @@ async function expectPricingHeroColumnsDoNotOverlap(page: Page) {
     }
 
     const [titleBox, pricePanelBox] = await Promise.all([
-        page.getByRole('heading', { name: /Pro e continuidade/i }).boundingBox(),
+        page.getByRole('heading', { name: /Treine o proximo spray/i }).boundingBox(),
         page.locator('aside').first().boundingBox(),
     ]);
 
@@ -102,10 +102,10 @@ for (const [label, viewport] of Object.entries(VIEWPORTS)) {
 
         test('pricing and cancel receipt are premium public surfaces', async ({ page }) => {
             await page.goto('/pricing');
-            await expect(page.getByRole('heading', { name: /Pro e continuidade/i })).toBeVisible();
+            await expect(page.getByRole('heading', { name: /Treine o proximo spray/i })).toBeVisible();
             await expect(page.getByText('Free: 3 analises uteis salvas por mes')).toBeVisible();
-            await expect(page.getByText('Pro: 100 analises uteis salvas por ciclo Stripe')).toBeVisible();
-            await expect(page.getByText(/webhook precisa confirmar/i)).toBeVisible();
+            await expect(page.getByText('Pro: 100 analises uteis salvas por mes de assinatura')).toBeVisible();
+            await expect(page.getByText(/confirmacao da Stripe/i)).toBeVisible();
             await expectPricingHeroColumnsDoNotOverlap(page);
             await expectNoHorizontalOverflow(page);
             await page.screenshot({

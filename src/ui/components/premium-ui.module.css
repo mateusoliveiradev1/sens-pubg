@@ -104,7 +104,10 @@
     padding: var(--spacing-md);
     border: 1px solid var(--color-divider);
     border-radius: var(--radius-surface);
-    background: var(--color-surface-subtle);
+    background:
+        linear-gradient(180deg, rgba(121, 240, 255, 0.04), transparent),
+        var(--color-surface-subtle);
+    box-shadow: inset 0 0 22px rgba(121, 240, 255, 0.025);
 }
 
 .loopRailBlocked {
@@ -128,17 +131,32 @@
     border: 1px solid var(--color-divider);
     border-radius: var(--radius-surface);
     color: var(--color-text-secondary);
-    background: var(--color-surface);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
+        var(--color-surface);
+    transition: border-color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast), color var(--transition-fast);
 }
 
 .loopStepCurrent {
     border-color: var(--color-accent-primary);
     color: var(--color-text-primary);
+    background:
+        linear-gradient(180deg, rgba(255, 107, 0, 0.1), transparent),
+        var(--color-surface);
     box-shadow: inset 3px 0 0 var(--color-accent-primary);
 }
 
 .loopStepBlocked {
     border-color: rgba(255, 193, 7, 0.28);
+}
+
+.loopStep:hover {
+    border-color: rgba(121, 240, 255, 0.3);
+    color: var(--color-text-primary);
+    background:
+        linear-gradient(180deg, rgba(121, 240, 255, 0.07), transparent),
+        var(--color-surface);
+    transform: translateY(-1px);
 }
 
 .loopIndex {
@@ -250,6 +268,12 @@
     font-size: var(--type-label-size);
     font-weight: var(--font-weight-bold);
     line-height: var(--type-label-line);
+    transition: border-color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast);
+}
+
+.evidenceChip:hover {
+    background: rgba(255, 255, 255, 0.055);
+    transform: translateY(-1px);
 }
 
 .chipValue {
@@ -290,7 +314,19 @@
     padding: var(--spacing-md);
     border: 1px solid var(--color-divider);
     border-radius: var(--radius-surface);
-    background: var(--color-surface);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
+        var(--color-surface);
+    transition: border-color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.metricTile:hover {
+    border-color: rgba(121, 240, 255, 0.24);
+    background:
+        linear-gradient(180deg, rgba(121, 240, 255, 0.06), transparent),
+        var(--color-surface);
+    box-shadow: 0 12px 26px rgba(0, 0, 0, 0.18);
+    transform: translateY(-1px);
 }
 
 .metricValue {
@@ -309,7 +345,7 @@
 }
 
 .metricHelper {
-    color: var(--color-text-secondary);
+    color: color-mix(in srgb, var(--color-text-secondary) 88%, #fff 12%);
     font-size: var(--type-label-size);
     line-height: var(--type-label-line);
 }
@@ -398,7 +434,19 @@
     padding: var(--spacing-lg);
     border: 1px solid var(--color-divider);
     border-radius: var(--radius-surface);
-    background: var(--color-surface);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent),
+        var(--color-surface);
+    transition: border-color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.productState:hover {
+    border-color: rgba(255, 107, 0, 0.22);
+    background:
+        linear-gradient(180deg, rgba(255, 107, 0, 0.055), transparent),
+        var(--color-surface);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
+    transform: translateY(-1px);
 }
 
 .stateTitle {
@@ -427,5 +475,14 @@
     .commandAction,
     .lockAction {
         width: 100%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .loopStep,
+    .evidenceChip,
+    .metricTile,
+    .productState {
+        transition: none;
     }
 }

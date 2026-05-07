@@ -11,8 +11,8 @@ describe('pricing page contract', () => {
         expect(source).toContain('PRODUCT_PRICE_CATALOG.pro_founder_brl_monthly');
         expect(source).toContain('PRODUCT_PRICE_CATALOG.pro_public_brl_monthly');
         expect(source).toContain('Free: 3 analises uteis salvas por mes');
-        expect(source).toContain('Pro: 100 analises uteis salvas por ciclo Stripe');
-        expect(source).toContain('Free util. Pro continuo.');
+        expect(source).toContain('Pro: 100 analises uteis salvas por mes de assinatura');
+        expect(source).toContain('Free para testar. Pro para continuar.');
         expect(source).toContain('Entrar no Pro Founder');
     });
 
@@ -20,7 +20,7 @@ describe('pricing page contract', () => {
         const source = readPricing();
 
         expect(source).toMatch(/startProCheckout\(\{ intent: 'founder_brl_monthly' \}\)/);
-        expect(source).toContain('Cliente nao envia price id, valor, moeda, tier ou periodo');
+        expect(source).toContain('O navegador nao decide valor, moeda, plano ou periodo');
         expect(source).not.toMatch(/stripePriceId|amountCents.*input|localStorage/);
     });
 
@@ -28,7 +28,7 @@ describe('pricing page contract', () => {
         const normalized = readPricing().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
         expect(normalized).toContain('independente');
-        expect(normalized).toContain('nao promete');
+        expect(normalized).toContain('sem promessa');
         expect(normalized).not.toMatch(/sensibilidade perfeita|rank garantido|melhora garantida|oficial pubg|endossado por/);
         expect(normalized).toContain('nao e afiliado');
     });

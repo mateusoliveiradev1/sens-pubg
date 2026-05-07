@@ -12,7 +12,7 @@ describe('ProLockPreview contract', () => {
                     featureKey: 'coach.full_plan',
                     reason: 'pro_feature',
                     title: 'Plano completo do coach',
-                    body: 'O resumo Free continua visivel. Pro adiciona continuidade, outcome e validacao compativel.',
+                    body: 'O resumo Free continua visivel. Pro adiciona continuidade, resultado do treino e validacao compativel.',
                     ctaHref: '/pricing',
                 }}
                 proValueLabel="Pro abre protocolo completo, historico profundo e validacao compativel."

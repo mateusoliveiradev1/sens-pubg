@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     template: '%s | Sens PUBG',
   },
   description:
-    'Analise clips de spray no navegador, veja confianca, cobertura, blockers e um proximo bloco de treino testavel para PUBG.',
+    'Analise clips de spray no navegador, veja confianca, cobertura, bloqueios e um proximo bloco de treino testavel para PUBG.',
   keywords: [
     'PUBG', 'aim trainer', 'recoil control', 'sensitivity calculator',
     'spray analysis', 'aim coach', 'PUBG sensibilidade', 'analisador de mira',
@@ -64,7 +64,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Sens PUBG',
-    description: 'Analise visual de spray para PUBG com confianca, cobertura, blockers e proximo bloco testavel.',
+    description: 'Analise visual de spray para PUBG com confianca, cobertura, bloqueios e proximo bloco testavel.',
     images: ['/og-image.png'],
   },
   robots: {
