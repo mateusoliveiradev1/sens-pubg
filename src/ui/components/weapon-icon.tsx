@@ -1,23 +1,18 @@
 import type { CSSProperties, ReactNode } from 'react';
+import React from 'react';
 
 import { getWeapon, type WeaponCategory } from '@/game/pubg';
 
-type WeaponSilhouetteId =
-    | 'm416'
-    | 'akm'
-    | 'scar-l'
-    | 'aug'
-    | 'beryl-m762'
-    | 'g36c'
-    | 'ace32'
-    | 'ump45'
-    | 'vector'
-    | 'mp5k'
-    | 'dp28'
-    | 'm249'
-    | 'mini14'
-    | 'sks'
-    | 'slr';
+import { resolveWeaponSupportStatus, type WeaponSupportStatus } from './weapon-support-status';
+import {
+    resolveWeaponVisualEntry,
+    type WeaponSilhouetteId,
+    type WeaponVisualRegistryEntry,
+} from './weapon-visual-registry';
+import styles from './weapon-icon.module.css';
+
+type RenderableSilhouetteId = WeaponSilhouetteId | 'dp28' | 'm249';
+type FallbackSilhouetteId = `fallback-${WeaponCategory}`;
 
 export interface WeaponIconProps {
     readonly weaponId?: string | null | undefined;
@@ -25,70 +20,30 @@ export interface WeaponIconProps {
     readonly category?: string | null | undefined;
     readonly size?: number;
     readonly framed?: boolean;
+    readonly showStatus?: boolean;
 }
 
-const CATEGORY_THEME: Record<WeaponCategory, {
-    readonly color: string;
-    readonly background: string;
-    readonly border: string;
-}> = {
-    ar: {
-        color: '#79f0ff',
-        background: 'linear-gradient(145deg, rgba(21, 50, 58, 0.95), rgba(8, 10, 16, 0.94))',
-        border: 'rgba(121, 240, 255, 0.24)',
-    },
-    smg: {
-        color: '#82f5b2',
-        background: 'linear-gradient(145deg, rgba(19, 46, 36, 0.95), rgba(8, 10, 16, 0.94))',
-        border: 'rgba(130, 245, 178, 0.24)',
-    },
-    dmr: {
-        color: '#ffd36a',
-        background: 'linear-gradient(145deg, rgba(58, 46, 17, 0.95), rgba(8, 10, 16, 0.94))',
-        border: 'rgba(255, 211, 106, 0.24)',
-    },
-    lmg: {
-        color: '#ff9a61',
-        background: 'linear-gradient(145deg, rgba(58, 31, 18, 0.95), rgba(8, 10, 16, 0.94))',
-        border: 'rgba(255, 154, 97, 0.24)',
-    },
-    sr: {
-        color: '#d2c2ff',
-        background: 'linear-gradient(145deg, rgba(36, 28, 55, 0.95), rgba(8, 10, 16, 0.94))',
-        border: 'rgba(210, 194, 255, 0.24)',
-    },
-    shotgun: {
-        color: '#ffd3a2',
-        background: 'linear-gradient(145deg, rgba(58, 39, 21, 0.95), rgba(8, 10, 16, 0.94))',
-        border: 'rgba(255, 211, 162, 0.24)',
-    },
-    pistol: {
-        color: '#d2d6de',
-        background: 'linear-gradient(145deg, rgba(35, 39, 48, 0.95), rgba(8, 10, 16, 0.94))',
-        border: 'rgba(210, 214, 222, 0.24)',
-    },
+interface WeaponPresentation {
+    readonly silhouetteId?: RenderableSilhouetteId;
+    readonly fallbackId: FallbackSilhouetteId;
+    readonly visualEntry?: WeaponVisualRegistryEntry;
+    readonly label: string;
+    readonly category: WeaponCategory;
+    readonly supportStatus: WeaponSupportStatus;
+}
+
+const CATEGORY_CLASS: Record<WeaponCategory, string> = {
+    ar: styles.categoryAr ?? '',
+    smg: styles.categorySmg ?? '',
+    dmr: styles.categoryDmr ?? '',
+    lmg: styles.categoryLmg ?? '',
+    sr: styles.categorySr ?? '',
+    shotgun: styles.categoryOther ?? '',
+    pistol: styles.categoryOther ?? '',
 };
 
-const SILHOUETTE_IDS = new Set<WeaponSilhouetteId>([
-    'm416',
-    'akm',
-    'scar-l',
-    'aug',
-    'beryl-m762',
-    'g36c',
-    'ace32',
-    'ump45',
-    'vector',
-    'mp5k',
-    'dp28',
-    'm249',
-    'mini14',
-    'sks',
-    'slr',
-]);
-
-function isWeaponSilhouetteId(value: string): value is WeaponSilhouetteId {
-    return SILHOUETTE_IDS.has(value as WeaponSilhouetteId);
+function cx(...values: Array<string | false | null | undefined>): string {
+    return values.filter(Boolean).join(' ');
 }
 
 function normalizeCategory(category: string | null | undefined): WeaponCategory | undefined {
@@ -115,85 +70,91 @@ function resolveWeaponPresentation(
     weaponId?: string | null,
     weaponName?: string | null,
     category?: string | null,
-): {
-    readonly silhouetteId: WeaponSilhouetteId | undefined;
-    readonly label: string;
-    readonly category: WeaponCategory;
-} {
-    const staticWeapon = (weaponId ? getWeapon(weaponId) : undefined)
-        ?? (weaponName ? getWeapon(weaponName) : undefined);
-    const normalizedCategory = normalizeCategory(category);
-    const resolvedCategory = staticWeapon?.category ?? normalizedCategory ?? 'ar';
-    const label = staticWeapon?.name
+): WeaponPresentation {
+    const visualEntry = resolveWeaponVisualEntry({ weaponId, weaponName });
+    const staticWeapon = getWeapon(weaponId ?? '')
+        ?? getWeapon(weaponName ?? '')
+        ?? (visualEntry ? getWeapon(visualEntry.displayName) : undefined);
+    const resolvedCategory = staticWeapon?.category
+        ?? normalizeCategory(category)
+        ?? (visualEntry?.category.toLowerCase() as 'ar' | 'smg' | 'dmr' | undefined)
+        ?? 'ar';
+    const label = visualEntry?.displayName
+        ?? staticWeapon?.name
         ?? weaponName?.trim()
         ?? weaponId?.trim()
         ?? 'Arma';
-    const silhouetteId = staticWeapon && isWeaponSilhouetteId(staticWeapon.id)
-        ? staticWeapon.id
-        : undefined;
+    const supportStatus = resolveWeaponSupportStatus({
+        weaponId,
+        weaponName: label,
+        category: resolvedCategory,
+    });
+    const silhouetteId = visualEntry?.silhouetteId
+        ?? (staticWeapon?.id === 'dp28' || staticWeapon?.id === 'm249' ? staticWeapon.id : undefined);
 
     return {
-        silhouetteId,
+        ...(silhouetteId ? { silhouetteId } : {}),
+        fallbackId: `fallback-${resolvedCategory}`,
+        ...(visualEntry ? { visualEntry } : {}),
         label,
         category: resolvedCategory,
+        supportStatus,
     };
 }
 
 function IconCanvas({
-    label,
+    presentation,
     size,
     framed,
-    category,
+    showStatus,
     children,
 }: {
-    readonly label: string;
+    readonly presentation: WeaponPresentation;
     readonly size: number;
     readonly framed: boolean;
-    readonly category: WeaponCategory;
+    readonly showStatus: boolean;
     readonly children: ReactNode;
 }) {
-    const theme = CATEGORY_THEME[category];
-    const frameStyle: CSSProperties = framed
-        ? {
-            width: size,
-            height: size,
-            borderRadius: Math.max(16, Math.round(size * 0.34)),
-            border: `1px solid ${theme.border}`,
-            background: theme.background,
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 14px 24px rgba(0, 0, 0, 0.28)',
-        }
-        : {
-            width: size,
-            height: size,
-        };
+    const renderedSilhouetteId = presentation.silhouetteId ?? presentation.fallbackId;
+    const accessibleLabel = `${presentation.label} - ${presentation.supportStatus.label}`;
+    const rootStyle = {
+        '--weapon-icon-size': `${size}px`,
+    } as CSSProperties;
 
     return (
         <span
-            aria-label={label}
-            role="img"
-            style={{
-                ...frameStyle,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: theme.color,
-                flexShrink: 0,
-            }}
+            className={cx(styles.root, showStatus && styles.rootWithStatus)}
+            data-seed-weapon={presentation.visualEntry ? 'true' : 'false'}
+            data-silhouette-id={renderedSilhouetteId}
+            data-support-kind={presentation.supportStatus.kind}
+            data-weapon-icon="premium-authored"
+            style={rootStyle}
         >
-            <svg
-                aria-hidden="true"
-                fill="none"
-                viewBox="0 0 128 48"
-                style={{
-                    width: framed ? size * 0.72 : size,
-                    height: framed ? size * 0.72 : size,
-                    overflow: 'visible',
-                    filter: 'drop-shadow(0 6px 10px rgba(0, 0, 0, 0.24))',
-                }}
+            <span
+                aria-label={accessibleLabel}
+                className={cx(
+                    styles.frame,
+                    framed ? styles.framed : styles.unframed,
+                    CATEGORY_CLASS[presentation.category],
+                )}
+                role="img"
             >
-                <title>{label}</title>
-                {children}
-            </svg>
+                <svg
+                    aria-hidden="true"
+                    className={styles.svg}
+                    data-art-source="authored-sens-pubg"
+                    fill="none"
+                    viewBox="0 0 128 48"
+                >
+                    <title>{accessibleLabel}</title>
+                    {children}
+                </svg>
+            </span>
+            {showStatus ? (
+                <span className={styles.statusLabel}>
+                    {presentation.supportStatus.label}
+                </span>
+            ) : null}
         </span>
     );
 }
@@ -215,7 +176,7 @@ function SkeletonStock() {
     return (
         <g fill="currentColor">
             <polygon points="8,20 22,20 30,16 30,18 23,24 9,24" />
-            <polygon points="12,21 20,21 25,18 19,24 12,24" fill="rgba(8,10,16,0.76)" />
+            <polygon fill="rgba(8,10,16,0.76)" points="12,21 20,21 25,18 19,24 12,24" />
         </g>
     );
 }
@@ -238,8 +199,8 @@ function LongRail({ x = 40, width = 20 }: { readonly x?: number; readonly width?
     );
 }
 
-function StanagMag({ x = 58 }: { readonly x?: number }) {
-    return <polygon fill="currentColor" points={`${x},24 ${x + 10},24 ${x + 8},40 ${x - 2},39`} />;
+function StanagMag({ x = 58, height = 16 }: { readonly x?: number; readonly height?: number }) {
+    return <polygon fill="currentColor" points={`${x},24 ${x + 10},24 ${x + 8},${24 + height} ${x - 2},${23 + height}`} />;
 }
 
 function CurvedMag({ x = 58 }: { readonly x?: number }) {
@@ -276,6 +237,10 @@ function MuzzleBrake({ x = 114 }: { readonly x?: number }) {
     );
 }
 
+function Suppressor({ x = 103, width = 16 }: { readonly x?: number; readonly width?: number }) {
+    return <rect fill="currentColor" height="5" rx="2.5" width={width} x={x} y="19.5" />;
+}
+
 function StandardRifle({
     stock,
     magazine,
@@ -295,10 +260,10 @@ function StandardRifle({
     readonly optic?: 'micro' | 'rail';
     readonly magazineX?: number;
     readonly gripX?: number;
-    readonly muzzle?: 'brake' | 'plain';
+    readonly muzzle?: 'brake' | 'plain' | 'suppressor';
 }) {
     const barrelStart = 36 + receiverWidth + handguardWidth - 2;
-    const barrelEnd = Math.min(118, barrelStart + barrelWidth);
+    const barrelEnd = Math.min(116, barrelStart + barrelWidth);
 
     return (
         <g fill="currentColor">
@@ -315,22 +280,62 @@ function StandardRifle({
             {magazine === 'short' ? <ShortMag x={magazineX} /> : null}
             {magazine === 'drum' ? <DrumMag x={magazineX} /> : null}
             <FrontSight x={barrelEnd - 2} />
-            {muzzle === 'brake' ? <MuzzleBrake x={barrelEnd} /> : <rect height="4" rx="1" width="3" x={barrelEnd} y="20" />}
+            {muzzle === 'brake' ? <MuzzleBrake x={barrelEnd} /> : null}
+            {muzzle === 'plain' ? <rect height="4" rx="1" width="3" x={barrelEnd} y="20" /> : null}
+            {muzzle === 'suppressor' ? <Suppressor x={barrelEnd} width={12} /> : null}
         </g>
     );
 }
 
-function BullpupRifle() {
+function BullpupRifle({
+    receiverWidth = 60,
+    barrelWidth = 24,
+    magazineX = 44,
+    railX = 46,
+}: {
+    readonly receiverWidth?: number;
+    readonly barrelWidth?: number;
+    readonly magazineX?: number;
+    readonly railX?: number;
+}) {
     return (
         <g fill="currentColor">
-            <polygon points="8,18 67,18 90,20 94,23 90,27 67,29 8,29 15,24" />
-            <rect height="2.5" rx="1.25" width="24" x="92" y="21.75" />
-            <rect height="4" rx="1" width="4" x="116" y="20.5" />
-            <rect height="3" rx="1.5" width="18" x="46" y="13" />
-            <rect height="2" rx="1" width="10" x="50" y="16" />
-            <polygon points="44,24 54,24 52,39 42,38" />
-            <polygon points="61,24 70,24 68,39 58,38" />
-            <FrontSight x={108} />
+            <polygon points={`8,18 ${receiverWidth + 9},18 ${receiverWidth + 32},20 ${receiverWidth + 36},23 ${receiverWidth + 32},27 ${receiverWidth + 8},29 8,29 15,24`} />
+            <rect height="2.5" rx="1.25" width={barrelWidth} x={receiverWidth + 34} y="21.75" />
+            <rect height="4" rx="1" width="4" x={receiverWidth + 34 + barrelWidth} y="20.5" />
+            <rect height="3" rx="1.5" width="18" x={railX} y="13" />
+            <rect height="2" rx="1" width="10" x={railX + 4} y="16" />
+            <polygon points={`${magazineX},24 ${magazineX + 10},24 ${magazineX + 8},39 ${magazineX - 2},38`} />
+            <polygon points={`${magazineX + 17},24 ${magazineX + 26},24 ${magazineX + 24},39 ${magazineX + 14},38`} />
+            <FrontSight x={receiverWidth + barrelWidth + 24} />
+        </g>
+    );
+}
+
+function GrozaRifle() {
+    return (
+        <g fill="currentColor">
+            <polygon points="10,18 66,18 79,20 82,24 78,28 12,28 18,24" />
+            <rect height="2.5" rx="1.25" width="28" x="80" y="21.75" />
+            <Suppressor x={106} width={12} />
+            <MicroSight x={43} />
+            <CurvedMag x={40} />
+            <PistolGrip x={57} y={25} height={12} />
+            <FrontSight x={101} />
+        </g>
+    );
+}
+
+function FamasRifle() {
+    return (
+        <g fill="currentColor">
+            <polygon points="9,19 62,17 82,20 87,24 82,28 62,30 10,29 18,24" />
+            <rect height="2.25" rx="1.125" width="24" x="86" y="21.875" />
+            <MuzzleBrake x={110} />
+            <LongRail x={39} width={26} />
+            <StanagMag x={39} height={15} />
+            <PistolGrip x={61} y={24} height={13} />
+            <FrontSight x={102} />
         </g>
     );
 }
@@ -344,24 +349,25 @@ function CompactSmg({
     magazineX = 50,
 }: {
     readonly stock?: 'collapsed' | 'skeleton';
-    readonly magazine?: 'short' | 'stanag';
+    readonly magazine?: 'short' | 'stanag' | 'drum';
     readonly barrelWidth?: number;
     readonly receiverWidth?: number;
     readonly optic?: boolean;
     readonly magazineX?: number;
 }) {
-    const stockNode = stock === 'skeleton' ? <SkeletonStock /> : <CollapsibleStock />;
     const barrelStart = 36 + receiverWidth + 12;
 
     return (
         <g fill="currentColor">
-            {stockNode}
+            {stock === 'skeleton' ? <SkeletonStock /> : <CollapsibleStock />}
             <rect height="8" rx="2.5" width={receiverWidth} x="36" y="18" />
             <rect height="6" rx="2" width="14" x={34 + receiverWidth} y="19" />
             <rect height="2.5" rx="1.25" width={barrelWidth} x={barrelStart} y="21.75" />
             {optic ? <MicroSight x={45} /> : <rect height="2.5" rx="1.25" width="10" x="45" y="15" />}
             <PistolGrip x={48} />
-            {magazine === 'short' ? <ShortMag x={magazineX} /> : <StanagMag x={magazineX} />}
+            {magazine === 'short' ? <ShortMag x={magazineX} /> : null}
+            {magazine === 'stanag' ? <StanagMag x={magazineX} /> : null}
+            {magazine === 'drum' ? <DrumMag x={magazineX} /> : null}
             <MuzzleBrake x={barrelStart + barrelWidth} />
         </g>
     );
@@ -382,6 +388,63 @@ function VectorSmg() {
     );
 }
 
+function MicroUziSmg() {
+    return (
+        <g fill="currentColor">
+            <rect height="7" rx="2" width="26" x="34" y="19" />
+            <rect height="5" rx="1.5" width="16" x="59" y="20" />
+            <rect height="2.25" rx="1.125" width="18" x="73" y="21.85" />
+            <rect height="6" rx="1.5" width="7" x="91" y="20" />
+            <PistolGrip x={42} y={24} height={13} />
+            <ShortMag x={55} />
+            <rect height="2" rx="1" width="14" x="20" y="22" />
+            <polygon points="15,19 25,19 34,21 34,24 14,24" />
+        </g>
+    );
+}
+
+function BizonSmg() {
+    return (
+        <g fill="currentColor">
+            <CollapsibleStock />
+            <rect height="8" rx="2.5" width="38" x="36" y="18" />
+            <rect height="3.5" rx="1.75" width="34" x="50" y="27" />
+            <rect height="2.5" rx="1.25" width="20" x="74" y="21.75" />
+            <MuzzleBrake x={94} />
+            <MicroSight x={48} />
+            <PistolGrip x={49} />
+        </g>
+    );
+}
+
+function TommyGunSmg() {
+    return (
+        <g fill="currentColor">
+            <FixedStock />
+            <rect height="8" rx="2.5" width="32" x="36" y="18" />
+            <rect height="5" rx="2" width="26" x="66" y="19.5" />
+            <rect height="2.5" rx="1.25" width="24" x="90" y="21.75" />
+            <DrumMag x={54} />
+            <PistolGrip x={45} y={24} height={12} />
+            <rect height="2" rx="1" width="24" x="45" y="14" />
+            <rect height="4" rx="1" width="4" x="114" y="20.5" />
+        </g>
+    );
+}
+
+function P90Smg() {
+    return (
+        <g fill="currentColor">
+            <polygon points="18,19 78,17 91,20 94,24 89,28 18,29 25,24" />
+            <rect height="3" rx="1.5" width="44" x="35" y="13" />
+            <rect height="2.5" rx="1.25" width="22" x="92" y="21.75" />
+            <MuzzleBrake x={114} />
+            <PistolGrip x={53} y={24} height={12} />
+            <polygon points="68,24 78,24 76,35 67,34" />
+        </g>
+    );
+}
+
 function MarksmanRifle({
     stock = 'fixed',
     magazine = 'short',
@@ -389,6 +452,7 @@ function MarksmanRifle({
     optic = 'rail',
     receiverWidth = 26,
     withGrip = false,
+    suppressed = false,
 }: {
     readonly stock?: 'fixed' | 'skeleton';
     readonly magazine?: 'short' | 'stanag' | 'curved';
@@ -396,14 +460,14 @@ function MarksmanRifle({
     readonly optic?: 'micro' | 'rail';
     readonly receiverWidth?: number;
     readonly withGrip?: boolean;
+    readonly suppressed?: boolean;
 }) {
-    const stockNode = stock === 'skeleton' ? <SkeletonStock /> : <FixedStock />;
     const barrelStart = 36 + receiverWidth + 18;
     const barrelEnd = barrelStart + barrelWidth;
 
     return (
         <g fill="currentColor">
-            {stockNode}
+            {stock === 'skeleton' ? <SkeletonStock /> : <FixedStock />}
             <rect height="7" rx="2.5" width={receiverWidth} x="36" y="18.5" />
             <rect height="4" rx="1.5" width="18" x={34 + receiverWidth} y="20" />
             <rect height="2.25" rx="1.125" width={barrelWidth} x={barrelStart} y="21.875" />
@@ -413,7 +477,50 @@ function MarksmanRifle({
             {magazine === 'stanag' ? <StanagMag x={58} /> : null}
             {magazine === 'curved' ? <CurvedMag x={58} /> : null}
             <FrontSight x={barrelEnd - 3} />
-            <rect height="4" rx="1" width="4" x={barrelEnd} y="20.5" />
+            {suppressed ? <Suppressor x={barrelEnd} width={13} /> : <rect height="4" rx="1" width="4" x={barrelEnd} y="20.5" />}
+        </g>
+    );
+}
+
+function DragunovDmr() {
+    return (
+        <g fill="currentColor">
+            <SkeletonStock />
+            <rect height="7" rx="2.5" width="28" x="36" y="18.5" />
+            <rect height="4" rx="1.5" width="22" x="62" y="20" />
+            <rect height="2.25" rx="1.125" width="34" x="82" y="21.875" />
+            <LongRail x={41} width={26} />
+            <CurvedMag x={56} />
+            <FrontSight x={110} />
+            <MuzzleBrake x={116} />
+        </g>
+    );
+}
+
+function QbuDmr() {
+    return (
+        <g fill="currentColor">
+            <polygon points="10,18 63,18 82,20 86,24 82,28 62,29 10,29 17,24" />
+            <rect height="2.25" rx="1.125" width="32" x="84" y="21.875" />
+            <LongRail x={41} width={22} />
+            <StanagMag x={42} height={15} />
+            <PistolGrip x={62} y={24} height={13} />
+            <FrontSight x={108} />
+            <rect height="4" rx="1" width="4" x="116" y="20.5" />
+        </g>
+    );
+}
+
+function VssDmr() {
+    return (
+        <g fill="currentColor">
+            <FixedStock />
+            <rect height="7" rx="2.5" width="26" x="36" y="18.5" />
+            <rect height="4" rx="1.5" width="18" x="60" y="20" />
+            <Suppressor x={77} width={38} />
+            <LongRail x={42} width={22} />
+            <ShortMag x={56} />
+            <PistolGrip x={48} y={24} height={12} />
         </g>
     );
 }
@@ -453,53 +560,89 @@ function M249Lmg() {
     );
 }
 
+function renderFallback(category: WeaponCategory) {
+    switch (category) {
+        case 'smg':
+            return <CompactSmg />;
+        case 'dmr':
+        case 'sr':
+            return <MarksmanRifle />;
+        case 'lmg':
+            return <M249Lmg />;
+        default:
+            return <StandardRifle magazine="stanag" stock="collapsed" />;
+    }
+}
+
 function renderWeaponSilhouette(
-    silhouetteId: WeaponSilhouetteId | undefined,
+    silhouetteId: RenderableSilhouetteId | undefined,
     category: WeaponCategory,
 ) {
     switch (silhouetteId) {
+        case 'beryl-m762':
+            return <StandardRifle barrelWidth={24} handguardWidth={18} magazine="curved" stock="fixed" />;
         case 'm416':
             return <StandardRifle magazine="stanag" stock="collapsed" />;
-        case 'akm':
-            return <StandardRifle magazine="curved" stock="fixed" handguardWidth={20} optic="rail" />;
-        case 'scar-l':
-            return <StandardRifle magazine="stanag" stock="fixed" handguardWidth={28} optic="rail" muzzle="plain" />;
         case 'aug':
             return <BullpupRifle />;
-        case 'beryl-m762':
-            return <StandardRifle magazine="curved" stock="fixed" handguardWidth={18} barrelWidth={24} />;
-        case 'g36c':
-            return <StandardRifle magazine="stanag" stock="skeleton" handguardWidth={18} barrelWidth={20} optic="rail" />;
         case 'ace32':
-            return <StandardRifle magazine="curved" stock="skeleton" handguardWidth={22} barrelWidth={22} />;
+            return <StandardRifle barrelWidth={22} handguardWidth={22} magazine="curved" stock="skeleton" />;
+        case 'akm':
+            return <StandardRifle handguardWidth={20} magazine="curved" optic="rail" stock="fixed" />;
+        case 'scar-l':
+            return <StandardRifle handguardWidth={28} magazine="stanag" muzzle="plain" optic="rail" stock="fixed" />;
+        case 'g36c':
+            return <StandardRifle barrelWidth={20} handguardWidth={18} magazine="stanag" optic="rail" stock="skeleton" />;
+        case 'qbz':
+            return <BullpupRifle barrelWidth={28} magazineX={42} receiverWidth={56} />;
+        case 'k2':
+            return <StandardRifle barrelWidth={25} handguardWidth={24} magazine="stanag" optic="rail" stock="fixed" />;
+        case 'groza':
+            return <GrozaRifle />;
+        case 'famas':
+            return <FamasRifle />;
+        case 'm16a4':
+            return <StandardRifle barrelWidth={32} handguardWidth={26} magazine="stanag" optic="rail" stock="fixed" />;
+        case 'mk47-mutant':
+            return <StandardRifle barrelWidth={28} handguardWidth={24} magazine="curved" optic="rail" stock="skeleton" />;
         case 'ump45':
-            return <CompactSmg magazine="stanag" stock="skeleton" barrelWidth={16} receiverWidth={20} optic={true} />;
+            return <CompactSmg barrelWidth={16} magazine="stanag" optic={true} receiverWidth={20} stock="skeleton" />;
         case 'vector':
             return <VectorSmg />;
+        case 'micro-uzi':
+            return <MicroUziSmg />;
         case 'mp5k':
-            return <CompactSmg magazine="short" stock="collapsed" barrelWidth={18} receiverWidth={22} optic={true} />;
+            return <CompactSmg barrelWidth={18} magazine="short" optic={true} receiverWidth={22} stock="collapsed" />;
+        case 'pp-19-bizon':
+            return <BizonSmg />;
+        case 'tommy-gun':
+            return <TommyGunSmg />;
+        case 'js9':
+            return <CompactSmg barrelWidth={20} magazine="short" optic={true} receiverWidth={24} stock="skeleton" />;
+        case 'p90':
+            return <P90Smg />;
+        case 'mini14':
+            return <MarksmanRifle barrelWidth={42} magazine="short" optic="rail" receiverWidth={22} />;
+        case 'mk12':
+            return <MarksmanRifle barrelWidth={38} magazine="stanag" optic="rail" receiverWidth={24} stock="skeleton" withGrip={true} />;
+        case 'sks':
+            return <MarksmanRifle barrelWidth={34} magazine="curved" optic="rail" receiverWidth={24} withGrip={true} />;
+        case 'slr':
+            return <MarksmanRifle barrelWidth={36} magazine="stanag" optic="rail" receiverWidth={26} stock="skeleton" withGrip={true} />;
+        case 'dragunov':
+            return <DragunovDmr />;
+        case 'qbu':
+            return <QbuDmr />;
+        case 'vss':
+            return <VssDmr />;
+        case 'mk14':
+            return <MarksmanRifle barrelWidth={40} magazine="curved" optic="rail" receiverWidth={28} stock="skeleton" withGrip={true} />;
         case 'dp28':
             return <Dp28Lmg />;
         case 'm249':
             return <M249Lmg />;
-        case 'mini14':
-            return <MarksmanRifle magazine="short" barrelWidth={42} optic="rail" receiverWidth={22} />;
-        case 'sks':
-            return <MarksmanRifle magazine="curved" barrelWidth={34} optic="rail" receiverWidth={24} withGrip={true} />;
-        case 'slr':
-            return <MarksmanRifle magazine="stanag" barrelWidth={36} optic="rail" receiverWidth={26} withGrip={true} stock="skeleton" />;
         default:
-            switch (category) {
-                case 'smg':
-                    return <CompactSmg />;
-                case 'dmr':
-                case 'sr':
-                    return <MarksmanRifle />;
-                case 'lmg':
-                    return <M249Lmg />;
-                default:
-                    return <StandardRifle magazine="stanag" stock="collapsed" />;
-            }
+            return renderFallback(category);
     }
 }
 
@@ -509,14 +652,15 @@ export function WeaponIcon({
     category,
     size = 48,
     framed = true,
+    showStatus = false,
 }: WeaponIconProps) {
     const presentation = resolveWeaponPresentation(weaponId, weaponName, category);
 
     return (
         <IconCanvas
-            category={presentation.category}
             framed={framed}
-            label={presentation.label}
+            presentation={presentation}
+            showStatus={showStatus}
             size={size}
         >
             {renderWeaponSilhouette(presentation.silhouetteId, presentation.category)}

@@ -1,0 +1,95 @@
+.root {
+    --weapon-icon-size: 48px;
+
+    display: inline-grid;
+    grid-template-columns: auto;
+    align-items: center;
+    justify-items: center;
+    gap: var(--spacing-xs);
+    flex: 0 0 auto;
+    min-width: var(--weapon-icon-size);
+    color: var(--weapon-icon-color, var(--color-evidence-info));
+}
+
+.rootWithStatus {
+    min-width: max(var(--weapon-icon-size), 104px);
+}
+
+.frame {
+    width: var(--weapon-icon-size);
+    height: var(--weapon-icon-size);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--weapon-icon-color);
+    flex: 0 0 auto;
+}
+
+.framed {
+    border: 1px solid var(--weapon-icon-border);
+    border-radius: var(--radius-surface);
+    background: var(--weapon-icon-background);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 14px 24px rgba(0, 0, 0, 0.28);
+}
+
+.unframed {
+    border: 0;
+    background: transparent;
+}
+
+.svg {
+    width: calc(var(--weapon-icon-size) * 0.82);
+    height: calc(var(--weapon-icon-size) * 0.82);
+    overflow: visible;
+    filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.24));
+}
+
+.unframed .svg {
+    width: var(--weapon-icon-size);
+    height: var(--weapon-icon-size);
+}
+
+.statusLabel {
+    max-width: 100%;
+    padding: 3px var(--spacing-xs);
+    border: 1px solid var(--weapon-icon-border);
+    border-radius: var(--radius-full);
+    color: var(--weapon-icon-color);
+    background: rgba(8, 8, 12, 0.78);
+    font-size: var(--type-label-size);
+    font-weight: var(--font-weight-bold);
+    line-height: var(--type-label-line);
+    text-align: center;
+    white-space: normal;
+}
+
+.categoryAr {
+    --weapon-icon-color: var(--color-evidence-info);
+    --weapon-icon-border: rgba(121, 240, 255, 0.24);
+    --weapon-icon-background: linear-gradient(145deg, rgba(21, 50, 58, 0.95), rgba(8, 10, 16, 0.94));
+}
+
+.categorySmg {
+    --weapon-icon-color: var(--color-success);
+    --weapon-icon-border: rgba(0, 230, 118, 0.24);
+    --weapon-icon-background: linear-gradient(145deg, rgba(19, 46, 36, 0.95), rgba(8, 10, 16, 0.94));
+}
+
+.categoryDmr {
+    --weapon-icon-color: var(--color-pro-semantic);
+    --weapon-icon-border: rgba(215, 181, 109, 0.28);
+    --weapon-icon-background: linear-gradient(145deg, rgba(58, 46, 17, 0.95), rgba(8, 10, 16, 0.94));
+}
+
+.categoryLmg {
+    --weapon-icon-color: var(--color-accent-primary);
+    --weapon-icon-border: rgba(255, 107, 0, 0.25);
+    --weapon-icon-background: linear-gradient(145deg, rgba(58, 31, 18, 0.95), rgba(8, 10, 16, 0.94));
+}
+
+.categorySr,
+.categoryOther {
+    --weapon-icon-color: var(--color-text-secondary);
+    --weapon-icon-border: rgba(210, 214, 222, 0.24);
+    --weapon-icon-background: linear-gradient(145deg, rgba(35, 39, 48, 0.95), rgba(8, 10, 16, 0.94));
+}
