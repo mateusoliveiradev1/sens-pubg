@@ -12,6 +12,7 @@ export const metadata = {
 const pageStyle: CSSProperties = {
     minHeight: '100vh',
     padding: '32px',
+    boxSizing: 'border-box',
     background: 'var(--color-bg-primary)',
 };
 

@@ -40,6 +40,7 @@
     "test:community:visual": "npx playwright test e2e/community.visual-check.spec.ts",
     "verify:community": "npm run typecheck && npm run test:community:unit && npm run build && npm run test:community:e2e && npm run test:community:visual",
     "verify:release": "npm run typecheck && npx vitest run && npm run benchmark:gate && npm run build && npm run smoke:local",
+    "verify:phase7:visual": "tsx scripts/verify-phase7-visual-evidence.ts",
     "test:monetization": "npx vitest run src/lib/product-entitlements.test.ts src/lib/product-price-catalog.test.ts src/lib/monetization-flags.test.ts src/lib/quota-ledger.test.ts src/lib/premium-projection.test.ts src/lib/product-analytics.test.ts src/lib/beta-cohorts.test.ts src/actions/history.test.ts src/actions/dashboard.test.ts src/actions/billing.test.ts src/actions/admin-billing.test.ts src/app/api/stripe/webhook/route.test.ts src/server/billing/stripe-fulfillment.test.ts src/server/billing/subscription-state.test.ts src/app/pricing/page.contract.test.ts src/app/billing/page.contract.test.ts src/app/checkout/success/page.contract.test.ts src/app/checkout/cancel/page.contract.test.ts src/app/admin/billing/page.contract.test.ts src/app/analyze/results-dashboard.contract.test.ts src/app/analyze/results-dashboard-view-model.test.ts src/app/dashboard/page.contract.test.ts src/app/history/page.contract.test.ts src/app/community/page.contract.test.ts src/app/copy-claims.contract.test.ts src/ui/components/header.contract.test.tsx",
     "prepare": "husky",
     "lint-staged": "lint-staged"

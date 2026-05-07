@@ -1,5 +1,5 @@
 const DEFAULT_PLAYWRIGHT_BASE_URL = 'http://localhost:3000';
-const DEFAULT_PLAYWRIGHT_WEB_SERVER_COMMAND = 'node scripts/clean-next-dev-cache.cjs && npm run dev';
+const DEFAULT_PLAYWRIGHT_WEB_SERVER_COMMAND = 'node scripts/clean-next-dev-cache.mjs && npm run dev';
 
 export interface PlaywrightRuntimeConfig {
     readonly baseURL: string;

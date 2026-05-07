@@ -25,8 +25,6 @@ import {
 } from '@/lib/product-entitlements';
 import type {
     AnalysisSaveAccessState,
-    BillingStatus,
-    ProductAccessState,
     ProductQuotaSummary,
     ProductTier,
     QuotaReasonCode,
@@ -579,7 +577,6 @@ function flagsToAccessFacts(flags: ResolvedMonetizationFlags) {
 function createSaveAccessState(access: ProductAccessResolution): AnalysisSaveAccessState {
     const quotaBlocked = access.quota.remaining <= 0 || access.quota.state === 'limit_reached' || access.quota.state === 'blocked';
     const suspended = access.accessState === 'suspended';
-    const canSave = !quotaBlocked && !suspended;
     const limitLabel = `${access.quota.used}/${access.quota.limit}`;
 
     if (suspended) {

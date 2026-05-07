@@ -141,6 +141,7 @@ function IconCanvas({
                 role="img"
             >
                 {pubgApiImagePath ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- WeaponIcon renders local catalog assets at caller-controlled icon sizes.
                     <img
                         alt=""
                         aria-hidden="true"
@@ -299,59 +300,6 @@ function StandardRifle({
     );
 }
 
-function BullpupRifle({
-    receiverWidth = 60,
-    barrelWidth = 24,
-    magazineX = 44,
-    railX = 46,
-}: {
-    readonly receiverWidth?: number;
-    readonly barrelWidth?: number;
-    readonly magazineX?: number;
-    readonly railX?: number;
-}) {
-    return (
-        <g fill="currentColor">
-            <polygon points={`8,18 ${receiverWidth + 9},18 ${receiverWidth + 32},20 ${receiverWidth + 36},23 ${receiverWidth + 32},27 ${receiverWidth + 8},29 8,29 15,24`} />
-            <rect height="2.5" rx="1.25" width={barrelWidth} x={receiverWidth + 34} y="21.75" />
-            <rect height="4" rx="1" width="4" x={receiverWidth + 34 + barrelWidth} y="20.5" />
-            <rect height="3" rx="1.5" width="18" x={railX} y="13" />
-            <rect height="2" rx="1" width="10" x={railX + 4} y="16" />
-            <polygon points={`${magazineX},24 ${magazineX + 10},24 ${magazineX + 8},39 ${magazineX - 2},38`} />
-            <polygon points={`${magazineX + 17},24 ${magazineX + 26},24 ${magazineX + 24},39 ${magazineX + 14},38`} />
-            <FrontSight x={receiverWidth + barrelWidth + 24} />
-        </g>
-    );
-}
-
-function GrozaRifle() {
-    return (
-        <g fill="currentColor">
-            <polygon points="10,18 66,18 79,20 82,24 78,28 12,28 18,24" />
-            <rect height="2.5" rx="1.25" width="28" x="80" y="21.75" />
-            <Suppressor x={106} width={12} />
-            <MicroSight x={43} />
-            <CurvedMag x={40} />
-            <PistolGrip x={57} y={25} height={12} />
-            <FrontSight x={101} />
-        </g>
-    );
-}
-
-function FamasRifle() {
-    return (
-        <g fill="currentColor">
-            <polygon points="9,19 62,17 82,20 87,24 82,28 62,30 10,29 18,24" />
-            <rect height="2.25" rx="1.125" width="24" x="86" y="21.875" />
-            <MuzzleBrake x={110} />
-            <LongRail x={39} width={26} />
-            <StanagMag x={39} height={15} />
-            <PistolGrip x={61} y={24} height={13} />
-            <FrontSight x={102} />
-        </g>
-    );
-}
-
 function CompactSmg({
     stock = 'collapsed',
     magazine = 'short',
@@ -381,78 +329,6 @@ function CompactSmg({
             {magazine === 'stanag' ? <StanagMag x={magazineX} /> : null}
             {magazine === 'drum' ? <DrumMag x={magazineX} /> : null}
             <MuzzleBrake x={barrelStart + barrelWidth} />
-        </g>
-    );
-}
-
-function VectorSmg() {
-    return (
-        <g fill="currentColor">
-            <CollapsibleStock />
-            <polygon points="38,19 58,19 66,16 75,16 75,20 64,22 64,28 45,28 38,24" />
-            <rect height="2.5" rx="1.25" width="16" x="75" y="21.75" />
-            <rect height="4" rx="1" width="4" x="91" y="20.5" />
-            <rect height="3" rx="1.5" width="10" x="49" y="13" />
-            <polygon points="52,24 60,24 58,39 50,38" />
-            <polygon points="64,23 71,23 69,36 61,35" />
-            <FrontSight x={85} />
-        </g>
-    );
-}
-
-function MicroUziSmg() {
-    return (
-        <g fill="currentColor">
-            <rect height="7" rx="2" width="26" x="34" y="19" />
-            <rect height="5" rx="1.5" width="16" x="59" y="20" />
-            <rect height="2.25" rx="1.125" width="18" x="73" y="21.85" />
-            <rect height="6" rx="1.5" width="7" x="91" y="20" />
-            <PistolGrip x={42} y={24} height={13} />
-            <ShortMag x={55} />
-            <rect height="2" rx="1" width="14" x="20" y="22" />
-            <polygon points="15,19 25,19 34,21 34,24 14,24" />
-        </g>
-    );
-}
-
-function BizonSmg() {
-    return (
-        <g fill="currentColor">
-            <CollapsibleStock />
-            <rect height="8" rx="2.5" width="38" x="36" y="18" />
-            <rect height="3.5" rx="1.75" width="34" x="50" y="27" />
-            <rect height="2.5" rx="1.25" width="20" x="74" y="21.75" />
-            <MuzzleBrake x={94} />
-            <MicroSight x={48} />
-            <PistolGrip x={49} />
-        </g>
-    );
-}
-
-function TommyGunSmg() {
-    return (
-        <g fill="currentColor">
-            <FixedStock />
-            <rect height="8" rx="2.5" width="32" x="36" y="18" />
-            <rect height="5" rx="2" width="26" x="66" y="19.5" />
-            <rect height="2.5" rx="1.25" width="24" x="90" y="21.75" />
-            <DrumMag x={54} />
-            <PistolGrip x={45} y={24} height={12} />
-            <rect height="2" rx="1" width="24" x="45" y="14" />
-            <rect height="4" rx="1" width="4" x="114" y="20.5" />
-        </g>
-    );
-}
-
-function P90Smg() {
-    return (
-        <g fill="currentColor">
-            <polygon points="18,19 78,17 91,20 94,24 89,28 18,29 25,24" />
-            <rect height="3" rx="1.5" width="44" x="35" y="13" />
-            <rect height="2.5" rx="1.25" width="22" x="92" y="21.75" />
-            <MuzzleBrake x={114} />
-            <PistolGrip x={53} y={24} height={12} />
-            <polygon points="68,24 78,24 76,35 67,34" />
         </g>
     );
 }
@@ -490,49 +366,6 @@ function MarksmanRifle({
             {magazine === 'curved' ? <CurvedMag x={58} /> : null}
             <FrontSight x={barrelEnd - 3} />
             {suppressed ? <Suppressor x={barrelEnd} width={13} /> : <rect height="4" rx="1" width="4" x={barrelEnd} y="20.5" />}
-        </g>
-    );
-}
-
-function DragunovDmr() {
-    return (
-        <g fill="currentColor">
-            <SkeletonStock />
-            <rect height="7" rx="2.5" width="28" x="36" y="18.5" />
-            <rect height="4" rx="1.5" width="22" x="62" y="20" />
-            <rect height="2.25" rx="1.125" width="34" x="82" y="21.875" />
-            <LongRail x={41} width={26} />
-            <CurvedMag x={56} />
-            <FrontSight x={110} />
-            <MuzzleBrake x={116} />
-        </g>
-    );
-}
-
-function QbuDmr() {
-    return (
-        <g fill="currentColor">
-            <polygon points="10,18 63,18 82,20 86,24 82,28 62,29 10,29 17,24" />
-            <rect height="2.25" rx="1.125" width="32" x="84" y="21.875" />
-            <LongRail x={41} width={22} />
-            <StanagMag x={42} height={15} />
-            <PistolGrip x={62} y={24} height={13} />
-            <FrontSight x={108} />
-            <rect height="4" rx="1" width="4" x="116" y="20.5" />
-        </g>
-    );
-}
-
-function VssDmr() {
-    return (
-        <g fill="currentColor">
-            <FixedStock />
-            <rect height="7" rx="2.5" width="26" x="36" y="18.5" />
-            <rect height="4" rx="1.5" width="18" x="60" y="20" />
-            <Suppressor x={77} width={38} />
-            <LongRail x={42} width={22} />
-            <ShortMag x={56} />
-            <PistolGrip x={48} y={24} height={12} />
         </g>
     );
 }

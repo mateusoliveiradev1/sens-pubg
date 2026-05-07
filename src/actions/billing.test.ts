@@ -19,7 +19,6 @@ import type {
 } from '@/lib/rate-limit';
 import type {
     MonetizationEventType,
-    ProductPriceKey,
 } from '@/types/monetization';
 
 const now = new Date('2026-05-06T12:00:00.000Z');
@@ -119,7 +118,6 @@ function createRepo(overrides: Partial<BillingRepository> = {}) {
 function createStripeGateway() {
     const createCheckoutSession = vi.fn(async (
         params: Stripe.Checkout.SessionCreateParams,
-        options: Stripe.RequestOptions,
     ) => ({
         id: 'cs_test_1',
         url: 'https://checkout.stripe.test/session',

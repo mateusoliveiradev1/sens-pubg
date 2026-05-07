@@ -2480,7 +2480,8 @@
     }
 
     .sprayTrailCanvas {
-        min-height: 260px;
+        min-height: 220px;
+        aspect-ratio: 1 / 1;
     }
 
     .profilesGrid {
