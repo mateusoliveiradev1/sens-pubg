@@ -138,6 +138,18 @@ describe('results dashboard visualization contract', () => {
         expect(sensitivityIndex).toBeGreaterThan(sprayIndex);
     });
 
+    it('only renders spray segmentation when multiple sprays can actually be selected', () => {
+        const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/const subSessions = result\.subSessions \?\? \[\]/);
+        expect(source).toMatch(/const hasMultipleSubSessions = subSessions\.length > 1/);
+        expect(source).toMatch(/\{hasMultipleSubSessions \? \(/);
+        expect(source).toMatch(/Sprays analisados/);
+        expect(source).toMatch(/type="button"/);
+        expect(source).not.toMatch(/Segmenta..o de Sprays/);
+        expect(source).not.toMatch(/M.dia Geral/);
+    });
+
     it('renders contextual Pro lock previews without hiding truth evidence', () => {
         const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
         const viewModelSource = readFileSync(new URL('./results-dashboard-view-model.ts', import.meta.url), 'utf8');

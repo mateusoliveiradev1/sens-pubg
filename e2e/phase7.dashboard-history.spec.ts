@@ -64,7 +64,7 @@ function createCoachPlan(): CoachPlan {
 function createStoredAnalysisResult(): AnalysisResult {
     const coachPlan = createCoachPlan();
 
-    return {
+    const storedResult: AnalysisResult = {
         id: 'phase7-analysis',
         timestamp: new Date('2026-05-06T12:00:00.000Z'),
         patchVersion: '36.1',
@@ -214,6 +214,18 @@ function createStoredAnalysisResult(): AnalysisResult {
             blockerReasons: [],
             createdAt: '2026-05-06T12:00:00.000Z',
         },
+    };
+
+    return {
+        ...storedResult,
+        subSessions: [{
+            ...storedResult,
+            id: 'phase7-analysis-sub-1',
+            trajectory: {
+                ...storedResult.trajectory,
+                durationMs: 1200 as never,
+            },
+        }],
     };
 }
 
@@ -366,6 +378,7 @@ for (const [label, viewport] of Object.entries(VIEWPORTS)) {
                 await expect(page.getByRole('heading', { name: /Auditoria do coach/i })).toBeVisible();
                 await expect(page.getByText('Relatorio de spray')).toHaveCount(0);
                 await expect(page.getByLabel('Guia de captura e estado Pro')).toHaveCount(0);
+                await expect(page.getByRole('heading', { name: /Sprays analisados/i })).toHaveCount(0);
                 await expectNoHorizontalOverflow(page);
             } finally {
                 await fixture.cleanup();

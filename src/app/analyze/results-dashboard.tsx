@@ -750,6 +750,8 @@ export function ResultsDashboard({ result, mode = 'full' }: Props): React.JSX.El
     const [expandedCoach, setExpandedCoach] = useState<number | null>(null);
     const [showMinorDiags, setShowMinorDiags] = useState(false);
     const isAggregated = activeSession.id === result.id;
+    const subSessions = result.subSessions ?? [];
+    const hasMultipleSubSessions = subSessions.length > 1;
     const trackingOverview = summarizeAnalysisTracking(activeSession);
     const analysisContext = activeSession.analysisContext;
     const targetDistanceMeters = analysisContext?.targetDistanceMeters ?? activeSession.metrics.targetDistanceMeters;
@@ -951,9 +953,9 @@ export function ResultsDashboard({ result, mode = 'full' }: Props): React.JSX.El
                         </span>
                     ) : null}
                 </div>
-                {isAggregated && result.subSessions && result.subSessions.length > 0 ? (
+                {isAggregated && hasMultipleSubSessions ? (
                     <span className="badge badge-info">
-                        Média de {result.subSessions.length} sprays
+                        Media de {subSessions.length} sprays
                     </span>
                 ) : null}
                 </div>
@@ -1012,40 +1014,38 @@ export function ResultsDashboard({ result, mode = 'full' }: Props): React.JSX.El
                 </section>
             ) : null}
             {/* ═══ Sub-Sessions Selector ═══ */}
-            {result.subSessions && result.subSessions.length > 0 && (
-                <section className={styles.section}>
-                    <h3 className={styles.sectionTitle}>🎯 Segmentação de Sprays</h3>
+            {hasMultipleSubSessions ? (
+                <section className={styles.section} aria-labelledby="spray-segments-title">
+                    <h3 id="spray-segments-title" className={styles.sectionTitle}>Sprays analisados</h3>
                     <div className={styles.subSessionsGrid}>
-                        <div
-                            className={`${styles.subSessionCard} glass-card ${isAggregated ? styles.subSessionCardActive : ''}`}
+                        <button
+                            type="button"
+                            className={`${styles.subSessionCard} ${isAggregated ? styles.subSessionCardActive : ''}`}
                             onClick={() => setActiveSession(result)}
-                            onKeyDown={(event) => handleCardKeyboardActivation(event, () => setActiveSession(result))}
-                            role="button"
-                            tabIndex={0}
                             aria-pressed={isAggregated}
+                            aria-label="Ver media consolidada dos sprays"
                         >
-                            <strong>📊 Média Geral</strong>
-                            <p style={{ fontSize: 'var(--text-xs)', marginTop: '4px' }}>{result.subSessions.length} sprays</p>
-                        </div>
-                        {result.subSessions.map((sub, idx) => (
-                            <div
+                            <strong>Media consolidada</strong>
+                            <span>{subSessions.length} sprays</span>
+                        </button>
+                        {subSessions.map((sub, idx) => (
+                            <button
                                 key={sub.id}
-                                className={`${styles.subSessionCard} glass-card ${activeSession.id === sub.id ? styles.subSessionCardActive : ''}`}
+                                type="button"
+                                className={`${styles.subSessionCard} ${activeSession.id === sub.id ? styles.subSessionCardActive : ''}`}
                                 onClick={() => setActiveSession(sub)}
-                                onKeyDown={(event) => handleCardKeyboardActivation(event, () => setActiveSession(sub))}
-                                role="button"
-                                tabIndex={0}
                                 aria-pressed={activeSession.id === sub.id}
+                                aria-label={`Ver spray ${idx + 1}`}
                             >
                                 <strong>Spray #{idx + 1}</strong>
-                                <p style={{ fontSize: 'var(--text-xs)', marginTop: '4px' }}>
+                                <span>
                                     {(sub.trajectory.durationMs / 1000).toFixed(1)}s
-                                </p>
-                            </div>
+                                </span>
+                            </button>
                         ))}
                     </div>
                 </section>
-            )}
+            ) : null}
 
             <section className={styles.verdictReport} aria-labelledby="measurement-truth-title">
                 <div className={styles.verdictHeader}>
