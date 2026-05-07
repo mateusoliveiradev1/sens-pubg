@@ -7,6 +7,7 @@ describe('dashboard arsenal icon contract', () => {
 
         expect(source).toMatch(/WeaponIcon/);
         expect(source).toMatch(/weaponId=\{weapon\.weaponId\}/);
+        expect(source).toMatch(/weaponName=\{weapon\.displayName\}/);
         expect(source).not.toMatch(/🔫/);
     });
 
