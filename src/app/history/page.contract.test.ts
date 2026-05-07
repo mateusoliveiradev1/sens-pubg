@@ -11,7 +11,12 @@ describe('history page field evolution contract', () => {
         expect(source).toMatch(/showStatus/);
         expect(source).toMatch(/acceptanceFeedback/);
         expect(source).toMatch(/Leitura de campo/);
+        expect(source).toMatch(/Sensibilidade em teste real/);
+        expect(source).toMatch(/fieldTrendTotals/);
+        expect(source).toMatch(/Resumo da leitura de campo/);
+        expect(source).toMatch(/Ver auditoria da sens/);
         expect(source).toMatch(/Aguardando teste real/);
+        expect(source).not.toMatch(/Qual linha de sens esta respondendo melhor fora do laboratorio/);
         expect(source).not.toMatch(/\uD83D\uDD2B|\uD83C\uDFAF/);
     });
 

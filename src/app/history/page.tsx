@@ -345,6 +345,14 @@ export default async function HistoryPage({
         ?? null;
     const sortedSessions = sessions.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     const fieldTrendSummaries = buildFieldTrendSummaries(sortedSessions).slice(0, 6);
+    const fieldTrendTotals = fieldTrendSummaries.reduce(
+        (totals, summary) => ({
+            improvingLines: totals.improvingLines + (summary.trend === 'rising' ? 1 : 0),
+            reviewLines: totals.reviewLines + (summary.trend === 'review' ? 1 : 0),
+            totalTests: totals.totalTests + summary.testedSessions,
+        }),
+        { improvingLines: 0, reviewLines: 0, totalTests: 0 }
+    );
     const latestSession = sortedSessions[0] ?? null;
     const latestEvidence = latestSession?.evidenceSummary;
     const latestEvidenceTone = resolveHistoryEvidenceTone(latestEvidence);
@@ -596,26 +604,25 @@ export default async function HistoryPage({
                                 </section>
                             ) : null}
 
-                            <div
-                                className="glass-card"
+                            <section
+                                aria-labelledby="field-reading-title"
                                 style={{
-                                    padding: 'var(--space-xl)',
+                                    padding: 'var(--space-xl) 0',
                                     marginBottom: 'var(--space-xl)',
-                                    background: 'linear-gradient(145deg, rgba(10, 16, 24, 0.96), rgba(8, 8, 12, 0.92))',
-                                    border: '1px solid rgba(121, 240, 255, 0.14)',
+                                    borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                                    borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
                                 }}
                             >
                                 <div
                                     style={{
-                                        display: 'flex',
-                                        flexWrap: 'wrap',
-                                        alignItems: 'flex-start',
-                                        justifyContent: 'space-between',
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
+                                        alignItems: 'end',
                                         gap: 'var(--space-lg)',
-                                        marginBottom: fieldTrendSummaries.length > 0 ? 'var(--space-lg)' : 0,
+                                        marginBottom: 'var(--space-lg)',
                                     }}
                                 >
-                                    <div style={{ maxWidth: '540px' }}>
+                                    <div>
                                         <p
                                             style={{
                                                 margin: '0 0 var(--space-xs) 0',
@@ -627,21 +634,51 @@ export default async function HistoryPage({
                                         >
                                             Leitura de campo
                                         </p>
-                                        <h2 style={{ margin: 0, fontSize: 'var(--text-2xl)', lineHeight: 1.1 }}>
-                                            Qual linha de sens esta respondendo melhor fora do laboratorio
+                                        <h2 id="field-reading-title" style={{ margin: 0, fontSize: 'var(--text-2xl)', lineHeight: 1.1 }}>
+                                            Sensibilidade em teste real
                                         </h2>
+                                        <p style={{ margin: 'var(--space-sm) 0 0 0', maxWidth: '620px', color: 'var(--color-text-muted)', lineHeight: 1.65 }}>
+                                            Retornos salvos no painel de sensibilidade mostram quais recomendacoes estao ganhando campo e quais precisam voltar para revisao.
+                                        </p>
                                     </div>
 
-                                    <p style={{ margin: 0, maxWidth: '360px', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
-                                        O motor agora separa recomendacoes que estao melhorando em campo das linhas que estao pedindo revisao. Quando a sens piora no teste real, ela deixa de reforcar a convergencia futura.
-                                    </p>
+                                    <div
+                                        aria-label="Resumo da leitura de campo"
+                                        style={{
+                                            display: 'flex',
+                                            flexWrap: 'wrap',
+                                            gap: 'var(--space-sm)',
+                                            justifyContent: 'flex-start',
+                                        }}
+                                    >
+                                        <EvidenceChip
+                                            label="Linhas"
+                                            tone={fieldTrendSummaries.length > 0 ? 'info' : 'warning'}
+                                            value={String(fieldTrendSummaries.length)}
+                                        />
+                                        <EvidenceChip
+                                            label="Testes reais"
+                                            tone={fieldTrendTotals.totalTests > 0 ? 'success' : 'warning'}
+                                            value={String(fieldTrendTotals.totalTests)}
+                                        />
+                                        <EvidenceChip
+                                            label="Subindo"
+                                            tone={fieldTrendTotals.improvingLines > 0 ? 'success' : 'info'}
+                                            value={String(fieldTrendTotals.improvingLines)}
+                                        />
+                                        <EvidenceChip
+                                            label="Revisao"
+                                            tone={fieldTrendTotals.reviewLines > 0 ? 'error' : 'info'}
+                                            value={String(fieldTrendTotals.reviewLines)}
+                                        />
+                                    </div>
                                 </div>
 
                                 {fieldTrendSummaries.length > 0 ? (
                                     <div
                                         style={{
                                             display: 'grid',
-                                            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                                            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
                                             gap: 'var(--space-md)',
                                         }}
                                     >
@@ -657,18 +694,18 @@ export default async function HistoryPage({
                                                         style={{
                                                             height: '100%',
                                                             padding: 'var(--space-lg)',
-                                                            borderRadius: 'var(--radius-lg)',
-                                                            background: 'rgba(255, 255, 255, 0.02)',
+                                                            borderRadius: 8,
+                                                            background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.018))',
                                                             border: `1px solid ${trendMeta.border}`,
-                                                            display: 'flex',
-                                                            flexDirection: 'column',
+                                                            display: 'grid',
                                                             gap: 'var(--space-md)',
+                                                            alignContent: 'start',
                                                         }}
                                                     >
                                                         <div
                                                             style={{
                                                                 display: 'flex',
-                                                                alignItems: 'center',
+                                                                alignItems: 'flex-start',
                                                                 justifyContent: 'space-between',
                                                                 gap: 'var(--space-md)',
                                                             }}
@@ -703,51 +740,89 @@ export default async function HistoryPage({
                                                             <h3 style={{ margin: 0, fontSize: 'var(--text-lg)', lineHeight: 1.2 }}>
                                                                 {summary.weaponName}
                                                             </h3>
-                                                            <p style={{ margin: '6px 0 0 0', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+                                                            <p style={{ margin: '6px 0 0 0', color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
                                                                 {trendMeta.description}
                                                             </p>
                                                         </div>
 
-                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                                        <div
+                                                            aria-label={`Retornos de campo de ${summary.weaponName}`}
+                                                            style={{
+                                                                display: 'grid',
+                                                                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                                                                gap: '8px',
+                                                            }}
+                                                        >
                                                             <span
                                                                 style={{
-                                                                    padding: '6px 10px',
-                                                                    borderRadius: '999px',
-                                                                    background: 'rgba(34, 197, 94, 0.12)',
+                                                                    display: 'grid',
+                                                                    gap: '3px',
+                                                                    padding: '10px',
+                                                                    borderRadius: 8,
+                                                                    border: '1px solid rgba(34, 197, 94, 0.2)',
+                                                                    background: 'rgba(34, 197, 94, 0.08)',
                                                                     color: 'var(--color-success)',
-                                                                    fontSize: '12px',
+                                                                    fontSize: '11px',
+                                                                    lineHeight: 1.2,
                                                                 }}
                                                             >
-                                                                +{summary.improvedCount} melhorou
+                                                                <strong style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-base)' }}>+{summary.improvedCount}</strong>
+                                                                <span>melhorou</span>
                                                             </span>
                                                             <span
                                                                 style={{
-                                                                    padding: '6px 10px',
-                                                                    borderRadius: '999px',
-                                                                    background: 'rgba(116, 215, 255, 0.12)',
+                                                                    display: 'grid',
+                                                                    gap: '3px',
+                                                                    padding: '10px',
+                                                                    borderRadius: 8,
+                                                                    border: '1px solid rgba(116, 215, 255, 0.2)',
+                                                                    background: 'rgba(116, 215, 255, 0.08)',
                                                                     color: '#74d7ff',
-                                                                    fontSize: '12px',
+                                                                    fontSize: '11px',
+                                                                    lineHeight: 1.2,
                                                                 }}
                                                             >
-                                                                ={summary.sameCount} igual
+                                                                <strong style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-base)' }}>={summary.sameCount}</strong>
+                                                                <span>igual</span>
                                                             </span>
                                                             <span
                                                                 style={{
-                                                                    padding: '6px 10px',
-                                                                    borderRadius: '999px',
-                                                                    background: 'rgba(239, 68, 68, 0.12)',
+                                                                    display: 'grid',
+                                                                    gap: '3px',
+                                                                    padding: '10px',
+                                                                    borderRadius: 8,
+                                                                    border: '1px solid rgba(239, 68, 68, 0.2)',
+                                                                    background: 'rgba(239, 68, 68, 0.08)',
                                                                     color: 'var(--color-error)',
-                                                                    fontSize: '12px',
+                                                                    fontSize: '11px',
+                                                                    lineHeight: 1.2,
                                                                 }}
                                                             >
-                                                                -{summary.worseCount} piorou
+                                                                <strong style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-base)' }}>-{summary.worseCount}</strong>
+                                                                <span>piorou</span>
                                                             </span>
                                                         </div>
 
-                                                        <p style={{ margin: 0, fontSize: '12px', color: 'var(--color-text-muted)' }}>
-                                                            {summary.testedSessions} teste(s) real(is) salvos · ultimo retorno em{' '}
-                                                            {summary.latestFeedbackAt.toLocaleDateString('pt-BR')}
-                                                        </p>
+                                                        <div
+                                                            style={{
+                                                                display: 'flex',
+                                                                flexWrap: 'wrap',
+                                                                justifyContent: 'space-between',
+                                                                gap: 'var(--space-sm)',
+                                                                paddingTop: 'var(--space-sm)',
+                                                                borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+                                                                color: 'var(--color-text-muted)',
+                                                                fontSize: '12px',
+                                                            }}
+                                                        >
+                                                            <span>
+                                                                {summary.testedSessions} teste{summary.testedSessions === 1 ? '' : 's'} real{summary.testedSessions === 1 ? '' : 'is'} - ultimo retorno em{' '}
+                                                                {summary.latestFeedbackAt.toLocaleDateString('pt-BR')}
+                                                            </span>
+                                                            <span style={{ color: '#74d7ff', fontWeight: 700 }}>
+                                                                Ver auditoria da sens
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 </Link>
                                             );
@@ -761,12 +836,13 @@ export default async function HistoryPage({
                                             border: '1px dashed rgba(148, 163, 184, 0.2)',
                                             background: 'rgba(255, 255, 255, 0.02)',
                                             color: 'var(--color-text-muted)',
+                                            lineHeight: 1.6,
                                         }}
                                     >
                                         Nenhum teste real foi marcado ainda. Abra uma analise salva e use o painel &quot;Melhorou / Ficou igual / Piorou&quot; para transformar o historico em leitura de campo.
                                     </div>
                                 )}
-                            </div>
+                            </section>
 
                             {historyDepthLock ? (
                                 <div style={{ marginBottom: 'var(--space-xl)' }}>

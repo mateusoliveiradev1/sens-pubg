@@ -349,6 +349,8 @@ for (const [label, viewport] of Object.entries(VIEWPORTS)) {
                 await page.goto('/history');
                 await expect(page.getByRole('heading', { name: /Historico de Analises/i })).toBeVisible();
                 await expect(page.getByLabel('Loop Sens PUBG')).toBeVisible();
+                await expect(page.getByRole('heading', { name: /Sensibilidade em teste real/i })).toBeVisible();
+                await expect(page.getByLabel('Resumo da leitura de campo')).toBeVisible();
                 await expect(page.getByText(/Beryl M762|beryl-m762/i).first()).toBeVisible();
                 await expectNoHorizontalOverflow(page);
                 await page.screenshot({
