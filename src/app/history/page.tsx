@@ -4,7 +4,12 @@ import Link from 'next/link';
 import { getHistorySessions, getPrecisionHistoryLines } from '@/actions/history';
 import { getWeapon, SCOPE_LIST } from '@/game/pubg';
 import type { ProfileType, SensitivityAcceptanceFeedback } from '@/types/engine';
+import { EvidenceChip, type EvidenceTone } from '@/ui/components/evidence-chip';
 import { Header } from '@/ui/components/header';
+import { LoopRail, type LoopStageKey } from '@/ui/components/loop-rail';
+import { MetricTile } from '@/ui/components/metric-tile';
+import { PageCommandHeader } from '@/ui/components/page-command-header';
+import { ProLockPreview } from '@/ui/components/pro-lock-preview';
 import { WeaponIcon } from '@/ui/components/weapon-icon';
 
 export const metadata: Metadata = {
@@ -249,6 +254,82 @@ function formatVariableInTest(variable: PrecisionLine['variableInTest']): string
     }
 }
 
+function formatPercent(value: number): string {
+    return `${Math.round(value * 100)}%`;
+}
+
+function resolveHistoryEvidenceTone(summary: HistorySession['evidenceSummary'] | undefined): EvidenceTone {
+    if (!summary) {
+        return 'warning';
+    }
+
+    if (!summary.usableForAnalysis || summary.actionState === 'capture_again' || summary.actionState === 'inconclusive') {
+        return 'warning';
+    }
+
+    if (summary.confidence >= 0.8 && summary.coverage >= 0.8) {
+        return 'success';
+    }
+
+    return 'info';
+}
+
+function resolveMetricTone(value: number): EvidenceTone {
+    if (value >= 70) {
+        return 'success';
+    }
+
+    if (value >= 40) {
+        return 'info';
+    }
+
+    return 'warning';
+}
+
+function resolveHistoryLoopStage(input: {
+    readonly hasSessions: boolean;
+    readonly selectedLine: PrecisionLine | null;
+}): LoopStageKey {
+    if (!input.hasSessions) {
+        return 'clip';
+    }
+
+    if (!input.selectedLine) {
+        return 'evidence';
+    }
+
+    switch (input.selectedLine.status) {
+        case 'baseline_created':
+        case 'initial_signal':
+        case 'in_validation':
+        case 'not_comparable':
+            return 'validation';
+        case 'validated_progress':
+        case 'validated_regression':
+        case 'oscillation':
+        case 'consolidated':
+            return 'checkpoint';
+    }
+}
+
+function findSessionPrecisionContext(
+    sessionId: string,
+    precisionLines: readonly PrecisionLine[],
+): {
+    readonly line: PrecisionLine | null;
+    readonly checkpoint: PrecisionLine['checkpoints'][number] | null;
+} {
+    for (const line of precisionLines) {
+        const checkpoint = line.checkpoints.find((candidate) => candidate.analysisSessionId === sessionId) ?? null;
+
+        if (checkpoint || line.currentSessionId === sessionId || line.baselineSessionId === sessionId) {
+            return { line, checkpoint };
+        }
+    }
+
+    return { line: null, checkpoint: null };
+}
+
 export default async function HistoryPage({
     searchParams,
 }: {
@@ -264,32 +345,83 @@ export default async function HistoryPage({
         ?? null;
     const sortedSessions = sessions.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     const fieldTrendSummaries = buildFieldTrendSummaries(sortedSessions).slice(0, 6);
+    const latestSession = sortedSessions[0] ?? null;
+    const latestEvidence = latestSession?.evidenceSummary;
+    const latestEvidenceTone = resolveHistoryEvidenceTone(latestEvidence);
+    const historyProjection = latestSession?.premiumProjection ?? null;
+    const historyDepthLock = historyProjection?.locks.find((lock) => lock.featureKey === 'history.full') ?? null;
+    const historyPrimaryAction = latestSession
+        ? { label: 'Abrir ultima auditoria', href: `/history/${latestSession.id}` }
+        : { label: 'Salvar analise util', href: '/analyze' };
+    const historyLoopStage = resolveHistoryLoopStage({
+        hasSessions: sortedSessions.length > 0,
+        selectedLine,
+    });
+    const historyLoopBlocked = sortedSessions.length === 0
+        || selectedLine?.status === 'not_comparable'
+        || (latestEvidence ? latestEvidence.blockerReasons.length > 0 : false);
+    const historyEvidenceLabel = latestEvidence
+        ? `${formatPercent(latestEvidence.confidence)} confianca / ${formatPercent(latestEvidence.coverage)} cobertura`
+        : selectedLine
+            ? selectedLine.statusLabel
+            : 'Sem evidencia recente';
 
     return (
         <>
             <Header />
             <div className="page animate-fade-in">
                 <div className="container" style={{ maxWidth: '980px', margin: '0 auto' }}>
-                    <h1 style={{ marginBottom: 'var(--space-sm)' }}>Historico de Analises</h1>
-                    <p style={{ marginBottom: 'var(--space-2xl)', color: 'var(--color-text-muted)' }}>
-                        Acompanhe sua evolucao ao longo do tempo. Agora o historico tambem cruza o resultado real do teste da sens para mostrar quais linhas estao firmando em campo.
-                    </p>
+                    <PageCommandHeader
+                        body="Revise sessoes salvas como uma timeline de evidencia: veredito, confianca, cobertura, outcomes, checkpoints e bloqueadores continuam visiveis antes de qualquer leitura de evolucao."
+                        evidenceItems={[
+                            { label: 'Sessoes', value: String(sortedSessions.length), tone: sortedSessions.length > 0 ? 'success' : 'warning' },
+                            { label: 'Linhas', value: String(precisionLines.length), tone: precisionLines.length > 0 ? 'info' : 'warning' },
+                            { label: 'Evidencia recente', value: latestEvidence ? latestEvidence.verdictLabel : 'Sem leitura', tone: latestEvidenceTone },
+                            { label: 'Historia Pro', value: historyProjection?.canSeeFullHistory ? 'Profunda' : 'Preview', tone: historyProjection?.canSeeFullHistory ? 'success' : 'pro' },
+                        ]}
+                        primaryAction={historyPrimaryAction}
+                        roleLabel="Timeline de auditoria"
+                        title="Historico de Analises"
+                    />
+                    <div style={{ margin: 'var(--space-lg) 0 var(--space-2xl)' }}>
+                        <LoopRail
+                            blocked={historyLoopBlocked}
+                            currentStage={historyLoopStage}
+                            evidenceLabel={historyEvidenceLabel}
+                            nextActionLabel={historyPrimaryAction.label}
+                        />
+                    </div>
 
                     {sortedSessions.length === 0 ? (
                         <div
                             className="glass-card"
                             style={{
-                                textAlign: 'center',
-                                padding: 'var(--space-4xl) var(--space-xl)',
+                                padding: 'var(--space-xl)',
+                                display: 'grid',
+                                gap: 'var(--space-lg)',
                             }}
                         >
                             <div style={{ fontSize: '3rem', marginBottom: 'var(--space-lg)' }}>📊</div>
-                            <h3 style={{ marginBottom: 'var(--space-md)' }}>Nenhuma analise ainda</h3>
-                            <p style={{ marginBottom: 'var(--space-xl)', color: 'var(--color-text-muted)' }}>
-                                Envie seu primeiro clip de spray para criar uma linha de base e acompanhar como seus ajustes evoluem ao longo do tempo.
+                            <h2 style={{ margin: '0 0 var(--space-sm)' }}>Nenhuma analise salva ainda</h2>
+                            <p style={{ margin: 0, color: 'var(--color-text-muted)' }}>
+                                Salve uma analise util depois do primeiro clip usavel para abrir historico, checkpoints e auditoria do coach.
                             </p>
-                            <Link href="/analyze" className="btn btn-primary btn-lg">
-                                Fazer Primeira Analise
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: 'var(--space-md)' }}>
+                                <MetricTile
+                                    helper="Sem sessoes salvas."
+                                    label="Historico"
+                                    tone="warning"
+                                    value="0"
+                                />
+                                <MetricTile
+                                    helper="A linha de evolucao aparece depois de clips compativeis."
+                                    label="Checkpoints"
+                                    tone="warning"
+                                    value="Aguardando"
+                                />
+                            </div>
+                            <Link href="/analyze" className="btn btn-primary btn-lg" style={{ width: 'fit-content' }}>
+                                Salvar analise util
                             </Link>
                         </div>
                     ) : (
@@ -636,6 +768,16 @@ export default async function HistoryPage({
                                 )}
                             </div>
 
+                            {historyDepthLock ? (
+                                <div style={{ marginBottom: 'var(--space-xl)' }}>
+                                    <ProLockPreview
+                                        currentValueLabel={`Historico recente visivel: ${Math.min(sortedSessions.length, 3)} sessoes com evidencia basica.`}
+                                        lock={historyDepthLock}
+                                        proValueLabel="Pro amplia continuidade, linhas compativeis completas, checkpoints antigos e auditoria de outcomes sem esconder a verdade recente."
+                                    />
+                                </div>
+                            ) : null}
+
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
                                 {sortedSessions.map((session, index) => {
                                     const scope = SCOPE_LIST.find((candidate) => candidate.id === session.scopeId);
@@ -647,6 +789,12 @@ export default async function HistoryPage({
                                     const recommendedProfile = isProfileType(session.recommendedProfile)
                                         ? PROFILE_LABELS[session.recommendedProfile]
                                         : undefined;
+                                    const evidenceSummary = session.evidenceSummary;
+                                    const evidenceTone = resolveHistoryEvidenceTone(evidenceSummary);
+                                    const precisionContext = findSessionPrecisionContext(session.id, precisionLines);
+                                    const sessionActionLabel = session.coachOutcomeStatus
+                                        ? 'Ver auditoria do coach'
+                                        : 'Abrir auditoria';
 
                                     return (
                                         <Link
@@ -658,11 +806,10 @@ export default async function HistoryPage({
                                                 className={`glass-card animate-fade-in-up stagger-${Math.min(index + 1, 5)}`}
                                                 style={{
                                                     padding: 'var(--space-lg)',
-                                                    display: 'flex',
-                                                    flexWrap: 'wrap',
+                                                    display: 'grid',
+                                                    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
                                                     gap: 'var(--space-lg)',
                                                     alignItems: 'center',
-                                                    justifyContent: 'space-between',
                                                 }}
                                             >
                                                 <div
@@ -675,6 +822,7 @@ export default async function HistoryPage({
                                                 >
                                                     <WeaponIcon
                                                         category={category}
+                                                        showStatus
                                                         size={54}
                                                         weaponId={session.weaponId}
                                                         weaponName={weaponName}
@@ -766,72 +914,92 @@ export default async function HistoryPage({
                                                             Mira: {scope?.name ?? session.scopeId} · Patch: {session.patchVersion} ·{' '}
                                                             {session.createdAt.toLocaleDateString('pt-BR')}
                                                         </p>
-                                                        {session.coachOutcomeStatus ? (
-                                                            <p style={{ margin: '6px 0 0 0', color: 'var(--color-accent-cyan)', fontSize: '12px', fontWeight: 700 }}>
-                                                                Ver auditoria do coach
-                                                            </p>
-                                                        ) : null}
+                                                        <p style={{ margin: '6px 0 0 0', color: 'var(--color-accent-cyan)', fontSize: '12px', fontWeight: 700 }}>
+                                                            {sessionActionLabel}
+                                                        </p>
                                                     </div>
+                                                </div>
+
+                                                <div style={{ display: 'grid', gap: 'var(--space-sm)' }}>
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }} aria-label="Evidencia e checkpoint da sessao">
+                                                        <EvidenceChip
+                                                            label="Veredito"
+                                                            tone={evidenceTone}
+                                                            value={evidenceSummary?.verdictLabel ?? 'Sem mastery'}
+                                                        />
+                                                        <EvidenceChip
+                                                            label="Confianca"
+                                                            tone={evidenceTone}
+                                                            value={evidenceSummary ? formatPercent(evidenceSummary.confidence) : 'Aguardando'}
+                                                        />
+                                                        <EvidenceChip
+                                                            label="Cobertura"
+                                                            tone={evidenceTone}
+                                                            value={evidenceSummary ? formatPercent(evidenceSummary.coverage) : 'Aguardando'}
+                                                        />
+                                                        <EvidenceChip
+                                                            label="Bloqueadores"
+                                                            tone={(evidenceSummary?.blockerReasons.length ?? 0) > 0 ? 'warning' : 'success'}
+                                                            value={String(evidenceSummary?.blockerReasons.length ?? 0)}
+                                                        />
+                                                        <EvidenceChip
+                                                            label="Linha"
+                                                            tone={precisionContext.line ? 'info' : 'warning'}
+                                                            value={precisionContext.line?.statusLabel ?? 'Sem linha ativa'}
+                                                        />
+                                                        <EvidenceChip
+                                                            label="Checkpoint"
+                                                            tone={precisionContext.checkpoint ? 'info' : 'warning'}
+                                                            value={precisionContext.checkpoint?.stateLabel ?? 'Nao vinculado'}
+                                                        />
+                                                        <EvidenceChip
+                                                            label="Outcome"
+                                                            tone={session.coachOutcomeStatus?.status === 'conflict' ? 'warning' : session.coachOutcomeStatus ? 'info' : 'warning'}
+                                                            value={session.coachOutcomeStatus?.label ?? 'Pendente'}
+                                                        />
+                                                    </div>
+                                                    {evidenceSummary?.blockerReasons.length ? (
+                                                        <div style={{ display: 'grid', gap: '6px' }} aria-label="Bloqueadores visiveis">
+                                                            {evidenceSummary.blockerReasons.slice(0, 2).map((reason) => (
+                                                                <span
+                                                                    key={reason}
+                                                                    style={{
+                                                                        padding: '7px 9px',
+                                                                        borderRadius: '8px',
+                                                                        border: '1px solid rgba(255, 193, 7, 0.24)',
+                                                                        background: 'rgba(255, 193, 7, 0.08)',
+                                                                        color: 'var(--color-text-secondary)',
+                                                                        fontSize: '12px',
+                                                                        lineHeight: 1.45,
+                                                                    }}
+                                                                >
+                                                                    {reason}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    ) : null}
                                                 </div>
 
                                                 <div
                                                     style={{
-                                                        display: 'flex',
-                                                        gap: 'var(--space-lg)',
-                                                        flexWrap: 'wrap',
-                                                        flexGrow: 1,
-                                                        justifyContent: 'space-around',
+                                                        display: 'grid',
+                                                        gridTemplateColumns: 'repeat(auto-fit, minmax(96px, 1fr))',
+                                                        gap: 'var(--space-sm)',
                                                     }}
                                                 >
-                                                    <div style={{ textAlign: 'center', minWidth: '60px' }}>
-                                                        <div
-                                                            style={{
-                                                                fontSize: 'var(--text-xl)',
-                                                                fontFamily: 'var(--font-mono)',
-                                                                fontWeight: 700,
-                                                                color: session.stabilityScore >= 70
-                                                                    ? 'var(--color-success)'
-                                                                    : session.stabilityScore >= 40
-                                                                        ? 'var(--color-warning)'
-                                                                        : 'var(--color-error)',
-                                                            }}
-                                                        >
-                                                            {Math.round(session.stabilityScore)}
-                                                        </div>
-                                                        <div
-                                                            style={{
-                                                                fontSize: '10px',
-                                                                color: 'var(--color-text-muted)',
-                                                                textTransform: 'uppercase',
-                                                            }}
-                                                        >
-                                                            Estabilidade
-                                                        </div>
-                                                    </div>
+                                                    <MetricTile
+                                                        helper="score salvo"
+                                                        label="Estabilidade"
+                                                        tone={resolveMetricTone(session.stabilityScore)}
+                                                        value={String(Math.round(session.stabilityScore))}
+                                                    />
 
-                                                    <div style={{ textAlign: 'center', minWidth: '60px' }}>
-                                                        <div
-                                                            style={{
-                                                                fontSize: 'var(--text-xl)',
-                                                                fontFamily: 'var(--font-mono)',
-                                                                fontWeight: 700,
-                                                                color: Math.abs(session.verticalControl - 1) < 0.15
-                                                                    ? 'var(--color-success)'
-                                                                    : 'var(--color-warning)',
-                                                            }}
-                                                        >
-                                                            {session.verticalControl.toFixed(2)}x
-                                                        </div>
-                                                        <div
-                                                            style={{
-                                                                fontSize: '10px',
-                                                                color: 'var(--color-text-muted)',
-                                                                textTransform: 'uppercase',
-                                                            }}
-                                                        >
-                                                            Vertical
-                                                        </div>
-                                                    </div>
+                                                    <MetricTile
+                                                        helper="controle vertical"
+                                                        label="Vertical"
+                                                        tone={Math.abs(session.verticalControl - 1) < 0.15 ? 'success' : 'warning'}
+                                                        value={`${session.verticalControl.toFixed(2)}x`}
+                                                    />
 
                                                     <div style={{ textAlign: 'center', minWidth: '60px' }}>
                                                         <div

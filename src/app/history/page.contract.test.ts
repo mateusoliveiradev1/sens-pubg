@@ -8,6 +8,7 @@ describe('history page field evolution contract', () => {
         expect(source).toMatch(/WeaponIcon/);
         expect(source).toMatch(/weaponId=\{session\.weaponId\}/);
         expect(source).toMatch(/weaponName=\{weaponName\}/);
+        expect(source).toMatch(/showStatus/);
         expect(source).toMatch(/acceptanceFeedback/);
         expect(source).toMatch(/Leitura de campo/);
         expect(source).toMatch(/Aguardando teste real/);
@@ -18,6 +19,10 @@ describe('history page field evolution contract', () => {
         const source = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
 
         expect(source).toMatch(/getPrecisionHistoryLines/);
+        expect(source).toMatch(/PageCommandHeader/);
+        expect(source).toMatch(/LoopRail/);
+        expect(source).toMatch(/EvidenceChip/);
+        expect(source).toMatch(/MetricTile/);
         expect(source).toMatch(/Evolucao de precisao/);
         expect(source).toMatch(/Linhas compativeis e checkpoints/);
         expect(source).toMatch(/Gravar validacao compativel/);
@@ -25,6 +30,25 @@ describe('history page field evolution contract', () => {
         expect(source).toMatch(/line\.blockerReasons/);
         expect(source).toMatch(/selectedLine\.checkpoints\.map/);
         expect(source).toMatch(/href=\{`\/history\?line=\$\{line\.id\}`\}/);
+    });
+
+    it('renders mobile-safe audit cards with evidence, checkpoints, one action, and Pro depth preview', () => {
+        const source = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/gridTemplateColumns: 'repeat\(auto-fit, minmax\(min\(100%, 260px\), 1fr\)\)'/);
+        expect(source).toMatch(/evidenceSummary/);
+        expect(source).toMatch(/label="Confianca"/);
+        expect(source).toMatch(/label="Cobertura"/);
+        expect(source).toMatch(/label="Bloqueadores"/);
+        expect(source).toMatch(/label="Checkpoint"/);
+        expect(source).toMatch(/sessionActionLabel/);
+        expect(source).toMatch(/Abrir auditoria/);
+        expect(source).toMatch(/ProLockPreview/);
+        expect(source).toMatch(/historyDepthLock/);
+        expect(source).toMatch(/featureKey === 'history\.full'/);
+        expect(source).toMatch(/canSeeFullHistory/);
+        expect(source).toMatch(/Historico recente visivel/);
+        expect(source).toMatch(/Salvar analise util/);
     });
 
     it('exposes a minimal coach plan summary on the history detail page when hydrated', () => {

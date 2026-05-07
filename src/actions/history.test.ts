@@ -1594,6 +1594,17 @@ describe('getHistorySessions', () => {
                             recordedAt: '2026-04-17T12:30:00.000Z',
                         },
                     },
+                    mastery: {
+                        actionState: 'testable',
+                        actionLabel: 'Testavel',
+                        blockedRecommendations: ['Validar mais um clip antes de consolidar.'],
+                        evidence: {
+                            confidence: 0.84,
+                            coverage: 0.82,
+                            sampleSize: 24,
+                            usableForAnalysis: true,
+                        },
+                    },
                 },
             },
         ]);
@@ -1608,6 +1619,15 @@ describe('getHistorySessions', () => {
                     outcome: 'same',
                     testedProfile: 'balanced',
                     recordedAt: '2026-04-17T12:30:00.000Z',
+                }),
+                evidenceSummary: expect.objectContaining({
+                    actionState: 'testable',
+                    verdictLabel: 'Testavel',
+                    confidence: 0.84,
+                    coverage: 0.82,
+                    sampleSize: 24,
+                    blockerReasons: ['Validar mais um clip antes de consolidar.'],
+                    usableForAnalysis: true,
                 }),
             }),
         ]);

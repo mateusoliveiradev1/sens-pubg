@@ -129,6 +129,16 @@ export interface PrecisionHistoryLineSummary {
     readonly checkpoints: readonly PrecisionHistoryCheckpointSummary[];
 }
 
+export interface HistorySessionEvidenceSummary {
+    readonly actionState: NonNullable<AnalysisResult['mastery']>['actionState'];
+    readonly verdictLabel: string;
+    readonly confidence: number;
+    readonly coverage: number;
+    readonly sampleSize: number;
+    readonly blockerReasons: readonly string[];
+    readonly usableForAnalysis: boolean;
+}
+
 export interface RecordCoachProtocolOutcomeInput {
     readonly sessionId: string;
     readonly coachPlanId: string;
@@ -1285,6 +1295,54 @@ function readString(value: Record<string, unknown> | undefined, key: string): st
         : undefined;
 }
 
+function readFiniteNumber(value: Record<string, unknown> | undefined, key: string): number | undefined {
+    const property = value?.[key];
+    return typeof property === 'number' && Number.isFinite(property)
+        ? property
+        : undefined;
+}
+
+function isHistorySprayActionState(value: unknown): value is HistorySessionEvidenceSummary['actionState'] {
+    return value === 'capture_again'
+        || value === 'inconclusive'
+        || value === 'testable'
+        || value === 'ready';
+}
+
+function buildHistorySessionEvidenceSummary(
+    fullResult: Record<string, unknown> | null,
+): HistorySessionEvidenceSummary | undefined {
+    const mastery = isRecord(fullResult?.mastery) ? fullResult.mastery : undefined;
+    const evidence = isRecord(mastery?.evidence) ? mastery.evidence : undefined;
+    const actionState = mastery?.actionState;
+
+    if (!mastery || !evidence || !isHistorySprayActionState(actionState)) {
+        return undefined;
+    }
+
+    const confidence = readFiniteNumber(evidence, 'confidence');
+    const coverage = readFiniteNumber(evidence, 'coverage');
+    const sampleSize = readFiniteNumber(evidence, 'sampleSize') ?? 0;
+
+    if (confidence === undefined || coverage === undefined) {
+        return undefined;
+    }
+
+    const blockedRecommendations = Array.isArray(mastery.blockedRecommendations)
+        ? mastery.blockedRecommendations.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+        : [];
+
+    return {
+        actionState,
+        verdictLabel: readString(mastery, 'actionLabel') ?? actionState,
+        confidence,
+        coverage,
+        sampleSize,
+        blockerReasons: Array.from(new Set(blockedRecommendations)),
+        usableForAnalysis: evidence.usableForAnalysis !== false,
+    };
+}
+
 function isCoachDecisionTier(value: unknown): value is CoachProtocolOutcomeCoachSnapshot['tier'] {
     return value === 'capture_again'
         || value === 'test_protocol'
@@ -1806,12 +1864,9 @@ export async function getHistorySessions() {
         const projection = createPremiumProjectionSummary(access);
 
         return result.map(({ fullResult, ...historySession }) => {
-            const sensitivity = fullResult && typeof fullResult === 'object'
-                ? (fullResult as Record<string, unknown>).sensitivity
-                : undefined;
-            const coachPlan = fullResult && typeof fullResult === 'object'
-                ? (fullResult as Record<string, unknown>).coachPlan
-                : undefined;
+            const fullResultRecord = isRecord(fullResult) ? fullResult : null;
+            const sensitivity = fullResultRecord?.sensitivity;
+            const coachPlan = fullResultRecord?.coachPlan;
             const storedSensitivity = sensitivity && typeof sensitivity === 'object'
                 ? sensitivity as Record<string, unknown>
                 : undefined;
@@ -1819,6 +1874,7 @@ export async function getHistorySessions() {
             const acceptanceFeedback = normalizeStoredAcceptanceFeedback(storedSensitivity?.acceptanceFeedback);
             const latestOutcome = latestOutcomeBySession.get(historySession.id);
             const hasCoachPlan = typeof coachPlan === 'object' && coachPlan !== null;
+            const evidenceSummary = buildHistorySessionEvidenceSummary(fullResultRecord);
             const coachOutcomeStatus = latestOutcome ? {
                 status: latestOutcome.conflict ? 'conflict' as const : latestOutcome.status,
                 label: latestOutcome.conflict
@@ -1839,6 +1895,7 @@ export async function getHistorySessions() {
                 ...historySession,
                 premiumProjection: projection,
                 lockedReason: projection.canSeeFullHistory ? null : 'pro_feature',
+                ...(evidenceSummary ? { evidenceSummary } : {}),
                 ...(recommendedProfile === 'low' || recommendedProfile === 'balanced' || recommendedProfile === 'high'
                     ? { recommendedProfile }
                     : {}),
