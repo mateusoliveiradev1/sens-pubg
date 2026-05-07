@@ -13,6 +13,7 @@ import type { CoachMemorySnapshot } from './coach-memory';
 import { extractCoachMemorySignals } from './coach-memory';
 import { rankCoachPriorities } from './coach-priority-engine';
 import { extractCoachSignals } from './coach-signal-extractor';
+import { buildCompleteTrainingProtocol } from './training-protocols';
 
 export interface BuildCoachPlanInput {
     readonly analysisResult?: AnalysisResult;
@@ -56,7 +57,7 @@ export function buildCoachPlan(input: BuildCoachPlanInput = {}): CoachPlan {
         ...(input.memorySnapshot ? { memorySnapshot: input.memorySnapshot } : {}),
     });
 
-    return {
+    const basePlan: Omit<CoachPlan, 'completeProtocol'> = {
         tier,
         sessionSummary: buildSessionSummary({ tier, primaryFocus, priorityCount: priorities.length }),
         primaryFocus,
@@ -71,6 +72,15 @@ export function buildCoachPlan(input: BuildCoachPlanInput = {}): CoachPlan {
         stopConditions: buildStopConditions({ tier, primaryFocus }),
         adaptationWindowDays: buildAdaptationWindow(tier),
         llmRewriteAllowed: false,
+    };
+
+    return {
+        ...basePlan,
+        completeProtocol: buildCompleteTrainingProtocol({
+            coachPlanBase: basePlan,
+            ...(input.analysisResult ? { analysisResult: input.analysisResult } : {}),
+            ...(input.memorySnapshot ? { memorySnapshot: input.memorySnapshot } : {}),
+        }),
     };
 }
 

@@ -132,6 +132,21 @@ describe('buildCoachPlan', () => {
         expect(plan.actionProtocols).toHaveLength(1);
     });
 
+    it('attaches a complete training protocol without making old coach fields optional', () => {
+        const plan = buildCoachPlan({ analysisResult: analysisResultBase });
+
+        expect(plan.completeProtocol).toEqual(expect.objectContaining({
+            version: 'complete-protocol-v1',
+            drillId: 'vertical_recoil_lane',
+            context: expect.objectContaining({
+                weaponId: analysisResultBase.trajectory.weaponId,
+                personalizationLimited: false,
+            }),
+        }));
+        expect(plan.nextBlock.steps.length).toBeGreaterThan(0);
+        expect(plan.actionProtocols).toHaveLength(1);
+    });
+
     it('uses the highest ranked raw priority as the primary focus', () => {
         const plan = buildCoachPlan({ analysisResult: analysisResultBase });
 
