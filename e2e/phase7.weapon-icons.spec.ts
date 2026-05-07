@@ -35,7 +35,7 @@ const seedWeaponNames = [
 
 async function expectCompleteWeaponGrid(page: Page) {
     await page.goto('/visual/phase7-weapon-icons');
-    await expect(page.getByRole('heading', { name: '29 weapon SVG catalog' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '29 weapon visual catalog' })).toBeVisible();
 
     const cards = page.locator('[data-weapon-grid-card]');
     await expect(cards).toHaveCount(29);
@@ -48,7 +48,7 @@ async function expectCompleteWeaponGrid(page: Page) {
 }
 
 test.describe('Phase 7 weapon icon visual matrix', () => {
-    test('renders all 29 authored weapon icons on desktop and captures evidence', async ({ page }) => {
+    test('renders all 29 weapon visuals on desktop and captures evidence', async ({ page }) => {
         await page.setViewportSize({ width: 1440, height: 1200 });
         await expectCompleteWeaponGrid(page);
 

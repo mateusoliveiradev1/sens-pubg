@@ -1,5 +1,6 @@
 .root {
     --weapon-icon-size: 48px;
+    --weapon-icon-width: calc(var(--weapon-icon-size) * 1.45);
 
     display: inline-grid;
     grid-template-columns: auto;
@@ -7,16 +8,16 @@
     justify-items: center;
     gap: var(--spacing-xs);
     flex: 0 0 auto;
-    min-width: var(--weapon-icon-size);
+    min-width: var(--weapon-icon-width);
     color: var(--weapon-icon-color, var(--color-evidence-info));
 }
 
 .rootWithStatus {
-    min-width: max(var(--weapon-icon-size), 104px);
+    min-width: max(var(--weapon-icon-width), 112px);
 }
 
 .frame {
-    width: var(--weapon-icon-size);
+    width: var(--weapon-icon-width);
     height: var(--weapon-icon-size);
     display: inline-flex;
     align-items: center;
@@ -38,14 +39,27 @@
 }
 
 .svg {
-    width: calc(var(--weapon-icon-size) * 0.82);
-    height: calc(var(--weapon-icon-size) * 0.82);
+    width: calc(var(--weapon-icon-size) * 1.32);
+    height: calc(var(--weapon-icon-size) * 0.52);
     overflow: visible;
     filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.24));
 }
 
 .unframed .svg {
-    width: var(--weapon-icon-size);
+    width: var(--weapon-icon-width);
+    height: calc(var(--weapon-icon-size) * 0.58);
+}
+
+.assetImage {
+    width: calc(var(--weapon-icon-size) * 1.08);
+    height: calc(var(--weapon-icon-size) * 1.08);
+    display: block;
+    object-fit: contain;
+    filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.42)) brightness(1.16) contrast(1.06);
+}
+
+.unframed .assetImage {
+    width: var(--weapon-icon-width);
     height: var(--weapon-icon-size);
 }
 

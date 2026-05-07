@@ -47,6 +47,8 @@ export interface WeaponVisualRegistryEntry {
     readonly lifecycleStatus: WeaponVisualLifecycleStatus;
     readonly technicalAnalysisSupported: boolean;
     readonly technicalWeaponId?: string;
+    readonly pubgApiAssetId?: string;
+    readonly pubgApiImagePath?: string;
     readonly aliases: readonly string[];
 }
 
@@ -91,6 +93,37 @@ const EXTRA_ALIASES: Partial<Record<WeaponSilhouetteId, readonly string[]>> = {
     'scar-l': ['scarl', 'scar l'],
 };
 
+const PUBG_API_WEAPON_IMAGE_FILES: Partial<Record<WeaponSilhouetteId, string>> = {
+    'beryl-m762': 'Item_Weapon_BerylM762_C.png',
+    m416: 'Item_Weapon_HK416_C.png',
+    aug: 'Item_Weapon_AUG_C.png',
+    ace32: 'Item_Weapon_ACE32_C.png',
+    akm: 'Item_Weapon_AK47_C.png',
+    'scar-l': 'Item_Weapon_SCAR-L_C.png',
+    g36c: 'Item_Weapon_G36C_C.png',
+    qbz: 'Item_Weapon_QBZ95_C.png',
+    k2: 'Item_Weapon_K2_C.png',
+    groza: 'Item_Weapon_Groza_C.png',
+    famas: 'Item_Weapon_FAMASG2_C.png',
+    m16a4: 'Item_Weapon_M16A4_C.png',
+    'mk47-mutant': 'Item_Weapon_Mk47Mutant_C.png',
+    ump45: 'Item_Weapon_UMP_C.png',
+    vector: 'Item_Weapon_Vector_C.png',
+    'micro-uzi': 'Item_Weapon_UZI_C.png',
+    mp5k: 'Item_Weapon_MP5K_C.png',
+    'pp-19-bizon': 'Item_Weapon_BizonPP19_C.png',
+    'tommy-gun': 'Item_Weapon_Thompson_C.png',
+    p90: 'Item_Weapon_P90_C.png',
+    mini14: 'Item_Weapon_Mini14_C.png',
+    mk12: 'Item_Weapon_Mk12_C.png',
+    sks: 'Item_Weapon_SKS_C.png',
+    slr: 'Item_Weapon_FNFal_C.png',
+    dragunov: 'Item_Weapon_Dragunov_C.png',
+    qbu: 'Item_Weapon_QBU88_C.png',
+    vss: 'Item_Weapon_VSS_C.png',
+    mk14: 'Item_Weapon_Mk14_C.png',
+};
+
 export function normalizeWeaponVisualKey(value: string): string {
     return value
         .trim()
@@ -103,6 +136,7 @@ function buildEntry(seed: (typeof weaponSeeds)[number]): WeaponVisualRegistryEnt
     const technicalWeapon = getWeapon(seed.name);
     const patchProfile = getWeaponPatchProfile(CURRENT_PUBG_PATCH_VERSION, slug);
     const lifecycleStatus = patchProfile?.availability.status ?? 'active';
+    const pubgApiAssetId = PUBG_API_WEAPON_IMAGE_FILES[slug];
     const aliases = [
         slug,
         seed.name,
@@ -120,6 +154,10 @@ function buildEntry(seed: (typeof weaponSeeds)[number]): WeaponVisualRegistryEnt
         lifecycleStatus,
         technicalAnalysisSupported: Boolean(technicalWeapon),
         ...(technicalWeapon ? { technicalWeaponId: technicalWeapon.id } : {}),
+        ...(pubgApiAssetId ? {
+            pubgApiAssetId,
+            pubgApiImagePath: `/pubg-api-assets/weapons/main/${slug}.png`,
+        } : {}),
         aliases,
     };
 }

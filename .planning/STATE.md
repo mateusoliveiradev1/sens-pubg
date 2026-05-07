@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: ready_to_execute
-last_updated: "2026-05-07T04:27:14.665Z"
+last_updated: "2026-05-07T04:41:03.702Z"
 progress:
   total_phases: 13
   completed_phases: 6
@@ -56,7 +56,7 @@ Phase 7: Premium Visual UI UX
 - Phase 7 UI design contract is approved at `.planning/phases/07-premium-visual-ui-ux/07-UI-SPEC.md`, with local design-system, brand, loop rail, route/state, 29-weapon SVG, mobile, lock, copy, analytics, and No False Perfect verification contracts.
 - Phase 7 planning is complete with 7 executable plans across 6 waves, backed by `07-RESEARCH.md`, `07-UI-SPEC.md`, and full decision coverage from `07-CONTEXT.md`.
 - Phase 7 plan 07-01 is complete with Phase 7 semantic tokens, original Sens PUBG mark/lockup, loop/evidence/metric/lock/state primitives, rebranded desktop/mobile navigation, paid route visibility, and focused contract tests/typecheck passing.
-- Phase 7 plan 07-02 is complete with the 29-weapon authored visual registry, support-status truth contract, registry-backed WeaponIcon SVG catalog, desktop/mobile visual matrix screenshots, focused/full Vitest, typecheck, Playwright, and benchmark gate passing.
+- Phase 7 plan 07-02 is complete with the 29-weapon visual registry, support-status truth contract, registry-backed WeaponIcon catalog using available official PUBG API weapon renders plus an authored JS9 fallback, desktop/mobile visual matrix screenshots, focused/full Vitest, typecheck, Playwright, and benchmark gate passing.
 
 ## Next Recommended Command
 
@@ -97,4 +97,4 @@ Execute Phase 7 Wave 3 next: `07-03` Analyze Upload, Result Report, And Spray Pr
 - Phase 7 UI-SPEC approved: Created `.planning/phases/07-premium-visual-ui-ux/07-UI-SPEC.md` with the approved Premium Visual UI UX design contract, including exact spacing/type/color/copy rules, route contracts, local design-system decision, weapon SVG contract, mobile/nav fixes, analytics preservation, registry safety, and No False Perfect verification matrix.
 - Phase 7 planned: 7 executable Premium Visual UI UX plans across 6 waves, covering design-system/brand shell, 29 weapon SVG catalog, analyze/result/spray proof, dashboard/history, paid pricing/billing/locks/analytics, home/global coherence, and No False Perfect evidence.
 - Phase 7 07-01 executed: Added Phase 7 semantic tokens, original Sens PUBG brand primitives, loop/evidence/metric/lock/state components, paid-route-safe header/mobile IA, and contract tests proving Planos/Assinatura and Sens dos Pros stay distinct.
-- Phase 7 07-02 executed: Added a 29-weapon authored visual registry, support-status resolver that separates visual coverage from technical analysis support, registry-backed authored SVG weapon icons, dashboard/history consumer contracts, and desktop/mobile Playwright visual matrix evidence.
+- Phase 7 07-02 executed: Added a 29-weapon visual registry, support-status resolver that separates visual coverage from technical analysis support, registry-backed weapon visuals using available official PUBG API renders plus authored JS9 fallback, dashboard/history consumer contracts, and desktop/mobile Playwright visual matrix evidence.

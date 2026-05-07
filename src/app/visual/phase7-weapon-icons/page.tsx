@@ -20,13 +20,13 @@ export default function Phase7WeaponIconMatrixPage() {
             <div className={styles.shell}>
                 <header className={styles.header}>
                     <p className={styles.eyebrow}>Phase 7 visual verification</p>
-                    <h1 className={styles.title}>29 weapon SVG catalog</h1>
+                    <h1 className={styles.title}>29 weapon visual catalog</h1>
                     <p className={styles.body}>
-                        Development-only matrix for the authored Sens PUBG weapon silhouettes and support-status copy.
+                        Development-only matrix for PUBG API weapon renders, authored fallbacks, and support-status copy.
                     </p>
                 </header>
 
-                <section aria-label="29 authored weapon silhouettes" className={styles.grid} data-weapon-grid>
+                <section aria-label="29 weapon visuals" className={styles.grid} data-weapon-grid>
                     {weaponVisualRegistry.map((entry) => {
                         const status = resolveWeaponSupportStatus({
                             weaponId: entry.id,

@@ -1,3 +1,6 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { weaponSeeds } from '@/db/weapon-profile-seed';
 import { describe, expect, it } from 'vitest';
 
@@ -65,5 +68,21 @@ describe('weapon visual registry', () => {
             'SKS',
             'SLR',
         ]);
+    });
+
+    it('uses available official PUBG API weapon renders without blocking the JS9 authored fallback', () => {
+        const apiAssetEntries = weaponVisualRegistry.filter((entry) => entry.pubgApiImagePath);
+
+        expect(apiAssetEntries).toHaveLength(28);
+        expect(apiAssetEntries.map((entry) => entry.displayName)).not.toContain('JS9');
+
+        for (const entry of apiAssetEntries) {
+            expect(entry.pubgApiImagePath, entry.displayName).toBe(`/pubg-api-assets/weapons/main/${entry.slug}.png`);
+            expect(entry.pubgApiAssetId, entry.displayName).toMatch(/^Item_Weapon_.+_C\.png$/);
+            expect(
+                existsSync(join(process.cwd(), 'public', entry.pubgApiImagePath!.slice(1))),
+                entry.displayName,
+            ).toBe(true);
+        }
     });
 });
