@@ -1,32 +1,40 @@
 {
-    "name": "PUBG Aim Analyzer",
-    "short_name": "AimAnalyzer",
-    "description": "Analise seu spray, diagnostique erros e otimize sua sensibilidade com IA",
+    "name": "Sens PUBG",
+    "short_name": "Sens PUBG",
+    "description": "Analise de spray para PUBG com evidencia, cobertura e proximo bloco de treino testavel.",
     "start_url": "/",
+    "scope": "/",
     "display": "standalone",
     "background_color": "#08080c",
-    "theme_color": "#ff6b00",
+    "theme_color": "#f4b51f",
     "orientation": "portrait-primary",
     "icons": [
-        {
-            "src": "/favicon-32x32.png",
-            "sizes": "32x32",
-            "type": "image/png"
-        },
         {
             "src": "/favicon-16x16.png",
             "sizes": "16x16",
             "type": "image/png"
         },
         {
+            "src": "/favicon-32x32.png",
+            "sizes": "32x32",
+            "type": "image/png"
+        },
+        {
+            "src": "/apple-touch-icon.png",
+            "sizes": "180x180",
+            "type": "image/png"
+        },
+        {
             "src": "/android-chrome-192x192.png",
             "sizes": "192x192",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any maskable"
         },
         {
             "src": "/android-chrome-512x512.png",
             "sizes": "512x512",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any maskable"
         }
     ]
 }

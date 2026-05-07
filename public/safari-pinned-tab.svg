@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" data-brand-source="authored-sens-pubg" viewBox="0 0 48 48">
+  <circle cx="24" cy="24" r="18" fill="none" stroke="#000" stroke-width="4"/>
+  <path d="M24 4v7M24 37v7M4 24h7M37 24h7" fill="none" stroke="#000" stroke-linecap="round" stroke-width="3"/>
+  <path d="M31 15H21c-4 0-6.5 1.8-6.5 4.5 0 2.6 2 3.9 6 4.2l5.8.4c4.2.3 6.4 1.9 6.4 4.8 0 3.2-2.7 5.1-7.1 5.1H16" fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="5"/>
+</svg>
