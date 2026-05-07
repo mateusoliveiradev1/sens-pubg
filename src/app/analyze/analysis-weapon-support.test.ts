@@ -23,7 +23,8 @@ describe('analysis weapon support', () => {
             { dbId: 'db-2', technicalId: 'mini14' },
             { dbId: 'db-3', technicalId: 'beryl-m762' },
         ]);
-        expect(summary.unsupported.map((weapon) => weapon.name)).toEqual(['QBZ']);
+        expect(summary.unsupported.map((entry) => entry.dbWeapon.name)).toEqual(['QBZ']);
+        expect(summary.unsupported[0]?.supportStatus.label).toBe('removida');
     });
 
     it('prefers Beryl as the default supported weapon when available', () => {
@@ -38,5 +39,18 @@ describe('analysis weapon support', () => {
         expect(resolvePersistedAnalysisWeaponId(summary.supported, 'db-3')).toBe('beryl-m762');
         expect(resolvePersistedAnalysisWeaponId(summary.supported, 'db-2')).toBe('mini14');
         expect(resolvePersistedAnalysisWeaponId(summary.supported, 'db-1')).toBeUndefined();
+    });
+
+    it('keeps visual support status separate from technical analysis selection', () => {
+        const summary = summarizeAnalysisWeaponSupport([
+            { id: 'db-visual', name: 'K2', category: 'AR' },
+            { id: 'db-supported', name: 'M416', category: 'AR' },
+        ]);
+
+        expect(summary.supported[0]?.supportStatus.label).toBe('suporte completo');
+        expect(summary.unsupported[0]).toMatchObject({
+            dbWeapon: { name: 'K2' },
+            supportStatus: { label: 'suporte visual' },
+        });
     });
 });
