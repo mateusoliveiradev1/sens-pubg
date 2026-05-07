@@ -1,12 +1,13 @@
 /**
- * Header Component — Session-aware navigation.
+ * Header Component - Session-aware navigation.
  * Shows user avatar + sign out when logged in, login button when not.
  */
 
 import Link from 'next/link';
 import { auth } from '@/auth';
-import { UserDropdown } from './user-dropdown';
+import { BrandLockup } from './brand-lockup';
 import { MobileNav } from './mobile-nav';
+import { UserDropdown } from './user-dropdown';
 import styles from './header.module.css';
 
 export async function Header(): Promise<React.JSX.Element> {
@@ -15,28 +16,25 @@ export async function Header(): Promise<React.JSX.Element> {
 
     return (
         <header className={styles.header} role="banner">
-            <nav className={`${styles.nav} container`} role="navigation" aria-label="Navegação Principal">
-                <Link href="/" className={styles.logo} aria-label="SENS-PUBG Início">
-                    <span className={styles.logoIcon}>◎</span>
-                    <span className={styles.logoText}>
-                        AIM<span className={styles.logoAccent}>ANALYZER</span>
-                    </span>
+            <nav className={`${styles.nav} container`} role="navigation" aria-label="Navegacao principal">
+                <Link href="/" className={styles.logo} aria-label="Sens PUBG inicio">
+                    <BrandLockup markSize={30} variant="default" />
                 </Link>
 
                 <ul className={styles.links}>
-                    <li><Link href="/dashboard" className={styles.link}>Dashboard</Link></li>
                     <li><Link href="/analyze" className={styles.link}>Analisar</Link></li>
+                    <li><Link href="/dashboard" className={styles.link}>Dashboard</Link></li>
+                    <li><Link href="/history" className={styles.link}>Historico</Link></li>
+                    <li><Link href="/pros" className={styles.link}>Sens dos Pros</Link></li>
                     <li><Link href="/community" className={styles.link}>Comunidade</Link></li>
-                    <li><Link href="/history" className={styles.link}>Histórico</Link></li>
-                    <li><Link href="/pricing" className={styles.link}>Pro</Link></li>
-                    <li><Link href="/pros" className={styles.link}>Pros</Link></li>
+                    <li><Link href="/pricing" className={styles.link}>Planos</Link></li>
                 </ul>
 
                 <div className={styles.actions}>
                     {user ? (
                         <>
                             <Link href="/billing" className="btn btn-secondary">
-                                Billing
+                                Assinatura
                             </Link>
                             <UserDropdown user={user} />
                         </>

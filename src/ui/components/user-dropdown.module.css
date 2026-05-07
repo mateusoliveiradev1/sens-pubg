@@ -4,139 +4,132 @@
 }
 
 .trigger {
+    min-width: var(--spacing-2xl);
+    min-height: var(--spacing-2xl);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
     background: none;
     border: none;
-    padding: 0;
+    border-radius: var(--radius-full);
     cursor: pointer;
-    border-radius: 50%;
-    outline: none;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.trigger:hover {
-    transform: scale(1.05);
-}
-
-.trigger:focus-visible {
-    box-shadow: 0 0 0 2px var(--color-primary);
 }
 
 .avatar {
-    border-radius: 50%;
+    border-radius: var(--radius-full);
     object-fit: cover;
-    border: 2px solid var(--color-surface-hover);
+    border: 2px solid var(--color-divider);
 }
 
 .avatarFallback {
     width: 36px;
     height: 36px;
-    border-radius: 50%;
-    background: var(--color-primary);
-    color: var(--color-background);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: 700;
-    font-size: 1.1rem;
-    border: 2px solid var(--color-surface-hover);
+    border: 2px solid var(--color-divider);
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+    color: var(--color-evidence-info);
+    font-size: var(--type-body-size);
+    font-weight: var(--font-weight-bold);
 }
 
 .menu {
     position: absolute;
-    top: calc(100% + 12px);
+    top: calc(100% + var(--spacing-sm));
     right: 0;
-    width: 240px;
-    background: rgba(15, 15, 20, 0.95);
-    backdrop-filter: blur(12px);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-    padding: var(--space-sm);
-    z-index: 100;
+    width: 248px;
     display: flex;
     flex-direction: column;
+    padding: var(--spacing-sm);
+    border: 1px solid var(--color-divider);
+    border-radius: var(--radius-surface);
+    background: rgba(18, 18, 26, 0.98);
+    box-shadow: var(--shadow-panel);
+    z-index: 100;
 }
 
 .userInfo {
-    padding: var(--space-md);
+    padding: var(--spacing-md);
 }
 
 .userName {
-    font-weight: 600;
-    font-size: 1rem;
-    color: var(--color-text);
-    margin: 0 0 4px 0;
+    margin: 0 0 var(--spacing-xs);
+    color: var(--color-text-primary);
+    font-size: var(--type-body-size);
+    font-weight: var(--font-weight-bold);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 .userRole {
-    font-size: 0.8rem;
-    color: var(--color-primary);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    font-weight: 700;
     margin: 0;
+    color: var(--color-pro-semantic);
+    font-size: var(--type-label-size);
+    font-weight: var(--font-weight-bold);
+    line-height: var(--type-label-line);
 }
 
 .divider {
     height: 1px;
-    background: var(--color-border);
-    margin: var(--space-xs) 0;
+    background: var(--color-divider);
+    margin: var(--spacing-xs) 0;
 }
 
 .menuItem,
 .menuItemDanger {
+    min-height: var(--spacing-2xl);
     display: flex;
     align-items: center;
-    gap: var(--space-sm);
-    padding: var(--space-sm) var(--space-md);
-    border-radius: var(--radius-md);
-    font-size: 0.95rem;
-    color: var(--color-text-muted);
-    text-decoration: none;
-    background: transparent;
-    border: none;
+    gap: var(--spacing-sm);
     width: 100%;
+    padding: var(--spacing-sm);
+    border: none;
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--type-body-size);
     text-align: left;
+    text-decoration: none;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background var(--transition-fast), color var(--transition-fast);
 }
 
 .icon {
-    font-size: 1.1rem;
+    min-width: 32px;
+    color: var(--color-evidence-info);
+    font-family: var(--font-mono);
+    font-size: var(--type-label-size);
+    font-weight: var(--font-weight-bold);
 }
 
 .menuItem:hover {
-    background: var(--color-surface-hover);
-    color: var(--color-text);
-    transform: translateX(4px);
+    background: var(--color-surface);
+    color: var(--color-text-primary);
 }
 
 .adminLink {
-    color: var(--color-primary) !important;
-    font-weight: 700;
-}
-
-.adminLink:hover {
-    background: rgba(var(--color-primary-rgb), 0.1) !important;
+    color: var(--color-pro-semantic);
+    font-weight: var(--font-weight-bold);
 }
 
 .menuItemDanger {
-    color: #ef4444;
+    color: var(--color-error);
 }
 
 .menuItemDanger:hover {
-    background: rgba(239, 68, 68, 0.1);
-    color: #f87171;
-    transform: translateX(4px);
+    background: rgba(255, 61, 61, 0.1);
+    color: var(--color-error);
 }
 
 @keyframes scaleIn {
     from {
         opacity: 0;
-        transform: scale(0.95) translateY(-10px);
+        transform: scale(0.98) translateY(-6px);
     }
 
     to {

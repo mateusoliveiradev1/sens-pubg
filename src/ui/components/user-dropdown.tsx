@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import Link from 'next/link';
+import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { handleSignOut } from '@/actions/auth';
 import styles from './user-dropdown.module.css';
 
@@ -14,17 +14,42 @@ interface UserDropdownProps {
     };
 }
 
-export function UserDropdown({ user }: UserDropdownProps) {
+function AccountGlyph({ label }: { readonly label: string }): React.JSX.Element {
+    return (
+        <span className={styles.icon} aria-hidden="true">
+            {label}
+        </span>
+    );
+}
+
+function formatUserRole(role: string | undefined): string {
+    if (role === 'admin') {
+        return 'Administrador';
+    }
+
+    if (role === 'mod') {
+        return 'Moderador';
+    }
+
+    if (role === 'support') {
+        return 'Suporte';
+    }
+
+    return 'Jogador';
+}
+
+export function UserDropdown({ user }: UserDropdownProps): React.JSX.Element {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const isStaff = ['admin', 'mod', 'support'].includes(user.role || '');
 
-    // Close when clicking outside
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
                 setIsOpen(false);
             }
         }
+
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
@@ -32,18 +57,20 @@ export function UserDropdown({ user }: UserDropdownProps) {
     return (
         <div className={styles.dropdownContainer} ref={dropdownRef}>
             <button
-                className={styles.trigger}
-                onClick={() => setIsOpen(!isOpen)}
-                aria-haspopup="true"
                 aria-expanded={isOpen}
+                aria-haspopup="true"
+                aria-label="Abrir menu da conta"
+                className={styles.trigger}
+                onClick={() => setIsOpen((current) => !current)}
+                type="button"
             >
                 {user.image ? (
                     <Image
-                        src={user.image}
                         alt={user.name ?? 'Avatar'}
                         className={styles.avatar}
-                        width={36}
                         height={36}
+                        src={user.image}
+                        width={36}
                     />
                 ) : (
                     <div className={styles.avatarFallback}>
@@ -52,49 +79,45 @@ export function UserDropdown({ user }: UserDropdownProps) {
                 )}
             </button>
 
-            {isOpen && (
+            {isOpen ? (
                 <div className={`${styles.menu} ${styles.animateScaleIn}`}>
                     <div className={styles.userInfo}>
                         <p className={styles.userName}>{user.name}</p>
-                        <p className={styles.userRole}>
-                            {user.role === 'admin' ? 'Administrador' :
-                                user.role === 'mod' ? 'Moderador' :
-                                    user.role === 'support' ? 'Suporte' : 'Pro Player'}
-                        </p>
+                        <p className={styles.userRole}>{formatUserRole(user.role)}</p>
                     </div>
 
                     <div className={styles.divider} />
 
-                    {(['admin', 'mod', 'support'].includes(user.role || '')) && (
+                    {isStaff ? (
                         <>
                             <Link href="/admin" className={`${styles.menuItem} ${styles.adminLink}`} onClick={() => setIsOpen(false)}>
-                                <span className={styles.icon}>🛡️</span>
+                                <AccountGlyph label="AD" />
                                 Painel Admin
                             </Link>
                             <div className={styles.divider} />
                         </>
-                    )}
+                    ) : null}
 
                     <Link href="/profile" className={styles.menuItem} onClick={() => setIsOpen(false)}>
-                        <span className={styles.icon}>🎯</span>
+                        <AccountGlyph label="ID" />
                         Seu Perfil
                     </Link>
 
                     <Link href="/profile/settings" className={styles.menuItem} onClick={() => setIsOpen(false)}>
-                        <span className={styles.icon}>⚙️</span>
-                        Configurações
+                        <AccountGlyph label="CFG" />
+                        Configuracoes
                     </Link>
 
                     <div className={styles.divider} />
 
                     <form action={handleSignOut}>
                         <button type="submit" className={styles.menuItemDanger}>
-                            <span className={styles.icon}>🚪</span>
+                            <AccountGlyph label="SAI" />
                             Sair
                         </button>
                     </form>
                 </div>
-            )}
+            ) : null}
         </div>
     );
 }
