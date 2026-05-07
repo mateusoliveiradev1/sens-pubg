@@ -2168,6 +2168,26 @@ function formatCoachOutcomeStatusLabel(status: CoachProtocolOutcomeStatus): stri
     }
 }
 
+function buildHistoryProtocolContinuity(fullResult: Record<string, unknown> | null) {
+    const coachPlan = isRecord(fullResult?.coachPlan) ? fullResult.coachPlan : undefined;
+    const protocol = isCompleteTrainingProtocol(coachPlan?.completeProtocol)
+        ? coachPlan.completeProtocol
+        : null;
+
+    if (!protocol) {
+        return undefined;
+    }
+
+    return {
+        title: protocol.title,
+        durationLabel: `${protocol.dose.durationMinutes} min`,
+        tier: protocol.tier,
+        protocolLabel: 'Protocolo salvo',
+        validationLabel: 'Validacao compativel',
+        transferLabel: 'Transferencia em partida/TDM',
+    };
+}
+
 function isHistoryCoachFocusArea(value: unknown): value is CoachFocusArea {
     return value === 'capture_quality'
         || value === 'vertical_control'
@@ -2191,7 +2211,10 @@ function isHistoryCoachProtocolOutcomeRow(value: unknown): value is CoachProtoco
             || value.status === 'improved'
             || value.status === 'unchanged'
             || value.status === 'worse'
-            || value.status === 'invalid_capture')
+            || value.status === 'invalid_capture'
+            || value.status === 'fatigue_or_pain'
+            || value.status === 'confused'
+            || value.status === 'variable_changed')
         && Array.isArray(value.reasonCodes)
         && typeof value.evidenceStrength === 'string'
         && value.createdAt instanceof Date;
@@ -2260,6 +2283,7 @@ export async function getHistorySessions() {
             const latestOutcome = latestOutcomeBySession.get(historySession.id);
             const hasCoachPlan = typeof coachPlan === 'object' && coachPlan !== null;
             const evidenceSummary = buildHistorySessionEvidenceSummary(fullResultRecord);
+            const protocolContinuity = buildHistoryProtocolContinuity(fullResultRecord);
             const coachOutcomeStatus = latestOutcome ? {
                 status: latestOutcome.conflict ? 'conflict' as const : latestOutcome.status,
                 label: latestOutcome.conflict
@@ -2285,6 +2309,7 @@ export async function getHistorySessions() {
                     ? { recommendedProfile }
                     : {}),
                 ...(acceptanceFeedback ? { acceptanceFeedback } : {}),
+                ...(protocolContinuity ? { protocolContinuity } : {}),
                 coachOutcomeStatus,
             };
         });

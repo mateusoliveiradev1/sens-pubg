@@ -1,6 +1,13 @@
 import { notFound, redirect } from 'next/navigation';
 import { db } from '@/db';
-import { analysisSessions, precisionCheckpoints, precisionEvolutionLines, weaponProfiles } from '@/db/schema';
+import {
+    analysisSessions,
+    completeTrainingProtocolRevisions,
+    precisionCheckpoints,
+    precisionEvolutionLines,
+    trainingProtocolTransferRecords,
+    weaponProfiles,
+} from '@/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { auth } from '@/auth';
 import Link from 'next/link';
@@ -15,6 +22,7 @@ import { LoopRail, type LoopStageKey } from '@/ui/components/loop-rail';
 import { MetricTile } from '@/ui/components/metric-tile';
 import { PageCommandHeader } from '@/ui/components/page-command-header';
 import { hydrateAnalysisResultFromHistory } from '../analysis-result-hydration';
+import { buildHistoryProtocolViewModel } from '../history-protocol-view-model';
 import { CoachProtocolOutcomePanel } from './coach-protocol-outcome-panel';
 import { PublishAnalysisButton } from './publish-analysis-button';
 import { SensitivityAcceptancePanel } from './sensitivity-acceptance-panel';
@@ -207,6 +215,54 @@ function resolveDetailLoopStage(input: {
     return 'evidence';
 }
 
+function resolveDetailPrimaryAction(input: {
+    readonly hasCoachPlan: boolean;
+    readonly hasProtocolAudit: boolean;
+    readonly latestOutcome: CoachProtocolOutcome | null;
+    readonly transferCount: number;
+}) {
+    if (!input.hasCoachPlan) {
+        return {
+            label: 'Registrar resultado de campo',
+            href: '#sensitivity-feedback',
+        };
+    }
+
+    if (!input.latestOutcome) {
+        return {
+            label: 'Registrar resultado',
+            href: '#coach-outcome-panel',
+        };
+    }
+
+    if (
+        input.hasProtocolAudit
+        && (
+            input.latestOutcome.conflict
+            || input.latestOutcome.status === 'fatigue_or_pain'
+            || input.latestOutcome.status === 'confused'
+            || input.latestOutcome.status === 'variable_changed'
+        )
+    ) {
+        return {
+            label: 'Revisar protocolo',
+            href: '#history-protocol-audit',
+        };
+    }
+
+    if (input.hasProtocolAudit && input.transferCount === 0) {
+        return {
+            label: 'Registrar transferencia',
+            href: '#coach-outcome-panel',
+        };
+    }
+
+    return {
+        label: 'Revisar protocolo',
+        href: input.hasProtocolAudit ? '#history-protocol-audit' : '#coach-outcome-panel',
+    };
+}
+
 export default async function HistoryDetailRoute({ params }: Props) {
     const session = await auth();
     if (!session?.user?.id) {
@@ -313,6 +369,45 @@ export default async function HistoryDetailRoute({ params }: Props) {
     const coachProtocolOutcomes = analysisResult.coachPlan
         ? await getCoachProtocolOutcomesForSession(record.id)
         : [];
+    const protocolRevisionRows = analysisResult.coachPlan?.completeProtocol
+        ? await db
+            .select({
+                revisionReason: completeTrainingProtocolRevisions.revisionReason,
+                tierDirection: completeTrainingProtocolRevisions.tierDirection,
+                changedFields: completeTrainingProtocolRevisions.changedFields,
+                createdAt: completeTrainingProtocolRevisions.createdAt,
+            })
+            .from(completeTrainingProtocolRevisions)
+            .where(
+                and(
+                    eq(completeTrainingProtocolRevisions.analysisSessionId, record.id),
+                    eq(completeTrainingProtocolRevisions.userId, session.user.id),
+                ),
+            )
+            .orderBy(completeTrainingProtocolRevisions.createdAt)
+        : [];
+    const protocolTransferRows = analysisResult.coachPlan?.completeProtocol
+        ? await db
+            .select({
+                situation: trainingProtocolTransferRecords.situation,
+                weaponId: trainingProtocolTransferRecords.weaponId,
+                opticId: trainingProtocolTransferRecords.opticId,
+                approximateDistanceMeters: trainingProtocolTransferRecords.approximateDistanceMeters,
+                pressureLevel: trainingProtocolTransferRecords.pressureLevel,
+                feltControl: trainingProtocolTransferRecords.feltControl,
+                result: trainingProtocolTransferRecords.result,
+                countsAsTechnicalValidation: trainingProtocolTransferRecords.countsAsTechnicalValidation,
+                createdAt: trainingProtocolTransferRecords.createdAt,
+            })
+            .from(trainingProtocolTransferRecords)
+            .where(
+                and(
+                    eq(trainingProtocolTransferRecords.analysisSessionId, record.id),
+                    eq(trainingProtocolTransferRecords.userId, session.user.id),
+                ),
+            )
+            .orderBy(trainingProtocolTransferRecords.createdAt)
+        : [];
     const analysisResultForDisplay: AnalysisResult = {
         ...analysisResult,
         historySessionId: record.id,
@@ -324,15 +419,24 @@ export default async function HistoryDetailRoute({ params }: Props) {
     const detailBlockerCount = (analysisResultForDisplay.mastery?.blockedRecommendations.length ?? 0)
         + checkpointBlockers.length
         + (analysisResultForDisplay.coachDecisionSnapshot?.blockerReasons.length ?? 0);
-    const detailPrimaryAction = analysisResultForDisplay.coachPlan
-        ? {
-            label: coachProtocolOutcomes.length > 0 ? 'Gravar validacao compativel' : 'Registrar resultado do bloco',
-            href: coachProtocolOutcomes.length > 0 ? '/analyze' : '#coach-outcome-panel',
-        }
-        : {
-            label: 'Registrar resultado de campo',
-            href: '#sensitivity-feedback',
-        };
+    const historyProtocol = buildHistoryProtocolViewModel({
+        result: analysisResultForDisplay,
+        savedAt: record.createdAt,
+        outcomes: coachProtocolOutcomes,
+        revisions: protocolRevisionRows,
+        transfers: protocolTransferRows.map((transfer) => ({
+            ...transfer,
+            countsAsTechnicalValidation: false,
+        })),
+        canSeeFullProtocol: true,
+    });
+    const latestCoachOutcome = coachProtocolOutcomes.at(-1) ?? null;
+    const detailPrimaryAction = resolveDetailPrimaryAction({
+        hasCoachPlan: Boolean(analysisResultForDisplay.coachPlan),
+        hasProtocolAudit: Boolean(historyProtocol),
+        latestOutcome: latestCoachOutcome,
+        transferCount: protocolTransferRows.length,
+    });
     const detailLoopStage = resolveDetailLoopStage({
         hasCoachPlan: Boolean(analysisResultForDisplay.coachPlan),
         hasOutcome: coachProtocolOutcomes.length > 0,
@@ -638,6 +742,112 @@ export default async function HistoryDetailRoute({ params }: Props) {
                                         Nenhum outcome registrado ainda. Use o painel de resultado para iniciar a trilha auditavel.
                                     </p>
                                 )}
+                            </div>
+                        </section>
+                    ) : null}
+
+                    {historyProtocol ? (
+                        <section
+                            id="history-protocol-audit"
+                            className="glass-card"
+                            style={{
+                                padding: 'var(--space-lg)',
+                                border: '1px solid rgba(116, 215, 255, 0.18)',
+                                background: 'linear-gradient(145deg, rgba(8, 18, 22, 0.82), rgba(8, 8, 12, 0.92))',
+                            }}
+                        >
+                            <div style={{ display: 'grid', gap: 'var(--space-sm)', marginBottom: 'var(--space-lg)' }}>
+                                <p
+                                    style={{
+                                        margin: 0,
+                                        fontSize: '11px',
+                                        letterSpacing: '0.18em',
+                                        textTransform: 'uppercase',
+                                        color: '#74d7ff',
+                                        fontWeight: 700,
+                                    }}
+                                >
+                                    Protocolo salvo
+                                </p>
+                                <h2 style={{ margin: 0, fontSize: 'var(--text-2xl)', lineHeight: 1.15 }}>
+                                    {historyProtocol.snapshotCard.title}
+                                </h2>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                    <span className="badge badge-info">{historyProtocol.snapshotCard.tierLabel}</span>
+                                    <span className="badge badge-info">{historyProtocol.snapshotCard.duration}</span>
+                                    <span className="badge badge-info">{historyProtocol.snapshotCard.drillId}</span>
+                                    <span className="badge badge-info">Foco: {historyProtocol.snapshotCard.focus}</span>
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 'var(--space-md)' }}>
+                                <div style={{ display: 'grid', gap: '8px' }}>
+                                    <h3 style={{ margin: 0, fontSize: 'var(--text-base)' }}>Resultado do bloco</h3>
+                                    <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+                                        {historyProtocol.outcomeCard.statusLabel} - evidencia {historyProtocol.outcomeCard.evidenceStrength}.
+                                        {historyProtocol.outcomeCard.needsCompatibleValidation ? ' Falta clip compativel.' : ' Clip compativel confirmado.'}
+                                    </p>
+                                    {historyProtocol.outcomeCard.conflictCopy ? (
+                                        <p style={{ margin: 0, color: 'var(--color-warning)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+                                            Conflito: {historyProtocol.outcomeCard.conflictCopy}
+                                        </p>
+                                    ) : null}
+                                </div>
+
+                                <div style={{ display: 'grid', gap: '8px' }}>
+                                    <h3 style={{ margin: 0, fontSize: 'var(--text-base)' }}>
+                                        Validacao compativel
+                                    </h3>
+                                    <ul style={{ margin: 0, paddingLeft: '18px', color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+                                        {historyProtocol.validationCard.checklist.slice(0, 5).map((item) => (
+                                            <li key={item}>{item}</li>
+                                        ))}
+                                    </ul>
+                                    <p style={{ margin: 0, color: 'var(--color-text-secondary)', fontSize: 'var(--text-xs)', lineHeight: 1.6 }}>
+                                        {historyProtocol.validationCard.nextClipCopy}
+                                    </p>
+                                </div>
+
+                                <div style={{ display: 'grid', gap: '8px' }}>
+                                    <h3 style={{ margin: 0, fontSize: 'var(--text-base)' }}>
+                                        Transferencia em partida/TDM
+                                    </h3>
+                                    <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+                                        {historyProtocol.transferCard.latestRecord
+                                            ? `${historyProtocol.transferCard.latestRecord.situation}: ${historyProtocol.transferCard.latestRecord.result}`
+                                            : historyProtocol.transferCard.checklist.slice(0, 3).join(' | ')}
+                                    </p>
+                                    <p style={{ margin: 0, color: 'var(--color-text-secondary)', fontSize: 'var(--text-xs)', lineHeight: 1.6 }}>
+                                        {historyProtocol.transferCard.countsAsTechnicalValidationCopy}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'grid', gap: 'var(--space-md)', marginTop: 'var(--space-lg)' }}>
+                                <div style={{ display: 'grid', gap: '8px' }}>
+                                    <h3 style={{ margin: 0, fontSize: 'var(--text-base)' }}>Revisoes do protocolo</h3>
+                                    {historyProtocol.revisionTimeline.length > 0 ? (
+                                        historyProtocol.revisionTimeline.map((revision) => (
+                                            <p key={`${revision.createdAt}:${revision.revisionReason}`} style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+                                                {revision.createdAt} - {revision.revisionReason} ({revision.tierDirection}; {revision.changedFieldsLabel})
+                                            </p>
+                                        ))
+                                    ) : (
+                                        <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+                                            Nenhuma revisao explicita registrada para este protocolo.
+                                        </p>
+                                    )}
+                                </div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                    {historyProtocol.auditRows.map((row) => (
+                                        <EvidenceChip
+                                            key={row.label}
+                                            label={row.label}
+                                            tone={row.label === 'Blocker reasons' ? 'warning' : 'info'}
+                                            value={row.value}
+                                        />
+                                    ))}
+                                </div>
                             </div>
                         </section>
                     ) : null}

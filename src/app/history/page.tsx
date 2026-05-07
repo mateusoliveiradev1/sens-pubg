@@ -883,8 +883,11 @@ export default async function HistoryPage({
                                     const evidenceSummary = session.evidenceSummary;
                                     const evidenceTone = resolveHistoryEvidenceTone(evidenceSummary);
                                     const precisionContext = findSessionPrecisionContext(session.id, precisionLines);
+                                    const protocolContinuity = session.protocolContinuity;
                                     const sessionActionLabel = session.coachOutcomeStatus
                                         ? 'Ver auditoria do coach'
+                                        : protocolContinuity
+                                            ? 'Ver protocolo salvo'
                                         : 'Abrir auditoria';
 
                                     return (
@@ -999,6 +1002,26 @@ export default async function HistoryPage({
                                                                     Linha: {recommendedProfile}
                                                                 </span>
                                                             ) : null}
+
+                                                            {protocolContinuity ? (
+                                                                <span
+                                                                    style={{
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        padding: '6px 10px',
+                                                                        borderRadius: '999px',
+                                                                        border: '1px solid rgba(255, 107, 0, 0.22)',
+                                                                        background: 'rgba(255, 107, 0, 0.1)',
+                                                                        color: 'var(--color-accent-primary)',
+                                                                        fontSize: '11px',
+                                                                        fontWeight: 700,
+                                                                        letterSpacing: '0.04em',
+                                                                        textTransform: 'uppercase',
+                                                                    }}
+                                                                >
+                                                                    {protocolContinuity.protocolLabel}: {protocolContinuity.durationLabel}
+                                                                </span>
+                                                            ) : null}
                                                         </div>
 
                                                         <p style={{ margin: 0, color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
@@ -1048,6 +1071,25 @@ export default async function HistoryPage({
                                                             tone={session.coachOutcomeStatus?.status === 'conflict' ? 'warning' : session.coachOutcomeStatus ? 'info' : 'warning'}
                                                             value={session.coachOutcomeStatus?.label ?? 'Pendente'}
                                                         />
+                                                        {protocolContinuity ? (
+                                                            <>
+                                                                <EvidenceChip
+                                                                    label="Protocolo salvo"
+                                                                    tone="info"
+                                                                    value={protocolContinuity.title}
+                                                                />
+                                                                <EvidenceChip
+                                                                    label="Validacao compativel"
+                                                                    tone="warning"
+                                                                    value="Pendente"
+                                                                />
+                                                                <EvidenceChip
+                                                                    label="Transferencia em partida/TDM"
+                                                                    tone="info"
+                                                                    value="Pratica, nao tecnica"
+                                                                />
+                                                            </>
+                                                        ) : null}
                                                     </div>
                                                     {evidenceSummary?.blockerReasons.length ? (
                                                         <div style={{ display: 'grid', gap: '6px' }} aria-label="Bloqueadores visiveis">

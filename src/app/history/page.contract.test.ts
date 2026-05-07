@@ -82,8 +82,16 @@ describe('history page field evolution contract', () => {
         expect(listSource).toMatch(/coachOutcomeStatus/);
         expect(listSource).toMatch(/Coach: \{session\.coachOutcomeStatus\.label\}/);
         expect(listSource).toMatch(/Ver auditoria do coach/);
+        expect(listSource).toMatch(/Protocolo salvo/);
+        expect(listSource).toMatch(/Validacao compativel/);
+        expect(listSource).toMatch(/Transferencia em partida\/TDM/);
 
         expect(detailSource).toMatch(/Auditoria do coach/);
+        expect(detailSource).toMatch(/buildHistoryProtocolViewModel/);
+        expect(detailSource).toMatch(/id="history-protocol-audit"/);
+        expect(detailSource).toMatch(/Protocolo salvo/);
+        expect(detailSource).toMatch(/Validacao compativel/);
+        expect(detailSource).toMatch(/Transferencia em partida\/TDM/);
         expect(detailSource).toMatch(/id="coach-outcome-panel"/);
         expect(detailSource).toMatch(/id="sensitivity-feedback"/);
         expect(detailSource).toMatch(/coachDecisionSnapshot/);
