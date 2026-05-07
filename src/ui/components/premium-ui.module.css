@@ -6,8 +6,13 @@
     flex: 0 0 auto;
 }
 
+.mark svg {
+    display: block;
+    overflow: visible;
+}
+
 .markDefault {
-    color: var(--color-evidence-info);
+    color: var(--color-pro-semantic);
 }
 
 .markCompact {
@@ -25,28 +30,72 @@
 .lockup {
     display: inline-flex;
     align-items: center;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
     min-height: var(--spacing-2xl);
     color: var(--color-text-primary);
     text-decoration: none;
 }
 
 .lockupWordmark {
-    display: inline-flex;
-    align-items: baseline;
-    gap: var(--spacing-xs);
-    font-size: var(--type-heading-size);
-    font-weight: var(--font-weight-bold);
-    line-height: var(--type-heading-line);
+    display: grid;
+    gap: 1px;
+    line-height: 1;
     letter-spacing: 0;
+    text-transform: uppercase;
+    transform: translateY(1px);
 }
 
 .lockupProduct {
+    display: inline-flex;
+    align-items: center;
+    gap: 1px;
     color: var(--color-text-primary);
+    font-family: var(--font-mono);
+    font-size: 1.08rem;
+    font-style: italic;
+    font-weight: var(--font-weight-black);
+    transform: skewX(-9deg);
+}
+
+.lockupProduct span {
+    display: inline-flex;
+    justify-content: center;
+    min-width: 0.62em;
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.85);
+}
+
+.lockupAccentLetter {
+    color: var(--color-pro-semantic);
+    position: relative;
+}
+
+.lockupAccentLetter::before,
+.lockupAccentLetter::after {
+    content: '';
+    position: absolute;
+    left: 8%;
+    right: 8%;
+    height: 2px;
+    border-radius: var(--radius-full);
+    background: currentColor;
+}
+
+.lockupAccentLetter::before {
+    top: 36%;
+}
+
+.lockupAccentLetter::after {
+    bottom: 34%;
 }
 
 .lockupGame {
+    justify-self: center;
     color: var(--color-pro-semantic);
+    font-family: var(--font-mono);
+    font-size: 0.56rem;
+    font-weight: var(--font-weight-bold);
+    letter-spacing: 0.34em;
+    padding-left: 0.34em;
 }
 
 .loopRail {

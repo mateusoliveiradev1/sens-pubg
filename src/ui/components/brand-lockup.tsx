@@ -18,8 +18,13 @@ export function BrandLockup({
     const content = (
         <>
             <SensMark decorative size={markSize} variant={variant} />
-            <span className={styles.lockupWordmark}>
-                <span className={styles.lockupProduct}>Sens</span>
+            <span aria-hidden="true" className={styles.lockupWordmark} data-wordmark="Sens PUBG">
+                <span className={styles.lockupProduct}>
+                    <span>S</span>
+                    <span className={styles.lockupAccentLetter}>E</span>
+                    <span>N</span>
+                    <span>S</span>
+                </span>
                 <span className={styles.lockupGame}>PUBG</span>
             </span>
         </>

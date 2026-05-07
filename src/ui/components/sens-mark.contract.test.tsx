@@ -9,6 +9,7 @@ describe('SensMark contract', () => {
 
         expect(html).toContain('aria-label="Marca Sens PUBG"');
         expect(html).toContain('data-brand-source="authored-sens-pubg"');
+        expect(html).toContain('data-part="precision-frame"');
         expect(html).toContain('data-part="s-curve"');
         expect(html).toContain('data-part="recoil-trail"');
         expect(html).toContain('data-part="crosshair"');

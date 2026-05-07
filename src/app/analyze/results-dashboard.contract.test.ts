@@ -26,7 +26,8 @@ describe('results dashboard visualization contract', () => {
         const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
 
         expect(source).toMatch(/c\.verifyNextClip/);
-        expect(source).toMatch(/c\.evidence\.recommendedAttachments/);
+        expect(source).toMatch(/coachEvidence\.recommendedAttachments/);
+        expect(source).toMatch(/Evidencia legada/);
         expect(source).toMatch(/Plano do Coach/);
     });
 
@@ -147,8 +148,12 @@ describe('results dashboard visualization contract', () => {
 
         expect(source).toMatch(/Evidencia detalhada do Coach/);
         expect(source).toMatch(/groupedCoaching\.map/);
+        expect(source).toMatch(/getCoachFeedbackEvidenceDisplay/);
+        expect(source).toMatch(/coachEvidence\.recommendedAttachments/);
         expect(source).toMatch(/c\.whatIsWrong/);
         expect(source).toMatch(/c\.howToTest/);
+        expect(source).not.toMatch(/c\.evidence\.confidence/);
+        expect(source).not.toMatch(/c\.evidence\.coverage/);
     });
 
     it('renders contextual profile callouts instead of only static profile descriptions', () => {

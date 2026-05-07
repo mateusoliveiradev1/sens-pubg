@@ -8,6 +8,8 @@
 import { useState } from 'react';
 import type {
     AnalysisResult,
+    CoachAttachmentEvidence,
+    CoachFeedback,
     CoachDecisionTier,
     DiagnosisType,
     ProfileType,
@@ -341,6 +343,36 @@ function VideoQualityTimelineEvidence({ timeline }: { readonly timeline: VideoQu
 
 function formatEvidencePercent(value: number): string {
     return `${Math.round(value * 100)}%`;
+}
+
+function finiteNumber(value: unknown): number | null {
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function getCoachFeedbackEvidenceDisplay(
+    feedback: CoachFeedback,
+    fallback: { readonly confidence: number; readonly coverage: number }
+): {
+    readonly confidenceLabel: string;
+    readonly coverageLabel: string;
+    readonly recommendedAttachments: readonly CoachAttachmentEvidence[];
+    readonly isLegacyEvidence: boolean;
+} {
+    const evidence = feedback.evidence as Partial<CoachFeedback['evidence']> | undefined;
+    const confidence = finiteNumber(evidence?.confidence)
+        ?? finiteNumber(feedback.confidence)
+        ?? fallback.confidence;
+    const coverage = finiteNumber(evidence?.coverage) ?? fallback.coverage;
+    const recommendedAttachments = Array.isArray(evidence?.recommendedAttachments)
+        ? evidence.recommendedAttachments
+        : [];
+
+    return {
+        confidenceLabel: formatEvidencePercent(confidence),
+        coverageLabel: formatEvidencePercent(coverage),
+        recommendedAttachments,
+        isLegacyEvidence: !evidence || finiteNumber(evidence.confidence) === null || finiteNumber(evidence.coverage) === null,
+    };
 }
 
 function resultToneClass(tone: ResultMetricTone): string {
@@ -1766,6 +1798,10 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                             const maxSeverity = group.maxSeverity;
                             const priorityToneClass = resultToneClass(group.priorityTone);
                             const isOpen = expandedCoach === gi;
+                            const coachEvidence = getCoachFeedbackEvidenceDisplay(c, {
+                                confidence: trackingOverview.confidence,
+                                coverage: trackingOverview.coverage,
+                            });
 
                             return (
                                 <div
@@ -1788,8 +1824,11 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                                                 {group.priorityLabel}
                                             </span>
                                             <span className="badge badge-info">{formatCoachMode(c.mode)}</span>
-                                            <span className="badge badge-info">Conf. {formatEvidencePercent(c.evidence.confidence)}</span>
-                                            <span className="badge badge-info">Cob. {formatEvidencePercent(c.evidence.coverage)}</span>
+                                            <span className="badge badge-info">Conf. {coachEvidence.confidenceLabel}</span>
+                                            <span className="badge badge-info">Cob. {coachEvidence.coverageLabel}</span>
+                                            {coachEvidence.isLegacyEvidence ? (
+                                                <span className="badge badge-warning">Evidencia legada</span>
+                                            ) : null}
                                             {group.items.length > 1 && (
                                                 <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>
                                                     ({group.items.length}x)
@@ -1827,14 +1866,14 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                                                 <span className={styles.coachLabel}>Protocolo de Ajuste</span>
                                                 <p>{c.whatToAdjust}</p>
                                             </div>
-                                            {c.evidence.recommendedAttachments && c.evidence.recommendedAttachments.length > 0 && (
+                                            {coachEvidence.recommendedAttachments.length > 0 ? (
                                                 <div className={styles.coachRow}>
                                                     <span className={styles.coachLabel}>Attachments para Testar</span>
                                                     <p>
-                                                        {c.evidence.recommendedAttachments.map((attachment) => attachment.name).join(', ')}
+                                                        {coachEvidence.recommendedAttachments.map((attachment) => attachment.name).join(', ')}
                                                     </p>
                                                 </div>
-                                            )}
+                                            ) : null}
                                             <div className={styles.coachRow}>
                                                 <span className={styles.coachLabel}>Como Validar</span>
                                                 <p>{c.verifyNextClip}</p>

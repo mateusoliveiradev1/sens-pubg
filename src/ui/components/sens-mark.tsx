@@ -43,29 +43,37 @@ export function SensMark({
                 viewBox="0 0 48 48"
                 width={size}
             >
-                <path
-                    d="M35 8H19C12.9 8 9 11.2 9 16.4c0 4.6 3.1 7.1 9.2 7.7l9.1.9c4.5.4 6.7 2.2 6.7 5.2 0 3.4-2.7 5.8-7.4 5.8H11"
-                    data-part="s-curve"
+                <circle
+                    cx="24"
+                    cy="24"
+                    data-part="precision-frame"
+                    fill="rgba(18, 18, 26, 0.98)"
+                    r="18"
                     stroke="currentColor"
+                    strokeWidth="2.8"
+                />
+                <path
+                    d="M31 15H21c-4 0-6.5 1.8-6.5 4.5 0 2.6 2 3.9 6 4.2l5.8.4c4.2.3 6.4 1.9 6.4 4.8 0 3.2-2.7 5.1-7.1 5.1H16"
+                    data-part="s-curve"
+                    stroke="var(--color-text-primary)"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    strokeWidth="4"
+                    strokeWidth="4.7"
                 />
                 <path
-                    d="M13 36c7.6-8.6 14-14.4 23-22"
+                    d="M16 36H31"
                     data-part="recoil-trail"
-                    stroke="currentColor"
-                    strokeDasharray="1 5"
+                    stroke="var(--color-pro-semantic)"
                     strokeLinecap="round"
-                    strokeWidth="2.5"
+                    strokeWidth="3"
                 />
-                <circle cx="34" cy="14" data-part="evidence-node" fill="currentColor" r="3" />
+                <circle cx="33" cy="16" data-part="evidence-node" fill="var(--color-pro-semantic)" r="3" />
                 <path
-                    d="M34 5v6M34 17v6M25 14h6M37 14h6"
+                    d="M24 4v7M24 37v7M4 24h7M37 24h7"
                     data-part="crosshair"
                     stroke="currentColor"
                     strokeLinecap="round"
-                    strokeWidth="2"
+                    strokeWidth="2.8"
                 />
             </svg>
         </span>
