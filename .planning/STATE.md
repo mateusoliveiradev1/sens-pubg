@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: ready_to_execute
-last_updated: "2026-05-07T19:25:54.787Z"
+last_updated: "2026-05-07T19:39:33.345Z"
 progress:
   total_phases: 13
   completed_phases: 7
   total_plans: 41
-  completed_plans: 35
-  percent: 85
+  completed_plans: 36
+  percent: 88
 ---
 
 # State: Sens PUBG
@@ -65,12 +65,13 @@ Phase 8: Complete Training Protocols
 - Phase 7 automated gates pass: `npm run lint`, `npm run typecheck`, `npx vitest run`, `npm run test:monetization`, `npm run benchmark:gate`, Phase 7 Playwright matrix, `npm run verify:phase7:visual`, and `npm run build`.
 - Phase 7 final status is Partially delivered: implementation and automated verification are complete, but the manual Stripe test-mode paid-flow checklist remains pending before public paid launch can be called fully delivered.
 - Phase 8 planning is complete with 6 executable plans across 5 waves, backed by `08-RESEARCH.md` and full decision coverage from `08-CONTEXT.md`.
+- Phase 8 plan 08-01 is complete with `CompleteTrainingProtocol` v1 contracts, stable PUBG drill masters, context limitation adapters, deterministic complete protocol composition, safe preparation, validation/transfer plans, CoachPlan attachment, full Vitest, typecheck, and benchmark gate passing.
 
 ## Next Recommended Command
 
-`$gsd-execute-phase 08`
+`$gsd-execute-phase 08 --wave 2`
 
-Execute Phase 8 Complete Training Protocols.
+Execute Phase 8 Wave 2: protocol snapshot persistence and Free/Pro post-analysis ficha.
 
 ## Open Questions
 
@@ -112,3 +113,4 @@ Execute Phase 8 Complete Training Protocols.
 - Phase 7 07-06 executed: Added a premium Sens PUBG home loop entry, route/metadata/FAQ copy separation for paid Pro versus Sens dos Pros, light community/admin shell coherence, home animation/no-cut-label/sticky-FAQ polish from user review, and home/global Playwright screenshots.
 - Phase 7 07-07 executed: Added the final No False Perfect evidence gate with desktop/mobile route screenshots, authenticated fixtures, product state matrix, accessibility/overflow browser checks, deterministic evidence verification, final checklist/docs, and a clean `npm run lint` after replacing the old CommonJS dev-cache helper.
 - Phase 8 planned: 6 executable Complete Training Protocols plans across 5 waves, covering the complete protocol contract/drill engine, snapshot persistence/revisions/outcomes/transfer, Free/Pro post-analysis ficha, dashboard/history continuity, LLM/golden/benchmark/copy gates, and No False Done evidence.
+- Phase 8 08-01 executed: Added `CompleteTrainingProtocol` v1 on `CoachPlan`, eight stable PUBG drill families, context snapshots with missing-distance/optic/attachment/support limitations, hard-weapon dose adaptation, deterministic protocol composition, honest downgrades, preparation stop rules, compatible validation, conservative transfer, focused tests, full Vitest, typecheck, and benchmark gate passing.

@@ -109,6 +109,12 @@ Spray/video analysis:
 - `src/core/sensitivity-engine.ts`
 - `src/core/coach-engine.ts`
 
+Coach/training protocols:
+
+- `src/core/coach-plan-builder.ts`
+- `src/core/training-protocol-drills.ts`
+- `src/core/training-protocols.ts`
+
 Community/domain:
 
 - `src/core/community-discovery-view-model.ts`
