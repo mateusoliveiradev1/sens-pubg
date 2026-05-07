@@ -8,6 +8,7 @@ import { PRODUCT_PRICE_CATALOG } from '@/lib/product-price-catalog';
 import { resolveServerProductAccess } from '@/lib/product-access-server';
 import { resolveMonetizationFlags } from '@/lib/monetization-flags';
 import { Header } from '@/ui/components/header';
+import { LoopRail } from '@/ui/components/loop-rail';
 
 import styles from './page.module.css';
 
@@ -30,6 +31,20 @@ async function startFounderCheckout() {
     redirect(result.checkoutUrl);
 }
 
+const freeFeatures = [
+    '3 analises uteis salvas por mes',
+    'Mastery, confianca, cobertura e blockers sempre visiveis',
+    'Resumo de coach e historico recente para testar o fluxo',
+    'Estados inconclusivos continuam honestos, sem esconder evidencia',
+] as const;
+
+const proFeatures = [
+    '100 analises uteis salvas por ciclo Stripe',
+    'Plano completo do coach, protocolo de bloco e outcome',
+    'Historico profundo, trends compativeis e validacao de checkpoint',
+    'Metricas avancadas e suporte de founder beta controlado',
+] as const;
+
 export default async function PricingPage(): Promise<React.JSX.Element> {
     const session = await auth();
     const access = await resolveServerProductAccess(session?.user?.id);
@@ -47,18 +62,25 @@ export default async function PricingPage(): Promise<React.JSX.Element> {
             <Header />
             <main className={styles.main}>
                 <div className={`${styles.shell} ${styles.hero}`}>
-                    <section className={styles.panel}>
+                    <section className={styles.heroCopy}>
                         <p className={styles.eyebrow}>Sens PUBG Pro Founder</p>
-                        <h1 className={styles.title}>Clip real, coach completo, proximo bloco claro.</h1>
+                        <h1 className={styles.title}>Pro e continuidade, nao promessa.</h1>
                         <p className={styles.lead}>
-                            Pro vende o loop original do Sens PUBG: analise local do seu spray, plano de treino completo,
-                            historico profundo, trends compativeis e validacao do proximo bloco. O produto e independente
-                            de PUBG/KRAFTON e nao promete certeza de ajuste, rank ou melhora.
+                            O Pro vende o loop original do Sens PUBG: clip analisado no navegador, coach completo,
+                            historico profundo, trends compativeis, outcomes e validacao do proximo bloco. Free continua
+                            util e ve a verdade do clip; Pro abre continuidade e profundidade, mas nao promete certeza de
+                            ajuste, rank ou melhora.
                         </p>
+                        <LoopRail
+                            currentStage="coach"
+                            evidenceLabel="verdade visivel no Free"
+                            nextActionLabel="continuar no Pro"
+                            className={styles.loopRail ?? ''}
+                        />
                         <div className={styles.heroActions}>
                             {isPaid ? (
                                 <Link href="/billing" className="btn btn-primary btn-lg">
-                                    Abrir billing
+                                    Abrir Assinatura
                                 </Link>
                             ) : session?.user?.id ? (
                                 canCheckout ? (
@@ -79,69 +101,111 @@ export default async function PricingPage(): Promise<React.JSX.Element> {
                                 Testar Free
                             </Link>
                         </div>
+                        <div className={styles.evidenceBar} aria-label="Resumo de valor e limites">
+                            <span>Free: 3 analises uteis salvas por mes</span>
+                            <span>Pro: 100 analises uteis salvas por ciclo Stripe</span>
+                            <span>Webhook confirma acesso Pro</span>
+                        </div>
                     </section>
 
                     <aside className={styles.pricePanel}>
-                        <p className={styles.eyebrow}>Mensal beta</p>
+                        <p className={styles.eyebrow}>Mensal beta controlado</p>
                         <div className={styles.price}>
                             <strong>{formatPrice(founderPrice.amountCents, founderPrice.currency)}</strong>
                             <span>Founder mensal no Brasil. Publico planejado: {formatPrice(publicPrice.amountCents, publicPrice.currency)}.</span>
                         </div>
-                        <ul className={styles.list}>
-                            <li>Free: 3 analises uteis salvas por mes.</li>
-                            <li>Pro: 100 analises uteis salvas por ciclo Stripe.</li>
-                            <li>Free ve verdade, confianca e resumo. Pro abre o loop completo.</li>
-                            <li>Precos anuais ficam inativos nesta fase.</li>
-                        </ul>
+                        <div className={styles.founderStatus}>
+                            <span>{flags.checkoutEnabled ? 'Checkout habilitado pelo servidor' : 'Checkout desabilitado pelo servidor'}</span>
+                            <span>{flags.founderPricingEnabled ? 'Founder liberado por flag' : 'Founder beta por convite'}</span>
+                        </div>
                         <p className={styles.note}>
-                            Checkout e Portal sao hospedados pela Stripe. URL de sucesso nunca libera Pro sozinha; o webhook precisa confirmar.
+                            Checkout e Portal sao hospedados pela Stripe. URL de sucesso nunca libera Pro sozinha;
+                            o webhook precisa confirmar antes de qualquer acesso pago.
                         </p>
                     </aside>
                 </div>
 
-                <section className={`${styles.shell} ${styles.section}`}>
+                <section className={`${styles.shell} ${styles.compareSection}`} aria-labelledby="free-pro-title">
                     <div className={styles.sectionHeader}>
-                        <h2>Loop Pro</h2>
+                        <h2 id="free-pro-title">Free util. Pro continuo.</h2>
                         <p>
-                            O valor pago fica no trabalho original do Sens PUBG: clip, coach, historico, validacao e operacao solo.
-                            Dados derivados da API PUBG nao sao vendidos como acesso exclusivo.
+                            Os dois tiers parecem produto de verdade. O Free mostra evidencias e um caminho curto;
+                            o Pro aprofunda coach, historico e validacao sem esconder a verdade do clip.
                         </p>
                     </div>
-                    <div className={styles.flowGrid}>
-                        {[
-                            ['01', 'Clip', 'Capture arma, mira, distancia, postura e attachments com spray continuo e crosshair visivel.'],
-                            ['02', 'Evidencia', 'O resultado mostra mastery, confianca, cobertura, blockers e estado inconclusivo quando necessario.'],
-                            ['03', 'Protocolo', 'Pro libera plano completo, protocolo de bloco, metricas avancadas e loop de outcome.'],
-                            ['04', 'Validacao', 'Historico e trends compativeis mostram direcao sem misturar contexto incompativel.'],
-                        ].map(([step, title, body]) => (
-                            <article key={step} className={styles.flowCard}>
-                                <span>{step}</span>
-                                <h3>{title}</h3>
-                                <p>{body}</p>
-                            </article>
-                        ))}
+                    <div className={styles.planGrid}>
+                        <article className={styles.planColumn}>
+                            <div>
+                                <span className={styles.planBadge}>Free</span>
+                                <h3>Comecar com verdade do clip</h3>
+                                <p>Para testar captura, ver blockers, receber resumo e decidir o proximo spray sem pagar.</p>
+                            </div>
+                            <ul className={styles.list}>
+                                {freeFeatures.map((feature) => (
+                                    <li key={feature}>{feature}</li>
+                                ))}
+                            </ul>
+                            <Link href="/analyze" className={styles.planAction}>
+                                Fazer analise Free
+                            </Link>
+                        </article>
+                        <article className={`${styles.planColumn} ${styles.proColumn}`}>
+                            <div>
+                                <span className={styles.planBadge}>Pro Founder</span>
+                                <h3>Continuar o loop completo</h3>
+                                <p>Para quem quer transformar clips repetidos em protocolo, historico, outcome e validacao compativel.</p>
+                            </div>
+                            <ul className={styles.list}>
+                                {proFeatures.map((feature) => (
+                                    <li key={feature}>{feature}</li>
+                                ))}
+                            </ul>
+                            {isPaid ? (
+                                <Link href="/billing" className={styles.planAction}>
+                                    Abrir Assinatura
+                                </Link>
+                            ) : session?.user?.id && canCheckout ? (
+                                <form action={startFounderCheckout}>
+                                    <button className={styles.planButton} type="submit">
+                                        Entrar no Pro Founder
+                                    </button>
+                                </form>
+                            ) : (
+                                <Link href={session?.user?.id ? '/billing' : '/login?callbackUrl=/pricing'} className={styles.planAction}>
+                                    {session?.user?.id ? 'Ver estado do convite' : 'Entrar para ver convite'}
+                                </Link>
+                            )}
+                        </article>
                     </div>
                 </section>
 
                 <section className={`${styles.shell} ${styles.section}`}>
                     <div className={styles.sectionHeader}>
-                        <h2>Beta honesto</h2>
+                        <h2>Compra com guarda-corpo</h2>
                         <p>
-                            Founder beta abre devagar, com suporte e checklist Stripe em modo teste antes de cobrar usuarios reais.
+                            A superficie paga deixa claro o que e produto, o que e Stripe e o que ainda depende de verificacao manual.
                         </p>
                     </div>
-                    <div className={styles.faqGrid}>
-                        <article className={styles.faqItem}>
-                            <h3>Cancelamento</h3>
-                            <p>Cancelamento pelo Billing Portal preserva historico; Pro segue conforme periodo/graca aplicavel.</p>
+                    <div className={styles.trustGrid}>
+                        <article>
+                            <span>01</span>
+                            <h3>Servidor decide</h3>
+                            <p>Pricing inicia checkout por action interna. Cliente nao envia price id, valor, moeda, tier ou periodo.</p>
                         </article>
-                        <article className={styles.faqItem}>
-                            <h3>Reembolso e disputa</h3>
-                            <p>Stripe e suporte comandam o fluxo. Historico nao e apagado como ameaca ou punicao.</p>
+                        <article>
+                            <span>02</span>
+                            <h3>Stripe confirma</h3>
+                            <p>Portal e checkout ficam na Stripe; webhook e assinatura confiavel liberam o acesso, nao o URL.</p>
                         </article>
-                        <article className={styles.faqItem}>
-                            <h3>Independencia</h3>
-                            <p>Sens PUBG nao e afiliado, endossado ou operado por PUBG/KRAFTON.</p>
+                        <article>
+                            <span>03</span>
+                            <h3>Beta sem falso done</h3>
+                            <p>Founder beta abre devagar. O checklist Stripe em modo teste continua bloqueando launch pago se nao for refeito.</p>
+                        </article>
+                        <article>
+                            <span>04</span>
+                            <h3>Independente</h3>
+                            <p>Sens PUBG nao e afiliado, endossado ou operado por PUBG/KRAFTON. Dados da API PUBG nao sao vendidos como acesso exclusivo.</p>
                         </article>
                     </div>
                 </section>

@@ -12,12 +12,15 @@ describe('pricing page contract', () => {
         expect(source).toContain('PRODUCT_PRICE_CATALOG.pro_public_brl_monthly');
         expect(source).toContain('Free: 3 analises uteis salvas por mes');
         expect(source).toContain('Pro: 100 analises uteis salvas por ciclo Stripe');
+        expect(source).toContain('Free util. Pro continuo.');
+        expect(source).toContain('Entrar no Pro Founder');
     });
 
     it('routes checkout through the server action instead of a client price id', () => {
         const source = readPricing();
 
         expect(source).toMatch(/startProCheckout\(\{ intent: 'founder_brl_monthly' \}\)/);
+        expect(source).toContain('Cliente nao envia price id, valor, moeda, tier ou periodo');
         expect(source).not.toMatch(/stripePriceId|amountCents.*input|localStorage/);
     });
 

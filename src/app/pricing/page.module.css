@@ -22,17 +22,19 @@
     align-items: stretch;
 }
 
-.panel,
+.heroCopy,
 .pricePanel,
-.section,
-.flowCard,
-.faqItem {
+.planColumn,
+.trustGrid article {
     border: 1px solid rgba(255, 255, 255, 0.09);
     border-radius: 8px;
     background: rgba(12, 16, 22, 0.88);
 }
 
-.panel {
+.heroCopy {
+    display: grid;
+    align-content: center;
+    gap: var(--space-lg);
     padding: clamp(28px, 5vw, 56px);
 }
 
@@ -57,10 +59,14 @@
 
 .lead {
     max-width: 760px;
-    margin: var(--space-lg) 0 0;
+    margin: 0;
     color: var(--color-text-secondary);
     font-size: var(--text-lg);
     line-height: 1.65;
+}
+
+.loopRail {
+    max-width: 860px;
 }
 
 .heroActions,
@@ -68,11 +74,30 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-sm);
-    margin-top: var(--space-xl);
+    margin-top: var(--space-sm);
+}
+
+.evidenceBar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+}
+
+.evidenceBar span {
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 var(--space-md);
+    border: 1px solid rgba(121, 240, 255, 0.18);
+    border-radius: var(--radius-full);
+    background: rgba(121, 240, 255, 0.05);
 }
 
 .pricePanel {
     display: grid;
+    align-content: space-between;
     gap: var(--space-md);
     padding: var(--space-xl);
 }
@@ -92,6 +117,11 @@
     font-size: var(--text-sm);
 }
 
+.founderStatus {
+    display: grid;
+    gap: var(--space-sm);
+}
+
 .list {
     display: grid;
     gap: 10px;
@@ -100,7 +130,8 @@
     list-style: none;
 }
 
-.list li {
+.list li,
+.founderStatus span {
     padding: 10px 12px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 8px;
@@ -109,6 +140,10 @@
 }
 
 .section {
+    padding: var(--space-xl);
+}
+
+.compareSection {
     padding: var(--space-xl);
 }
 
@@ -133,32 +168,87 @@
     line-height: 1.6;
 }
 
-.flowGrid,
-.faqGrid {
+.planGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-md);
+}
+
+.planColumn {
+    display: grid;
+    gap: var(--space-lg);
+    align-content: space-between;
+    padding: var(--space-lg);
+}
+
+.proColumn {
+    border-color: rgba(215, 181, 109, 0.34);
+    background: rgba(28, 24, 16, 0.72);
+}
+
+.planBadge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 0 var(--space-sm);
+    border-radius: var(--radius-full);
+    background: rgba(215, 181, 109, 0.12);
+    color: var(--color-pro-semantic);
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.planColumn h3 {
+    margin: var(--space-sm) 0 var(--space-xs);
+    font-size: var(--text-2xl);
+}
+
+.planColumn p {
+    margin: 0;
+    color: var(--color-text-muted);
+    line-height: 1.6;
+}
+
+.planAction,
+.planButton {
+    width: fit-content;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 var(--space-lg);
+    border: 1px solid var(--color-accent-primary);
+    border-radius: var(--radius-control);
+    background: var(--color-accent-primary);
+    color: #fff;
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.trustGrid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: var(--space-md);
 }
 
-.flowCard,
-.faqItem {
+.trustGrid article {
     padding: var(--space-lg);
 }
 
-.flowCard span {
+.trustGrid span {
     color: var(--color-accent-primary);
     font-family: var(--font-mono);
     font-size: var(--text-xs);
 }
 
-.flowCard h3,
-.faqItem h3 {
+.trustGrid h3 {
     margin: var(--space-xs) 0;
     font-size: var(--text-lg);
 }
 
-.flowCard p,
-.faqItem p,
+.trustGrid p,
 .note {
     margin: 0;
     color: var(--color-text-muted);
@@ -182,7 +272,16 @@
         grid-template-columns: 1fr;
     }
 
+    .planGrid {
+        grid-template-columns: 1fr;
+    }
+
     .sectionHeader {
         display: grid;
+    }
+
+    .planAction,
+    .planButton {
+        width: 100%;
     }
 }
