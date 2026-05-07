@@ -18,6 +18,8 @@ O script atual roda contra `tests/goldens/benchmark/synthetic-benchmark.v1.json`
 
 `benchmark:release` tambem e o strict commercial truth gate. Ele nao substitui o gate rapido: ele adiciona evidencia de corpus permissionado, calibracao, seguranca de handoff e prontidao comercial antes de qualquer claim publico forte.
 
+Veja `docs/commercial-accuracy-readiness.md` para o rubric de No False Done, claims permitidos, claims proibidos e blockers restantes antes de copy publica forte.
+
 ## Output
 
 O runner imprime um JSON com:

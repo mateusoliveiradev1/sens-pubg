@@ -75,6 +75,8 @@ npm run benchmark:update-baseline -- --dataset captured --reason "Intentional tr
 
 Run `benchmark:release` before commercial claims about precision, coaching, or paid analysis value. A correct refusal (`capture_again` or `inconclusive`) can be a pass when the clip evidence does not support a strong recommendation. Coverage impact is evidence for release readiness, not proof of perfect sensitivity or guaranteed improvement.
 
+Commercial claim readiness is governed by `docs/commercial-accuracy-readiness.md` and the Phase 6 No False Done checklist. If corpus consent, calibration, specialist review, or mandatory gates are missing, launch status must stay partial or blocked instead of Delivered.
+
 ## Resolution Buckets
 
 | Bucket | Definition | Starter min | Golden min | Notes |

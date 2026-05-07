@@ -25,6 +25,32 @@ const PRODUCT_COPY_FILES = [
     'src/i18n/es.ts',
 ] as const;
 
+const COMMERCIAL_READINESS_DOC = 'docs/commercial-accuracy-readiness.md';
+
+const COMMERCIAL_DISALLOWED_CLAIMS = [
+    'perfect sensitivity',
+    'sensibilidade perfeita',
+    'guaranteed recoil',
+    'recoil garantido',
+    'guaranteed improvement',
+    'melhora garantida',
+    'guaranteed rank',
+    'rank garantido',
+    'official PUBG',
+    'oficial PUBG',
+    'KRAFTON partner',
+    'parceiro KRAFTON',
+    'definitive sensitivity',
+    'sensibilidade definitiva',
+] as const;
+
+const COMMERCIAL_ALLOWED_CLAIMS = [
+    'validated on permissioned clips',
+    'calibrated confidence',
+    'honest blockers for weak clips',
+    'safer coach and sensitivity decisions',
+] as const;
+
 const readProductCopy = (filePath: string): string => {
     return readFileSync(join(process.cwd(), filePath), 'utf8');
 };
@@ -34,6 +60,16 @@ const normalizeCopy = (copy: string): string => {
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase();
+};
+
+const extractMarkdownSection = (copy: string, heading: string): string => {
+    const start = copy.indexOf(heading);
+    if (start === -1) {
+        return '';
+    }
+
+    const nextHeading = copy.indexOf('\n## ', start + heading.length);
+    return nextHeading === -1 ? copy.slice(start) : copy.slice(start, nextHeading);
 };
 
 describe('product copy claim contract', () => {
@@ -70,6 +106,7 @@ describe('product copy claim contract', () => {
             'oficial da pubg',
             'krafton oficial',
             'afiliado oficial',
+            ...COMMERCIAL_DISALLOWED_CLAIMS.map(normalizeCopy),
         ];
 
         for (const filePath of PRODUCT_COPY_FILES) {
@@ -78,6 +115,27 @@ describe('product copy claim contract', () => {
             for (const bannedClaim of bannedClaims) {
                 expect(copy, `${filePath} still contains "${bannedClaim}"`).not.toContain(bannedClaim);
             }
+        }
+    });
+
+    it('documents Phase 6 commercial accuracy claims without approving overclaims', () => {
+        const readinessDoc = readProductCopy(COMMERCIAL_READINESS_DOC);
+        const normalizedDoc = normalizeCopy(readinessDoc);
+        const allowedSection = normalizeCopy(extractMarkdownSection(readinessDoc, '## Allowed Claims After Gate Pass'));
+        const disallowedSection = normalizeCopy(extractMarkdownSection(readinessDoc, '## Disallowed Claims'));
+
+        expect(normalizedDoc).toContain('commercial accuracy readiness');
+        expect(normalizedDoc).toContain('no false done');
+
+        for (const allowedClaim of COMMERCIAL_ALLOWED_CLAIMS) {
+            expect(allowedSection).toContain(normalizeCopy(allowedClaim));
+        }
+
+        for (const disallowedClaim of COMMERCIAL_DISALLOWED_CLAIMS) {
+            const normalizedClaim = normalizeCopy(disallowedClaim);
+
+            expect(disallowedSection).toContain(normalizedClaim);
+            expect(allowedSection).not.toContain(normalizedClaim);
         }
     });
 

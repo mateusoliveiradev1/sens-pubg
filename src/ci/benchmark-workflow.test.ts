@@ -7,6 +7,8 @@ const readWorkspaceFile = (filePath: string): string => {
     return readFileSync(join(process.cwd(), filePath), 'utf8');
 };
 
+const normalizeDoc = (copy: string): string => copy.toLowerCase();
+
 describe('CI benchmark workflow', () => {
     it('runs the benchmark regression gate from the main CI workflow', () => {
         const workflow = readWorkspaceFile('.github/workflows/ci.yml');
@@ -77,6 +79,67 @@ describe('CI benchmark workflow', () => {
         expect(releaseReportSource).toContain('calibrationReport');
         expect(readWorkspaceFile('src/core/analysis-calibration-report.ts')).toContain('## Calibration');
         expect(runnerDocs).toContain('strict commercial truth gate');
+    });
+
+    it('keeps Phase 6 No False Done evidence tied to commercial readiness gates', () => {
+        const readinessDoc = normalizeDoc(readWorkspaceFile('docs/commercial-accuracy-readiness.md'));
+        const checklist = normalizeDoc(readWorkspaceFile(
+            '.planning/phases/06-core-accuracy-and-pro-validation-hardening/06-VERIFY-CHECKLIST.md',
+        ));
+        const requiredHeadings = [
+            '# commercial accuracy readiness',
+            '## gate prerequisites',
+            '## allowed claims after gate pass',
+            '## disallowed claims',
+            '## corpus and consent evidence',
+            '## calibration evidence',
+            '## remaining launch blockers',
+        ];
+        const requiredGates = [
+            'npm run typecheck',
+            'npx vitest run',
+            'npm run benchmark:gate',
+            'npm run benchmark:release',
+            'tracking goldens',
+            'diagnostic goldens',
+            'coach goldens',
+            'captured corpus validation',
+            'calibration report',
+            'copy claims test',
+            'specialist/human review',
+        ];
+        const requirementIds = [
+            'PREC-01',
+            'PREC-02',
+            'PREC-03',
+            'PREC-04',
+            'BENCH-01',
+            'BENCH-02',
+            'BENCH-03',
+            'COACH-01',
+            'COACH-02',
+            'COACH-03',
+            'COACH-04',
+            'COACH-05',
+        ];
+
+        for (const heading of requiredHeadings) {
+            expect(readinessDoc).toContain(heading);
+        }
+
+        for (const gate of requiredGates) {
+            expect(readinessDoc).toContain(gate);
+            expect(checklist).toContain(gate);
+        }
+
+        for (const requirementId of requirementIds) {
+            expect(checklist).toContain(requirementId.toLowerCase());
+        }
+
+        expect(checklist).toContain('final status: **partially delivered**');
+        expect(checklist).toContain('no false done');
+        expect(checklist).toContain('0 reviewed permissioned commercial benchmark clips');
+        expect(checklist).not.toContain('final status: **delivered**');
     });
 
     it('exposes an explicit baseline update workflow', () => {

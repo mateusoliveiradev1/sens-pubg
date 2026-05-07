@@ -212,7 +212,7 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **Goal:** Make the clip spray analysis engine commercially trustworthy before strong public launch claims.
 
-**Status:** In progress. Plans `06-01` through `06-05` are complete; `06-06` remains for No False Done evidence and commercial claim safety.
+**Status:** Partially delivered on 2026-05-07. All six plans are complete and automated gates pass; strong commercial accuracy claims remain blocked because `benchmark:release` is PARTIAL with 0 reviewed permissioned commercial benchmark clips and specialist/human commercial review evidence is not linked.
 
 **Requirements:** PREC-01, PREC-02, PREC-03, PREC-04, BENCH-01, BENCH-02, BENCH-03, COACH-01, COACH-02, COACH-03, COACH-04, COACH-05
 
