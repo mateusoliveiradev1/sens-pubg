@@ -86,6 +86,39 @@ const adaptiveCoachOutcomeMemoryStateSchema = z.enum([
     'invalid_capture',
     'repeated_failure',
 ]);
+const trainingProtocolEnvironmentSchema = z.enum([
+    'training_mode',
+    'training_mode_custom',
+    'ugc_range',
+    'aim_sound_lab',
+    'tdm_warmup',
+    'real_match_transfer',
+    'future_spray_lab',
+]);
+const trainingProtocolDrillIdSchema = z.enum([
+    'capture_guided_recapture',
+    'validation_controlled_spray',
+    'vertical_recoil_lane',
+    'horizontal_tracking_lane',
+    'timing_first_ten',
+    'consistency_repeatability',
+    'sensitivity_one_variable_test',
+    'loadout_one_variable_test',
+]);
+const trainingProtocolDowngradeReasonCodeSchema = z.enum([
+    'low_confidence',
+    'low_coverage',
+    'invalid_clip',
+    'partial_safe_read',
+    'missing_distance',
+    'missing_optic',
+    'missing_attachment',
+    'outcome_conflict',
+    'fatigue_or_pain',
+    'variable_changed',
+    'limited_weapon_support',
+    'insufficient_compatible_validation',
+]);
 
 export const benchmarkClipMediaSchema = z.object({
     videoPath: z.string().min(1),
@@ -144,6 +177,25 @@ export const benchmarkTruthNextBlockExpectationSchema = z.object({
     successCondition: z.string().min(1),
     failCondition: z.string().min(1),
     nextClipValidation: z.string().min(1),
+    completeProtocol: z.object({
+        tier: coachDecisionTierSchema,
+        drillId: trainingProtocolDrillIdSchema,
+        durationMinutes: z.number().int().positive(),
+        sprayRepsMin: z.number().int().positive(),
+        sprayRepsMax: z.number().int().positive(),
+        environment: trainingProtocolEnvironmentSchema,
+        downgradeReasons: z.array(trainingProtocolDowngradeReasonCodeSchema),
+        validationTarget: z.string().min(1),
+        transferCountsAsTechnicalValidation: z.literal(false),
+    }).superRefine((completeProtocol, ctx) => {
+        if (completeProtocol.sprayRepsMax < completeProtocol.sprayRepsMin) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['sprayRepsMax'],
+                message: 'sprayRepsMax deve ser maior ou igual a sprayRepsMin',
+            });
+        }
+    }).optional(),
 }).superRefine((nextBlock, ctx) => {
     if (!nextBlock.exercise && !nextBlock.stepMarker) {
         ctx.addIssue({

@@ -48,7 +48,20 @@
             "minimumConfidence": 0.65,
             "successCondition": "Sucesso quando o perfil recomendado melhorar o erro principal sem derrubar a consistencia.",
             "failCondition": "Falha se sensibilidade nao melhorar ou se a evidencia cair abaixo do limite.",
-            "nextClipValidation": "Validacao de sensibilidade"
+            "nextClipValidation": "Validacao de sensibilidade",
+            "completeProtocol": {
+              "tier": "test_protocol",
+              "drillId": "sensitivity_one_variable_test",
+              "durationMinutes": 12,
+              "sprayRepsMin": 3,
+              "sprayRepsMax": 3,
+              "environment": "aim_sound_lab",
+              "downgradeReasons": [
+                "low_confidence"
+              ],
+              "validationTarget": "Grave o proximo clip assim para validar sem forcar conclusao: perfil recomendado melhora com contexto fixo.",
+              "transferCountsAsTechnicalValidation": false
+            }
           }
         },
         "adaptiveCoachContext": {
@@ -139,7 +152,21 @@
             "minimumConfidence": 0.65,
             "successCondition": "Sucesso quando o perfil recomendado melhorar o erro principal sem derrubar a consistencia.",
             "failCondition": "Falha se sensibilidade nao melhorar ou se a evidencia cair abaixo do limite.",
-            "nextClipValidation": "Validacao de sensibilidade"
+            "nextClipValidation": "Validacao de sensibilidade",
+            "completeProtocol": {
+              "tier": "test_protocol",
+              "drillId": "sensitivity_one_variable_test",
+              "durationMinutes": 12,
+              "sprayRepsMin": 2,
+              "sprayRepsMax": 2,
+              "environment": "aim_sound_lab",
+              "downgradeReasons": [
+                "low_confidence",
+                "low_coverage"
+              ],
+              "validationTarget": "Grave o proximo clip assim para validar sem forcar conclusao: perfil recomendado melhora com contexto fixo.",
+              "transferCountsAsTechnicalValidation": false
+            }
           }
         },
         "expectedAdaptiveCoach": {
@@ -229,7 +256,21 @@
             "minimumConfidence": 0.65,
             "successCondition": "Sucesso quando o perfil recomendado melhorar o erro principal sem derrubar a consistencia.",
             "failCondition": "Falha se sensibilidade nao melhorar ou se a evidencia cair abaixo do limite.",
-            "nextClipValidation": "Validacao de sensibilidade"
+            "nextClipValidation": "Validacao de sensibilidade",
+            "completeProtocol": {
+              "tier": "test_protocol",
+              "drillId": "sensitivity_one_variable_test",
+              "durationMinutes": 12,
+              "sprayRepsMin": 2,
+              "sprayRepsMax": 2,
+              "environment": "aim_sound_lab",
+              "downgradeReasons": [
+                "low_confidence",
+                "low_coverage"
+              ],
+              "validationTarget": "Grave o proximo clip assim para validar sem forcar conclusao: perfil recomendado melhora com contexto fixo.",
+              "transferCountsAsTechnicalValidation": false
+            }
           }
         }
       },

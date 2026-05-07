@@ -11,7 +11,7 @@ import { getWeapon } from '../src/game/pubg';
 import { asMilliseconds, asPixels, asScore } from '../src/types/branded';
 import { parseCapturedFrameLabelTemplate, type CapturedFrameLabelTemplate } from '../src/types/captured-frame-labels';
 import { parseBenchmarkDataset, type BenchmarkAdaptiveCoachContext, type BenchmarkAdaptiveCoachExpectation, type BenchmarkClip, type BenchmarkCoachPlanExpectation, type BenchmarkDataset, type BenchmarkTrackingExpectation, type BenchmarkTruthExpectation } from '../src/types/benchmark';
-import type { AnalysisResult, CoachFeedback, CoachMode, CoachProtocolOutcome, Diagnosis, MetricEvidenceQuality, SprayMetricQuality, SprayMetricQualityKey, SprayMetrics, TrackingContaminationEvidence, TrackingFrameStatus, VideoQualityReport, WeaponLoadout } from '../src/types/engine';
+import type { AnalysisResult, CoachFeedback, CoachMode, CoachProtocolOutcome, CompleteTrainingProtocol, Diagnosis, MetricEvidenceQuality, SprayMetricQuality, SprayMetricQualityKey, SprayMetrics, TrackingContaminationEvidence, TrackingFrameStatus, VideoQualityReport, WeaponLoadout } from '../src/types/engine';
 import {
     evaluateCoachGoldenFixture,
     loadCoachGoldenFixture,
@@ -826,6 +826,26 @@ function toStableCoachPlanExpectation(
     };
 }
 
+function toStableCompleteProtocolExpectation(
+    completeProtocol: CompleteTrainingProtocol | undefined,
+): BenchmarkTruthExpectation['nextBlock']['completeProtocol'] | undefined {
+    if (!completeProtocol) {
+        return undefined;
+    }
+
+    return {
+        tier: completeProtocol.tier,
+        drillId: completeProtocol.drillId,
+        durationMinutes: completeProtocol.dose.durationMinutes,
+        sprayRepsMin: completeProtocol.dose.sprayReps,
+        sprayRepsMax: completeProtocol.dose.sprayReps,
+        environment: completeProtocol.environment,
+        downgradeReasons: [...completeProtocol.downgrade.reasons],
+        validationTarget: completeProtocol.validation.nextClipCopy,
+        transferCountsAsTechnicalValidation: completeProtocol.transfer.countsAsTechnicalValidation,
+    };
+}
+
 function toStableTruthExpectation(
     analysisResult: AnalysisResult,
     coachPlan: ReturnType<typeof buildCoachPlan>
@@ -841,6 +861,7 @@ function toStableTruthExpectation(
     });
     const nextBlockCheck = coachPlan.nextBlock.checks[0];
     const primaryProtocol = coachPlan.actionProtocols[0];
+    const completeProtocol = toStableCompleteProtocolExpectation(coachPlan.completeProtocol);
 
     return {
         actionState: mastery.actionState,
@@ -864,6 +885,7 @@ function toStableTruthExpectation(
             successCondition: nextBlockCheck?.successCondition ?? coachPlan.nextBlock.title,
             failCondition: nextBlockCheck?.failCondition ?? coachPlan.nextBlock.title,
             nextClipValidation: nextBlockCheck?.label ?? coachPlan.nextBlock.title,
+            ...(completeProtocol ? { completeProtocol } : {}),
         },
     };
 }
@@ -1394,8 +1416,57 @@ function compareTruthExpectation(
     compareField('nextBlock.successCondition', expected.nextBlock.successCondition, actual.nextBlock.successCondition);
     compareField('nextBlock.failCondition', expected.nextBlock.failCondition, actual.nextBlock.failCondition);
     compareField('nextBlock.nextClipValidation', expected.nextBlock.nextClipValidation, actual.nextBlock.nextClipValidation);
+    compareCompleteProtocolExpectation(
+        expected.nextBlock.completeProtocol,
+        actual.nextBlock.completeProtocol,
+        mismatches,
+    );
 
     return mismatches;
+}
+
+function compareCompleteProtocolExpectation(
+    expected: BenchmarkTruthExpectation['nextBlock']['completeProtocol'],
+    actual: BenchmarkTruthExpectation['nextBlock']['completeProtocol'],
+    mismatches: string[],
+): void {
+    if (!expected) {
+        return;
+    }
+
+    if (!actual) {
+        mismatches.push('nextBlock.completeProtocol: expected complete protocol truth but received none');
+        return;
+    }
+
+    const compareField = (pathName: string, expectedValue: unknown, actualValue: unknown): void => {
+        if (stableJson(expectedValue) !== stableJson(actualValue)) {
+            mismatches.push(`${pathName}: expected ${stableJson(expectedValue)} but received ${stableJson(actualValue)}`);
+        }
+    };
+
+    compareField('nextBlock.completeProtocol.tier', expected.tier, actual.tier);
+    compareField('nextBlock.completeProtocol.drillId', expected.drillId, actual.drillId);
+    compareField('nextBlock.completeProtocol.durationMinutes', expected.durationMinutes, actual.durationMinutes);
+    compareField('nextBlock.completeProtocol.environment', expected.environment, actual.environment);
+    compareField(
+        'nextBlock.completeProtocol.downgradeReasons',
+        [...expected.downgradeReasons].sort(),
+        [...actual.downgradeReasons].sort(),
+    );
+    compareField('nextBlock.completeProtocol.validationTarget', expected.validationTarget, actual.validationTarget);
+    compareField(
+        'nextBlock.completeProtocol.transferCountsAsTechnicalValidation',
+        expected.transferCountsAsTechnicalValidation,
+        actual.transferCountsAsTechnicalValidation,
+    );
+
+    const actualSprayReps = actual.sprayRepsMin;
+    if (actualSprayReps < expected.sprayRepsMin || actualSprayReps > expected.sprayRepsMax) {
+        mismatches.push(
+            `nextBlock.completeProtocol.sprayReps: expected ${expected.sprayRepsMin}-${expected.sprayRepsMax} but received ${actualSprayReps}`,
+        );
+    }
 }
 
 function compareAdaptiveCoachExpectation(

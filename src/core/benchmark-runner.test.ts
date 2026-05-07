@@ -88,6 +88,16 @@ describe('runBenchmark', () => {
         expect(contaminatedClip?.tracking.contamination.contaminatedFrameCount).toBe(2);
         expect(contaminatedClip?.tracking.contamination.flickPenalty).toBeGreaterThan(0.25);
         expect(contaminatedClip?.tracking.contaminationMismatches).toEqual([]);
+
+        for (const clip of report.clips) {
+            expect(clip.truth.expected.nextBlock.completeProtocol, `${clip.clipId} should lock complete protocol truth`).toEqual(expect.objectContaining({
+                drillId: expect.any(String),
+                durationMinutes: expect.any(Number),
+                environment: expect.any(String),
+                transferCountsAsTechnicalValidation: false,
+            }));
+            expect(clip.truth.actual?.nextBlock.completeProtocol).toEqual(clip.truth.expected.nextBlock.completeProtocol);
+        }
     });
 
     it('reports tracking contamination expectation mismatches', async () => {
@@ -313,5 +323,23 @@ describe('runBenchmark', () => {
         expect(report.passed).toBe(false);
         expect(clip?.truth.passed).toBe(false);
         expect(clip?.truth.mismatches.some((mismatch) => mismatch.includes('nextBlock.durationMinutes'))).toBe(true);
+    });
+
+    it('fails a clip when complete protocol drill truth drifts', async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), 'truth-complete-protocol-'));
+        const tempDatasetPath = path.join(tempDir, 'synthetic-benchmark.v1.json');
+        const dataset = JSON.parse(await readFile(datasetPath, 'utf8'));
+        dataset.clips[0].labels.expectedTruth.nextBlock.completeProtocol.drillId = 'vertical_recoil_lane';
+
+        await writeFile(tempDatasetPath, JSON.stringify(dataset, null, 2));
+
+        const report = await runBenchmark({
+            datasetPath: tempDatasetPath,
+        });
+        const clip = report.clips.find((item) => item.clipId === 'clean-centered-red-411');
+
+        expect(report.passed).toBe(false);
+        expect(clip?.truth.passed).toBe(false);
+        expect(clip?.truth.mismatches.some((mismatch) => mismatch.includes('nextBlock.completeProtocol.drillId'))).toBe(true);
     });
 });

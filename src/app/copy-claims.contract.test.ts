@@ -55,6 +55,20 @@ const COMMERCIAL_ALLOWED_CLAIMS = [
     'safer coach and sensitivity decisions',
 ] as const;
 
+const HEALTH_AND_STRENGTH_DISALLOWED_CLAIMS = [
+    'diagnostico medico',
+    'tratamento',
+    'cura',
+    'lesao diagnosticada',
+    'continue com dor',
+    '3 series',
+    'carga',
+    'progressao de musculacao',
+    'treino de antebraco pesado',
+] as const;
+
+const EXACT_DISALLOWED_CLAIMS = new Set<string>(['cura', 'carga']);
+
 const readProductCopy = (filePath: string): string => {
     return readFileSync(join(process.cwd(), filePath), 'utf8');
 };
@@ -64,6 +78,15 @@ const normalizeCopy = (copy: string): string => {
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase();
+};
+
+const containsDisallowedClaim = (copy: string, bannedClaim: string): boolean => {
+    if (!EXACT_DISALLOWED_CLAIMS.has(bannedClaim)) {
+        return copy.includes(bannedClaim);
+    }
+
+    const escapedClaim = bannedClaim.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(?:^|[^a-z0-9])${escapedClaim}(?:$|[^a-z0-9])`).test(copy);
 };
 
 const extractMarkdownSection = (copy: string, heading: string): string => {
@@ -111,14 +134,30 @@ describe('product copy claim contract', () => {
             'krafton oficial',
             'afiliado oficial',
             ...COMMERCIAL_DISALLOWED_CLAIMS.map(normalizeCopy),
+            ...HEALTH_AND_STRENGTH_DISALLOWED_CLAIMS.map(normalizeCopy),
         ];
 
         for (const filePath of PRODUCT_COPY_FILES) {
             const copy = normalizeCopy(readProductCopy(filePath));
 
             for (const bannedClaim of bannedClaims) {
-                expect(copy, `${filePath} still contains "${bannedClaim}"`).not.toContain(bannedClaim);
+                expect(containsDisallowedClaim(copy, bannedClaim), `${filePath} still contains "${bannedClaim}"`).toBe(false);
             }
+        }
+    });
+
+    it('allows safety stop guidance without medical or strength-program overclaims', () => {
+        const allowedSafetyCopy = normalizeCopy(
+            [
+                'Pare se sentir dor, dormencia ou formigamento.',
+                'Procure orientacao profissional se persistir.',
+            ].join(' '),
+        );
+
+        for (const bannedClaim of HEALTH_AND_STRENGTH_DISALLOWED_CLAIMS) {
+            const normalizedClaim = normalizeCopy(bannedClaim);
+
+            expect(containsDisallowedClaim(allowedSafetyCopy, normalizedClaim)).toBe(false);
         }
     });
 
