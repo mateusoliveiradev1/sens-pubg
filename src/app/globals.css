@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @config "../../tailwind.config.ts";
 
+/* Phase 7: Sens PUBG premium tactical UI tokens. */
+
 /**
  * PUBG Aim Analyzer — Design Design
  * Premium dark theme, glassmorphism, PUBG-inspired palette.
@@ -27,6 +29,14 @@
 
   --color-accent-cyan: #00f0ff;
   --color-accent-cyan-glow: rgba(0, 240, 255, 0.2);
+  --color-evidence-info: #79f0ff;
+  --color-pro-semantic: #d7b56d;
+  --color-blocker-warning: #ffc107;
+  --color-surface: #12121a;
+  --color-surface-raised: #16161f;
+  --color-surface-subtle: #0f0f16;
+  --color-divider: rgba(255, 255, 255, 0.08);
+  --color-focus: var(--color-evidence-info);
 
   --color-text-primary: #f0f0f5;
   --color-text-secondary: #8888a0;
@@ -36,15 +46,17 @@
   --color-border: rgba(255, 255, 255, 0.06);
   --color-border-hover: rgba(255, 255, 255, 0.12);
   --color-border-accent: rgba(255, 107, 0, 0.3);
+  --color-border-subtle: var(--color-divider);
 
   --color-success: #00e676;
   --color-warning: #ffc107;
   --color-error: #ff3d3d;
+  --color-destructive: var(--color-error);
 
   /* Glass */
-  --glass-bg: rgba(18, 18, 26, 0.7);
-  --glass-blur: blur(20px);
-  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-bg: rgba(18, 18, 26, 0.86);
+  --glass-blur: blur(10px);
+  --glass-border: var(--color-divider);
 
   /* Typography */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -60,6 +72,16 @@
   --text-4xl: 2.25rem;
   --text-5xl: 3rem;
   --text-6xl: 3.75rem;
+  --type-label-size: 0.75rem;
+  --type-label-line: 1.4;
+  --type-body-size: 1rem;
+  --type-body-line: 1.5;
+  --type-heading-size: 1.25rem;
+  --type-heading-line: 1.25;
+  --type-display-size: 1.75rem;
+  --type-display-line: 1.15;
+  --font-weight-regular: 400;
+  --font-weight-bold: 700;
 
   /* Spacing */
   --space-2xs: 0.125rem;
@@ -71,6 +93,13 @@
   --space-2xl: 3rem;
   --space-3xl: 4rem;
   --space-4xl: 6rem;
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+  --spacing-3xl: 64px;
 
   /* Borders */
   --radius-sm: 0.375rem;
@@ -78,13 +107,16 @@
   --radius-lg: 1rem;
   --radius-xl: 1.5rem;
   --radius-full: 9999px;
+  --radius-surface: 8px;
+  --radius-control: 8px;
 
   /* Shadows */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.5);
-  --shadow-glow-orange: 0 0 20px rgba(255, 107, 0, 0.3);
-  --shadow-glow-cyan: 0 0 20px rgba(0, 240, 255, 0.2);
+  --shadow-glow-orange: 0 8px 20px rgba(255, 107, 0, 0.16);
+  --shadow-glow-cyan: 0 0 0 1px rgba(121, 240, 255, 0.24);
+  --shadow-panel: 0 18px 42px rgba(0, 0, 0, 0.34);
 
   /* Transitions */
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -117,7 +149,9 @@ html {
 
 body {
   font-family: var(--font-sans);
-  background: var(--color-bg-primary);
+  background:
+    linear-gradient(180deg, rgba(18, 18, 26, 0.58), rgba(8, 8, 12, 0) 360px),
+    var(--color-bg-primary);
   color: var(--color-text-primary);
   line-height: 1.6;
   min-height: 100vh;
@@ -126,48 +160,20 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Animated background gradient and grid */
+/* Subtle product backdrop; route visuals own stronger art direction. */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
-  background:
-    radial-gradient(circle at 15% 50%, rgba(255, 107, 0, 0.08), transparent 40%),
-    radial-gradient(circle at 85% 30%, rgba(0, 240, 255, 0.06), transparent 40%);
-  background-size: 200% 200%;
-  animation: moveBackground 15s ease infinite alternate;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+  background-size: 48px 48px;
+  opacity: 0.32;
   pointer-events: none;
   z-index: -2;
 }
 
 body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-  background-size: 40px 40px;
-  background-position: center;
-  mask-image: radial-gradient(ellipse at center, black 40%, transparent 80%);
-  -webkit-mask-image: radial-gradient(ellipse at center, black 40%, transparent 80%);
-  mask: radial-gradient(ellipse at center, black 40%, transparent 80%);
-  pointer-events: none;
-  z-index: -1;
-}
-
-@keyframes moveBackground {
-  0% {
-    background-position: 0% 50%;
-  }
-
-  50% {
-    background-position: 100% 50%;
-  }
-
-  100% {
-    background-position: 0% 50%;
-  }
+  content: none;
 }
 
 #__next {
@@ -211,9 +217,9 @@ body::after {
    ═══════════════════════════════════════════ */
 
 :focus-visible {
-  outline: 2px solid var(--color-accent-cyan);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-control);
 }
 
 /* ═══════════════════════════════════════════
@@ -254,12 +260,12 @@ h6 {
 
 h1 {
   font-size: var(--text-4xl);
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 h2 {
   font-size: var(--text-3xl);
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 h3 {
@@ -298,7 +304,7 @@ code,
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-surface);
   padding: var(--space-xl);
   transition: all var(--transition-base);
   position: relative;
@@ -318,7 +324,7 @@ code,
 
 .glass-card:hover {
   border-color: var(--color-border-hover);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 107, 0, 0.08);
+  box-shadow: var(--shadow-panel), 0 0 0 1px rgba(255, 107, 0, 0.08);
   transform: translateY(-2px);
 }
 
@@ -361,16 +367,17 @@ code,
   align-items: center;
   justify-content: center;
   gap: var(--space-sm);
+  min-height: var(--spacing-2xl);
   padding: var(--space-sm) var(--space-xl);
   font-family: var(--font-sans);
-  font-size: var(--text-sm);
-  font-weight: 600;
+  font-size: var(--type-body-size);
+  font-weight: var(--font-weight-bold);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   cursor: pointer;
   transition: all var(--transition-base);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: none;
+  letter-spacing: 0;
   position: relative;
   overflow: hidden;
 }
@@ -389,13 +396,13 @@ code,
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--color-accent-primary), var(--color-accent-primary-dark));
+  background: var(--color-accent-primary);
   color: #fff;
   box-shadow: var(--shadow-glow-orange);
 }
 
 .btn-primary:hover {
-  box-shadow: 0 0 30px rgba(255, 107, 0, 0.5);
+  box-shadow: 0 10px 24px rgba(255, 107, 0, 0.22);
   transform: translateY(-1px);
 }
 
@@ -511,11 +518,11 @@ code,
   display: inline-flex;
   align-items: center;
   padding: 2px var(--space-sm);
-  font-size: var(--text-xs);
-  font-weight: 600;
+  font-size: var(--type-label-size);
+  font-weight: var(--font-weight-bold);
   border-radius: var(--radius-full);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0;
 }
 
 .badge-success {
@@ -538,7 +545,7 @@ code,
 
 .badge-info {
   background: rgba(0, 240, 255, 0.15);
-  color: var(--color-accent-cyan);
+  color: var(--color-evidence-info);
   border: 1px solid rgba(0, 240, 255, 0.3);
 }
 
@@ -557,10 +564,10 @@ code,
 }
 
 .metric-label {
-  font-size: var(--text-sm);
+  font-size: var(--type-label-size);
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0;
 }
 
 /* ═══════════════════════════════════════════

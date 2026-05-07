@@ -25,19 +25,19 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
   title: {
-    default: 'PUBG Aim Analyzer - Coach de Aim com IA',
-    template: '%s | PUBG Aim Analyzer',
+    default: 'Sens PUBG - Analise de spray com evidencia',
+    template: '%s | Sens PUBG',
   },
   description:
-    'Analise seus clips de spray, identifique padroes de mira e receba recomendacoes assistidas para sensibilidade. Seu coach de aim pessoal para PUBG.',
+    'Analise clips de spray no navegador, veja confianca, cobertura e receba um proximo bloco de treino testavel para PUBG.',
   keywords: [
     'PUBG', 'aim trainer', 'recoil control', 'sensitivity calculator',
     'spray analysis', 'aim coach', 'PUBG sensibilidade', 'analisador de mira',
     'PUBG recoil', 'game settings', 'e-sports coaching',
   ],
-  authors: [{ name: 'PUBG Aim Analyzer', url: 'https://mateusoliveira.dev' }],
-  creator: 'PUBG Aim Analyzer',
-  publisher: 'PUBG Aim Analyzer',
+  authors: [{ name: 'Sens PUBG', url: 'https://mateusoliveira.dev' }],
+  creator: 'Sens PUBG',
+  publisher: 'Sens PUBG',
   category: 'Gaming',
   classification: 'Utility',
   alternates: {
@@ -56,15 +56,15 @@ export const metadata: Metadata = {
     locale: 'pt_BR',
     alternateLocale: ['en_US', 'es_ES'],
     url: '/',
-    siteName: 'PUBG Aim Analyzer',
-    title: 'PUBG Aim Analyzer - Coach de Aim com IA',
-    description: 'Analise clips reais, identifique padroes de spray e explore ajustes de sensibilidade com apoio do motor de diagnostico.',
-    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'PUBG Aim Analyzer Dashboard' }],
+    siteName: 'Sens PUBG',
+    title: 'Sens PUBG - Analise de spray com evidencia',
+    description: 'Analise clips reais, identifique padroes de spray e explore faixas de teste com apoio do motor de diagnostico.',
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'Sens PUBG dashboard' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'PUBG Aim Analyzer',
-    description: 'Seu coach de aim pessoal para PUBG com analise visual assistida.',
+    title: 'Sens PUBG',
+    description: 'Analise visual de spray para PUBG com confianca, cobertura e proximo bloco testavel.',
     images: ['/og-image.png'],
   },
   robots: {
@@ -103,10 +103,10 @@ export default function RootLayout({
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
-    name: 'PUBG Aim Analyzer',
+    name: 'Sens PUBG',
     applicationCategory: 'GameApplication',
     operatingSystem: 'Web',
-    description: 'Analisador de spray e coach de aim para PUBG com analise assistida no navegador.',
+    description: 'Analisador de spray para PUBG com leitura no navegador, evidencia visivel e plano de treino testavel.',
     offers: {
       '@type': 'Offer',
       price: '0',
