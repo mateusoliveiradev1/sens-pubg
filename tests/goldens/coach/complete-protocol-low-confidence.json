@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "name": "complete-protocol-low-confidence",
+  "loadout": {
+    "stance": "standing",
+    "muzzle": "none",
+    "grip": "none",
+    "stock": "none"
+  },
+  "context": {
+    "patchVersion": "41.1",
+    "targetDistanceMeters": 50,
+    "distanceMode": "exact"
+  },
+  "diagnoses": [
+    {
+      "type": "underpull",
+      "severity": 4,
+      "verticalControlIndex": 0.7,
+      "deficitPercent": 30,
+      "confidence": 0.38,
+      "evidence": {
+        "confidence": 0.38,
+        "coverage": 0.44,
+        "angularErrorDegrees": 1.2,
+        "linearErrorCm": 56,
+        "linearErrorSeverity": 4
+      },
+      "description": "Pulldown possivelmente baixo no clip fraco",
+      "cause": "Evidencia parcial do tracking",
+      "remediation": "Confirme a leitura antes de aplicar protocolo forte"
+    }
+  ],
+  "expected": [
+    {
+      "mode": "low-confidence",
+      "problem": "Pulldown possivelmente baixo no clip fraco",
+      "evidence": {
+        "diagnosisType": "underpull",
+        "severity": 4,
+        "confidence": 0.38,
+        "coverage": 0.44,
+        "angularErrorDegrees": 1.2,
+        "linearErrorCm": 56,
+        "linearErrorSeverity": 4,
+        "patchVersion": "41.1",
+        "targetDistanceMeters": 50,
+        "distanceMode": "exact",
+        "stance": "standing",
+        "attachmentCatalogVersion": "41.1"
+      },
+      "confidence": 0.38,
+      "likelyCause": "Evidencia parcial do tracking O mouse para de descer cedo demais ou perde forca depois do inicio. De pe, qualquer sobra de movimento cobra mais caro.",
+      "adjustment": "Hipotese de baixa confianca: Confirme a leitura antes de aplicar protocolo forte Antes de alterar sensibilidade ou attachments, grave um novo clip com tracking mais limpo para confirmar o padrao.",
+      "drill": "Drill de Pulldown Gradual: atire em uma parede limpa a 50m. Tente fazer um ponto de impactos. Se o spray subir, force o mouse para baixo de forma continua, nao apenas no inicio.",
+      "verifyNextClip": "Grave um novo clip (50m) antes de fechar a leitura; busque VCI mais perto de 1.00 e erro linear abaixo de 39cm.",
+      "adaptationTimeDays": 5
+    }
+  ],
+  "expectedCompleteProtocol": {
+    "version": "complete-protocol-v1",
+    "tier": "capture_again",
+    "drillId": "capture_guided_recapture",
+    "durationMinutes": 5,
+    "sprayReps": 1,
+    "environment": "training_mode",
+    "target": "Reticulo visivel, alvo unico, spray sustentado e contexto repetivel. Arma: Beryl M762. Mira: red-dot. Distancia: 50m.",
+    "preparationContains": [
+      "recording-setup",
+      "fixed-variables",
+      "repeatable-posture",
+      "planned-pauses",
+      "pain-stop-rule"
+    ],
+    "downgradeReasons": [
+      "invalid_clip",
+      "low_confidence",
+      "low_coverage"
+    ],
+    "repairActions": [
+      "Grave uma captura limpa antes de testar mudanca tecnica."
+    ],
+    "validationTarget": "Grave primeiro um clip limpo e compativel para liberar leitura tecnica.",
+    "transferCountsAsTechnicalValidation": false
+  }
+}

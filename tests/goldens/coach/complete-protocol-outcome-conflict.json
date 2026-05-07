@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "name": "complete-protocol-outcome-conflict",
+  "protocolScenario": "outcome_conflict",
+  "loadout": {
+    "stance": "standing",
+    "muzzle": "compensator",
+    "grip": "vertical",
+    "stock": "none"
+  },
+  "context": {
+    "patchVersion": "41.1",
+    "opticId": "red-dot",
+    "opticStateId": "1x",
+    "targetDistanceMeters": 50,
+    "distanceMode": "exact"
+  },
+  "diagnoses": [
+    {
+      "type": "underpull",
+      "severity": 4,
+      "verticalControlIndex": 0.67,
+      "deficitPercent": 33,
+      "dominantPhase": "fatigue",
+      "confidence": 0.9,
+      "evidence": {
+        "confidence": 0.9,
+        "coverage": 0.91,
+        "angularErrorDegrees": 1.35,
+        "linearErrorCm": 64,
+        "linearErrorSeverity": 4
+      },
+      "description": "Controle vertical ainda sobe quando chega na fadiga",
+      "cause": "Outcome anterior conflita com a validacao compativel",
+      "remediation": "Peça uma validacao curta antes de promover o bloco"
+    }
+  ],
+  "expected": [
+    {
+      "mode": "standard",
+      "problem": "Controle vertical ainda sobe quando chega na fadiga",
+      "evidence": {
+        "diagnosisType": "underpull",
+        "severity": 4,
+        "dominantPhase": "fatigue",
+        "confidence": 0.9,
+        "coverage": 0.91,
+        "angularErrorDegrees": 1.35,
+        "linearErrorCm": 64,
+        "linearErrorSeverity": 4,
+        "patchVersion": "41.1",
+        "targetDistanceMeters": 50,
+        "distanceMode": "exact",
+        "stance": "standing",
+        "attachmentCatalogVersion": "41.1"
+      },
+      "confidence": 0.9,
+      "likelyCause": "Outcome anterior conflita com a validacao compativel O mouse para de descer cedo demais ou perde forca depois do inicio. O erro aparece mais na fadiga. De pe, qualquer sobra de movimento cobra mais caro.",
+      "adjustment": "Peça uma validacao curta antes de promover o bloco Lembre-se: Agachar (Crouch) reduz o recuo em cerca de 20%. Use isso a seu favor em sprays longos.",
+      "drill": "Drill de Pulldown Gradual: atire em uma parede limpa a 50m. Tente fazer um ponto de impactos. Se o spray subir, force o mouse para baixo de forma continua, nao apenas no inicio.",
+      "verifyNextClip": "No proximo clip, cheque a fadiga (50m): VCI mais perto de 1.00 e erro linear abaixo de 45cm, com coverage >= 91% e confidence >= 90%.",
+      "adaptationTimeDays": 5
+    }
+  ],
+  "expectedCompleteProtocol": {
+    "version": "complete-protocol-v1",
+    "tier": "test_protocol",
+    "drillId": "vertical_recoil_lane",
+    "durationMinutes": 12,
+    "sprayReps": 3,
+    "environment": "training_mode",
+    "target": "Linha vertical mais curta e repetivel no alvo. Arma: Beryl M762. Mira: red-dot. Distancia: 50m.",
+    "preparationContains": [
+      "pull-space",
+      "fixed-variables",
+      "repeatable-posture",
+      "planned-pauses",
+      "pain-stop-rule"
+    ],
+    "downgradeReasons": [
+      "outcome_conflict"
+    ],
+    "repairActions": [
+      "Grave um clip compativel curto antes de promover o protocolo."
+    ],
+    "validationTarget": "Grave o proximo clip assim para validar sem forcar conclusao: reduzir erro vertical sustentado em spray compativel.",
+    "transferCountsAsTechnicalValidation": false
+  }
+}
