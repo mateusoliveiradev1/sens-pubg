@@ -24,7 +24,7 @@ import type {
 } from '@/types/engine';
 import { formatDiagnosisTruthLabel } from '@/core/measurement-truth';
 import { formatAnalysisDistancePresentation } from './analysis-distance-presentation';
-import { SprayVisualization } from './spray-visualization';
+import { SprayTrailPanel } from './spray-trail-panel';
 import { summarizeAnalysisTracking } from './tracking-summary';
 import { createTrackingTimeline } from './tracking-timeline';
 import { EvidenceChip } from '@/ui/components/evidence-chip';
@@ -759,7 +759,6 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
         distanceMode,
         distanceNote,
     });
-    const hasIdealPattern = (activeSession.metrics.shotResiduals?.length ?? 0) > 0;
     const linearErrorLabel = distanceMode === 'unknown' ? 'Erro Linear (ref.)' : 'Erro Linear';
     const linearErrorUnit = distanceMode === 'unknown'
         ? `cm @ ref. ${targetDistanceMeters ?? 30}m`
@@ -1126,27 +1125,16 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                     </div>
                 ) : null}
 
-                <div className={styles.proofPanel}>
-                    <div className={styles.proofIntro}>
-                        <span className={styles.reportEyebrow}>Prova visual</span>
-                        <p>
-                            A trilha abaixo mostra o movimento real do spray antes dos detalhes de qualidade, tracking, metricas, sensibilidade e coach.
-                        </p>
-                    </div>
-                    <div className={styles.proofCanvas}>
-                        <SprayVisualization
-                            trajectory={activeSession.trajectory}
-                            shotResiduals={activeSession.metrics.shotResiduals}
-                        />
-                    </div>
-                    <div className={styles.vizLegend} aria-label="Legenda da trajetoria">
-                        {hasIdealPattern ? (
-                            <span><span className={`${styles.legendSwatch} ${styles.legendIdeal}`} />Padrao ideal patch-aware</span>
-                        ) : null}
-                        <span><span className={`${styles.legendSwatch} ${styles.legendReal}`} />Movimento real</span>
-                        <span><span className={`${styles.legendSwatch} ${styles.legendTarget}`} />Centro inicial</span>
-                    </div>
-                </div>
+                <SprayTrailPanel
+                    actionLabel={verdictModel.actionLabel}
+                    blockerReasons={verdictModel.blockedReasons}
+                    confidence={trackingOverview.confidence}
+                    coverage={trackingOverview.coverage}
+                    framesLost={trackingOverview.framesLost}
+                    framesProcessed={trackingOverview.framesProcessed}
+                    shotResiduals={activeSession.metrics.shotResiduals}
+                    trajectory={activeSession.trajectory}
+                />
             </section>
 
             {adaptiveCoachLoop ? (

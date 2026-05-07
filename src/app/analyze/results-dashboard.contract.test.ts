@@ -111,6 +111,7 @@ describe('results dashboard visualization contract', () => {
 
     it('shows the next block, evidence badges, mastery pillars, and spray proof in the report', () => {
         const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
+        const sprayPanelSource = readFileSync(new URL('./spray-trail-panel.tsx', import.meta.url), 'utf8');
 
         expect(source).toMatch(/PageCommandHeader/);
         expect(source).toMatch(/LoopRail/);
@@ -121,10 +122,14 @@ describe('results dashboard visualization contract', () => {
         expect(source).toMatch(/verdictModel\.nextBlock\.steps/);
         expect(source).toMatch(/Evidencia do resultado/);
         expect(source).toMatch(/Pilares de mastery/);
-        expect(source).toMatch(/Prova visual/);
+        expect(sprayPanelSource).toMatch(/Prova visual/);
+        expect(source).toMatch(/SprayTrailPanel/);
+        expect(source).toMatch(/confidence=\{trackingOverview\.confidence\}/);
+        expect(source).toMatch(/coverage=\{trackingOverview\.coverage\}/);
+        expect(source).toMatch(/blockerReasons=\{verdictModel\.blockedReasons\}/);
 
         const verdictIndex = source.indexOf('styles.verdictReport');
-        const sprayIndex = source.indexOf('<SprayVisualization', verdictIndex);
+        const sprayIndex = source.indexOf('<SprayTrailPanel', verdictIndex);
         const sensitivityIndex = source.indexOf('Calibração de Sensibilidade');
 
         expect(sprayIndex).toBeGreaterThan(verdictIndex);

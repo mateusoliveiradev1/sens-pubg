@@ -920,6 +920,118 @@
     background: #030712;
 }
 
+.sprayTrailPanel {
+    display: grid;
+    gap: var(--space-md);
+    padding: var(--space-lg);
+    border: 1px solid var(--result-tone-border, rgba(121, 240, 255, 0.2));
+    border-radius: 8px;
+    background:
+        linear-gradient(180deg, var(--result-tone-soft, rgba(121, 240, 255, 0.08)), rgba(0, 0, 0, 0.18)),
+        rgba(0, 0, 0, 0.16);
+}
+
+.sprayTrailPanel[data-evidence-state="weak"],
+.sprayTrailPanel[data-evidence-state="inconclusive"] {
+    --result-tone: var(--color-warning);
+    --result-tone-border: rgba(255, 193, 7, 0.32);
+    --result-tone-soft: rgba(255, 193, 7, 0.1);
+}
+
+.sprayTrailPanel[data-evidence-state="blocked"] {
+    --result-tone: var(--color-error);
+    --result-tone-border: rgba(255, 61, 61, 0.32);
+    --result-tone-soft: rgba(255, 61, 61, 0.1);
+}
+
+.sprayTrailHeader {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-lg);
+    align-items: flex-start;
+}
+
+.sprayTrailIntro {
+    display: grid;
+    gap: 6px;
+    max-width: 680px;
+}
+
+.sprayTrailIntro h3 {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: var(--text-2xl);
+    line-height: 1.15;
+}
+
+.sprayTrailIntro p,
+.sprayTrailSummary {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+    line-height: 1.6;
+}
+
+.sprayTrailSummary {
+    color: var(--color-text-muted);
+}
+
+.sprayTrailEvidence {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+}
+
+.sprayTrailCanvas {
+    min-height: 320px;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border: 1px solid var(--result-tone-border, rgba(255, 255, 255, 0.08));
+    border-radius: 8px;
+    background: #030712;
+}
+
+.sprayTrailLegend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    align-items: center;
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+}
+
+.sprayTrailLegend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.sprayTrailLegend [data-reference-unavailable] {
+    padding: 4px 8px;
+    border: 1px solid rgba(255, 193, 7, 0.24);
+    border-radius: var(--radius-sm);
+    background: rgba(255, 193, 7, 0.08);
+    color: var(--color-text-secondary);
+}
+
+.sprayTrailBlockers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.sprayTrailBlockers li {
+    padding: 5px 9px;
+    border: 1px solid rgba(255, 193, 7, 0.28);
+    border-radius: var(--radius-sm);
+    background: rgba(255, 193, 7, 0.08);
+    color: var(--color-text-secondary);
+    font-size: var(--text-xs);
+}
+
 .precisionTrendBlock {
     display: grid;
     gap: var(--space-lg);
@@ -2180,6 +2292,14 @@
     }
 
     .proofCanvas {
+        min-height: 260px;
+    }
+
+    .sprayTrailHeader {
+        display: grid;
+    }
+
+    .sprayTrailCanvas {
         min-height: 260px;
     }
 

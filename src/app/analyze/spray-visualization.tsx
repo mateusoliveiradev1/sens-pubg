@@ -5,10 +5,12 @@
 
 'use client';
 
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import type { ShotRecoilResidual, SprayTrajectory } from '@/types/engine';
 import type { TrackingReviewOverlayMarker } from '@/core/captured-frame-labeler-view';
 import { buildSprayVisualizationPaths } from './spray-visualization-paths';
+
+export type SprayVisualizationEvidenceState = 'normal' | 'weak' | 'inconclusive' | 'blocked';
 
 interface Props {
     readonly trajectory: SprayTrajectory;
@@ -17,6 +19,39 @@ interface Props {
     readonly height?: number;
     readonly showIdeal?: boolean;
     readonly trackingReviewOverlay?: readonly TrackingReviewOverlayMarker[] | undefined;
+    readonly evidenceState?: SprayVisualizationEvidenceState;
+}
+
+function getRealPathPaint(evidenceState: SprayVisualizationEvidenceState): {
+    readonly strokeStyle: string;
+    readonly shadowColor: string;
+    readonly shotFillStyle: string;
+    readonly lineWidth: number;
+} {
+    if (evidenceState === 'blocked') {
+        return {
+            strokeStyle: 'rgba(255, 61, 61, 0.58)',
+            shadowColor: 'rgba(255, 61, 61, 0.18)',
+            shotFillStyle: 'rgba(255, 255, 255, 0.68)',
+            lineWidth: 1.75,
+        };
+    }
+
+    if (evidenceState === 'weak' || evidenceState === 'inconclusive') {
+        return {
+            strokeStyle: 'rgba(255, 193, 7, 0.62)',
+            shadowColor: 'rgba(255, 193, 7, 0.2)',
+            shotFillStyle: 'rgba(255, 255, 255, 0.72)',
+            lineWidth: 1.75,
+        };
+    }
+
+    return {
+        strokeStyle: 'rgba(255, 107, 0, 1)',
+        shadowColor: 'rgba(255, 107, 0, 0.5)',
+        shotFillStyle: 'rgba(255, 255, 255, 1)',
+        lineWidth: 2,
+    };
 }
 
 function getTrackingReviewColor(marker: TrackingReviewOverlayMarker): string {
@@ -59,6 +94,7 @@ export function SprayVisualization({
     height = 400,
     showIdeal = true,
     trackingReviewOverlay,
+    evidenceState = 'normal',
 }: Props): React.JSX.Element {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -106,6 +142,7 @@ export function SprayVisualization({
             height,
             showIdeal,
         });
+        const realPathPaint = getRealPathPaint(evidenceState);
 
         if (showIdeal && paths.usesIdealPattern && paths.idealPoints.length > 1) {
             ctx.beginPath();
@@ -129,12 +166,12 @@ export function SprayVisualization({
         if (paths.realPoints.length > 1) {
             ctx.beginPath();
             ctx.moveTo(paths.realPoints[0]!.x, paths.realPoints[0]!.y);
-            ctx.strokeStyle = 'rgba(255, 107, 0, 1)';
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = realPathPaint.strokeStyle;
+            ctx.lineWidth = realPathPaint.lineWidth;
             ctx.lineJoin = 'round';
             ctx.lineCap = 'round';
             ctx.shadowBlur = 10;
-            ctx.shadowColor = 'rgba(255, 107, 0, 0.5)';
+            ctx.shadowColor = realPathPaint.shadowColor;
             for (const point of paths.realPoints.slice(1)) {
                 ctx.lineTo(point.x, point.y);
             }
@@ -146,7 +183,7 @@ export function SprayVisualization({
 
         // Draw Shots (Impact points with glow)
         paths.realPoints.slice(1).forEach((point) => {
-            ctx.fillStyle = 'rgba(255, 255, 255, 1)';
+            ctx.fillStyle = realPathPaint.shotFillStyle;
             ctx.shadowBlur = 5;
             ctx.shadowColor = '#fff';
 
@@ -195,13 +232,16 @@ export function SprayVisualization({
             }
         }
 
-    }, [trajectory, shotResiduals, width, height, showIdeal, trackingReviewOverlay]);
+    }, [trajectory, shotResiduals, width, height, showIdeal, trackingReviewOverlay, evidenceState]);
 
     return (
         <canvas
             ref={canvasRef}
             width={width}
             height={height}
+            aria-hidden="true"
+            data-evidence-state={evidenceState}
+            data-spray-canvas
             style={{ width: '100%', height: '100%', display: 'block' }}
         />
     );
