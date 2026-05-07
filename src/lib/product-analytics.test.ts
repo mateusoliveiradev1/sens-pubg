@@ -3,10 +3,16 @@ import { describe, expect, it, vi } from 'vitest';
 import {
     recordCheckoutEvent,
     recordFirstUsableAnalysis,
+    recordBillingPortalOpened,
+    recordLoopRailCtaClicked,
+    recordPaidRouteClick,
+    recordPremiumLockViewed,
+    recordPricingPlanSelected,
     recordProductEvent,
     recordProLifecycleEvent,
     recordQuotaEvent,
     recordUpgradeIntent,
+    recordUploadGuidanceCorrection,
     sanitizeProductAnalyticsEvent,
     sanitizeProductAnalyticsMetadata,
     type ProductAnalyticsRepository,
@@ -59,9 +65,14 @@ describe('product analytics privacy contract', () => {
             metadata: {
                 featureKey: 'history.full',
                 fullResult: { hidden: true },
-                stripeCustomerId: 'cus_test',
-            },
-        });
+            stripeCustomerId: 'cus_test',
+            route: '/pricing',
+            ctaId: 'founder_checkout',
+            lockReason: 'pro_feature',
+            loopStage: 'coach',
+            guidanceReason: 'weak_capture',
+        },
+    });
 
         expect(event).toMatchObject({
             userId: 'user-1',
@@ -75,6 +86,11 @@ describe('product analytics privacy contract', () => {
             metadata: {
                 featureKey: 'history.full',
                 stripeCustomerId: 'cus_test',
+                route: '/pricing',
+                ctaId: 'founder_checkout',
+                lockReason: 'pro_feature',
+                loopStage: 'coach',
+                guidanceReason: 'weak_capture',
             },
         });
         expect(event.metadata).not.toHaveProperty('fullResult');
@@ -149,5 +165,77 @@ describe('product analytics privacy contract', () => {
             eventType: 'checkout.failed',
             surface: 'checkout',
         }, repository)).resolves.toBeUndefined();
+    });
+
+    it('records Phase 7 paid UI helpers with only allowlisted scalar metadata', async () => {
+        const { repository, recordProductEventMock } = createRepository();
+
+        await recordPaidRouteClick({
+            userId: 'user-1',
+            surface: 'mobile_nav',
+            route: '/pricing',
+            accessState: 'free',
+            repository,
+        });
+        await recordPricingPlanSelected({
+            userId: 'user-1',
+            priceKey: 'pro_founder_brl_monthly',
+            ctaId: 'founder_checkout',
+            repository,
+        });
+        await recordPremiumLockViewed({
+            userId: 'user-1',
+            surface: 'analysis_result',
+            featureKey: 'coach.full_plan',
+            accessState: 'free',
+            lockReason: 'pro_feature',
+            repository,
+        });
+        await recordLoopRailCtaClicked({
+            userId: 'user-1',
+            surface: 'pricing',
+            loopStage: 'coach',
+            ctaId: 'pricing_hero_founder',
+            repository,
+        });
+        await recordBillingPortalOpened({
+            userId: 'user-1',
+            billingStatus: 'active',
+            accessState: 'founder_active',
+            repository,
+        });
+        await recordUploadGuidanceCorrection({
+            userId: 'user-1',
+            guidanceReason: 'weak_capture',
+            accessState: 'free',
+            repository,
+        });
+
+        expect(recordProductEventMock).toHaveBeenCalledTimes(6);
+        expect(recordProductEventMock.mock.calls.map(([event]) => event.eventType)).toEqual([
+            'paywall.viewed',
+            'upgrade_intent.checkout_requested',
+            'premium.lock_viewed',
+            'pro.feature_value',
+            'billing.portal_opened',
+            'pro.feature_value',
+        ]);
+        expect(recordProductEventMock.mock.calls[0]?.[0]).toMatchObject({
+            surface: 'paid_route',
+            metadata: {
+                source: 'mobile_nav',
+                route: '/pricing',
+            },
+        });
+        expect(recordProductEventMock.mock.calls[2]?.[0]).toMatchObject({
+            surface: 'analysis_result',
+            featureKey: 'coach.full_plan',
+            metadata: {
+                lockReason: 'pro_feature',
+            },
+        });
+        expect(recordProductEventMock.mock.calls[5]?.[0].metadata).toEqual({
+            guidanceReason: 'weak_capture',
+        });
     });
 });

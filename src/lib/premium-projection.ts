@@ -66,6 +66,28 @@ const FEATURE_TITLES: Record<ProductEntitlementKey, string> = {
     'team.seats': 'Assentos de equipe',
 };
 
+const FREE_VISIBLE_COPY: Partial<Record<ProductEntitlementKey, string>> = {
+    'coach.full_plan': 'resumo do coach, foco primario, confianca, cobertura e blockers continuam visiveis no Free',
+    'history.full': 'historico recente, evidencia basica e blockers continuam visiveis no Free',
+    'metrics.advanced': 'mastery, confianca, cobertura e metricas basicas continuam visiveis no Free',
+    'coach.outcome_capture': 'resultado do clip e proximo passo curto continuam visiveis no Free',
+    'coach.validation_loop': 'verdade do clip, blockers e inconclusivo continuam visiveis no Free',
+    'trends.compatible_full': 'resumo de trend e motivo de bloqueio continuam visiveis no Free',
+    'precision.evolution_lines': 'direcao principal e checkpoints essenciais continuam visiveis no Free',
+    'precision.checkpoints': 'estado atual do clip e proxima validacao continuam visiveis no Free',
+};
+
+const PRO_VALUE_COPY: Partial<Record<ProductEntitlementKey, string>> = {
+    'coach.full_plan': 'Pro adiciona plano completo, protocolo de bloco, checks e stop conditions',
+    'history.full': 'Pro adiciona historico profundo, auditoria longa e comparacao entre sessoes',
+    'metrics.advanced': 'Pro adiciona metricas avancadas para diagnostico e revisao de treino',
+    'coach.outcome_capture': 'Pro adiciona registro de outcome para fechar o bloco e alimentar memoria',
+    'coach.validation_loop': 'Pro adiciona validacao compativel e continuidade do coach',
+    'trends.compatible_full': 'Pro adiciona trend compativel completo com deltas e blockers auditaveis',
+    'precision.evolution_lines': 'Pro adiciona linhas de evolucao por contexto estrito',
+    'precision.checkpoints': 'Pro adiciona checkpoints antigos e retomada de linha ativa',
+};
+
 function reasonFromAccess(access: ProductAccessResolution): PremiumLockReason {
     if (access.quota.remaining <= 0 || access.accessState === 'free_limit_reached') {
         return 'limit_reached';
@@ -96,6 +118,28 @@ function ctaHrefForReason(reason: PremiumLockReason): PremiumFeatureLock['ctaHre
     return '/pricing';
 }
 
+function buildLockBody(
+    title: string,
+    featureKey: ProductEntitlementKey,
+    reason: PremiumLockReason,
+): string {
+    const visibleNow = FREE_VISIBLE_COPY[featureKey] ?? 'a evidencia essencial continua visivel no Free';
+    const proValue = PRO_VALUE_COPY[featureKey] ?? 'Pro adiciona continuidade e profundidade quando a evidencia sustenta';
+
+    switch (reason) {
+        case 'limit_reached':
+            return `Visivel agora: ${visibleNow}. Com Pro: ${proValue}. Motivo: limite atual atingido para saves uteis.`;
+        case 'payment_issue':
+            return `Visivel agora: ${visibleNow}. Com Pro: ${proValue}. Motivo: ${title} espera o billing voltar para um estado confiavel.`;
+        case 'weak_evidence':
+            return `Visivel agora: confianca, cobertura, blockers e estado inconclusivo. Com Pro: ${proValue}, mas so quando a evidencia sustentar. Motivo: evidencia fraca.`;
+        case 'not_enough_history':
+            return `Visivel agora: ${visibleNow}. Com Pro: ${proValue}. Motivo: ainda faltam clips compativeis para uma leitura honesta.`;
+        case 'pro_feature':
+            return `Visivel agora: ${visibleNow}. Com Pro: ${proValue}. Motivo: este detalhe faz parte da continuidade Pro, nao da verdade basica do clip.`;
+    }
+}
+
 function lockForFeature(
     access: ProductAccessResolution,
     featureKey: ProductEntitlementKey,
@@ -108,15 +152,7 @@ function lockForFeature(
         featureKey,
         reason,
         title,
-        body: reason === 'limit_reached'
-            ? `${title} fica bloqueado porque a quota atual chegou ao limite.`
-            : reason === 'payment_issue'
-                ? `${title} fica bloqueado ate o billing voltar para um estado confiavel.`
-                : reason === 'weak_evidence'
-                    ? `${title} precisa de evidencia mais forte antes de aparecer.`
-                    : reason === 'not_enough_history'
-                        ? `${title} precisa de mais clips compativeis para ser honesto.`
-                        : `${title} faz parte do loop Pro. O resumo Free continua visivel sem dados falsos.`,
+        body: buildLockBody(title, featureKey, reason),
         ctaHref: ctaHrefForReason(reason),
     };
 }

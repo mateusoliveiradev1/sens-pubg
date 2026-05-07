@@ -362,6 +362,16 @@ export function createStartProCheckoutHandler(deps: StartProCheckoutDeps) {
             throw new Error(`Checkout rate limit exceeded. Try again in ${rateLimitResult.resetMs}ms.`);
         }
 
+        await deps.repository.recordAnalyticsEvent({
+            userId: user.id,
+            eventType: 'upgrade_intent.checkout_requested',
+            priceKey: price.key,
+            metadata: {
+                surface: 'pricing_plan',
+                source: 'startProCheckout',
+            },
+        });
+
         const reusableAttempt = await deps.repository.findReusableCheckoutAttempt({
             userId: user.id,
             internalPriceKey: price.key,

@@ -231,7 +231,7 @@ describe('billing server actions', () => {
             idempotencyKey: 'stripe-checkout:attempt-1',
         });
         expect(billingEvents).toEqual(['checkout.created']);
-        expect(analyticsEvents).toEqual(['checkout.started']);
+        expect(analyticsEvents).toEqual(['upgrade_intent.checkout_requested', 'checkout.started']);
     });
 
     it('uses the same idempotency key when retrying an existing internal attempt', async () => {

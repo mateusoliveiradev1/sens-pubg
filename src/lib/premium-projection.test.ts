@@ -199,11 +199,13 @@ describe('premium projection policy', () => {
             featureKey: 'coach.full_plan',
             reason: 'payment_issue',
             ctaHref: '/billing',
+            body: expect.stringContaining('billing voltar para um estado confiavel'),
         }));
         expect(createPremiumProjectionSummary(limited).locks).toContainEqual(expect.objectContaining({
             featureKey: 'coach.full_plan',
             reason: 'limit_reached',
             ctaHref: '/pricing',
+            body: expect.stringContaining('limite atual atingido'),
         }));
     });
 
@@ -235,7 +237,31 @@ describe('premium projection policy', () => {
             featureKey: 'trends.compatible_full',
             reason: 'not_enough_history',
             ctaHref: null,
+            body: expect.stringContaining('faltam clips compativeis'),
         }));
         expect(isPremiumFeatureGranted(projection, 'coach.summary')).toBe(true);
+    });
+
+    it('explains every lock as visible now, Pro value, and the immediate blocker reason', () => {
+        const freeProjection = createPremiumProjectionSummary(resolveProductAccess({ now }), analysisResult());
+        const weakProjection = createPremiumProjectionSummary(
+            resolveProductAccess({ now }),
+            analysisResult({
+                mastery: mastery({
+                    evidence: {
+                        ...mastery().evidence,
+                        usableForAnalysis: false,
+                    },
+                }),
+            }),
+        );
+        const proFeatureLock = freeProjection.locks.find((lock) => lock.reason === 'pro_feature');
+        const weakEvidenceLock = weakProjection.locks.find((lock) => lock.reason === 'weak_evidence');
+
+        expect(proFeatureLock?.body).toContain('Visivel agora');
+        expect(proFeatureLock?.body).toContain('Com Pro');
+        expect(proFeatureLock?.body).toContain('continuidade Pro');
+        expect(weakEvidenceLock?.body).toContain('confianca, cobertura, blockers e estado inconclusivo');
+        expect(weakEvidenceLock?.ctaHref).toBeNull();
     });
 });

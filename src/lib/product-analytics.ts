@@ -3,6 +3,7 @@ import { monetizationAnalyticsEvents } from '@/db/schema';
 import type {
     BillingStatus,
     MonetizationEventType,
+    PremiumLockReason,
     ProductAccessState,
     ProductEntitlementKey,
     ProductPriceKey,
@@ -32,6 +33,11 @@ const SAFE_METADATA_KEYS = new Set([
     'tier',
     'source',
     'result',
+    'route',
+    'ctaId',
+    'lockReason',
+    'loopStage',
+    'guidanceReason',
 ]);
 
 const PROHIBITED_KEY_PATTERN = /video|frame|trajectory|filename|file_name|analysisPayload|fullResult|full_result|privateNote|note|card|cpf|document|address|bank/i;
@@ -264,6 +270,112 @@ export function recordProLifecycleEvent(input: {
         eventSource: 'webhook',
         metadata: {
             stripeSubscriptionId: input.stripeSubscriptionId ?? null,
+        },
+    }, input.repository);
+}
+
+export function recordPaidRouteClick(input: {
+    readonly userId?: string | null;
+    readonly surface: 'mobile_nav' | 'desktop_nav' | 'pricing' | 'billing';
+    readonly route: '/pricing' | '/billing';
+    readonly accessState?: ProductAccessState | null;
+    readonly repository?: ProductAnalyticsRepository;
+}): Promise<void> {
+    return recordProductEvent({
+        userId: input.userId ?? null,
+        eventType: 'paywall.viewed',
+        surface: 'paid_route',
+        accessState: input.accessState ?? null,
+        metadata: {
+            source: input.surface,
+            route: input.route,
+        },
+    }, input.repository);
+}
+
+export function recordPricingPlanSelected(input: {
+    readonly userId?: string | null;
+    readonly priceKey: ProductPriceKey;
+    readonly ctaId: 'founder_checkout' | 'public_checkout' | 'free_analysis';
+    readonly repository?: ProductAnalyticsRepository;
+}): Promise<void> {
+    return recordProductEvent({
+        userId: input.userId ?? null,
+        eventType: 'upgrade_intent.checkout_requested',
+        surface: 'pricing_plan',
+        priceKey: input.priceKey,
+        metadata: {
+            ctaId: input.ctaId,
+        },
+    }, input.repository);
+}
+
+export function recordPremiumLockViewed(input: {
+    readonly userId?: string | null;
+    readonly surface: 'analysis_result' | 'history' | 'dashboard';
+    readonly featureKey: ProductEntitlementKey;
+    readonly accessState?: ProductAccessState | null;
+    readonly lockReason: PremiumLockReason;
+    readonly repository?: ProductAnalyticsRepository;
+}): Promise<void> {
+    return recordProductEvent({
+        userId: input.userId ?? null,
+        eventType: 'premium.lock_viewed',
+        surface: input.surface,
+        featureKey: input.featureKey,
+        accessState: input.accessState ?? null,
+        metadata: {
+            lockReason: input.lockReason,
+        },
+    }, input.repository);
+}
+
+export function recordLoopRailCtaClicked(input: {
+    readonly userId?: string | null;
+    readonly surface: 'pricing' | 'dashboard' | 'history' | 'analysis_result';
+    readonly loopStage: 'clip' | 'evidence' | 'coach' | 'block' | 'outcome' | 'validation' | 'checkpoint';
+    readonly ctaId: string;
+    readonly repository?: ProductAnalyticsRepository;
+}): Promise<void> {
+    return recordProductEvent({
+        userId: input.userId ?? null,
+        eventType: 'pro.feature_value',
+        surface: input.surface,
+        metadata: {
+            loopStage: input.loopStage,
+            ctaId: input.ctaId,
+        },
+    }, input.repository);
+}
+
+export function recordBillingPortalOpened(input: {
+    readonly userId?: string | null;
+    readonly billingStatus?: BillingStatus | null;
+    readonly accessState?: ProductAccessState | null;
+    readonly repository?: ProductAnalyticsRepository;
+}): Promise<void> {
+    return recordProductEvent({
+        userId: input.userId ?? null,
+        eventType: 'billing.portal_opened',
+        surface: 'billing_portal',
+        billingStatus: input.billingStatus ?? null,
+        accessState: input.accessState ?? null,
+    }, input.repository);
+}
+
+export function recordUploadGuidanceCorrection(input: {
+    readonly userId?: string | null;
+    readonly guidanceReason: 'metadata_missing' | 'weak_capture' | 'weapon_support' | 'quota_state';
+    readonly accessState?: ProductAccessState | null;
+    readonly repository?: ProductAnalyticsRepository;
+}): Promise<void> {
+    return recordProductEvent({
+        userId: input.userId ?? null,
+        eventType: 'pro.feature_value',
+        surface: 'upload_guidance',
+        accessState: input.accessState ?? null,
+        metadata: {
+            guidanceReason: input.guidanceReason,
         },
     }, input.repository);
 }

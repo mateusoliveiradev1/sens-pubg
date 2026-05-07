@@ -6,6 +6,7 @@ import {
     buildAnalysisQuotaNoticeModel,
     buildEvidenceBadges,
     buildMasteryPillarCards,
+    buildPremiumLockCards,
     buildPrecisionTrendBlockModel,
     buildResultMetricCards,
     buildResultVerdictModel,
@@ -439,6 +440,46 @@ describe('results dashboard view model', () => {
             'Estado da leitura',
             'Qualidade do clip',
         ]);
+    });
+
+    it('turns premium projection locks into contextual Free/Pro cards', () => {
+        const locks = buildPremiumLockCards({
+            tier: 'free',
+            accessState: 'free',
+            billingStatus: 'none',
+            quota: {
+                tier: 'free',
+                limit: 3,
+                used: 1,
+                remaining: 2,
+                state: 'available',
+                periodStart: new Date('2026-05-01T00:00:00.000Z'),
+                periodEnd: new Date('2026-06-01T00:00:00.000Z'),
+                warningAt: 2,
+                reason: null,
+            },
+            visibleFeatureKeys: ['coach.summary'],
+            hiddenFeatureKeys: ['coach.full_plan'],
+            canSeeFullCoachPlan: false,
+            canSeeFullHistory: false,
+            canSeeAdvancedMetrics: false,
+            canCaptureCoachOutcome: false,
+            locks: [{
+                featureKey: 'coach.full_plan',
+                reason: 'pro_feature',
+                title: 'Plano completo do coach',
+                body: 'Visivel agora: resumo e evidencia. Com Pro: plano completo. Motivo: continuidade Pro.',
+                ctaHref: '/pricing',
+            }],
+        });
+
+        expect(locks).toEqual([expect.objectContaining({
+            featureKey: 'coach.full_plan',
+            reason: 'pro_feature',
+            reasonLabel: 'Pro',
+            ctaLabel: 'Ver Pro',
+            body: expect.stringContaining('Visivel agora'),
+        })]);
     });
 
     it('builds baseline precision trend copy as validation instead of progress', () => {
