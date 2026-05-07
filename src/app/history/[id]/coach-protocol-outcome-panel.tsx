@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { recordCoachProtocolOutcome } from '@/actions/history';
+import { recordCoachProtocolOutcome, recordTrainingProtocolTransfer } from '@/actions/history';
 import type {
     CoachPlan,
     CoachProtocolOutcome,
@@ -52,6 +52,21 @@ const OUTCOME_OPTIONS: readonly {
         label: 'Captura invalida',
         description: 'A captura ou execucao nao serve como prova tecnica.',
     },
+    {
+        value: 'fatigue_or_pain',
+        label: 'Dor/fadiga no bloco',
+        description: 'dor, formigamento ou dormencia interrompe o bloco; reduza a dose e revise antes de repetir.',
+    },
+    {
+        value: 'confused',
+        label: 'Protocolo confuso',
+        description: 'Marca que o protocolo precisa de revisao antes de subir agressividade.',
+    },
+    {
+        value: 'variable_changed',
+        label: 'Variavel mudou',
+        description: 'Sensibilidade/sensitivity, grip, muzzle, optic, distance, stance, weapon ou preparation mudou; validacao forte fica invalida.',
+    },
 ];
 
 const REASON_OPTIONS: readonly {
@@ -69,6 +84,42 @@ const REASON_OPTIONS: readonly {
 
 function formatOutcomeStatus(status: CoachProtocolOutcomeStatus): string {
     return OUTCOME_OPTIONS.find((option) => option.value === status)?.label ?? status;
+}
+
+function defaultReasonsForStatus(status: CoachProtocolOutcomeStatus): readonly CoachProtocolOutcomeReasonCode[] {
+    switch (status) {
+        case 'fatigue_or_pain':
+            return ['fatigue_or_pain'];
+        case 'confused':
+            return ['confusing_protocol'];
+        case 'variable_changed':
+            return ['variable_changed'];
+        case 'started':
+        case 'completed':
+        case 'improved':
+        case 'unchanged':
+        case 'worse':
+        case 'invalid_capture':
+            return [];
+    }
+}
+
+function guidanceForStatus(status: CoachProtocolOutcomeStatus): string | null {
+    switch (status) {
+        case 'fatigue_or_pain':
+            return 'dor, formigamento ou dormencia interrompe o bloco; reduza a dose e revise antes de repetir. Isso nao conta como falha de mira.';
+        case 'confused':
+            return 'Se o protocolo ficou confuso, registre como reparo de aprendizado antes de cobrar progresso tecnico.';
+        case 'variable_changed':
+            return 'Mudar sensibilidade/sensitivity, grip, muzzle, optic, distance, stance, weapon ou preparation invalida validacao forte; salve como aprendizado e grave novo clip compativel.';
+        case 'started':
+        case 'completed':
+        case 'improved':
+        case 'unchanged':
+        case 'worse':
+        case 'invalid_capture':
+            return null;
+    }
 }
 
 function getLatestOutcome(outcomes: readonly CoachProtocolOutcome[]): CoachProtocolOutcome | null {
@@ -89,10 +140,17 @@ export function CoachProtocolOutcomePanel({ sessionId, coachPlan, outcomes }: Pr
 
     const latestOutcome = getLatestOutcome(localOutcomes);
     const protocol = coachPlan.actionProtocols[0] ?? null;
+    const completeProtocol = coachPlan.completeProtocol ?? null;
+    const protocolId = completeProtocol?.id ?? protocol?.id ?? null;
     const shouldShowForm = !latestOutcome || isCorrecting;
     const requiresReason = selectedStatus === 'invalid_capture';
-    const canSubmit = Boolean(protocol) && (!requiresReason || reasonCodes.length > 0);
+    const canSubmit = Boolean(protocolId) && (!requiresReason || reasonCodes.length > 0);
     const coachPlanId = latestOutcome?.coachPlanId ?? `${sessionId}:coach-plan:${coachPlan.tier}`;
+    const statusGuidance = guidanceForStatus(selectedStatus);
+    const validationChecklist = completeProtocol?.validation.compatibleClipChecklist
+        ?? coachPlan.nextBlock.checks.map((check) => `${check.target}: ${check.successCondition}`);
+    const transferChecklist = completeProtocol?.transfer.situationChecklist
+        ?? ['TDM curta com a mesma arma/mira', 'Registrar pressao e controle percebido'];
 
     useEffect(() => {
         if (status && !shouldShowForm) {
@@ -125,7 +183,7 @@ export function CoachProtocolOutcomePanel({ sessionId, coachPlan, outcomes }: Pr
         setError(null);
         setStatus(null);
 
-        if (!protocol) {
+        if (!protocolId) {
             setError('Sessao sem protocolo de coach valido para registrar.');
             return;
         }
@@ -136,13 +194,17 @@ export function CoachProtocolOutcomePanel({ sessionId, coachPlan, outcomes }: Pr
         }
 
         startTransition(async () => {
+            const resolvedReasonCodes = Array.from(new Set([
+                ...defaultReasonsForStatus(selectedStatus),
+                ...reasonCodes,
+            ]));
             const result = await recordCoachProtocolOutcome({
                 sessionId,
                 coachPlanId,
-                protocolId: protocol.id,
+                protocolId,
                 focusArea: coachPlan.primaryFocus.area,
                 status: selectedStatus,
-                reasonCodes,
+                reasonCodes: resolvedReasonCodes,
                 note,
                 ...(isCorrecting && latestOutcome ? { revisionOfOutcomeId: latestOutcome.id } : {}),
             });
@@ -159,6 +221,40 @@ export function CoachProtocolOutcomePanel({ sessionId, coachPlan, outcomes }: Pr
         });
     };
 
+    const handleTransferSubmit = () => {
+        setError(null);
+        setStatus(null);
+
+        if (!completeProtocol) {
+            setError('Sessao sem protocolo completo para registrar transferencia.');
+            return;
+        }
+
+        startTransition(async () => {
+            const result = await recordTrainingProtocolTransfer({
+                sessionId,
+                protocolId: completeProtocol.id,
+                situation: completeProtocol.transfer.situationChecklist[0] ?? 'TDM/partida curta depois do bloco',
+                ...(completeProtocol.context.weaponId ? { weaponId: completeProtocol.context.weaponId } : {}),
+                ...(completeProtocol.context.opticId ? { opticId: completeProtocol.context.opticId } : {}),
+                ...(completeProtocol.context.distanceMeters !== undefined ? {
+                    approximateDistanceMeters: completeProtocol.context.distanceMeters,
+                } : {}),
+                pressureLevel: 'pratica_controlada',
+                feltControl: latestOutcome ? formatOutcomeStatus(latestOutcome.status) : 'a conferir',
+                result: 'transferencia_pratica_registrada',
+            });
+
+            if (!result.success) {
+                setError(result.error);
+                return;
+            }
+
+            setStatus('Transferencia registrada como evidencia pratica. Ela nao substitui validacao compativel.');
+            router.refresh();
+        });
+    };
+
     return (
         <section className="glass-card" style={{ padding: 'var(--space-xl)', display: 'grid', gap: 'var(--space-md)' }}>
             <div style={{ display: 'grid', gap: 'var(--space-xs)' }}>
@@ -170,6 +266,44 @@ export function CoachProtocolOutcomePanel({ sessionId, coachPlan, outcomes }: Pr
                 <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
                     Feche o bloco com um resultado rapido. O coach usa isso como memoria, mas validacao tecnica ainda depende de clip compativel.
                 </p>
+            </div>
+
+            <div
+                aria-label="Cartoes do protocolo completo"
+                style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
+                    gap: 'var(--space-md)',
+                }}
+            >
+                <div style={{ display: 'grid', gap: '8px', padding: 'var(--space-md)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.025)' }}>
+                    <h4 style={{ margin: 0, fontSize: 'var(--text-base)' }}>Resultado do bloco</h4>
+                    <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: 'var(--text-xs)', lineHeight: 1.6 }}>
+                        Registre execucao ou reparo. Resultado sozinho e memoria fraca ate existir clip compativel.
+                    </p>
+                </div>
+                <div style={{ display: 'grid', gap: '8px', padding: 'var(--space-md)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.025)' }}>
+                    <h4 style={{ margin: 0, fontSize: 'var(--text-base)' }}>Grave o proximo clip assim</h4>
+                    <ul style={{ margin: 0, paddingLeft: '18px', color: 'var(--color-text-muted)', fontSize: 'var(--text-xs)', lineHeight: 1.6 }}>
+                        {validationChecklist.slice(0, 4).map((item) => (
+                            <li key={item}>{item}</li>
+                        ))}
+                    </ul>
+                </div>
+                <div style={{ display: 'grid', gap: '8px', padding: 'var(--space-md)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.025)' }}>
+                    <h4 style={{ margin: 0, fontSize: 'var(--text-base)' }}>Transferencia em partida/TDM</h4>
+                    <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: 'var(--text-xs)', lineHeight: 1.6 }}>
+                        {transferChecklist.slice(0, 3).join(' | ')}. Transferencia pratica nao substitui validacao compativel.
+                    </p>
+                    <button
+                        type="button"
+                        className="btn btn-secondary"
+                        disabled={isPending || !completeProtocol}
+                        onClick={handleTransferSubmit}
+                    >
+                        Registrar transferencia
+                    </button>
+                </div>
             </div>
 
             {!shouldShowForm && latestOutcome ? (
@@ -232,9 +366,7 @@ export function CoachProtocolOutcomePanel({ sessionId, coachPlan, outcomes }: Pr
                                     onClick={() => {
                                         setSelectedStatus(option.value);
                                         setError(null);
-                                        if (option.value !== 'invalid_capture') {
-                                            setReasonCodes([]);
-                                        }
+                                        setReasonCodes(defaultReasonsForStatus(option.value));
                                     }}
                                 >
                                     {option.label}
@@ -242,6 +374,12 @@ export function CoachProtocolOutcomePanel({ sessionId, coachPlan, outcomes }: Pr
                             );
                         })}
                     </div>
+
+                    {statusGuidance ? (
+                        <p style={{ margin: 0, color: 'var(--color-warning)', fontSize: 'var(--text-xs)', lineHeight: 1.6 }}>
+                            {statusGuidance}
+                        </p>
+                    ) : null}
 
                     {requiresReason ? (
                         <fieldset style={{ display: 'grid', gap: 'var(--space-sm)', border: 0, padding: 0, margin: 0 }}>

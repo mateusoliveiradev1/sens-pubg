@@ -15,6 +15,7 @@ describe('dashboard arsenal icon contract', () => {
     it('renders an executive dashboard with next-step actions instead of only raw metric cards', () => {
         const source = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
         const viewModelSource = readFileSync(new URL('./dashboard-truth-view-model.ts', import.meta.url), 'utf8');
+        const activeLoopSource = readFileSync(new URL('../../actions/dashboard-active-coach-loop.ts', import.meta.url), 'utf8');
 
         expect(source).toMatch(/buildDashboardTruthViewModel/);
         expect(source).toMatch(/const truthView = buildDashboardTruthViewModel\(stats\)/);
@@ -32,6 +33,9 @@ describe('dashboard arsenal icon contract', () => {
         expect(source).toMatch(/Proximo passo/);
         expect(source).toMatch(/activeCoachLoop/);
         expect(source).toMatch(/Loop ativo/);
+        expect(activeLoopSource).toMatch(/Continuar protocolo/);
+        expect(activeLoopSource).toMatch(/Gravar validacao compativel/);
+        expect(source).toMatch(/completeProtocol/);
         expect(viewModelSource).toMatch(/activeCoachLoop\.ctaLabel/);
         expect(source).toMatch(/Tendencia operacional/);
         expect(source).toMatch(/Arsenal prioritario/);
