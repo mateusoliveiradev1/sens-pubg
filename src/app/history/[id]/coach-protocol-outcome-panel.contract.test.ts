@@ -54,6 +54,7 @@ describe('history coach protocol outcome panel contract', () => {
         expect(source).toMatch(/Navegacao da analise/);
         expect(source).toMatch(/Analise salva/);
         expect(source).toMatch(/Resultado completo do clip salvo/);
+        expect(source).toMatch(/mode="audit-detail"/);
         expect(source).toMatch(/coachOutcomeSnapshot: buildHistoryCoachOutcomeSnapshot/);
         expect(source).toMatch(/analysisResult\.coachPlan \? \(/);
         expect(source).toMatch(/SensitivityAcceptancePanel/);

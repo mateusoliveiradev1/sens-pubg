@@ -753,7 +753,7 @@ export default async function HistoryDetailRoute({ params }: Props) {
                             />
                         </div>
                     )}
-                    <ResultsDashboard result={analysisResultForDisplay} />
+                    <ResultsDashboard mode="audit-detail" result={analysisResultForDisplay} />
                 </div>
             </div>
         </>

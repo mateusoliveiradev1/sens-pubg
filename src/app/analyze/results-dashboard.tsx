@@ -97,6 +97,7 @@ function RadialGauge({ value, max = 100, label, color }: { value: number; max?: 
 
 interface Props {
     readonly result: AnalysisResult;
+    readonly mode?: 'full' | 'audit-detail';
 }
 
 // ═══ Diagnosis Icons & Labels ═══
@@ -742,7 +743,7 @@ function buildProfileHighlights(
     return [roleLine, riskLine, scopeDelta];
 }
 
-export function ResultsDashboard({ result }: Props): React.JSX.Element {
+export function ResultsDashboard({ result, mode = 'full' }: Props): React.JSX.Element {
     const [activeSession, setActiveSession] = useState<AnalysisResult>(result);
     const [expandedDiag, setExpandedDiag] = useState<number | null>(null);
     const [selectedProfileType, setSelectedProfileType] = useState<ProfileType | null>(null);
@@ -880,10 +881,12 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
         || verdictModel.actionLabel === 'Capturar de novo'
         || verdictModel.actionLabel === 'Incerto';
     const visibleTruthLabel = `Confianca ${Math.round(trackingOverview.confidence * 100)}%, cobertura ${Math.round(trackingOverview.coverage * 100)}%, bloqueadores ${verdictModel.blockedReasons.length}.`;
+    const showReportChrome = mode === 'full';
 
     return (
         <div className={styles.dashboard}>
-            <PageCommandHeader
+            {showReportChrome ? (
+                <PageCommandHeader
                 body={verdictModel.primaryExplanation}
                 className={styles.reportCommandHeader ?? ''}
                 evidenceItems={[
@@ -894,14 +897,18 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                 primaryAction={primaryReportAction}
                 roleLabel="Relatorio de spray"
                 title={`Resultado: ${verdictModel.actionLabel}`}
-            />
-            <LoopRail
+                />
+            ) : null}
+            {showReportChrome ? (
+                <LoopRail
                 blocked={reportBlocked}
                 currentStage={reportLoopStage}
                 evidenceLabel={reportEvidenceLabel}
                 nextActionLabel={primaryReportAction.label}
-            />
-            <div
+                />
+            ) : null}
+            {showReportChrome ? (
+                <div
                 style={{
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -949,8 +956,9 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                         Média de {result.subSessions.length} sprays
                     </span>
                 ) : null}
-            </div>
-            {quotaNotice ? (
+                </div>
+            ) : null}
+            {showReportChrome && quotaNotice ? (
                 <section className={styles.quotaNotice} data-tone={quotaNotice.tone} aria-label="Estado da quota de saves">
                     <div>
                         <strong>{quotaNotice.label}</strong>
@@ -966,7 +974,8 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                     </div>
                 </section>
             ) : null}
-            <section className={styles.premiumLockPanel} aria-label="Guia de captura e estado Pro">
+            {showReportChrome ? (
+                <section className={styles.premiumLockPanel} aria-label="Guia de captura e estado Pro">
                 <div className={styles.premiumLockIntro}>
                     <span className={styles.reportEyebrow}>Free / Pro</span>
                     <h3>{captureGuidance.title}</h3>
@@ -1000,7 +1009,8 @@ export function ResultsDashboard({ result }: Props): React.JSX.Element {
                         ))}
                     </div>
                 ) : null}
-            </section>
+                </section>
+            ) : null}
             {/* ═══ Sub-Sessions Selector ═══ */}
             {result.subSessions && result.subSessions.length > 0 && (
                 <section className={styles.section}>

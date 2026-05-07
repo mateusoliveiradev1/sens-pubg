@@ -364,6 +364,8 @@ for (const [label, viewport] of Object.entries(VIEWPORTS)) {
                 await expect(page.getByRole('button', { name: /Publicar analise/i })).toBeVisible();
                 await expect(analysisNav.getByRole('link', { name: /^Comunidade$/i })).toBeVisible();
                 await expect(page.getByRole('heading', { name: /Auditoria do coach/i })).toBeVisible();
+                await expect(page.getByText('Relatorio de spray')).toHaveCount(0);
+                await expect(page.getByLabel('Guia de captura e estado Pro')).toHaveCount(0);
                 await expectNoHorizontalOverflow(page);
             } finally {
                 await fixture.cleanup();

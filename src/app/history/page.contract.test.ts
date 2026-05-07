@@ -67,7 +67,7 @@ describe('history page field evolution contract', () => {
         expect(source).toMatch(/analysisResult\.coachPlan\.sessionSummary/);
         expect(source).toMatch(/analysisResult\.coachPlan\.primaryFocus\.title/);
         expect(source).toMatch(/analysisResult\.coachPlan\.nextBlock\.title/);
-        expect(source).toMatch(/<ResultsDashboard result=\{analysisResultForDisplay\} \/>/);
+        expect(source).toMatch(/<ResultsDashboard mode="audit-detail" result=\{analysisResultForDisplay\} \/>/);
     });
 
     it('shows coach outcome chips on history cards and full audit detail', () => {

@@ -115,6 +115,8 @@ describe('results dashboard visualization contract', () => {
 
         expect(source).toMatch(/PageCommandHeader/);
         expect(source).toMatch(/LoopRail/);
+        expect(source).toMatch(/mode = 'full'/);
+        expect(source).toMatch(/showReportChrome/);
         expect(source).toMatch(/EvidenceChip/);
         expect(source).toMatch(/MetricTile/);
         expect(source).toMatch(/buildEvidenceBadges/);
@@ -141,6 +143,7 @@ describe('results dashboard visualization contract', () => {
         const viewModelSource = readFileSync(new URL('./results-dashboard-view-model.ts', import.meta.url), 'utf8');
 
         expect(source).toMatch(/ProLockPreview/);
+        expect(source).toMatch(/showReportChrome \? \(/);
         expect(source).toMatch(/visibleTruthLabel/);
         expect(source).toMatch(/Confianca \$\{Math\.round\(trackingOverview\.confidence \* 100\)\}%/);
         expect(source).toMatch(/cobertura \$\{Math\.round\(trackingOverview\.coverage \* 100\)\}%/);
