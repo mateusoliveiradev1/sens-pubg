@@ -266,6 +266,36 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **UI hint:** yes
 
+**Plans:**
+
+**Wave 1**
+- `07-01` - Premium Design System, Brand Shell, And Loop Foundation. Creates the Sens PUBG brand/shell, Phase 7 tokens, shared loop/evidence/lock components, and paid-route/mobile navigation fixes.
+
+**Wave 2 *(blocked on Wave 1 completion)***
+- `07-02` - 29 Weapon SVG Catalog And Support Status Contract. Adds original non-generic silhouettes for all 29 seed weapons and separates visual support from technical analysis support.
+
+**Wave 3 *(blocked on Wave 2 completion)***
+- `07-03` - Analyze Upload, Result Report, And Spray Proof Experience. Refactors upload, result, and spray proof surfaces around evidence, Free usefulness, Pro continuity, low-evidence behavior, and mobile polish.
+
+**Wave 4 *(blocked on Wave 3 completion)***
+- `07-04` - Dashboard And History Loop Surfaces. Makes dashboard the command center and history the audit/evolution timeline with loop rail, evidence, locks, and responsive layouts.
+- `07-05` - Pricing, Billing, Checkout Receipts, Locks, And Paid Analytics. Turns paid conversion and account states into premium trust surfaces while preserving Stripe/server truth and privacy-safe events.
+
+**Wave 5 *(blocked on Wave 4 paid surface completion)***
+- `07-06` - Home Entry, Route IA, And Light Global Coherence. Rebuilds home around the Sens PUBG loop, clarifies Sens dos Pros versus paid Pro, and applies light community/admin coherence.
+
+**Wave 6 *(blocked on all prior plans)***
+- `07-07` - No False Perfect Visual QA And Evidence Matrix. Adds browser/state-matrix/accessibility/overflow/weapon/spray screenshots, evidence scripts, and final delivered/partial/blocked status rules.
+
+**Cross-cutting constraints:**
+- Preserve browser-first analysis; UI polish must clarify evidence, not hide uncertainty.
+- Free remains premium and useful; Pro unlocks continuity/depth, not truth evidence itself.
+- Confidence, coverage, blockers, weak evidence, and inconclusive states stay visible across result, dashboard, history, and locks.
+- Do not claim perfect sensitivity, guaranteed improvement/rank, final certainty, or PUBG/KRAFTON affiliation.
+- Do not use official or extracted PUBG/KRAFTON logos/assets; brand and weapon SVGs must be original.
+- Visual catalog must cover all 29 seed weapons without implying full technical calibration for every weapon.
+- Mobile paid route visibility, Sens dos Pros route separation, accessibility, reduced motion, overflow, and No False Perfect evidence are blocking Phase 7 gates.
+
 ## Phase 8: Complete Training Protocols
 
 **Goal:** Turn coach next-block advice into complete practical PUBG training protocols.
