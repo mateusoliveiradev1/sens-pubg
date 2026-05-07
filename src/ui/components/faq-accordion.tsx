@@ -10,7 +10,7 @@ interface FaqItem {
 
 const FAQS: FaqItem[] = [
     {
-        q: 'A analise de video da ban no PUBG?',
+        q: 'A analise de video interage com o PUBG?',
         a: 'Nao. A ferramenta trabalha no navegador lendo um arquivo de video do usuario. Ela nao interage com memoria, arquivos do jogo ou processo do PUBG.',
     },
     {
