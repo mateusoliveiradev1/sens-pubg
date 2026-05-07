@@ -1,10 +1,18 @@
 import Link from 'next/link';
 
-import { getDashboardStats } from '@/actions/dashboard';
+import {
+    getDashboardStats,
+    type DashboardStats,
+    type DashboardTrendEvidenceState,
+} from '@/actions/dashboard';
+import { EvidenceChip, type EvidenceTone } from '@/ui/components/evidence-chip';
 import { Header } from '@/ui/components/header';
+import { LoopRail, type LoopStageKey } from '@/ui/components/loop-rail';
+import { MetricTile } from '@/ui/components/metric-tile';
+import { PageCommandHeader } from '@/ui/components/page-command-header';
 import { WeaponIcon } from '@/ui/components/weapon-icon';
 
-import { buildDashboardTruthViewModel } from './dashboard-truth-view-model';
+import { buildDashboardTruthViewModel, type DashboardTruthViewModel } from './dashboard-truth-view-model';
 import { TrendChart } from './trend-chart';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -18,15 +26,6 @@ interface ScoreTone {
     readonly label: string;
 }
 
-interface DashboardMetricCardProps {
-    readonly eyebrow: string;
-    readonly value: string;
-    readonly note: string;
-    readonly detail: string;
-    readonly progress: number;
-    readonly tone: ScoreTone;
-}
-
 interface RankedWeapon {
     readonly weaponId: string;
     readonly displayName: string;
@@ -35,6 +34,19 @@ interface RankedWeapon {
     readonly count: number;
     readonly share: number;
     readonly tone: ScoreTone;
+}
+
+interface DashboardPrimaryAction {
+    readonly label: string;
+    readonly href: string;
+    readonly disabled?: boolean;
+}
+
+interface DashboardEvidenceItem {
+    readonly label: string;
+    readonly value?: string;
+    readonly tone?: EvidenceTone;
+    readonly detail?: string;
 }
 
 function clampPercent(value: number): number {
@@ -115,6 +127,150 @@ function getScoreTone(score: number): ScoreTone {
     };
 }
 
+function getEvidenceTone(state: DashboardTrendEvidenceState): EvidenceTone {
+    switch (state) {
+        case 'strong':
+            return 'success';
+        case 'moderate':
+            return 'info';
+        case 'weak':
+        case 'missing':
+            return 'warning';
+    }
+}
+
+function getMetricTone(score: number): EvidenceTone {
+    if (score >= 60) {
+        return 'success';
+    }
+
+    if (score >= 30) {
+        return 'info';
+    }
+
+    return 'warning';
+}
+
+function isPrecisionValidationRoute(stats: DashboardStats): boolean {
+    const trend = stats.principalPrecisionTrend;
+
+    if (!trend) {
+        return false;
+    }
+
+    switch (trend.label) {
+        case 'baseline':
+        case 'initial_signal':
+        case 'in_validation':
+        case 'oscillation':
+        case 'not_comparable':
+        case 'validated_regression':
+            return true;
+        case 'validated_progress':
+        case 'consolidated':
+            return false;
+    }
+}
+
+function getDashboardBlockerCount(stats: DashboardStats): number {
+    return (stats.latestMastery?.blockedRecommendations.length ?? 0)
+        + (stats.principalPrecisionTrend?.blockerReasons.length ?? 0)
+        + (stats.activeCoachLoop?.status === 'conflict' ? 1 : 0);
+}
+
+function isDashboardBlocked(stats: DashboardStats): boolean {
+    const actionState = stats.latestMastery?.actionState;
+
+    return actionState === 'capture_again'
+        || actionState === 'inconclusive'
+        || stats.trendEvidence.evidenceState === 'weak'
+        || stats.trendEvidence.evidenceState === 'missing'
+        || stats.principalPrecisionTrend?.label === 'not_comparable'
+        || getDashboardBlockerCount(stats) > 0
+        || stats.activeCoachLoop?.status === 'conflict';
+}
+
+function resolveDashboardPrimaryAction(
+    stats: DashboardStats,
+    truthView: DashboardTruthViewModel,
+): DashboardPrimaryAction {
+    if (truthView.activeCoachLoop) {
+        return {
+            label: truthView.activeCoachLoop.ctaLabel,
+            href: truthView.activeCoachLoop.ctaHref,
+        };
+    }
+
+    switch (stats.latestMastery?.actionState) {
+        case undefined:
+            return { label: 'Gravar clip comparavel', href: '/analyze' };
+        case 'capture_again':
+            return { label: 'Recapturar clip', href: '/analyze' };
+        case 'inconclusive':
+            return { label: 'Validar com novo clip', href: '/analyze' };
+        case 'ready':
+        case 'testable':
+            break;
+    }
+
+    if (isPrecisionValidationRoute(stats)) {
+        return { label: truthView.nextActionTitle, href: '/analyze' };
+    }
+
+    if (stats.trendEvidence.evidenceState === 'weak' || stats.trendEvidence.evidenceState === 'missing') {
+        return { label: 'Validar com novo clip', href: '/analyze' };
+    }
+
+    if (truthView.nextBlock) {
+        return { label: 'Abrir bloco no historico', href: '/history' };
+    }
+
+    return { label: 'Analisar novo clip', href: '/analyze' };
+}
+
+function resolveDashboardLoopStage(
+    stats: DashboardStats,
+    truthView: DashboardTruthViewModel,
+): LoopStageKey {
+    if (!stats.latestMastery) {
+        return 'clip';
+    }
+
+    if (truthView.activeCoachLoop?.status === 'conflict' || truthView.activeCoachLoop?.status === 'validation_needed') {
+        return 'validation';
+    }
+
+    if (truthView.activeCoachLoop) {
+        return 'outcome';
+    }
+
+    if (stats.latestMastery.actionState === 'capture_again') {
+        return 'clip';
+    }
+
+    if (stats.latestMastery.actionState === 'inconclusive') {
+        return 'validation';
+    }
+
+    if (isPrecisionValidationRoute(stats)) {
+        return 'validation';
+    }
+
+    if (stats.trendEvidence.evidenceState === 'weak' || stats.trendEvidence.evidenceState === 'missing') {
+        return 'validation';
+    }
+
+    if (stats.principalPrecisionTrend?.label === 'validated_progress' || stats.principalPrecisionTrend?.label === 'consolidated') {
+        return 'checkpoint';
+    }
+
+    if (truthView.nextBlock) {
+        return 'block';
+    }
+
+    return 'evidence';
+}
+
 function getMomentumTone(delta: number): {
     readonly title: string;
     readonly textClass: string;
@@ -179,74 +335,60 @@ function getPositiveStreak(data: { avgScore: number }[]): number {
     return streak;
 }
 
-function DashboardMetricCard({
-    eyebrow,
-    value,
-    note,
-    detail,
-    progress,
-    tone,
-}: DashboardMetricCardProps): React.JSX.Element {
-    return (
-        <article className={`glass-card h-full border ${tone.borderClass} bg-black/25 p-6 ${tone.glowClass}`}>
-            <span className="mb-3 block text-[10px] font-mono uppercase tracking-[0.28em] text-zinc-500">
-                {eyebrow}
-            </span>
-            <div className="mb-3 flex items-end justify-between gap-3">
-                <strong className={`text-3xl font-black leading-none md:text-4xl ${tone.textClass}`}>{value}</strong>
-                <span className={tone.badgeClass}>{note}</span>
-            </div>
-            <p className="mb-4 text-sm leading-relaxed text-zinc-400">{detail}</p>
-            <div className="h-1.5 overflow-hidden rounded-full bg-zinc-900">
-                <div
-                    className={`h-full rounded-full ${tone.barClass}`}
-                    style={{ width: `${clampPercent(progress)}%` }}
-                />
-            </div>
-        </article>
-    );
-}
-
 export default async function DashboardPage() {
     const stats = await getDashboardStats();
 
     if (!stats || stats.totalSessions === 0) {
+        const emptyPrimaryAction: DashboardPrimaryAction = {
+            label: 'Analisar meu spray',
+            href: '/analyze',
+        };
+
         return (
             <div className="min-h-screen bg-[#08080c] text-white">
                 <Header />
 
                 <main className="page">
                     <div className="container" style={{ maxWidth: '1280px' }}>
-                        <div className="glass-card relative overflow-hidden border border-dashed border-zinc-800 bg-black/35 p-10 text-center md:p-20">
-                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(249,115,22,0.16),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(6,182,212,0.12),transparent_30%)]" />
-                            <div className="relative flex flex-col items-center">
-                                <div className="mb-6 flex h-18 w-18 items-center justify-center rounded-[24px] border border-orange-500/20 bg-black/40 text-orange-400">
-                                    <svg width="38" height="38" viewBox="0 0 38 38" fill="none" aria-hidden="true">
-                                        <circle cx="19" cy="19" r="11" stroke="currentColor" strokeWidth="1.8" opacity="0.9" />
-                                        <path d="M19 5V10M19 28V33M5 19H10M28 19H33" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                                        <circle cx="19" cy="19" r="3.2" fill="currentColor" />
-                                    </svg>
-                                </div>
-                                <p className="mb-3 text-[10px] font-mono uppercase tracking-[0.35em] text-cyan-400">
-                                    Painel tatico // aguardando telemetria
-                                </p>
-                                <h1 className="mb-4 text-3xl font-black uppercase tracking-tight md:text-5xl">
-                                    Sem dados registrados
-                                </h1>
-                                <p className="mb-10 max-w-2xl text-sm leading-relaxed text-zinc-400 md:text-base">
-                                    Sua dashboard ainda nao tem leitura suficiente para abrir tendencias, arsenal e protocolos.
-                                    Suba o primeiro clip e o painel passa a mostrar ritmo, picos e armas que mais estao pesando no seu resultado.
-                                </p>
-                                <div className="flex flex-wrap justify-center gap-3">
-                                    <Link href="/analyze" className="btn btn-primary btn-lg">
-                                        Iniciar primeira analise
-                                    </Link>
-                                    <Link href="/profile" className="btn btn-secondary btn-lg">
-                                        Ajustar perfil
-                                    </Link>
-                                </div>
-                            </div>
+                        <PageCommandHeader
+                            body="Envie um clip utilizavel para criar a primeira leitura com confianca, cobertura e um proximo bloco testavel."
+                            evidenceItems={[
+                                { label: 'Estado', value: 'Sem leitura recente', tone: 'warning' },
+                                { label: 'Loop', value: 'Clip', tone: 'info' },
+                                { label: 'Proxima acao', value: emptyPrimaryAction.label, tone: 'info' },
+                            ]}
+                            primaryAction={emptyPrimaryAction}
+                            roleLabel="Command center"
+                            title="Nenhuma linha ativa ainda"
+                        />
+                        <div className="mt-6">
+                            <LoopRail
+                                blocked
+                                currentStage="clip"
+                                evidenceLabel="Sem evidencia recente"
+                                nextActionLabel={emptyPrimaryAction.label}
+                            />
                         </div>
+                        <section className="mt-8 grid gap-4 md:grid-cols-3" aria-label="Estado inicial do dashboard">
+                            <MetricTile
+                                helper="Crie a primeira leitura antes de abrir tendencia ou coach."
+                                label="Sessoes"
+                                tone="warning"
+                                value="0"
+                            />
+                            <MetricTile
+                                helper="A dashboard so compara clips quando existe contexto utilizavel."
+                                label="Evidencia"
+                                tone="warning"
+                                value="Aguardando"
+                            />
+                            <MetricTile
+                                helper="O historico entra depois da primeira analise salva."
+                                label="Historico"
+                                tone="info"
+                                value="Vazio"
+                            />
+                        </section>
                     </div>
                 </main>
             </div>
@@ -287,6 +429,38 @@ export default async function DashboardPage() {
     const nextActionTitle = truthView.nextActionTitle;
     const nextActionBody = truthView.nextActionBody;
     const activeCoachLoop = truthView.activeCoachLoop;
+    const dashboardPrimaryAction = resolveDashboardPrimaryAction(stats, truthView);
+    const dashboardLoopStage = resolveDashboardLoopStage(stats, truthView);
+    const dashboardBlocked = isDashboardBlocked(stats);
+    const dashboardEvidenceTone = getEvidenceTone(truthView.evidenceState);
+    const dashboardBlockerCount = getDashboardBlockerCount(stats);
+    const dashboardEvidenceItems: DashboardEvidenceItem[] = [
+        {
+            label: 'Acao atual',
+            value: latestMastery?.actionLabel ?? 'Gravar clip',
+            tone: dashboardBlocked ? 'warning' : 'info',
+        },
+        {
+            label: 'Confianca',
+            value: latestMastery ? formatPercent(latestMastery.evidence.confidence) : truthView.evidenceLabel,
+            tone: dashboardEvidenceTone,
+        },
+        {
+            label: 'Cobertura',
+            value: latestMastery ? formatPercent(latestMastery.evidence.coverage) : 'aguardando',
+            tone: dashboardEvidenceTone,
+        },
+        {
+            label: 'Bloqueadores',
+            value: String(dashboardBlockerCount),
+            tone: dashboardBlockerCount > 0 ? 'warning' : 'success',
+        },
+        {
+            label: 'Trend',
+            value: truthView.precisionTrendLabel ?? truthView.trendTitle,
+            tone: dashboardBlocked ? 'warning' : dashboardEvidenceTone,
+        },
+    ];
 
     const heroSummary = bestWeapon
         ? `Sua media operacional fechou em ${latestAverage}% na ultima leitura, com pico recente de ${latestPeak}%. ${bestWeapon.displayName} e hoje a arma que melhor converte suas sessoes em resultado; a tendencia atual e ${truthView.trendTitle.toLowerCase()}.`
@@ -298,6 +472,22 @@ export default async function DashboardPage() {
 
             <main className="page">
                 <div className="container" style={{ maxWidth: '1380px' }}>
+                    <PageCommandHeader
+                        body={`${nextActionTitle}. ${nextActionBody}`}
+                        evidenceItems={dashboardEvidenceItems}
+                        primaryAction={dashboardPrimaryAction}
+                        roleLabel="Command center"
+                        title="Dashboard de performance"
+                    />
+                    <div className="mb-8 mt-6">
+                        <LoopRail
+                            blocked={dashboardBlocked}
+                            currentStage={dashboardLoopStage}
+                            evidenceLabel={truthView.evidenceLabel}
+                            nextActionLabel={dashboardPrimaryAction.label}
+                        />
+                    </div>
+
                     <section className="mb-8 grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(340px,0.85fr)]">
                         <div className="glass-card relative overflow-hidden border border-zinc-800/80 bg-[radial-gradient(circle_at_top_left,rgba(249,115,22,0.16),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(6,182,212,0.14),transparent_32%),rgba(9,9,12,0.92)] p-0">
                             <div className="absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-orange-500/60 to-transparent" />
@@ -315,9 +505,9 @@ export default async function DashboardPage() {
                                 <p className="mb-3 text-[10px] font-mono uppercase tracking-[0.35em] text-cyan-400">
                                     Telemetria de combate // leitura continua
                                 </p>
-                                <h1 className="max-w-4xl text-4xl font-black uppercase tracking-[-0.05em] md:text-6xl">
+                                <h2 className="max-w-4xl text-4xl font-black uppercase tracking-[-0.05em] md:text-6xl">
                                     Dashboard de performance
-                                </h1>
+                                </h2>
                                 <p className="mt-5 max-w-3xl text-sm leading-relaxed text-zinc-400 md:text-base">
                                     {heroSummary}
                                 </p>
@@ -355,8 +545,8 @@ export default async function DashboardPage() {
                                 </div>
 
                                 <div className="mt-8 flex flex-wrap gap-3">
-                                    <Link href="/analyze" className="btn btn-primary">
-                                        Analisar novo clip
+                                    <Link href={dashboardPrimaryAction.href} className="btn btn-primary">
+                                        {dashboardPrimaryAction.label}
                                     </Link>
                                     <Link href="/history" className="btn btn-secondary">
                                         Abrir historico
@@ -383,33 +573,22 @@ export default async function DashboardPage() {
                                     </div>
                                     <span className={momentum.badgeClass}>{truthView.truthBadgeLabel}</span>
                                 </div>
-                                <div className="grid gap-3 text-sm text-zinc-400">
-                                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/6 bg-zinc-950/60 px-4 py-3">
-                                        <span>Acao atual</span>
-                                        <span className="text-cyan-400">
-                                            {latestMastery?.actionLabel ?? 'Gravar clip'}
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/6 bg-zinc-950/60 px-4 py-3">
-                                        <span>Confianca</span>
-                                        <span className="text-orange-400">
-                                            {latestMastery ? formatPercent(latestMastery.evidence.confidence) : truthView.evidenceLabel}
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/6 bg-zinc-950/60 px-4 py-3">
-                                        <span>Cobertura</span>
-                                        <span className="text-cyan-400">
-                                            {latestMastery ? formatPercent(latestMastery.evidence.coverage) : 'aguardando'}
-                                        </span>
-                                    </div>
-                                    {truthView.precisionTrendLabel ? (
-                                        <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/6 bg-zinc-950/60 px-4 py-3">
-                                            <span>Trend principal</span>
-                                            <span className="text-amber-300">
-                                                {truthView.precisionTrendLabel}
-                                            </span>
-                                        </div>
-                                    ) : null}
+                                <div className="flex flex-wrap gap-2" aria-label="Evidencia atual do dashboard">
+                                    {dashboardEvidenceItems.map((item) => {
+                                        const chipProps = {
+                                            ...(item.value ? { value: item.value } : {}),
+                                            ...(item.detail ? { detail: item.detail } : {}),
+                                        };
+
+                                        return (
+                                            <EvidenceChip
+                                                key={`${item.label}:${item.value ?? ''}`}
+                                                label={item.label}
+                                                tone={item.tone ?? 'info'}
+                                                {...chipProps}
+                                            />
+                                        );
+                                    })}
                                 </div>
                             </div>
 
@@ -453,8 +632,8 @@ export default async function DashboardPage() {
                                     </div>
                                 ) : null}
                                 <div className="mt-5 flex flex-wrap gap-3">
-                                    <Link href={activeCoachLoop?.ctaHref ?? '/analyze'} className="btn btn-primary">
-                                        {activeCoachLoop?.ctaLabel ?? 'Rodar nova analise'}
+                                    <Link href={dashboardPrimaryAction.href} className="btn btn-primary">
+                                        {dashboardPrimaryAction.label}
                                     </Link>
                                     <Link href="/history" className="btn btn-ghost">
                                         Ver sessoes
@@ -465,37 +644,29 @@ export default async function DashboardPage() {
                     </section>
 
                     <section className="mb-8 grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
-                        <DashboardMetricCard
-                            eyebrow="Sessoes mapeadas"
+                        <MetricTile
+                            helper={`${rankedWeapons.length} armas com historico na base atual.`}
+                            label="Sessoes mapeadas"
+                            tone={getMetricTone(Math.min(100, stats.totalSessions * 3))}
                             value={String(stats.totalSessions)}
-                            note={`${rankedWeapons.length} armas`}
-                            detail="Volume bruto da sua base. Quanto mais checkpoints limpos, mais honesta fica a leitura de tendencia e arsenal."
-                            progress={(stats.totalSessions / 30) * 100}
-                            tone={getScoreTone(Math.min(100, stats.totalSessions * 3))}
                         />
-                        <DashboardMetricCard
-                            eyebrow="Media de spray"
+                        <MetricTile
+                            helper={`${formatSignedPoints(stats.lastSessionDelta)} vs anterior, com leitura condicionada por evidencia.`}
+                            label="Media de spray"
+                            tone={getMetricTone(stats.avgSprayScore)}
                             value={`${stats.avgSprayScore}%`}
-                            note={`${formatSignedPoints(stats.lastSessionDelta)} vs anterior`}
-                            detail="Seu nivel de conversao medio. Aqui o importante nao e um pico isolado, e a capacidade de repetir sessao boa."
-                            progress={stats.avgSprayScore}
-                            tone={getScoreTone(stats.avgSprayScore)}
                         />
-                        <DashboardMetricCard
-                            eyebrow="Estabilidade base"
+                        <MetricTile
+                            helper={`Topo registrado: ${stats.bestStabilityScore}%.`}
+                            label="Estabilidade base"
+                            tone={getMetricTone(stats.avgStabilityScore)}
                             value={`${stats.avgStabilityScore}%`}
-                            note={`topo ${stats.bestStabilityScore}%`}
-                            detail="Mostra o quanto o spray se sustenta sem desmanchar. Hoje essa e sua ancora mais confiavel para ganhar consistencia."
-                            progress={stats.avgStabilityScore}
-                            tone={getScoreTone(stats.avgStabilityScore)}
                         />
-                        <DashboardMetricCard
-                            eyebrow="Pico historico"
+                        <MetricTile
+                            helper={`${consistencyGap} pts de distancia entre media e teto historico.`}
+                            label="Pico historico"
+                            tone={getMetricTone(stats.bestSprayScore)}
                             value={`${stats.bestSprayScore}%`}
-                            note={`${consistencyGap} pts de folga`}
-                            detail="Seu melhor teto registrado. A pergunta da dashboard agora e quanto falta para aproximar sua media desse nivel."
-                            progress={stats.bestSprayScore}
-                            tone={getScoreTone(stats.bestSprayScore)}
                         />
                     </section>
 
@@ -611,7 +782,9 @@ export default async function DashboardPage() {
                                             <div className="flex min-w-0 items-center gap-4">
                                                 <div className="rounded-[20px] border border-white/8 bg-black/35 p-3">
                                                     <WeaponIcon
+                                                        category={bestWeapon.category}
                                                         framed={false}
+                                                        showStatus
                                                         size={42}
                                                         weaponId={bestWeapon.weaponId}
                                                         weaponName={bestWeapon.displayName}
@@ -659,7 +832,9 @@ export default async function DashboardPage() {
                                                             {String(index + 1).padStart(2, '0')}
                                                         </span>
                                                         <WeaponIcon
+                                                            category={weapon.category}
                                                             framed={false}
+                                                            showStatus
                                                             size={28}
                                                             weaponId={weapon.weaponId}
                                                             weaponName={weapon.displayName}
