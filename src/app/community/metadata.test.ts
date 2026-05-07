@@ -131,9 +131,9 @@ describe('community metadata', () => {
     it('exposes discovery-ready metadata for the community feed page', async () => {
         const { metadata } = await import('./page');
 
-        expect(metadata.title).toBe('Comunidade PUBG Aim Analyzer');
+        expect(metadata.title).toBe('Comunidade Sens PUBG');
         expect(metadata.description).toBe(
-            'Veja posts publicos, setups e leituras de spray por arma, patch e diagnostico.',
+            'Veja posts publicos, setups e leituras de spray Sens PUBG por arma, patch e diagnostico.',
         );
         expect(metadata.alternates?.canonical).toBe('/community');
     });
