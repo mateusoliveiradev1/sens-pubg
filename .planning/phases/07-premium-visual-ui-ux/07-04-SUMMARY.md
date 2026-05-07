@@ -13,6 +13,7 @@ provides:
   - Saved analysis detail page with global header, local analysis navigation, coach/outcome/checkpoint audit, and reduced report repetition.
   - Playwright dashboard/history/detail overflow checks and desktop/mobile screenshots.
   - Single-spray saved reports do not show a pointless segmentation selector.
+  - Saved analysis detail lower report sections share the audit-detail polish for metrics, diagnoses, sensitivity, and coach.
 affects: [dashboard, history, saved-analysis-detail, coach-outcomes, precision-timeline, phase7-visual-verification]
 
 tech-stack:
@@ -21,6 +22,7 @@ tech-stack:
     - Dashboard and history compose PageCommandHeader, LoopRail, EvidenceChip, MetricTile, ProLockPreview, and WeaponIcon.
     - History actions return an evidence summary so the list can render truth state without recomputing UI guesses.
     - ResultsDashboard supports an audit-detail mode for saved analysis pages, avoiding duplicate report chrome.
+    - Audit-detail mode also calms legacy result cards, removes broken section icons, and keeps lower report sections responsive.
 
 key-files:
   created:
@@ -45,11 +47,13 @@ key-decisions:
   - "Saved analysis detail gets the global Header and a compact local analysis nav before the audit header."
   - "The embedded ResultsDashboard hides its upload/result chrome in saved analysis detail, while retaining the technical mastery, proof, coach, sensitivity, and metric sections."
   - "Spray segmentation only appears when there are at least two sprays to choose between."
+  - "Saved detail lower sections keep the same audit language and visual density as the top shell instead of mixing old result-page chrome."
   - "Playwright seeds an authenticated history fixture so dashboard, history list, and detail are checked in mobile and desktop states."
 
 patterns-established:
   - "Use responsive auto-fit grids with minmax(min(100%, ...)) for dense dashboard/history tiles."
   - "Use mode=\"audit-detail\" when reusing result report internals inside an already headed audit page."
+  - "Use dashboardAuditDetail styles to keep reused result internals visually coherent on saved analysis detail."
   - "Hide one-item selectors; controls render only when they create a real choice."
   - "Scope local page navigation assertions in Playwright when global nav contains the same labels."
 
@@ -65,10 +69,10 @@ completed: 2026-05-07
 
 ## Performance
 
-- **Duration:** 58 min including saved-analysis navigation/redundancy follow-up.
+- **Duration:** 58 min including saved-analysis navigation/redundancy/lower-section follow-ups.
 - **Started:** 2026-05-07T05:22:09Z
-- **Completed:** 2026-05-07T06:02:36Z
-- **Tasks:** 3 completed plus 2 user-requested polish corrections.
+- **Completed:** 2026-05-07T06:20:10Z
+- **Tasks:** 3 completed plus 3 user-requested polish corrections.
 - **Files modified/added:** 12 implementation/test files.
 
 ## Accomplishments
@@ -79,6 +83,7 @@ completed: 2026-05-07
 - Refactored `/history/[id]` with the global `Header`, local analysis navigation, compact publish/community actions, analysis evidence header, loop rail, metric tiles, coach snapshot, outcome revisions, conflicts, checkpoint context, and anchored outcome/sensitivity panels.
 - Reduced redundant saved-analysis content by adding `ResultsDashboard mode="audit-detail"`; the detail page keeps technical sections but removes the second report header, second loop rail, and duplicate Free/Pro capture guide.
 - Removed the one-spray segmentation selector from saved analysis reports and upgraded the multi-spray selector to real buttons.
+- Polished saved-analysis lower sections so metrics, diagnoses, sensitivity, and coach use cleaner audit titles, responsive gauge layout, and calmer cards in `audit-detail` mode.
 - Added authenticated Playwright coverage for `/dashboard`, `/history`, and seeded `/history/[id]` in mobile and desktop, with horizontal overflow assertions.
 
 ## Task Commits
@@ -88,8 +93,7 @@ completed: 2026-05-07
 3. **Task 3: Refactor history detail audit and visual checks** - `bdf9ec4` (`feat(07-04): polish history detail audit checks`)
 4. **Follow-up: reduce saved-analysis repetition** - `0424c3f` (`fix(07-04): reduce saved analysis report repetition`)
 5. **Follow-up: hide useless one-spray segmentation** - `7cd63b1` (`fix(07-04): hide single-spray segment selector`)
-
-**Plan metadata:** pending in this docs commit.
+6. **Follow-up: polish saved-analysis lower sections** - `2c12a9e` (`fix(07-04): polish saved detail lower sections`)
 
 ## Files Created/Modified
 
@@ -100,10 +104,10 @@ completed: 2026-05-07
 - `src/app/history/page.tsx` - Responsive audit/evolution timeline, precision lines, checkpoints, outcome chips, Pro depth preview, and mobile-safe cards.
 - `src/app/history/[id]/page.tsx` - Saved analysis detail audit shell with global header, local nav, loop/evidence summary, coach audit, outcomes, checkpoints, and embedded result report.
 - `src/app/history/[id]/publish-analysis-button.tsx` - Compact publish/community action group for the analysis nav.
-- `src/app/analyze/results-dashboard.tsx` - Adds audit-detail mode to avoid duplicate report chrome on saved analysis detail.
-- `src/app/analyze/analysis.module.css` - Adds stable button styling for multi-spray selection and removes the displaced horizontal selector feel.
-- `e2e/phase7.dashboard-history.spec.ts` - Dashboard/history/detail desktop/mobile overflow, header/nav, and redundancy regression coverage.
-- Contract tests under `src/app/dashboard`, `src/app/history`, and `src/app/analyze` - Guard audit visibility, one-action hierarchy, and no duplicate saved-analysis chrome.
+- `src/app/analyze/results-dashboard.tsx` - Adds audit-detail mode to avoid duplicate report chrome on saved analysis detail, cleans lower section titles, and uses a responsive gauge row.
+- `src/app/analyze/analysis.module.css` - Adds stable button styling for multi-spray selection, removes the displaced horizontal selector feel, and applies audit-detail lower-section polish.
+- `e2e/phase7.dashboard-history.spec.ts` - Dashboard/history/detail desktop/mobile overflow, header/nav, lower-section, and redundancy regression coverage.
+- Contract tests under `src/app/dashboard`, `src/app/history`, and `src/app/analyze` - Guard audit visibility, one-action hierarchy, lower saved-detail polish, and no duplicate saved-analysis chrome.
 
 ## Decisions Made
 
@@ -118,9 +122,10 @@ completed: 2026-05-07
 - Added `src/app/history/[id]/publish-analysis-button.tsx` polish even though the plan listed the detail page and outcome panel. This was needed because the user pointed out the publish/community actions felt awkward in the saved analysis page.
 - Added `ResultsDashboard mode="audit-detail"` after user feedback about redundant report blocks. This keeps the required `ResultsDashboard` mounted while removing duplicate page chrome.
 - Hid single-spray segmentation after user feedback that the selector looked displaced and non-functional. Multi-spray reports still get a functional selector.
+- Added a final saved-detail lower-section polish after user feedback that coach/sensitivity/metrics still felt half old and half new.
 
-**Total deviations:** 3 user-facing polish fixes.
-**Impact on plan:** Positive; the polish fixes reduce navigation friction, remove redundant chrome, and preserve the audit requirement.
+**Total deviations:** 4 user-facing polish fixes.
+**Impact on plan:** Positive; the polish fixes reduce navigation friction, remove redundant chrome, align lower report sections, and preserve the audit requirement.
 
 ## Issues Encountered
 
@@ -128,12 +133,14 @@ completed: 2026-05-07
 - Playwright strict mode found duplicate `Comunidade` links after adding the global header. The assertion was scoped to `Navegacao da analise`.
 - The saved analysis page duplicated report headers/loops after the detail audit refactor; `mode="audit-detail"` now protects that route.
 - The one-item segmentation selector looked like a broken control on saved one-spray reports. It now renders only when more than one spray exists.
+- The lower saved-analysis report still mixed old result-page styling with the new audit shell. `dashboardAuditDetail` now normalizes headings, cards, hover behavior, and gauge wrapping for that embedded mode.
 
 All issues were resolved before final verification.
 
 ## Verification
 
 - `npx vitest run src/actions/dashboard.test.ts src/app/dashboard/dashboard-truth-view-model.test.ts src/app/dashboard/page.contract.test.ts src/actions/history.test.ts src/app/history/page.contract.test.ts src/app/history/[id]/coach-protocol-outcome-panel.contract.test.ts src/app/copy-claims.contract.test.ts src/app/analyze/results-dashboard.contract.test.ts` - PASS, 8 files, 82 tests.
+- `npx vitest run src/app/analyze/results-dashboard.contract.test.ts` - PASS, 22 tests after the lower-section follow-up.
 - `npx playwright test e2e/phase7.dashboard-history.spec.ts` - PASS, 6 tests.
 - `npm run typecheck` - PASS.
 - `npx vitest run` - PASS, 161 files, 881 tests.
@@ -163,6 +170,7 @@ Plan 07-04 is complete and ready for 07-05. Dashboard/history now match the Phas
 - Saved analysis detail keeps full coach/trend/outcome/checkpoint context.
 - Duplicate saved-analysis report chrome was removed after user review.
 - Single-spray segmentation selector was removed after user review.
+- Saved-analysis lower metrics, diagnoses, sensitivity, and coach sections now match the audit-detail shell.
 - Focused tests, Playwright, typecheck, full Vitest, and benchmark gate pass.
 
 ---

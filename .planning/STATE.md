@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: ready_to_execute
-last_updated: "2026-05-07T06:07:13.000Z"
+last_updated: "2026-05-07T06:20:10.000Z"
 progress:
   total_phases: 13
   completed_phases: 6
@@ -58,7 +58,7 @@ Phase 7: Premium Visual UI UX
 - Phase 7 plan 07-01 is complete with Phase 7 semantic tokens, original Sens PUBG mark/lockup, loop/evidence/metric/lock/state primitives, rebranded desktop/mobile navigation, paid route visibility, and focused contract tests/typecheck passing.
 - Phase 7 plan 07-02 is complete with the 29-weapon visual registry, support-status truth contract, registry-backed WeaponIcon catalog using available official PUBG API weapon renders plus an authored JS9 fallback, desktop/mobile visual matrix screenshots, focused/full Vitest, typecheck, Playwright, and benchmark gate passing.
 - Phase 7 plan 07-03 is complete with assisted browser-first upload/setup, verdict-first result report, contextual Free/Pro continuity locks, SprayTrailPanel proof surface, desktop/mobile spray proof screenshots, focused/full Vitest, typecheck, Playwright, and benchmark gate passing.
-- Phase 7 plan 07-04 is complete with a premium dashboard command center, mobile-safe history audit/evolution timeline, saved-analysis detail navigation/audit polish, duplicate report chrome reduction, single-spray selector cleanup, focused/full Vitest, typecheck, Playwright, and benchmark gate passing.
+- Phase 7 plan 07-04 is complete with a premium dashboard command center, mobile-safe history audit/evolution timeline, saved-analysis detail navigation/audit polish, lower report section polish for metrics/sensitivity/coach, duplicate report chrome reduction, single-spray selector cleanup, focused/full Vitest, typecheck, Playwright, and benchmark gate passing.
 
 ## Next Recommended Command
 
@@ -101,4 +101,4 @@ Execute Phase 7 Wave 4 next: `07-05` Pricing, Billing, Checkout Receipts, Locks,
 - Phase 7 07-01 executed: Added Phase 7 semantic tokens, original Sens PUBG brand primitives, loop/evidence/metric/lock/state components, paid-route-safe header/mobile IA, and contract tests proving Planos/Assinatura and Sens dos Pros stay distinct.
 - Phase 7 07-02 executed: Added a 29-weapon visual registry, support-status resolver that separates visual coverage from technical analysis support, registry-backed weapon visuals using available official PUBG API renders plus authored JS9 fallback, dashboard/history consumer contracts, and desktop/mobile Playwright visual matrix evidence.
 - Phase 7 07-03 executed: Added assisted browser-first upload/setup states, verdict-first result reporting through shared Phase 7 primitives, contextual ProLockPreview continuity locks, a SprayTrailPanel proof surface with reference-unavailable and low-evidence behavior, and desktop/mobile Playwright spray proof screenshots.
-- Phase 7 07-04 executed: Added dashboard command-center action hierarchy, history evidence summaries/timeline cards, saved-analysis detail global/local navigation, coach/outcome/checkpoint audit polish, ResultsDashboard audit-detail mode, single-spray selector cleanup, and dashboard/history/detail Playwright overflow evidence.
+- Phase 7 07-04 executed: Added dashboard command-center action hierarchy, history evidence summaries/timeline cards, saved-analysis detail global/local navigation, coach/outcome/checkpoint audit polish, ResultsDashboard audit-detail mode with lower report section polish, single-spray selector cleanup, and dashboard/history/detail Playwright overflow evidence.
