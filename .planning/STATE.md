@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready_to_plan
-last_updated: "2026-05-07T19:09:05.751Z"
+status: ready_to_execute
+last_updated: "2026-05-07T19:25:54.787Z"
 progress:
   total_phases: 13
   completed_phases: 7
-  total_plans: 35
+  total_plans: 41
   completed_plans: 35
-  percent: 100
+  percent: 85
 ---
 
 # State: Sens PUBG
@@ -64,12 +64,13 @@ Phase 8: Complete Training Protocols
 - Phase 7 plan 07-07 is complete with the No False Perfect Playwright matrix, authenticated visual fixtures, product state matrix route, accessibility/overflow checks, deterministic evidence verifier, final visual verification docs, and general lint cleanup for the old cache-clean helper issue.
 - Phase 7 automated gates pass: `npm run lint`, `npm run typecheck`, `npx vitest run`, `npm run test:monetization`, `npm run benchmark:gate`, Phase 7 Playwright matrix, `npm run verify:phase7:visual`, and `npm run build`.
 - Phase 7 final status is Partially delivered: implementation and automated verification are complete, but the manual Stripe test-mode paid-flow checklist remains pending before public paid launch can be called fully delivered.
+- Phase 8 planning is complete with 6 executable plans across 5 waves, backed by `08-RESEARCH.md` and full decision coverage from `08-CONTEXT.md`.
 
 ## Next Recommended Command
 
-`$gsd-discuss-phase 08`
+`$gsd-execute-phase 08`
 
-Start Phase 8 context gathering for Complete Training Protocols.
+Execute Phase 8 Complete Training Protocols.
 
 ## Open Questions
 
@@ -110,3 +111,4 @@ Start Phase 8 context gathering for Complete Training Protocols.
 - Phase 7 07-05 executed: Added pricing purchase-decision copy, billing trust panels, checkout webhook-pending/cancel receipts, contextual paid locks, safe paid analytics helpers, paid-state screenshots, and a Playwright-covered fix for the pricing hero overflow reported by the user.
 - Phase 7 07-06 executed: Added a premium Sens PUBG home loop entry, route/metadata/FAQ copy separation for paid Pro versus Sens dos Pros, light community/admin shell coherence, home animation/no-cut-label/sticky-FAQ polish from user review, and home/global Playwright screenshots.
 - Phase 7 07-07 executed: Added the final No False Perfect evidence gate with desktop/mobile route screenshots, authenticated fixtures, product state matrix, accessibility/overflow browser checks, deterministic evidence verification, final checklist/docs, and a clean `npm run lint` after replacing the old CommonJS dev-cache helper.
+- Phase 8 planned: 6 executable Complete Training Protocols plans across 5 waves, covering the complete protocol contract/drill engine, snapshot persistence/revisions/outcomes/transfer, Free/Pro post-analysis ficha, dashboard/history continuity, LLM/golden/benchmark/copy gates, and No False Done evidence.

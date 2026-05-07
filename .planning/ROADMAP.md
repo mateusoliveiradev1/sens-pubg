@@ -314,6 +314,34 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **UI hint:** yes
 
+**Plans:**
+
+**Wave 1**
+- `08-01` - Complete Protocol Contract, Drill Catalog, And Downgrade Engine. Adds versioned complete protocol contracts, PUBG drill masters, deterministic composer, preparation safety, validation/transfer plans, and coach-plan attachment.
+
+**Wave 2 *(blocked on Wave 1 completion)***
+- `08-02` - Protocol Snapshot Persistence, Revisions, Outcomes, And Transfer Records. Persists versioned protocol snapshots, adds revision/transfer records, extends outcome statuses, and preserves compatible clip validation as technical proof.
+- `08-03` - Free/Pro Protocol Projection And Post-Analysis Ficha. Builds server-owned Free/Pro projection, protocol view models, and a polished post-analysis ficha with blockers, preparation, validation, transfer, and audit disclosure.
+
+**Wave 3 *(blocked on Wave 2 completion)***
+- `08-04` - Dashboard And History Protocol Continuity. Extends active dashboard state, history audit, outcome cards, compatible validation prompts, real-match/TDM transfer, and revision timeline surfaces.
+
+**Wave 4 *(blocked on Wave 3 completion)***
+- `08-05` - LLM Guardrails, Coach Goldens, Benchmark, And Copy Safety. Locks complete protocol immutable facts, adds golden/downgrade fixtures, benchmark truth checks, and safety/copy gates.
+
+**Wave 5 *(blocked on all prior plans)***
+- `08-06` - No False Done Training Protocol Evidence Matrix. Adds deterministic Phase 8 evidence verification, final checklist/docs, command recording, and honest delivered/partial/blocked status rules.
+
+**Cross-cutting constraints:**
+- Preserve browser-first analysis; protocols train and validate around user clips without server video compute.
+- Deterministic code owns complete protocol truth; optional LLM may only rewrite allowed display copy.
+- Free remains useful and polished; Pro unlocks complete ficha depth, audit, revision, compatible validation, and transfer continuity.
+- Weak or missing evidence must downgrade to recapture, short test, stabilization, or repair path instead of inventing exact protocol facts.
+- Physical preparation stays general, privacy-minimal, non-medical, and safety-first; pain, numbness, tingling, fatigue, confusion, or variable changes downgrade the block.
+- Real-match/TDM transfer is practical evidence only and cannot replace strict compatible clip validation for technical conclusions.
+- Phase 8 must not build the Phase 9 Spray Lab session runner, guided sessions, or benchmark runner.
+- No copy may claim perfect sensitivity, guaranteed improvement/rank, medical benefit, or official PUBG/KRAFTON affiliation.
+
 ## Phase 9: PUBG Spray Lab Session Runner And Benchmark
 
 **Goal:** Build the PUBG-focused lab layer for guided drills, training sessions, and internal benchmarks.
