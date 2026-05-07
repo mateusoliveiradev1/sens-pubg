@@ -30,6 +30,10 @@ const FAQS: FaqItem[] = [
         a: 'Hoje o projeto cobre um conjunto importante das armas mais usadas do meta. O catalogo do dominio ainda esta evoluindo para cobertura patch-aware mais completa, entao armas ou patches sem base confiavel geram leitura mais conservadora.',
     },
     {
+        q: 'Qual a diferenca entre Pro e Sens dos Pros?',
+        a: 'Pro e a assinatura paga para continuidade do seu loop: coach completo, historico, tendencias compativeis e mais analises uteis salvas. Sens dos Pros e uma referencia publica de configuracoes de jogadores profissionais; ele nao concede assinatura, billing ou acesso Pro.',
+    },
+    {
         q: 'Quais sao os limites da analise?',
         a: 'Clipes com fumaca, overlays, baixa nitidez, compressao pesada, FPS instavel ou mira fora do centro reduzem a confianca. O app pode bloquear videos ruins e, quando analisa, mostra score de qualidade, motivos de degradacao, frames perdidos, re-aquisicao e patch para voce julgar a forca do sinal.',
     },

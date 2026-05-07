@@ -25,11 +25,11 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
   title: {
-    default: 'Sens PUBG - Analise de spray com evidencia',
+    default: 'Sens PUBG - Analise de spray para PUBG',
     template: '%s | Sens PUBG',
   },
   description:
-    'Analise clips de spray no navegador, veja confianca, cobertura e receba um proximo bloco de treino testavel para PUBG.',
+    'Analise clips de spray no navegador, veja confianca, cobertura, blockers e um proximo bloco de treino testavel para PUBG.',
   keywords: [
     'PUBG', 'aim trainer', 'recoil control', 'sensitivity calculator',
     'spray analysis', 'aim coach', 'PUBG sensibilidade', 'analisador de mira',
@@ -57,14 +57,14 @@ export const metadata: Metadata = {
     alternateLocale: ['en_US', 'es_ES'],
     url: '/',
     siteName: 'Sens PUBG',
-    title: 'Sens PUBG - Analise de spray com evidencia',
-    description: 'Analise clips reais, identifique padroes de spray e explore faixas de teste com apoio do motor de diagnostico.',
+    title: 'Sens PUBG - Analise de spray para PUBG',
+    description: 'Analise clips reais, veja confianca e cobertura, e explore faixas de teste com apoio do motor de diagnostico.',
     images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'Sens PUBG dashboard' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Sens PUBG',
-    description: 'Analise visual de spray para PUBG com confianca, cobertura e proximo bloco testavel.',
+    description: 'Analise visual de spray para PUBG com confianca, cobertura, blockers e proximo bloco testavel.',
     images: ['/og-image.png'],
   },
   robots: {

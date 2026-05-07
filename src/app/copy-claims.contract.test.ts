@@ -17,6 +17,8 @@ const PRODUCT_COPY_FILES = [
     'src/actions/dashboard-active-coach-loop.ts',
     'src/app/analyze/analysis-guide.tsx',
     'src/app/page.tsx',
+    'src/app/layout.tsx',
+    'src/app/pros/page.tsx',
     'src/app/history/page.tsx',
     'src/app/history/[id]/coach-protocol-outcome-panel.tsx',
     'src/app/profile/page.tsx',
@@ -206,5 +208,17 @@ describe('product copy claim contract', () => {
         expect(lockCopy).toContain('plano completo');
         expect(lockCopy).toContain('limite');
         expect(lockCopy).toContain('pagamento');
+    });
+
+    it('separates paid Pro from Sens dos Pros professional references', () => {
+        const landingCopy = normalizeCopy(readProductCopy('src/app/page.tsx'));
+        const faqCopy = normalizeCopy(readProductCopy('src/ui/components/faq-accordion.tsx'));
+        const prosCopy = normalizeCopy(readProductCopy('src/app/pros/page.tsx'));
+
+        expect(`${landingCopy}\n${faqCopy}\n${prosCopy}`).toContain('sens dos pros');
+        expect(faqCopy).toContain('pro e a assinatura paga');
+        expect(faqCopy).toContain('referencia publica');
+        expect(prosCopy).toContain('planos e assinatura cuidam do pro pago');
+        expect(prosCopy).not.toContain('assinatura pro founder');
     });
 });
