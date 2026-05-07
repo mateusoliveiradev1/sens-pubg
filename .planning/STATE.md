@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: ready_to_execute
-last_updated: "2026-05-07T07:08:07.794Z"
+last_updated: "2026-05-07T07:33:35.000Z"
 progress:
   total_phases: 13
   completed_phases: 6
   total_plans: 35
-  completed_plans: 33
-  percent: 94
+  completed_plans: 34
+  percent: 97
 ---
 
 # State: Sens PUBG
@@ -60,12 +60,13 @@ Phase 7: Premium Visual UI UX
 - Phase 7 plan 07-03 is complete with assisted browser-first upload/setup, verdict-first result report, contextual Free/Pro continuity locks, SprayTrailPanel proof surface, desktop/mobile spray proof screenshots, focused/full Vitest, typecheck, Playwright, and benchmark gate passing.
 - Phase 7 plan 07-04 is complete with a premium dashboard command center, mobile-safe history audit/evolution timeline, saved-analysis detail navigation/audit polish, lower report section polish for clip quality/tracking/metrics/sensitivity/coach, history field-reading polish, duplicate report chrome reduction, single-spray selector cleanup, focused/full Vitest, typecheck, Playwright, and benchmark gate passing.
 - Phase 7 plan 07-05 is complete with premium pricing, billing trust panels, checkout success/cancel receipts, contextual paid locks, privacy-safe paid analytics helpers, paid-state Playwright screenshots, the user-reported pricing overflow fix, focused/full Vitest, monetization suite, typecheck, Playwright, and benchmark gate passing.
+- Phase 7 plan 07-06 is complete with a premium Sens PUBG home loop entry, route IA and metadata clarity, paid Pro versus Sens dos Pros separation, light community/admin coherence, user-requested home motion/no-cut-label/sticky-FAQ polish, focused/full Vitest, typecheck, Playwright, and benchmark gate passing.
 
 ## Next Recommended Command
 
 `$gsd-execute-phase 07`
 
-Execute Phase 7 Wave 5 next: `07-06` Home Entry, Route IA, And Light Global Coherence.
+Execute Phase 7 Wave 6 next: `07-07` No False Perfect Visual QA And Evidence Matrix.
 
 ## Open Questions
 
@@ -104,3 +105,4 @@ Execute Phase 7 Wave 5 next: `07-06` Home Entry, Route IA, And Light Global Cohe
 - Phase 7 07-03 executed: Added assisted browser-first upload/setup states, verdict-first result reporting through shared Phase 7 primitives, contextual ProLockPreview continuity locks, a SprayTrailPanel proof surface with reference-unavailable and low-evidence behavior, and desktop/mobile Playwright spray proof screenshots.
 - Phase 7 07-04 executed: Added dashboard command-center action hierarchy, history evidence summaries/timeline cards, saved-analysis detail global/local navigation, coach/outcome/checkpoint audit polish, ResultsDashboard audit-detail mode with lower report/internal polish, history field-reading polish, single-spray selector cleanup, and dashboard/history/detail Playwright overflow evidence.
 - Phase 7 07-05 executed: Added pricing purchase-decision copy, billing trust panels, checkout webhook-pending/cancel receipts, contextual paid locks, safe paid analytics helpers, paid-state screenshots, and a Playwright-covered fix for the pricing hero overflow reported by the user.
+- Phase 7 07-06 executed: Added a premium Sens PUBG home loop entry, route/metadata/FAQ copy separation for paid Pro versus Sens dos Pros, light community/admin shell coherence, home animation/no-cut-label/sticky-FAQ polish from user review, and home/global Playwright screenshots.
