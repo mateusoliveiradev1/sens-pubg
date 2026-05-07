@@ -59,6 +59,225 @@
     font-size: var(--text-sm);
 }
 
+.uploadDropzone {
+    display: grid;
+    gap: var(--space-md);
+    padding: var(--space-xl);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
+        rgba(0, 0, 0, 0.18);
+}
+
+.uploadDropzone[data-tone="pro"] {
+    border-color: rgba(215, 181, 109, 0.32);
+}
+
+.uploadDropzone[data-tone="warning"] {
+    border-color: rgba(255, 193, 7, 0.34);
+    background:
+        linear-gradient(180deg, rgba(255, 193, 7, 0.08), rgba(255, 255, 255, 0.02)),
+        rgba(0, 0, 0, 0.18);
+}
+
+.uploadDropzone[data-tone="error"] {
+    border-color: rgba(255, 61, 61, 0.34);
+}
+
+.uploadDropzoneCompact {
+    margin-top: var(--space-md);
+    padding: var(--space-lg);
+}
+
+.uploadDropzoneActive {
+    border-color: var(--color-accent-primary);
+    box-shadow: 0 0 0 1px rgba(255, 107, 0, 0.24);
+}
+
+.uploadDropzoneTarget {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--space-md);
+    align-items: center;
+    min-height: 120px;
+    cursor: pointer;
+}
+
+.uploadDropzoneCompact .uploadDropzoneTarget {
+    min-height: 88px;
+}
+
+.uploadStateBadge {
+    display: inline-flex;
+    width: fit-content;
+    min-height: 32px;
+    align-items: center;
+    padding: 0 var(--space-md);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    color: var(--color-text-secondary);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 700;
+}
+
+.uploadStateBadge[data-tone="pro"] {
+    border-color: rgba(215, 181, 109, 0.34);
+    color: #d7b56d;
+}
+
+.uploadStateBadge[data-tone="warning"] {
+    border-color: rgba(255, 193, 7, 0.34);
+    color: var(--color-warning);
+}
+
+.uploadStateBadge[data-tone="error"] {
+    border-color: rgba(255, 61, 61, 0.34);
+    color: var(--color-error);
+}
+
+.uploadMainCopy {
+    display: grid;
+    gap: var(--space-sm);
+    min-width: 0;
+}
+
+.uploadMainCopy h3 {
+    margin: 0;
+    font-size: var(--text-xl);
+    line-height: 1.25;
+}
+
+.uploadMainCopy p,
+.browserFirstCopy,
+.uploadSelectedFile,
+.uploadWeaponStatus p,
+.uploadInlineState p {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+    line-height: 1.5;
+}
+
+.browserFirstCopy {
+    color: var(--color-accent-cyan);
+}
+
+.uploadPickerButton {
+    min-height: 48px;
+    padding: 0 var(--space-lg);
+    border: 1px solid rgba(255, 107, 0, 0.35);
+    border-radius: 8px;
+    background: var(--color-accent-primary);
+    color: #08080c;
+    cursor: pointer;
+    font-size: var(--text-sm);
+    font-weight: 700;
+}
+
+.uploadFileInput {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+.uploadEvidenceGrid,
+.metadataChecklist {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: var(--space-sm);
+}
+
+.uploadEvidenceGrid span,
+.metadataChecklist span {
+    min-height: 40px;
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.035);
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+    line-height: 1.45;
+}
+
+.uploadSelectedFile {
+    font-family: var(--font-mono);
+}
+
+.uploadWeaponStatus,
+.weaponSupportHint {
+    display: flex;
+    gap: var(--space-md);
+    align-items: center;
+    padding: var(--space-md);
+    border: 1px solid rgba(215, 181, 109, 0.18);
+    border-radius: 8px;
+    background: rgba(215, 181, 109, 0.06);
+}
+
+.weaponSupportHint {
+    margin-top: var(--space-sm);
+    align-items: flex-start;
+}
+
+.weaponSupportHint strong,
+.uploadWeaponStatus strong,
+.uploadInlineState strong {
+    display: block;
+    color: var(--color-text-primary);
+    font-size: var(--text-sm);
+    margin-bottom: var(--space-xs);
+}
+
+.weaponSupportHint p {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+    line-height: 1.45;
+}
+
+.uploadInlineState {
+    display: grid;
+    gap: var(--space-sm);
+    padding: var(--space-md);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.uploadInlineState[data-tone="warning"] {
+    border-color: rgba(255, 193, 7, 0.3);
+    background: rgba(255, 193, 7, 0.08);
+}
+
+.uploadInlineState[data-tone="error"] {
+    border-color: rgba(255, 61, 61, 0.3);
+    background: rgba(255, 61, 61, 0.08);
+}
+
+.uploadInlineState span {
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+}
+
+.uploadGuideButton {
+    width: fit-content;
+    min-height: 40px;
+    padding: 0 var(--space-md);
+    border: 1px solid rgba(121, 240, 255, 0.2);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--color-accent-cyan);
+    cursor: pointer;
+    font-size: var(--text-sm);
+    font-weight: 700;
+}
+
 /* ═══ Video Preview ═══ */
 
 .qualityWarning {
@@ -1919,6 +2138,20 @@
 }
 
 @media (max-width: 767px) {
+    .uploadDropzoneTarget {
+        grid-template-columns: 1fr;
+    }
+
+    .uploadPickerButton,
+    .uploadGuideButton {
+        width: 100%;
+    }
+
+    .uploadWeaponStatus {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
     .verdictReport,
     .adaptiveCoachLoop,
     .precisionTrendBlock {

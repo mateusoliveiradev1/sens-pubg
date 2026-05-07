@@ -44,6 +44,7 @@ import { getAnalysisSaveAccess, saveAnalysisResult } from '@/actions/history';
 import type { PlayerProfile, weaponProfiles } from '@/db/schema';
 import { ResultsDashboard } from './results-dashboard';
 import { AnalysisGuide } from './analysis-guide';
+import { UploadDropzone } from './upload-dropzone';
 import { createAnalysisContext } from './analysis-context';
 import {
     resolvePersistedAnalysisWeaponId,
@@ -290,12 +291,12 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
     const [qualityWarning, setQualityWarning] = useState<string | null>(null);
     const [result, setResult] = useState<AnalysisResult | null>(null);
     const [dragActive, setDragActive] = useState(false);
+    const [isValidatingUpload, setIsValidatingUpload] = useState(false);
     const [isGuideOpen, setIsGuideOpen] = useState(false);
     const [worker, setWorker] = useState<Worker | null>(null);
     const [saveAccess, setSaveAccess] = useState<AnalysisSaveAccessState | null>(null);
 
     const videoRef = useRef<HTMLVideoElement>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const nextWorker = new Worker(new URL('../../workers/aimAnalyzer.worker.ts', import.meta.url));
@@ -349,10 +350,19 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
         return grouped;
     }, [weaponSupport.supported]);
 
-    const currentDbWeapon = useMemo(
-        () => resolveSupportedAnalysisWeapon(weaponSupport.supported, weaponId)?.dbWeapon,
+    const currentWeaponEntry = useMemo(
+        () => resolveSupportedAnalysisWeapon(weaponSupport.supported, weaponId),
         [weaponId, weaponSupport.supported]
     );
+    const currentDbWeapon = currentWeaponEntry?.dbWeapon;
+    const uploadWeapon = currentWeaponEntry
+        ? {
+            id: currentWeaponEntry.dbWeapon.id,
+            name: currentWeaponEntry.dbWeapon.name,
+            category: currentWeaponEntry.dbWeapon.category,
+            supportStatus: currentWeaponEntry.supportStatus,
+        }
+        : null;
 
     const effectiveDistanceMeters = distanceMode === 'unknown' ? DISTANCE_UNKNOWN_REFERENCE_METERS : distance;
     const hasAttachment = (type: string) => currentDbWeapon?.attachments?.includes(type);
@@ -360,29 +370,34 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
     const handleFile = useCallback(async (file: File) => {
         setError(null);
         setQualityWarning(null);
+        setIsValidatingUpload(true);
 
-        const prepared = await validateAndPrepareVideo(file);
-        if (!prepared.valid) {
-            setError(prepared.error.message);
-            return;
-        }
+        try {
+            const prepared = await validateAndPrepareVideo(file);
+            if (!prepared.valid) {
+                setError(prepared.error.message);
+                return;
+            }
 
-        if (!prepared.metadata.qualityReport.usableForAnalysis) {
-            setQualityWarning(
-                `Qualidade estimada do clip: ${Math.round(prepared.metadata.qualityReport.overallScore)}/100. A leitura vai seguir, mas pode ficar mais conservadora. Pontos detectados: ${formatQualityBlockingReasons(prepared.metadata.qualityReport.blockingReasons)}.`
-            );
-        }
-        else if (prepared.metadata.height < 1080) {
-            setQualityWarning(`Resolucao detectada: ${prepared.metadata.height}p. Recomendamos 1080p para maior precisao.`);
-        } else if (prepared.metadata.fps < 59) {
-            setQualityWarning(`Framerate detectado: ${Math.round(prepared.metadata.fps)} FPS. Recomendamos 60 FPS para capturar cada micro-ajuste.`);
-        } else if (prepared.metadata.qualityReport.overallScore < 60) {
-            setQualityWarning(`Qualidade estimada do clip: ${Math.round(prepared.metadata.qualityReport.overallScore)}/100. O video e analisavel, mas ainda pode limitar a precisao fina.`);
-        }
+            if (!prepared.metadata.qualityReport.usableForAnalysis) {
+                setQualityWarning(
+                    `Qualidade estimada do clip: ${Math.round(prepared.metadata.qualityReport.overallScore)}/100. A leitura vai seguir, mas pode ficar mais conservadora. Pontos detectados: ${formatQualityBlockingReasons(prepared.metadata.qualityReport.blockingReasons)}.`
+                );
+            }
+            else if (prepared.metadata.height < 1080) {
+                setQualityWarning(`Resolucao detectada: ${prepared.metadata.height}p. Recomendamos 1080p para maior precisao.`);
+            } else if (prepared.metadata.fps < 59) {
+                setQualityWarning(`Framerate detectado: ${Math.round(prepared.metadata.fps)} FPS. Recomendamos 60 FPS para capturar cada micro-ajuste.`);
+            } else if (prepared.metadata.qualityReport.overallScore < 60) {
+                setQualityWarning(`Qualidade estimada do clip: ${Math.round(prepared.metadata.qualityReport.overallScore)}/100. O video e analisavel, mas ainda pode limitar a precisao fina.`);
+            }
 
-        setVideo(prepared.metadata);
-        setMarkers([{ id: crypto.randomUUID(), time: 0 }]);
-        setStep('settings');
+            setVideo(prepared.metadata);
+            setMarkers([{ id: crypto.randomUUID(), time: 0 }]);
+            setStep('settings');
+        } finally {
+            setIsValidatingUpload(false);
+        }
     }, []);
 
     const addMarker = useCallback(() => {
@@ -403,19 +418,6 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
             videoRef.current.currentTime = time;
         }
     }, []);
-
-    const handleDrop = useCallback((event: React.DragEvent) => {
-        event.preventDefault();
-        setDragActive(false);
-
-        const file = event.dataTransfer.files[0];
-        if (file) void handleFile(file);
-    }, [handleFile]);
-
-    const handleInputChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (file) void handleFile(file);
-    }, [handleFile]);
 
     const handleAnalyze = useCallback(async () => {
         if (!video || !worker) return;
@@ -681,10 +683,13 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
         setStep('upload');
         setResult(null);
         setError(null);
+        setQualityWarning(null);
+        setDragActive(false);
+        setIsValidatingUpload(false);
     }, [video]);
 
     const phaseLabels: Record<ProcessingPhase, string> = {
-        extracting: 'Extraindo frames...',
+        extracting: 'Lendo frames no navegador',
         tracking: 'Rastreando mira...',
         calculating: 'Calculando metricas...',
         diagnosing: 'Diagnosticando...',
@@ -693,49 +698,33 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
     const uploadedQualityDiagnostic = video?.qualityReport.diagnostic;
     const uploadedQualityTimeline = uploadedQualityDiagnostic?.timeline;
     const saveAccessNotice = buildAnalysisQuotaNoticeModel({ saveAccess });
+    const uploadGuidance = `Grave ${clipDurationLabel}, reticulo visivel, uma arma, um spray continuo.`;
+    const uploadRequirementLabel = `MP4/WebM, ${clipDurationLabel}, ate 50MB`;
+    const uploadState = isValidatingUpload
+        ? 'validating'
+        : error
+            ? 'invalid_file'
+            : saveAccessNotice?.tone === 'error'
+                ? 'quota_exhausted'
+                : saveAccessNotice?.tone === 'warning'
+                    ? 'quota_warning'
+                    : 'empty';
 
     if (step === 'upload') {
         return (
             <div>
-                <div
-                    className={`${styles.dropzone} ${dragActive ? styles.dropzoneActive : ''}`}
-                    onDragOver={(event) => {
-                        event.preventDefault();
-                        setDragActive(true);
-                    }}
-                    onDragLeave={() => setDragActive(false)}
-                    onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
-                    role="button"
-                    tabIndex={0}
-                    aria-label="Area de upload de video"
-                >
-                    <div className={styles.dropzoneIcon}>🎬</div>
-                    <h3>Solte seu clip aqui</h3>
-                    <p>MP4 ou WebM, {clipDurationLabel}, ate 50MB</p>
-                    <button className="btn btn-primary" type="button">Escolher Arquivo</button>
-                    <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="video/mp4,video/webm"
-                        onChange={handleInputChange}
-                        style={{ display: 'none' }}
-                        aria-hidden="true"
-                    />
-                </div>
-
-                {error ? <div className={styles.error}>❌ {error}</div> : null}
-
-                <div style={{ textAlign: 'center', marginTop: 'var(--space-xl)' }}>
-                    <button
-                        type="button"
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => setIsGuideOpen(true)}
-                        style={{ color: 'var(--color-accent-primary)' }}
-                    >
-                        📚 Como gravar o clipe perfeito?
-                    </button>
-                </div>
+                <UploadDropzone
+                    clipRequirementLabel={uploadRequirementLabel}
+                    dragActive={dragActive}
+                    errorMessage={error}
+                    guidance={uploadGuidance}
+                    onDragActiveChange={setDragActive}
+                    onFileSelected={(file) => void handleFile(file)}
+                    onOpenGuide={() => setIsGuideOpen(true)}
+                    quotaNotice={saveAccessNotice}
+                    selectedWeapon={uploadWeapon}
+                    state={uploadState}
+                />
 
                 <AnalysisGuide isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
             </div>
@@ -751,6 +740,18 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                         <span className="badge badge-info">{formatPreviewClipDuration(video.duration)}</span>
                         <span className="badge badge-info">{video.fps} FPS</span>
                     </div>
+                    <UploadDropzone
+                        clipRequirementLabel={uploadRequirementLabel}
+                        density="compact"
+                        dragActive={dragActive}
+                        guidance={uploadGuidance}
+                        onDragActiveChange={setDragActive}
+                        onFileSelected={(file) => void handleFile(file)}
+                        qualityMessage={qualityWarning}
+                        selectedFileLabel={`Clip local pronto: ${video.width}x${video.height}, ${formatPreviewClipDuration(video.duration)}, ${video.fps} FPS`}
+                        selectedWeapon={uploadWeapon}
+                        state={qualityWarning ? 'quality_warning' : 'file_selected'}
+                    />
                 </div>
 
                 {qualityWarning ? (
@@ -824,7 +825,13 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                 ) : null}
 
                 <div className={`glass-card ${styles.settingsForm}`}>
-                    <h3>Configuracoes da Analise</h3>
+                    <h3>Checklist do clip</h3>
+                    <div className={styles.metadataChecklist} aria-label="Checklist guiado de setup">
+                        <span>1. Clip validado no navegador</span>
+                        <span>2. Arma e mira conferidas</span>
+                        <span>3. Distancia aproximada honesta</span>
+                        <span>4. Inicio do spray marcado</span>
+                    </div>
                     <div className={styles.settingsGrid}>
                         <div className={styles.field}>
                             <label className="input-label" htmlFor="weapon">Arma *</label>
@@ -837,9 +844,15 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                                     </optgroup>
                                 ))}
                             </select>
+                            {currentWeaponEntry ? (
+                                <div className={styles.weaponSupportHint}>
+                                    <strong>{currentWeaponEntry.supportStatus.label}</strong>
+                                    <p>{currentWeaponEntry.supportStatus.description}</p>
+                                </div>
+                            ) : null}
                             {weaponSupport.unsupported.length > 0 ? (
                                 <p style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--color-text-muted)', lineHeight: 1.4 }}>
-                                    {weaponSupport.unsupported.length} arma(s) do banco foram ocultadas aqui porque ainda nao possuem perfil tecnico completo no motor da analise.
+                                    {weaponSupport.unsupported.length} arma(s) seguem como suporte visual e ficam fora desta analise porque ainda nao possuem perfil tecnico completo no motor.
                                 </p>
                             ) : null}
                         </div>
@@ -856,7 +869,7 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                         <div className={styles.field} style={{ gridColumn: '1 / -1' }}>
                             <label className="input-label">Distancia aproximada</label>
                             <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', lineHeight: 1.4, marginBottom: '0.75rem' }}>
-                                Nao precisa ser perfeita. Se o alvo estiver entre placas, escolha a faixa mais proxima.
+                                Nao precisa ser exata. Se o alvo estiver entre placas, escolha a faixa mais proxima.
                             </p>
 
                             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
@@ -996,7 +1009,7 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                                     </p>
                                 </div>
                                 <button type="button" className="btn btn-ghost btn-sm" onClick={addMarker}>
-                                    + Adicionar Spray
+                                    Adicionar inicio de spray
                                 </button>
                             </div>
 
@@ -1014,7 +1027,7 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                                                     }}
                                                     title="Pular para este tempo"
                                                 >
-                                                    Seek
+                                                    Ir para tempo
                                                 </button>
                                                 <button
                                                     type="button"
@@ -1023,7 +1036,7 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                                                     disabled={markers.length <= 1}
                                                     title="Remover"
                                                 >
-                                                    x
+                                                    Remover
                                                 </button>
                                             </div>
                                         </div>
@@ -1048,8 +1061,8 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                     </div>
 
                     <div className={styles.settingsActions}>
-                        <button type="button" className="btn btn-ghost" onClick={handleReset}>← Trocar Clip</button>
-                        <button type="button" className="btn btn-primary btn-lg" onClick={handleAnalyze}>Iniciar Analise</button>
+                        <button type="button" className="btn btn-ghost" onClick={handleReset}>Escolher outro clip</button>
+                        <button type="button" className="btn btn-primary btn-lg" onClick={handleAnalyze}>Analisar meu spray</button>
                     </div>
                 </div>
             </div>
@@ -1073,11 +1086,11 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
     if (step === 'error') {
         return (
             <div className={`glass-card ${styles.processing}`}>
-                <div style={{ fontSize: 'var(--text-4xl)', marginBottom: 'var(--space-lg)' }}>❌</div>
+                <div className={styles.uploadStateBadge} data-tone="error">Erro</div>
                 <h3>Erro na Analise</h3>
                 <p>{error}</p>
                 <button type="button" className="btn btn-primary" onClick={handleReset} style={{ marginTop: 'var(--space-xl)' }}>
-                    Tentar Novamente
+                    Escolher outro clip
                 </button>
             </div>
         );
@@ -1088,7 +1101,7 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
             <div className="animate-fade-in">
                 <div className={styles.resultHeader}>
                     <h2>Resultado da Analise</h2>
-                    <button type="button" className="btn btn-ghost" onClick={handleReset}>← Nova Analise</button>
+                    <button type="button" className="btn btn-ghost" onClick={handleReset}>Analisar outro spray</button>
                 </div>
                 <ResultsDashboard result={result} />
             </div>

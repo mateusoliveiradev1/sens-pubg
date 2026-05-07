@@ -109,6 +109,30 @@ describe('analysis worker tracking contract', () => {
         expect(historySource).toMatch(/if\s*\(reservationResult\.status === 'blocked'\)/);
     });
 
+    it('routes upload presentation through the Phase 7 assisted dropzone contract', () => {
+        const source = readFileSync(new URL('./analysis-client.tsx', import.meta.url), 'utf8');
+        const dropzoneSource = readFileSync(new URL('./upload-dropzone.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/UploadDropzone/);
+        expect(source).toMatch(/Grave \$\{clipDurationLabel\}, reticulo visivel, uma arma, um spray continuo\./);
+        expect(source).toContain('Lendo frames no navegador');
+        expect(source).toContain('Analisar meu spray');
+        expect(source).toMatch(/selectedWeapon=\{uploadWeapon\}/);
+        expect(source).not.toMatch(/Escolher Arquivo|clipe perfeito|>Submit<|>OK<|>Next</i);
+        expect(dropzoneSource).toContain('Escolher clip de spray');
+        expect(dropzoneSource).toContain('Ver guia de captura utilizavel');
+        expect(dropzoneSource).toContain('Seu video nao precisa ir para o servidor para ser analisado.');
+    });
+
+    it('surfaces weapon support status in setup without making visual-only weapons look technically calibrated', () => {
+        const source = readFileSync(new URL('./analysis-client.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/currentWeaponEntry\.supportStatus\.label/);
+        expect(source).toMatch(/currentWeaponEntry\.supportStatus\.description/);
+        expect(source).toContain('suporte visual');
+        expect(source).toContain('perfil tecnico completo no motor');
+    });
+
     it('treats heuristic low-quality uploads as warnings instead of blocking the setup flow', () => {
         const source = readFileSync(new URL('./analysis-client.tsx', import.meta.url), 'utf8');
         const lowQualityBranch = source.match(
