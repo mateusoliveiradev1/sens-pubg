@@ -1,6 +1,6 @@
 # Phase 8 Complete Training Protocols Verification
 
-Final status: Partial. Automated gates pass; target database migration application remains pending.
+Final status: Delivered. Automated gates pass; the Phase 8 database migration was applied and verified against the configured target database on 2026-05-08T00:45Z.
 
 This document summarizes the Phase 8 evidence behind complete training protocols. It does not claim perfect sensitivity, guaranteed improvement, medical benefit, or official PUBG/KRAFTON affiliation.
 
@@ -46,7 +46,7 @@ Phase 8 adds Drizzle schema and server actions for complete protocol revisions a
 
 Evidence: `drizzle/0011_complete_training_protocols.sql`, `src/db/schema.ts`, and `src/actions/history.test.ts`.
 
-Remaining gap: target environments still need the Drizzle migration applied before production data can be called migrated.
+Migration proof: `drizzle/0011_complete_training_protocols.sql` was applied against the configured target database and verified with 2 protocol tables, 4 indexes, and 4 foreign keys present.
 
 ## LLM Immutability
 
@@ -71,7 +71,7 @@ Evidence: result dashboard, dashboard, history list/detail, and outcome panel co
 Final commands recorded in the checklist:
 
 - `npx vitest run src/ci/phase8-training-protocols-evidence.test.ts src/app/copy-claims.contract.test.ts` - PASS.
-- `npm run verify:phase8:training` - PASS; evidence file valid with final Partial status.
+- `npm run verify:phase8:training` - PASS; evidence file valid with final Delivered status.
 - `npm run typecheck` - PASS.
 - `npx vitest run` - PASS. Existing stderr from analytics/drop and database failure-path tests was expected and non-blocking.
 - `npm run benchmark:gate` - PASS: synthetic 3/3, captured 5/5, coverage starter gate PASS.
@@ -79,4 +79,4 @@ Final commands recorded in the checklist:
 
 ## Final Status
 
-The Phase 8 code evidence is complete and automated gates pass. Final status remains Partial because `drizzle/0011_complete_training_protocols.sql` still needs application in target database environments before production persistence can be called migrated. Delivered requires every required row in `08-VERIFY-CHECKLIST.md` to be PASS with no pending material gap.
+The Phase 8 code evidence is complete, automated gates pass, and `drizzle/0011_complete_training_protocols.sql` has been applied and verified in the configured target database. Phase 8 is Delivered: every required row in `08-VERIFY-CHECKLIST.md` is PASS with no pending material gap.

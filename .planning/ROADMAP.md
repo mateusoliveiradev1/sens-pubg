@@ -302,7 +302,7 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **Goal:** Turn coach next-block advice into complete practical PUBG training protocols.
 
-**Status:** Partially delivered as of 2026-05-07. All six plans are complete and automated gates pass: focused Phase 8 tests, `npm run verify:phase8:training`, `npm run typecheck`, `npx vitest run`, `npm run benchmark:gate`, and `npm run build`. Delivered status remains pending until `drizzle/0011_complete_training_protocols.sql` is applied in target database environments.
+**Status:** Delivered as of 2026-05-08. All six plans are complete, `drizzle/0011_complete_training_protocols.sql` has been applied and verified in the configured target database, and automated gates pass: focused Phase 8 tests, `npm run verify:phase8:training`, `npm run typecheck`, `npx vitest run`, `npm run benchmark:gate`, and `npm run build`.
 
 **Requirements:** COACH-01, COACH-02, COACH-03, COACH-04, COACH-05
 
