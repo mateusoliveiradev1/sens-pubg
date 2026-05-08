@@ -216,7 +216,8 @@ describe('history protocol view model', () => {
     });
 
     it('returns null for old saved analyses without complete protocol snapshots', () => {
-        const { completeProtocol: _completeProtocol, ...coachPlanWithoutProtocol } = createCoachPlan();
+        const coachPlanWithoutProtocol = { ...createCoachPlan() };
+        delete coachPlanWithoutProtocol.completeProtocol;
         const model = buildHistoryProtocolViewModel({
             result: {
                 ...createResult(),

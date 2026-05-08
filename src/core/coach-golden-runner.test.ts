@@ -101,7 +101,8 @@ describe('runCoachGoldens', () => {
             'utf8',
         );
         const fixture = JSON.parse(raw) as CoachGoldenFixture;
-        const { drillId: _removedDrillId, ...expectedWithoutDrillId } = fixture.expectedCompleteProtocol!;
+        const expectedWithoutDrillId = { ...fixture.expectedCompleteProtocol! };
+        delete expectedWithoutDrillId.drillId;
         const result = evaluateCoachGoldenFixture({
             ...fixture,
             expectedCompleteProtocol: expectedWithoutDrillId as CoachGoldenFixture['expectedCompleteProtocol'],

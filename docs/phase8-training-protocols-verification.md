@@ -1,6 +1,6 @@
 # Phase 8 Complete Training Protocols Verification
 
-Final status: Partial pending final broad gates and target database migration application.
+Final status: Partial. Automated gates pass; target database migration application remains pending.
 
 This document summarizes the Phase 8 evidence behind complete training protocols. It does not claim perfect sensitivity, guaranteed improvement, medical benefit, or official PUBG/KRAFTON affiliation.
 
@@ -68,15 +68,15 @@ Evidence: result dashboard, dashboard, history list/detail, and outcome panel co
 
 ## Command Results
 
-Final commands are recorded in the checklist:
+Final commands recorded in the checklist:
 
-- `npx vitest run src/ci/phase8-training-protocols-evidence.test.ts src/app/copy-claims.contract.test.ts`
-- `npm run verify:phase8:training`
-- `npm run typecheck`
-- `npx vitest run`
-- `npm run benchmark:gate`
-- `npm run build`
+- `npx vitest run src/ci/phase8-training-protocols-evidence.test.ts src/app/copy-claims.contract.test.ts` - PASS.
+- `npm run verify:phase8:training` - PASS; evidence file valid with final Partial status.
+- `npm run typecheck` - PASS.
+- `npx vitest run` - PASS. Existing stderr from analytics/drop and database failure-path tests was expected and non-blocking.
+- `npm run benchmark:gate` - PASS: synthetic 3/3, captured 5/5, coverage starter gate PASS.
+- `npm run build` - PASS; production build completed after cleanup of two Phase 8 test warnings.
 
 ## Final Status
 
-The Phase 8 code evidence is complete enough for the verifier to run, but final status remains Partial until final broad commands are recorded and target database migration application is handled. Delivered requires every required row in `08-VERIFY-CHECKLIST.md` to be PASS with no pending material gap.
+The Phase 8 code evidence is complete and automated gates pass. Final status remains Partial because `drizzle/0011_complete_training_protocols.sql` still needs application in target database environments before production persistence can be called migrated. Delivered requires every required row in `08-VERIFY-CHECKLIST.md` to be PASS with no pending material gap.
