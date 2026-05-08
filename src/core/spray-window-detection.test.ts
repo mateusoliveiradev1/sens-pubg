@@ -129,6 +129,23 @@ describe('detectSprayWindow', () => {
         expect(report.window).toBeNull();
     });
 
+    it('does not classify normal high-resolution recoil displacement as flick or target swap', () => {
+        const report = detectSprayValidity(createExtractedFrames([
+            { timestamp: 0, x: 320, y: 280 },
+            { timestamp: 16, x: 321, y: 238 },
+            { timestamp: 32, x: 320, y: 196 },
+            { timestamp: 48, x: 322, y: 154 },
+            { timestamp: 64, x: 321, y: 112 },
+            { timestamp: 80, x: 321, y: 70 },
+        ], { width: 640, height: 360 }));
+
+        expect(report.valid).toBe(true);
+        expect(report.blockerReasons).not.toContain('flick');
+        expect(report.blockerReasons).not.toContain('target_swap');
+        expect(report.blockerReasons).not.toContain('hard_cut');
+        expect(report.window).not.toBeNull();
+    });
+
     it('reports clips without a visible crosshair instead of forcing a window', () => {
         const report = detectSprayValidity(createBlankExtractedFrames(8));
 

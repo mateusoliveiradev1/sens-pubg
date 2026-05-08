@@ -21,6 +21,23 @@ function clampUnit(value: number): number {
     return Math.max(0, Math.min(1, value));
 }
 
+function resolveDisplacementThresholds(frames: readonly ExtractedFrame[]): {
+    readonly flickPx: number;
+    readonly targetSwapPx: number;
+    readonly hardCutPx: number;
+} {
+    const firstFrame = frames[0];
+    const minDimension = firstFrame
+        ? Math.min(firstFrame.imageData.width, firstFrame.imageData.height)
+        : 0;
+
+    return {
+        flickPx: Math.max(28, minDimension * 0.16),
+        targetSwapPx: Math.max(40, minDimension * 0.26),
+        hardCutPx: Math.max(55, minDimension * 0.34),
+    };
+}
+
 export function detectSprayWindow(
     frames: readonly ExtractedFrame[],
     options: DetectSprayWindowOptions = {}
@@ -82,12 +99,14 @@ export function detectSprayValidity(
         };
     }
 
+    const displacementThresholds = resolveDisplacementThresholds(frames);
     const blockerReasons = resolveValidityBlockerReasons({
         frameCount: frames.length,
         visibleFrames,
         shotLikeEvents: shotLikeEvents.length,
         minShotLikeEvents,
         displacements,
+        displacementThresholds,
     });
     const window = blockerReasons.length === 0
         ? createSprayWindow(frames, shotLikeEvents, minShotLikeEvents, preRollFrames, postRollFrames)
@@ -157,6 +176,11 @@ function resolveValidityBlockerReasons(input: {
     readonly visibleFrames: number;
     readonly shotLikeEvents: number;
     readonly minShotLikeEvents: number;
+    readonly displacementThresholds: {
+        readonly flickPx: number;
+        readonly targetSwapPx: number;
+        readonly hardCutPx: number;
+    };
     readonly displacements: ReadonlyArray<{
         readonly frameIndex: number;
         readonly distancePx: number;
@@ -176,15 +200,15 @@ function resolveValidityBlockerReasons(input: {
         reasons.push('not_spray_protocol');
     }
 
-    if (input.displacements.some((entry) => entry.distancePx > 28)) {
+    if (input.displacements.some((entry) => entry.distancePx > input.displacementThresholds.flickPx)) {
         reasons.push('flick');
     }
 
-    if (input.displacements.filter((entry) => entry.distancePx > 40).length >= 2) {
+    if (input.displacements.filter((entry) => entry.distancePx > input.displacementThresholds.targetSwapPx).length >= 2) {
         reasons.push('target_swap');
     }
 
-    if (hasLeadingOrTrailingHardCut(input.displacements, input.frameCount)) {
+    if (hasLeadingOrTrailingHardCut(input.displacements, input.frameCount, input.displacementThresholds.hardCutPx)) {
         reasons.push('hard_cut');
     }
 
@@ -196,13 +220,14 @@ function hasLeadingOrTrailingHardCut(
         readonly frameIndex: number;
         readonly distancePx: number;
     }>,
-    frameCount: number
+    frameCount: number,
+    hardCutThresholdPx: number
 ): boolean {
     const leadingBoundary = Math.min(2, Math.max(frameCount - 1, 0));
     const trailingBoundary = Math.max(0, frameCount - 2);
 
     return displacements.some((entry) => (
-        entry.distancePx > 55
+        entry.distancePx > hardCutThresholdPx
         && (entry.frameIndex <= leadingBoundary || entry.frameIndex >= trailingBoundary)
     ));
 }
