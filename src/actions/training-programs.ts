@@ -333,6 +333,9 @@ function withCheckpointAttached(
     cycle: TrainingProgramCycleSnapshot,
     checkpoint: TrainingProgramCheckpoint,
 ): TrainingProgramCycleSnapshot {
+    const completesMonthlyCycle = checkpoint.layer === 'monthly_program'
+        && checkpoint.outcome === 'cycle_completed';
+    const nextState = completesMonthlyCycle ? 'concluido' : checkpoint.state;
     const nextWeekNumber = checkpoint.layer === 'weekly_operational' && checkpoint.weekNumber && checkpoint.weekNumber < 4
         ? (checkpoint.weekNumber + 1) as 1 | 2 | 3 | 4
         : cycle.currentWeekNumber;
@@ -346,7 +349,7 @@ function withCheckpointAttached(
 
     return {
         ...cycle,
-        state: checkpoint.state,
+        state: nextState,
         updatedAt: checkpoint.createdAt,
         checkpoints: cycle.checkpoints.some((current) => current.id === checkpoint.id)
             ? cycle.checkpoints
@@ -354,14 +357,14 @@ function withCheckpointAttached(
         weeks: cycle.weeks.map((week) => {
             if (checkpoint.weekNumber !== week.weekNumber) {
                 return week;
-            }
+                }
 
-            return {
-                ...week,
-                state: checkpoint.state,
-                ...(checkpoint.layer === 'weekly_operational'
-                    ? { closedAt: checkpoint.createdAt }
-                    : {}),
+                return {
+                    ...week,
+                    state: nextState,
+                    ...(checkpoint.layer === 'weekly_operational'
+                        ? { closedAt: checkpoint.createdAt }
+                        : {}),
                 checkpointIds: week.checkpointIds.includes(checkpoint.id)
                     ? week.checkpointIds
                     : [...week.checkpointIds, checkpoint.id],
@@ -370,7 +373,7 @@ function withCheckpointAttached(
             };
         }),
         currentWeekNumber: nextWeekNumber,
-        currentMissionId: nextMissionId,
+        currentMissionId: completesMonthlyCycle ? null : nextMissionId,
         reasonCodes: Array.from(new Set([...cycle.reasonCodes, ...checkpoint.reasonCodes])),
         recoveryAction: checkpoint.nextRecommendation,
     };
@@ -1109,7 +1112,9 @@ async function recordProgramCheckpoint(
             : 'checkpoint_recorded',
         occurredAt,
         fromState: cycle.state,
-        toState: checkpoint.state,
+        toState: checkpoint.layer === 'monthly_program' && checkpoint.outcome === 'cycle_completed'
+            ? 'concluido'
+            : checkpoint.state,
         reasonCodes: checkpoint.reasonCodes,
         userVisibleReason: checkpoint.summary,
         evidenceRefs: evidenceRefsWith(cycle.evidenceSummary.savedAnalysisId

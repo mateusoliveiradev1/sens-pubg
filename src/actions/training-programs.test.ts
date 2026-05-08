@@ -3,8 +3,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resolveAnalysisDecision } from '@/core/analysis-decision';
 import { buildCoachPlan } from '@/core/coach-plan-builder';
 import { createAnalysisResultFixture } from '@/core/coach-test-fixtures';
+import { buildTrainingProgramTechnicalCheckpoint } from '@/core/training-program-checkpoints';
 import { createTrainingProgramCycle } from '@/core/training-programs';
 import type { TrainingProgramCycleRow } from '@/db/schema';
+import { resolveProductAccess } from '@/lib/product-entitlements';
+import { projectTrainingProgramForAccess } from '@/lib/training-program-projection';
 import type {
     AnalysisResult,
     CompleteTrainingProtocol,
@@ -61,6 +64,7 @@ vi.mock('next/cache', () => ({
 import {
     completeTrainingProgramMissionAction,
     createTrainingProgramCycleAction,
+    getActiveTrainingProgramCycleAction,
     getTrainingProgramCycleAction,
     pauseTrainingProgramCycleAction,
     recordTrainingProgramCheckpointAction,
@@ -181,6 +185,37 @@ function validationLink(status: SprayLabValidationLink['status'] = 'validacao_co
     };
 }
 
+function cycleWithTechnicalCheckpoint(includeArchivedLine = false): TrainingProgramCycleSnapshot {
+    const cycle = cycleSnapshot();
+    const technical = buildTrainingProgramTechnicalCheckpoint({
+        cycle,
+        evidenceSummary: {
+            ...cycle.evidenceSummary,
+            validationLink: validationLink('validacao_confirmada'),
+            validationStatus: 'validacao_confirmada',
+            blockers: [],
+            summary: 'Validacao compativel anexada ao ciclo.',
+        },
+        now: NOW,
+    });
+
+    if (!technical || !cycle.activeLine) {
+        throw new Error('Expected technical checkpoint and active line');
+    }
+
+    return {
+        ...cycle,
+        state: 'progresso_validado',
+        archivedLines: includeArchivedLine ? [{
+            ...cycle.activeLine,
+            active: false,
+            archivedAt: '2026-05-08T21:00:00.000Z',
+            restartReasonCodes: ['line_restart'],
+        }] : [],
+        checkpoints: [technical],
+    };
+}
+
 function mockDbChains() {
     mocks.select.mockReturnValue({ from: mocks.from });
     mocks.from.mockReturnValue({ where: mocks.where });
@@ -258,6 +293,31 @@ describe('training program actions', () => {
         });
     });
 
+    it('loads an active projection-ready snapshot for route/dashboard use', async () => {
+        const cycle = cycleSnapshot();
+        mocks.limit.mockResolvedValueOnce([cycleRow(cycle)]);
+
+        const result = await getActiveTrainingProgramCycleAction();
+
+        expect(result.success).toBe(true);
+        const projection = projectTrainingProgramForAccess({
+            access: resolveProductAccess({
+                now: new Date(NOW),
+                subscription: {
+                    status: 'active',
+                    tier: 'pro',
+                    currentPeriodStart: new Date('2026-05-01T00:00:00.000Z'),
+                    currentPeriodEnd: new Date('2026-06-01T00:00:00.000Z'),
+                },
+            }),
+            cycle: result.success ? result.value : null,
+        });
+
+        expect(projection.fullCycle?.currentMissionId).toBe(cycle.currentMissionId);
+        expect(projection.fullCycle?.weeks[0]?.missions[0]?.proximoCta.href).toContain('/spray-lab');
+        expect(projection.evidence?.summary).toContain('Base salva');
+    });
+
     it('does not let a client skip the current repair or mission blocker', async () => {
         const cycle = cycleSnapshot();
         const skippedMission = cycle.weeks[0]?.missions[1]?.id;
@@ -330,6 +390,55 @@ describe('training program actions', () => {
         }));
     });
 
+    it('persists monthly completion with checkpoint audit', async () => {
+        const cycle = cycleWithTechnicalCheckpoint();
+        mocks.limit
+            .mockResolvedValueOnce([cycleRow(cycle)])
+            .mockResolvedValueOnce([{
+                id: 'validation-1',
+                labSessionId: 'lab-1',
+                baseAnalysisSessionId: 'analysis-1',
+                payload: validationLink('validacao_confirmada'),
+            }]);
+
+        const result = await recordTrainingProgramCheckpointAction({
+            cycleId: cycle.id,
+            layer: 'monthly_program',
+            validationLinkId: 'validation-1',
+            occurredAt: NOW,
+        });
+
+        expect(result.success).toBe(true);
+        expect(result.success ? result.value.state : null).toBe('concluido');
+        expect(result.success ? result.value.currentMissionId : 'not-null').toBeNull();
+        expect(result.success ? result.value.checkpoints.some((checkpoint) => checkpoint.layer === 'monthly_program') : false)
+            .toBe(true);
+    });
+
+    it('keeps monthly archived-line checkpoints honest with old line references', async () => {
+        const cycle = cycleWithTechnicalCheckpoint(true);
+        mocks.limit
+            .mockResolvedValueOnce([cycleRow(cycle)])
+            .mockResolvedValueOnce([{
+                id: 'validation-1',
+                labSessionId: 'lab-1',
+                baseAnalysisSessionId: 'analysis-1',
+                payload: validationLink('validacao_confirmada'),
+            }]);
+
+        const result = await recordTrainingProgramCheckpointAction({
+            cycleId: cycle.id,
+            layer: 'monthly_program',
+            validationLinkId: 'validation-1',
+            occurredAt: NOW,
+        });
+
+        expect(result.success).toBe(true);
+        expect(result.success ? result.value.state : null).toBe('linha_reiniciada');
+        expect(result.success ? result.value.archivedLines : []).toHaveLength(1);
+        expect(result.success ? result.value.checkpoints.at(-1)?.outcome : null).toBe('line_restarted');
+    });
+
     it('reenters missed or changed context as evidence preservation instead of fake progress', async () => {
         const cycle = cycleSnapshot();
         mocks.limit.mockResolvedValueOnce([cycleRow(cycle)]);
@@ -351,6 +460,22 @@ describe('training program actions', () => {
         expect(eventInsert).toEqual(expect.objectContaining({
             reasonCodes: ['variable_changed'],
         }));
+    });
+
+    it('keeps missed-day reentry reason visible in the durable snapshot', async () => {
+        const cycle = cycleSnapshot();
+        mocks.limit.mockResolvedValueOnce([cycleRow(cycle)]);
+
+        const result = await reenterTrainingProgramCycleAction({
+            cycleId: cycle.id,
+            missedDays: 2,
+            occurredAt: NOW,
+        });
+
+        expect(result.success).toBe(true);
+        const latestEvent = result.success ? result.value.transitionEvents.at(-1) : null;
+        expect(latestEvent?.reasonCodes).toContain('missed_day_reentry');
+        expect(latestEvent?.userVisibleReason).toContain('reencaixado');
     });
 
     it('pauses discomfort as a safety/recovery reason without storing medical notes', async () => {
