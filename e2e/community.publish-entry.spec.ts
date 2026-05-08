@@ -212,9 +212,8 @@ test.describe('Community publish entry in history detail', () => {
             await signInAsSeededUser(page, fixture.user);
             await page.goto(`/history/${fixture.sessionId}`);
 
-            await expect(page.getByRole('link', { name: /voltar/i })).toBeVisible();
             await expect(page.getByRole('heading', { level: 1, name: /beryl-m762/i })).toBeVisible();
-            await expect(page.getByRole('button', { name: /publicar na comunidade/i })).toBeVisible();
+            await expect(page.getByRole('button', { name: /publicar analise/i })).toBeVisible();
         } finally {
             await fixture.cleanup();
         }

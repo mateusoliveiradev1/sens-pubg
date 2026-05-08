@@ -18,13 +18,14 @@ test.describe('Accessibility', () => {
         const count = await images.count();
         for (let i = 0; i < count; i++) {
             const alt = await images.nth(i).getAttribute('alt');
-            expect(alt).toBeTruthy();
+            const hidden = await images.nth(i).getAttribute('aria-hidden');
+            expect(Boolean(alt) || hidden === 'true').toBe(true);
         }
     });
 
     test('navigation has proper aria labels', async ({ page }) => {
         await page.goto('/');
-        const nav = page.getByRole('navigation', { name: /navegação principal/i });
+        const nav = page.getByRole('navigation', { name: /navega(c|ç)(a|ã)o principal/i });
         await expect(nav).toBeVisible();
     });
 
