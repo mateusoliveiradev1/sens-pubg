@@ -44,6 +44,25 @@ import type {
     SprayLabValidationStatus,
 } from '@/types/engine';
 import type {
+    TrainingProgramAdaptiveWeek,
+    TrainingProgramCheckpoint,
+    TrainingProgramCheckpointLayer,
+    TrainingProgramCheckpointOutcome,
+    TrainingProgramCycleSnapshot,
+    TrainingProgramEvidenceReference,
+    TrainingProgramEvidenceSummary,
+    TrainingProgramEventType,
+    TrainingProgramKind,
+    TrainingProgramMission,
+    TrainingProgramMissionCategory,
+    TrainingProgramMissionSlot,
+    TrainingProgramMissionStatus,
+    TrainingProgramReasonCode,
+    TrainingProgramRecoveryAction,
+    TrainingProgramState,
+    TrainingProgramTransitionEvent,
+} from '@/types/training-programs';
+import type {
     CommunityEntitlementKey,
     CommunityMissionCadence,
     CommunityMissionStatus,
@@ -224,6 +243,31 @@ export interface SprayLabSessionEventPayload {
     readonly metadata?: Record<string, unknown>;
 }
 
+export interface TrainingProgramCyclePayload {
+    readonly snapshot: TrainingProgramCycleSnapshot;
+    readonly metadata?: Record<string, unknown>;
+}
+
+export interface TrainingProgramWeekPayload {
+    readonly week: TrainingProgramAdaptiveWeek;
+    readonly metadata?: Record<string, unknown>;
+}
+
+export interface TrainingProgramMissionPayload {
+    readonly mission: TrainingProgramMission;
+    readonly metadata?: Record<string, unknown>;
+}
+
+export interface TrainingProgramCheckpointPayload {
+    readonly checkpoint: TrainingProgramCheckpoint;
+    readonly metadata?: Record<string, unknown>;
+}
+
+export interface TrainingProgramEventPayload {
+    readonly event: TrainingProgramTransitionEvent;
+    readonly metadata?: Record<string, unknown>;
+}
+
 // ═══════════════════════════════════════════
 // Auth.js Tables (NextAuth adapter)
 // ═══════════════════════════════════════════
@@ -279,6 +323,11 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     sprayLabSessionEvents: many(sprayLabSessionEvents),
     sprayLabBenchmarkSnapshots: many(sprayLabBenchmarkSnapshots),
     sprayLabValidationLinks: many(sprayLabValidationLinks),
+    trainingProgramCycles: many(trainingProgramCycles),
+    trainingProgramWeeks: many(trainingProgramWeeks),
+    trainingProgramMissions: many(trainingProgramMissions),
+    trainingProgramCheckpoints: many(trainingProgramCheckpoints),
+    trainingProgramEvents: many(trainingProgramEvents),
     squadOwnerships: many(communitySquads, {
         relationName: 'community_squads_owner',
     }),
@@ -685,6 +734,190 @@ export const sprayLabValidationLinks = pgTable('spray_lab_validation_links', {
     index('spray_lab_validation_links_context_status_idx').on(table.contextKey, table.status),
 ]);
 
+export const trainingProgramCycles = pgTable('training_program_cycles', {
+    id: text('id').primaryKey(),
+    userId: uuid('user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    baseAnalysisSessionId: uuid('base_analysis_session_id')
+        .notNull()
+        .references(() => analysisSessions.id, { onDelete: 'cascade' }),
+    protocolRevisionId: uuid('protocol_revision_id').references(
+        () => completeTrainingProtocolRevisions.id,
+        { onDelete: 'set null' },
+    ),
+    protocolId: text('protocol_id'),
+    activeLineId: text('active_line_id'),
+    activeLineContextKey: text('active_line_context_key').notNull(),
+    strictContextKey: text('strict_context_key').notNull(),
+    kind: text('kind').$type<TrainingProgramKind>().notNull(),
+    state: text('state').$type<TrainingProgramState>().notNull(),
+    currentWeekNumber: integer('current_week_number').default(1).notNull(),
+    currentMissionId: text('current_mission_id'),
+    recoveryAction: text('recovery_action').$type<TrainingProgramRecoveryAction>().notNull(),
+    reasonCodes: jsonb('reason_codes')
+        .notNull()
+        .default('[]')
+        .$type<readonly TrainingProgramReasonCode[]>(),
+    visibleReason: text('visible_reason').notNull(),
+    blockerSummary: text('blocker_summary').notNull(),
+    snapshot: jsonb('snapshot').notNull().$type<TrainingProgramCycleSnapshot>(),
+    payload: jsonb('payload').notNull().default('{}').$type<TrainingProgramCyclePayload>(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+    archivedAt: timestamp('archived_at', { mode: 'date' }),
+    completedAt: timestamp('completed_at', { mode: 'date' }),
+}, (table) => [
+    index('training_program_cycles_user_state_updated_idx').on(table.userId, table.state, table.updatedAt),
+    index('training_program_cycles_user_kind_updated_idx').on(table.userId, table.kind, table.updatedAt),
+    index('training_program_cycles_user_context_state_idx').on(table.userId, table.strictContextKey, table.state),
+    index('training_program_cycles_base_analysis_idx').on(table.baseAnalysisSessionId),
+    index('training_program_cycles_active_line_idx').on(table.userId, table.activeLineContextKey),
+    index('training_program_cycles_current_mission_idx').on(table.currentMissionId),
+]);
+
+export const trainingProgramWeeks = pgTable('training_program_weeks', {
+    id: text('id').primaryKey(),
+    userId: uuid('user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    cycleId: text('cycle_id')
+        .notNull()
+        .references(() => trainingProgramCycles.id, { onDelete: 'cascade' }),
+    weekNumber: integer('week_number').notNull(),
+    state: text('state').$type<TrainingProgramState>().notNull(),
+    recoveryAction: text('recovery_action').$type<TrainingProgramRecoveryAction>(),
+    reasonCodes: jsonb('reason_codes')
+        .notNull()
+        .default('[]')
+        .$type<readonly TrainingProgramReasonCode[]>(),
+    canIncreaseDifficulty: boolean('can_increase_difficulty').default(false).notNull(),
+    snapshot: jsonb('snapshot').notNull().$type<TrainingProgramAdaptiveWeek>(),
+    payload: jsonb('payload').notNull().default('{}').$type<TrainingProgramWeekPayload>(),
+    startedAt: timestamp('started_at', { mode: 'date' }),
+    closedAt: timestamp('closed_at', { mode: 'date' }),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => [
+    uniqueIndex('training_program_weeks_cycle_week_uidx').on(table.cycleId, table.weekNumber),
+    index('training_program_weeks_user_state_updated_idx').on(table.userId, table.state, table.updatedAt),
+    index('training_program_weeks_cycle_state_idx').on(table.cycleId, table.state),
+]);
+
+export const trainingProgramMissions = pgTable('training_program_missions', {
+    id: text('id').primaryKey(),
+    userId: uuid('user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    cycleId: text('cycle_id')
+        .notNull()
+        .references(() => trainingProgramCycles.id, { onDelete: 'cascade' }),
+    weekId: text('week_id')
+        .notNull()
+        .references(() => trainingProgramWeeks.id, { onDelete: 'cascade' }),
+    weekNumber: integer('week_number').notNull(),
+    slot: text('slot').$type<TrainingProgramMissionSlot>().notNull(),
+    category: text('category').$type<TrainingProgramMissionCategory>().notNull(),
+    status: text('status').$type<TrainingProgramMissionStatus>().notNull(),
+    stateAfterCompletion: text('state_after_completion').$type<TrainingProgramState>().notNull(),
+    protocolRevisionId: uuid('protocol_revision_id').references(
+        () => completeTrainingProtocolRevisions.id,
+        { onDelete: 'set null' },
+    ),
+    protocolId: text('protocol_id'),
+    labSessionId: uuid('lab_session_id').references(() => sprayLabSessions.id, { onDelete: 'set null' }),
+    validationLinkId: uuid('validation_link_id').references(() => sprayLabValidationLinks.id, { onDelete: 'set null' }),
+    reasonCodes: jsonb('reason_codes')
+        .notNull()
+        .default('[]')
+        .$type<readonly TrainingProgramReasonCode[]>(),
+    evidenceRefs: jsonb('evidence_refs')
+        .notNull()
+        .default('[]')
+        .$type<readonly TrainingProgramEvidenceReference[]>(),
+    visibleReason: text('visible_reason').notNull(),
+    snapshot: jsonb('snapshot').notNull().$type<TrainingProgramMission>(),
+    payload: jsonb('payload').notNull().default('{}').$type<TrainingProgramMissionPayload>(),
+    startedAt: timestamp('started_at', { mode: 'date' }),
+    completedAt: timestamp('completed_at', { mode: 'date' }),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => [
+    uniqueIndex('training_program_missions_week_slot_uidx').on(table.weekId, table.slot),
+    index('training_program_missions_user_status_updated_idx').on(table.userId, table.status, table.updatedAt),
+    index('training_program_missions_cycle_status_idx').on(table.cycleId, table.status),
+    index('training_program_missions_cycle_week_idx').on(table.cycleId, table.weekNumber),
+    index('training_program_missions_lab_session_idx').on(table.labSessionId),
+    index('training_program_missions_validation_link_idx').on(table.validationLinkId),
+]);
+
+export const trainingProgramCheckpoints = pgTable('training_program_checkpoints', {
+    id: text('id').primaryKey(),
+    userId: uuid('user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    cycleId: text('cycle_id')
+        .notNull()
+        .references(() => trainingProgramCycles.id, { onDelete: 'cascade' }),
+    weekId: text('week_id').references(() => trainingProgramWeeks.id, { onDelete: 'set null' }),
+    weekNumber: integer('week_number'),
+    layer: text('layer').$type<TrainingProgramCheckpointLayer>().notNull(),
+    state: text('state').$type<TrainingProgramState>().notNull(),
+    outcome: text('outcome').$type<TrainingProgramCheckpointOutcome>().notNull(),
+    nextRecommendation: text('next_recommendation').$type<TrainingProgramRecoveryAction>().notNull(),
+    canIncreaseDifficulty: boolean('can_increase_difficulty').default(false).notNull(),
+    labSessionId: uuid('lab_session_id').references(() => sprayLabSessions.id, { onDelete: 'set null' }),
+    validationLinkId: uuid('validation_link_id').references(() => sprayLabValidationLinks.id, { onDelete: 'set null' }),
+    precisionCheckpointId: uuid('precision_checkpoint_id').references(() => precisionCheckpoints.id, { onDelete: 'set null' }),
+    reasonCodes: jsonb('reason_codes')
+        .notNull()
+        .default('[]')
+        .$type<readonly TrainingProgramReasonCode[]>(),
+    evidenceSnapshot: jsonb('evidence_snapshot').notNull().$type<TrainingProgramEvidenceSummary>(),
+    snapshot: jsonb('snapshot').notNull().$type<TrainingProgramCheckpoint>(),
+    payload: jsonb('payload').notNull().default('{}').$type<TrainingProgramCheckpointPayload>(),
+    summary: text('summary').notNull(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => [
+    index('training_program_checkpoints_cycle_layer_created_idx').on(table.cycleId, table.layer, table.createdAt),
+    index('training_program_checkpoints_user_layer_created_idx').on(table.userId, table.layer, table.createdAt),
+    index('training_program_checkpoints_week_idx').on(table.weekId),
+    index('training_program_checkpoints_validation_link_idx').on(table.validationLinkId),
+    index('training_program_checkpoints_precision_idx').on(table.precisionCheckpointId),
+]);
+
+export const trainingProgramEvents = pgTable('training_program_events', {
+    id: text('id').primaryKey(),
+    userId: uuid('user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    cycleId: text('cycle_id')
+        .notNull()
+        .references(() => trainingProgramCycles.id, { onDelete: 'cascade' }),
+    missionId: text('mission_id').references(() => trainingProgramMissions.id, { onDelete: 'set null' }),
+    checkpointId: text('checkpoint_id').references(() => trainingProgramCheckpoints.id, { onDelete: 'set null' }),
+    eventType: text('event_type').$type<TrainingProgramEventType>().notNull(),
+    fromState: text('from_state').$type<TrainingProgramState>().notNull(),
+    toState: text('to_state').$type<TrainingProgramState>().notNull(),
+    reasonCodes: jsonb('reason_codes')
+        .notNull()
+        .default('[]')
+        .$type<readonly TrainingProgramReasonCode[]>(),
+    evidenceRefs: jsonb('evidence_refs')
+        .notNull()
+        .default('[]')
+        .$type<readonly TrainingProgramEvidenceReference[]>(),
+    userVisibleReason: text('user_visible_reason').notNull(),
+    payload: jsonb('payload').notNull().$type<TrainingProgramEventPayload>(),
+    occurredAt: timestamp('occurred_at', { mode: 'date' }).notNull(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => [
+    index('training_program_events_cycle_occurred_idx').on(table.cycleId, table.occurredAt),
+    index('training_program_events_user_occurred_idx').on(table.userId, table.occurredAt),
+    index('training_program_events_mission_idx').on(table.missionId),
+    index('training_program_events_checkpoint_idx').on(table.checkpointId),
+]);
+
 export const analysisSessionsRelations = relations(analysisSessions, ({ one, many }) => ({
     user: one(users, {
         fields: [analysisSessions.userId],
@@ -709,6 +942,7 @@ export const analysisSessionsRelations = relations(analysisSessions, ({ one, man
     sprayLabValidationLinks: many(sprayLabValidationLinks, {
         relationName: 'spray_lab_validation_links_validation_analysis',
     }),
+    trainingProgramCycles: many(trainingProgramCycles),
     communitySourcePosts: many(communityPosts),
     communityPostAnalysisSnapshots: many(communityPostAnalysisSnapshots),
 }));
@@ -2159,6 +2393,113 @@ export const sprayLabValidationLinksRelations = relations(sprayLabValidationLink
     }),
 }));
 
+export const trainingProgramCyclesRelations = relations(trainingProgramCycles, ({ one, many }) => ({
+    user: one(users, {
+        fields: [trainingProgramCycles.userId],
+        references: [users.id],
+    }),
+    baseAnalysisSession: one(analysisSessions, {
+        fields: [trainingProgramCycles.baseAnalysisSessionId],
+        references: [analysisSessions.id],
+    }),
+    protocolRevision: one(completeTrainingProtocolRevisions, {
+        fields: [trainingProgramCycles.protocolRevisionId],
+        references: [completeTrainingProtocolRevisions.id],
+    }),
+    weeks: many(trainingProgramWeeks),
+    missions: many(trainingProgramMissions),
+    checkpoints: many(trainingProgramCheckpoints),
+    events: many(trainingProgramEvents),
+}));
+
+export const trainingProgramWeeksRelations = relations(trainingProgramWeeks, ({ one, many }) => ({
+    user: one(users, {
+        fields: [trainingProgramWeeks.userId],
+        references: [users.id],
+    }),
+    cycle: one(trainingProgramCycles, {
+        fields: [trainingProgramWeeks.cycleId],
+        references: [trainingProgramCycles.id],
+    }),
+    missions: many(trainingProgramMissions),
+    checkpoints: many(trainingProgramCheckpoints),
+}));
+
+export const trainingProgramMissionsRelations = relations(trainingProgramMissions, ({ one, many }) => ({
+    user: one(users, {
+        fields: [trainingProgramMissions.userId],
+        references: [users.id],
+    }),
+    cycle: one(trainingProgramCycles, {
+        fields: [trainingProgramMissions.cycleId],
+        references: [trainingProgramCycles.id],
+    }),
+    week: one(trainingProgramWeeks, {
+        fields: [trainingProgramMissions.weekId],
+        references: [trainingProgramWeeks.id],
+    }),
+    protocolRevision: one(completeTrainingProtocolRevisions, {
+        fields: [trainingProgramMissions.protocolRevisionId],
+        references: [completeTrainingProtocolRevisions.id],
+    }),
+    labSession: one(sprayLabSessions, {
+        fields: [trainingProgramMissions.labSessionId],
+        references: [sprayLabSessions.id],
+    }),
+    validationLink: one(sprayLabValidationLinks, {
+        fields: [trainingProgramMissions.validationLinkId],
+        references: [sprayLabValidationLinks.id],
+    }),
+    events: many(trainingProgramEvents),
+}));
+
+export const trainingProgramCheckpointsRelations = relations(trainingProgramCheckpoints, ({ one, many }) => ({
+    user: one(users, {
+        fields: [trainingProgramCheckpoints.userId],
+        references: [users.id],
+    }),
+    cycle: one(trainingProgramCycles, {
+        fields: [trainingProgramCheckpoints.cycleId],
+        references: [trainingProgramCycles.id],
+    }),
+    week: one(trainingProgramWeeks, {
+        fields: [trainingProgramCheckpoints.weekId],
+        references: [trainingProgramWeeks.id],
+    }),
+    labSession: one(sprayLabSessions, {
+        fields: [trainingProgramCheckpoints.labSessionId],
+        references: [sprayLabSessions.id],
+    }),
+    validationLink: one(sprayLabValidationLinks, {
+        fields: [trainingProgramCheckpoints.validationLinkId],
+        references: [sprayLabValidationLinks.id],
+    }),
+    precisionCheckpoint: one(precisionCheckpoints, {
+        fields: [trainingProgramCheckpoints.precisionCheckpointId],
+        references: [precisionCheckpoints.id],
+    }),
+    events: many(trainingProgramEvents),
+}));
+
+export const trainingProgramEventsRelations = relations(trainingProgramEvents, ({ one }) => ({
+    user: one(users, {
+        fields: [trainingProgramEvents.userId],
+        references: [users.id],
+    }),
+    cycle: one(trainingProgramCycles, {
+        fields: [trainingProgramEvents.cycleId],
+        references: [trainingProgramCycles.id],
+    }),
+    mission: one(trainingProgramMissions, {
+        fields: [trainingProgramEvents.missionId],
+        references: [trainingProgramMissions.id],
+    }),
+    checkpoint: one(trainingProgramCheckpoints, {
+        fields: [trainingProgramEvents.checkpointId],
+        references: [trainingProgramCheckpoints.id],
+    }),
+}));
+
 export const botHeartbeat = pgTable('bot_heartbeat', {
     id: text('id').primaryKey().default('main_bot'),
     lastSeen: timestamp('last_seen', { mode: 'date' }).defaultNow().notNull(),
@@ -2220,6 +2561,16 @@ export type SprayLabBenchmarkSnapshotRow = typeof sprayLabBenchmarkSnapshots.$in
 export type NewSprayLabBenchmarkSnapshot = typeof sprayLabBenchmarkSnapshots.$inferInsert;
 export type SprayLabValidationLinkRow = typeof sprayLabValidationLinks.$inferSelect;
 export type NewSprayLabValidationLink = typeof sprayLabValidationLinks.$inferInsert;
+export type TrainingProgramCycleRow = typeof trainingProgramCycles.$inferSelect;
+export type NewTrainingProgramCycle = typeof trainingProgramCycles.$inferInsert;
+export type TrainingProgramWeekRow = typeof trainingProgramWeeks.$inferSelect;
+export type NewTrainingProgramWeek = typeof trainingProgramWeeks.$inferInsert;
+export type TrainingProgramMissionRow = typeof trainingProgramMissions.$inferSelect;
+export type NewTrainingProgramMission = typeof trainingProgramMissions.$inferInsert;
+export type TrainingProgramCheckpointRow = typeof trainingProgramCheckpoints.$inferSelect;
+export type NewTrainingProgramCheckpoint = typeof trainingProgramCheckpoints.$inferInsert;
+export type TrainingProgramEventRow = typeof trainingProgramEvents.$inferSelect;
+export type NewTrainingProgramEvent = typeof trainingProgramEvents.$inferInsert;
 export type SensitivityHistoryRow = typeof sensitivityHistory.$inferSelect;
 export type NewSensitivityHistory = typeof sensitivityHistory.$inferInsert;
 export type WeaponProfile = typeof weaponProfiles.$inferSelect;
