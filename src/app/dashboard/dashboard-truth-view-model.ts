@@ -12,6 +12,30 @@ export interface DashboardTruthArsenalFocus {
     readonly body: string;
 }
 
+export interface DashboardTrainingProgramViewModel {
+    readonly title: string;
+    readonly weekLabel: string;
+    readonly stateLabel: string;
+    readonly missionTitle: string;
+    readonly missionCategoryLabel: string;
+    readonly evidenceLabel: string;
+    readonly reasonLabel: string;
+    readonly blockerLabel: string;
+    readonly primaryAction: {
+        readonly label: string;
+        readonly href: string;
+    };
+    readonly programAction: {
+        readonly label: 'Abrir Ciclo Pro';
+        readonly href: '/ciclo-pro';
+    };
+    readonly lockLabel: string;
+    readonly lockBody: string | null;
+    readonly lockCtaLabel: 'Ver Pro' | 'Abrir billing' | null;
+    readonly lockCtaHref: '/pricing' | '/billing' | null;
+    readonly reentryCopy: string | null;
+}
+
 export interface DashboardTruthViewModel {
     readonly nextActionTitle: string;
     readonly nextActionBody: string;
@@ -25,6 +49,7 @@ export interface DashboardTruthViewModel {
     readonly precisionTrendLabel: string | null;
     readonly precisionTrendSummary: string | null;
     readonly activeCoachLoop: DashboardStats['activeCoachLoop'];
+    readonly trainingProgram: DashboardTrainingProgramViewModel | null;
     readonly nextBlock: DashboardTruthNextBlock | null;
     readonly arsenalFocus: DashboardTruthArsenalFocus | null;
 }
@@ -154,7 +179,73 @@ function buildPrecisionNextAction(
     }
 }
 
+function buildTrainingProgramReentryCopy(
+    program: NonNullable<DashboardStats['activeTrainingProgram']>,
+): string | null {
+    if (program.state === 'contexto_desatualizado') {
+        return 'O ciclo foi reencaixado para preservar evidencia; grave leitura fresca antes de subir dificuldade.';
+    }
+
+    if (program.state === 'linha_reiniciada') {
+        return 'A linha ativa foi reiniciada sem apagar a antiga porque uma variavel estrutural mudou.';
+    }
+
+    if (program.state === 'pausado') {
+        return 'Bloco pausado para preservar execucao; desconforto nao conta como falha tecnica.';
+    }
+
+    if (program.state === 'reparando') {
+        return 'Reparo e coaching: estabilize captura, contexto ou fidelidade antes de chamar isso de progresso.';
+    }
+
+    if (/reencaixado|antigo|variavel/i.test(program.visibleAdaptationReason)) {
+        return 'O ciclo foi reencaixado para preservar evidencia, sem punir atraso ou uso inconsistente.';
+    }
+
+    return null;
+}
+
+function buildTrainingProgramViewModel(
+    program: DashboardStats['activeTrainingProgram'],
+): DashboardTrainingProgramViewModel | null {
+    if (!program) {
+        return null;
+    }
+
+    return {
+        title: `${program.kindLabel}: cockpit de agora`,
+        weekLabel: program.currentWeekLabel,
+        stateLabel: program.stateLabel,
+        missionTitle: program.currentMissionTitle,
+        missionCategoryLabel: program.currentMissionCategoryLabel,
+        evidenceLabel: program.evidenceLabel,
+        reasonLabel: program.visibleAdaptationReason,
+        blockerLabel: `${program.blockerCount} blocker${program.blockerCount === 1 ? '' : 's'}`,
+        primaryAction: {
+            label: program.primaryCtaLabel,
+            href: program.primaryCtaHref,
+        },
+        programAction: {
+            label: program.programCtaLabel,
+            href: program.programHref,
+        },
+        lockLabel: program.lockLabel,
+        lockBody: program.lockBody,
+        lockCtaLabel: program.lockCtaLabel,
+        lockCtaHref: program.lockCtaHref,
+        reentryCopy: buildTrainingProgramReentryCopy(program),
+    };
+}
+
 function buildNextAction(stats: DashboardStats): Pick<DashboardTruthViewModel, 'nextActionTitle' | 'nextActionBody' | 'truthBadgeLabel'> {
+    if (stats.activeTrainingProgram) {
+        return {
+            nextActionTitle: stats.activeTrainingProgram.primaryCtaLabel,
+            nextActionBody: `${stats.activeTrainingProgram.currentWeekLabel}: ${stats.activeTrainingProgram.currentMissionTitle}. ${stats.activeTrainingProgram.visibleAdaptationReason}`,
+            truthBadgeLabel: stats.activeTrainingProgram.stateLabel,
+        };
+    }
+
     if (stats.activeCoachLoop) {
         return {
             nextActionTitle: stats.activeCoachLoop.ctaLabel,
@@ -340,6 +431,7 @@ export function buildDashboardTruthViewModel(stats: DashboardStats): DashboardTr
     const mastery = stats.latestMastery;
     const nextAction = buildNextAction(stats);
     const trendCopy = buildTrendCopy(stats);
+    const trainingProgram = buildTrainingProgramViewModel(stats.activeTrainingProgram);
 
     return {
         ...nextAction,
@@ -357,6 +449,7 @@ export function buildDashboardTruthViewModel(stats: DashboardStats): DashboardTr
             ? `${stats.principalPrecisionTrend.compatibleCount} clip(s), ${formatPercent(stats.principalPrecisionTrend.coverage)} cobertura, ${formatPercent(stats.principalPrecisionTrend.confidence)} confianca.`
             : null,
         activeCoachLoop: stats.activeCoachLoop,
+        trainingProgram,
         nextBlock: buildNextBlock(stats),
         arsenalFocus: buildArsenalFocus(stats),
     };

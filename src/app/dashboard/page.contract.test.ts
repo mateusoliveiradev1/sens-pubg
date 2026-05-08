@@ -33,6 +33,10 @@ describe('dashboard arsenal icon contract', () => {
         expect(source).toMatch(/Proximo passo/);
         expect(source).toMatch(/activeCoachLoop/);
         expect(source).toMatch(/Loop ativo/);
+        expect(source).toMatch(/trainingProgram/);
+        expect(source).toMatch(/Ciclo Pro/);
+        expect(source).toMatch(/Abrir Ciclo Pro/);
+        expect(source).toMatch(/programAction\.href/);
         expect(activeLoopSource).toMatch(/Continuar protocolo/);
         expect(activeLoopSource).toMatch(/Gravar validacao compativel/);
         expect(source).toMatch(/completeProtocol/);
@@ -45,6 +49,26 @@ describe('dashboard arsenal icon contract', () => {
         expect(source).toMatch(/pts/);
         expect(source).not.toMatch(/const nextActionTitle = weakestWeapon/);
         expect(source).not.toMatch(/Iniciar primeira analise/);
+    });
+
+    it('renders Ciclo Pro as a compact now-cockpit instead of the full 30-day map', () => {
+        const source = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
+        const viewModelSource = readFileSync(new URL('./dashboard-truth-view-model.ts', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/trainingProgram\.weekLabel/);
+        expect(source).toMatch(/trainingProgram\.missionTitle/);
+        expect(source).toMatch(/trainingProgram\.stateLabel/);
+        expect(source).toMatch(/trainingProgram\.evidenceLabel/);
+        expect(source).toMatch(/trainingProgram\.reasonLabel/);
+        expect(source).toMatch(/trainingProgram\.blockerLabel/);
+        expect(source).toMatch(/trainingProgram\.primaryAction\.href/);
+        expect(source).toMatch(/trainingProgram\.programAction\.label/);
+        expect(source).toMatch(/Abrir Ciclo Pro/);
+        expect(viewModelSource).toMatch(/O ciclo foi reencaixado para preservar evidencia/);
+        expect(viewModelSource).toMatch(/Bloco pausado para preservar execucao/);
+        expect(viewModelSource).toMatch(/Reparo e coaching/);
+        expect(source).not.toMatch(/weeks\.map|transitionEvents\.map|checkpoints\.map/);
+        expect(source).not.toMatch(/usuario falhou|falha do usuario|punicao/i);
     });
 
     it('renders evidence-aware truth language for confidence, coverage, and trends', () => {

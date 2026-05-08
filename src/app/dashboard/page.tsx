@@ -175,6 +175,7 @@ function isPrecisionValidationRoute(stats: DashboardStats): boolean {
 function getDashboardBlockerCount(stats: DashboardStats): number {
     return (stats.latestMastery?.blockedRecommendations.length ?? 0)
         + (stats.principalPrecisionTrend?.blockerReasons.length ?? 0)
+        + (stats.activeTrainingProgram?.blockerCount ?? 0)
         + (stats.activeCoachLoop?.status === 'conflict' ? 1 : 0);
 }
 
@@ -186,6 +187,8 @@ function isDashboardBlocked(stats: DashboardStats): boolean {
         || stats.trendEvidence.evidenceState === 'weak'
         || stats.trendEvidence.evidenceState === 'missing'
         || stats.principalPrecisionTrend?.label === 'not_comparable'
+        || stats.activeTrainingProgram?.evidenceStatus === 'repair'
+        || stats.activeTrainingProgram?.evidenceStatus === 'missing'
         || getDashboardBlockerCount(stats) > 0
         || stats.activeCoachLoop?.status === 'conflict';
 }
@@ -194,6 +197,10 @@ function resolveDashboardPrimaryAction(
     stats: DashboardStats,
     truthView: DashboardTruthViewModel,
 ): DashboardPrimaryAction {
+    if (truthView.trainingProgram) {
+        return truthView.trainingProgram.primaryAction;
+    }
+
     if (truthView.activeCoachLoop) {
         return {
             label: truthView.activeCoachLoop.ctaLabel,
@@ -232,6 +239,20 @@ function resolveDashboardLoopStage(
     stats: DashboardStats,
     truthView: DashboardTruthViewModel,
 ): LoopStageKey {
+    if (truthView.trainingProgram) {
+        if (truthView.trainingProgram.primaryAction.href.startsWith('/analyze?mode=validation')) {
+            return 'validation';
+        }
+
+        if (truthView.trainingProgram.primaryAction.href.startsWith('/spray-lab')) {
+            return 'block';
+        }
+
+        if (stats.activeTrainingProgram?.state === 'progresso_validado' || stats.activeTrainingProgram?.state === 'concluido') {
+            return 'checkpoint';
+        }
+    }
+
     if (!stats.latestMastery) {
         return 'clip';
     }
@@ -429,6 +450,7 @@ export default async function DashboardPage() {
     const nextActionTitle = truthView.nextActionTitle;
     const nextActionBody = truthView.nextActionBody;
     const activeCoachLoop = truthView.activeCoachLoop;
+    const trainingProgram = truthView.trainingProgram;
     const dashboardPrimaryAction = resolveDashboardPrimaryAction(stats, truthView);
     const dashboardLoopStage = resolveDashboardLoopStage(stats, truthView);
     const dashboardBlocked = isDashboardBlocked(stats);
@@ -460,6 +482,12 @@ export default async function DashboardPage() {
             value: truthView.precisionTrendLabel ?? truthView.trendTitle,
             tone: dashboardBlocked ? 'warning' : dashboardEvidenceTone,
         },
+        ...(trainingProgram ? [{
+            label: 'Ciclo Pro',
+            value: trainingProgram.stateLabel,
+            tone: stats.activeTrainingProgram?.evidenceStatus === 'strong' ? 'success' as const : 'info' as const,
+            detail: trainingProgram.weekLabel,
+        }] : []),
     ];
 
     const heroSummary = bestWeapon
@@ -600,6 +628,50 @@ export default async function DashboardPage() {
                                 <p className="mt-3 text-sm leading-relaxed text-zinc-400">
                                     {nextActionBody}
                                 </p>
+                                {trainingProgram ? (
+                                    <div className="mt-5 border-t border-cyan-400/20 pt-5">
+                                        <div className="mb-3 flex flex-wrap items-center gap-2">
+                                            <span className="badge badge-info">{trainingProgram.weekLabel}</span>
+                                            <span className="badge badge-info">{trainingProgram.stateLabel}</span>
+                                            <span className="badge badge-info">{trainingProgram.missionCategoryLabel}</span>
+                                            <span className={stats.activeTrainingProgram?.blockerCount ? 'badge badge-warning' : 'badge badge-success'}>
+                                                {trainingProgram.blockerLabel}
+                                            </span>
+                                        </div>
+                                        <p className="text-[10px] font-mono uppercase tracking-[0.28em] text-cyan-400">
+                                            {trainingProgram.title}
+                                        </p>
+                                        <h3 className="mt-2 text-xl font-black uppercase tracking-tight">
+                                            {trainingProgram.missionTitle}
+                                        </h3>
+                                        <p className="mt-3 text-sm leading-relaxed text-zinc-400">
+                                            {trainingProgram.evidenceLabel}. {trainingProgram.reasonLabel}
+                                        </p>
+                                        {trainingProgram.reentryCopy ? (
+                                            <p className="mt-3 text-xs leading-relaxed text-amber-200">
+                                                {trainingProgram.reentryCopy}
+                                            </p>
+                                        ) : null}
+                                        {trainingProgram.lockBody ? (
+                                            <p className="mt-3 text-xs leading-relaxed text-zinc-500">
+                                                {trainingProgram.lockLabel}: {trainingProgram.lockBody}
+                                            </p>
+                                        ) : null}
+                                        <div className="mt-4 flex flex-wrap gap-3">
+                                            <Link href={trainingProgram.primaryAction.href} className="btn btn-primary">
+                                                {trainingProgram.primaryAction.label}
+                                            </Link>
+                                            <Link href={trainingProgram.programAction.href} className="btn btn-ghost" aria-label="Abrir Ciclo Pro">
+                                                {trainingProgram.programAction.label}
+                                            </Link>
+                                            {trainingProgram.lockCtaHref && trainingProgram.lockCtaLabel ? (
+                                                <Link href={trainingProgram.lockCtaHref} className="btn btn-ghost">
+                                                    {trainingProgram.lockCtaLabel}
+                                                </Link>
+                                            ) : null}
+                                        </div>
+                                    </div>
+                                ) : null}
                                 {activeCoachLoop ? (
                                     <div className={`mt-5 rounded-[18px] border p-4 ${activeCoachLoop.status === 'conflict' ? 'border-amber-400/30 bg-amber-400/10' : 'border-cyan-400/20 bg-cyan-400/10'}`}>
                                         <div className="mb-2 flex flex-wrap items-center gap-2">
