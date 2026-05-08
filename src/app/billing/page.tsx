@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { openBillingPortal } from '@/actions/billing';
 import { auth } from '@/auth';
 import { resolveServerProductAccess } from '@/lib/product-access-server';
+import { isInternalAdminProAccess } from '@/lib/product-entitlements';
 import type { ProductAccessState, BillingStatus, ProductTier } from '@/types/monetization';
 import { EvidenceChip, type EvidenceTone } from '@/ui/components/evidence-chip';
 import { Header } from '@/ui/components/header';
@@ -135,6 +136,14 @@ function portalAllowed(status: BillingStatus, accessState: ProductAccessState): 
     );
 }
 
+function quotaValueLabel(input: {
+    readonly used: number;
+    readonly limit: number;
+    readonly adminInternalAccess: boolean;
+}): string {
+    return input.adminInternalAccess ? 'Admin' : `${input.used}/${input.limit}`;
+}
+
 async function openPortalAction() {
     'use server';
 
@@ -149,7 +158,14 @@ export default async function BillingPage(): Promise<React.JSX.Element> {
     }
 
     const access = await resolveServerProductAccess(session.user.id);
-    const state = accessStateCopy(access.accessState);
+    const adminInternalAccess = isInternalAdminProAccess(access);
+    const state = adminInternalAccess
+        ? {
+            title: 'Admin Pro interno',
+            body: 'Conta admin recebe Pro interno pelo servidor, sem depender de checkout, success URL ou Portal Stripe para liberar recurso.',
+            tone: 'pro' as const,
+        }
+        : accessStateCopy(access.accessState);
     const quota = access.quota;
     const canOpenPortal = access.features['billing.portal_access'].granted
         && access.accessState !== 'suspended'
@@ -178,7 +194,7 @@ export default async function BillingPage(): Promise<React.JSX.Element> {
                             <EvidenceChip label="Tier" value={formatTier(access.effectiveTier)} tone={access.effectiveTier === 'free' ? 'info' : 'pro'} />
                             <EvidenceChip label="Acesso" value={access.accessState} tone={state.tone} />
                             <EvidenceChip label="Billing" value={billingStatusLabel(access.billingStatus)} tone={state.tone} />
-                            <EvidenceChip label="Quota" value={quota.state} tone={quotaTone} />
+                            <EvidenceChip label="Quota" value={adminInternalAccess ? 'operacional' : quota.state} tone={adminInternalAccess ? 'pro' : quotaTone} />
                         </div>
                     </div>
 
@@ -191,14 +207,14 @@ export default async function BillingPage(): Promise<React.JSX.Element> {
                         />
                         <MetricTile
                             label="Quota"
-                            value={`${quota.used}/${quota.limit}`}
-                            helper={`${quota.remaining} saves uteis restantes neste periodo.`}
-                            tone={quotaTone}
+                            value={quotaValueLabel({ used: quota.used, limit: quota.limit, adminInternalAccess })}
+                            helper={adminInternalAccess ? 'Conta admin usa quota operacional alta para saves uteis.' : `${quota.remaining} saves uteis restantes neste periodo.`}
+                            tone={adminInternalAccess ? 'pro' : quotaTone}
                         />
                         <MetricTile
                             label="Periodo"
-                            value={formatDate(access.periodEnd)}
-                            helper="Periodo vem do resolver de acesso, nao do cliente."
+                            value={adminInternalAccess ? 'interno' : formatDate(access.periodEnd)}
+                            helper={adminInternalAccess ? 'Acesso operacional aplicado por role admin.' : 'Periodo vem do resolver de acesso, nao do cliente.'}
                             tone="info"
                         />
                         <MetricTile
@@ -221,6 +237,10 @@ export default async function BillingPage(): Promise<React.JSX.Element> {
                                         Abrir Portal Stripe
                                     </button>
                                 </form>
+                            ) : adminInternalAccess ? (
+                                <Link href="/admin/billing" className="btn btn-primary">
+                                    Abrir Admin Billing
+                                </Link>
                             ) : (
                                 <Link href={access.effectiveTier === 'free' ? '/pricing' : '/history'} className="btn btn-primary">
                                     {access.effectiveTier === 'free' ? 'Ver Pro' : 'Ver historico'}

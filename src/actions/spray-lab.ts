@@ -662,7 +662,12 @@ export async function getActiveSprayLabSessionAction(
 
     const predicates = [
         eq(sprayLabSessions.userId, userId),
-        inArray(sprayLabSessions.status, ['draft', 'active', 'paused', 'blocked']),
+        inArray(
+            sprayLabSessions.status,
+            input.baseAnalysisSessionId
+                ? ['draft', 'active', 'paused', 'blocked', 'completed']
+                : ['draft', 'active', 'paused', 'blocked'],
+        ),
     ];
 
     if (input.baseAnalysisSessionId) {

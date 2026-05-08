@@ -169,7 +169,7 @@ export interface AdaptiveCoachLoopNextBlockModel {
 }
 
 export interface AdaptiveCoachLoopCtaModel {
-    readonly label: 'Gravar analise para registrar resultado' | 'Registrar resultado do bloco' | 'Gravar validacao compativel';
+    readonly label: 'Gravar analise para registrar resultado' | 'Abrir Spray Lab' | 'Registrar resultado do bloco' | 'Gravar validacao compativel';
     readonly href: string | null;
     readonly tone: ResultMetricTone;
 }
@@ -499,7 +499,15 @@ function buildAdaptiveCoachLoopCta(result: AnalysisResult, state: AdaptiveCoachL
         };
     }
 
-    if (state === 'pending' || state === 'ready') {
+    if (state === 'ready') {
+        return {
+            label: 'Abrir Spray Lab',
+            href: sprayLabHref,
+            tone: 'info',
+        };
+    }
+
+    if (state === 'pending') {
         return {
             label: 'Registrar resultado do bloco',
             href: historyHref,

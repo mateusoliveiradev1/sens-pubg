@@ -296,11 +296,11 @@ export function buildSprayLabViewModel(input: {
         return {
             routeState: 'empty',
             title: 'Spray Lab',
-            body: 'Abra o Lab a partir de uma analise salva com protocolo completo para executar o bloco guiado.',
-            primaryAction: { label: 'Analisar clip', href: '/analyze' },
+            body: 'Use uma analise salva com protocolo completo para abrir um bloco guiado, registrar fidelidade e gravar validacao compativel.',
+            primaryAction: { label: 'Ver historico', href: '/history' },
             evidenceItems: [
                 { label: 'Estado', value: 'Sem sessao ativa', tone: 'warning' },
-                { label: 'Free', value: 'sessao basica', tone: 'info' },
+                { label: 'Entrada', value: 'historico ou resultado salvo', tone: 'info' },
                 { label: 'Pro', value: 'auditoria e benchmark', tone: 'pro' },
             ],
             loopStage: 'block',

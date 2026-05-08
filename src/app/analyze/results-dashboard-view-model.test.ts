@@ -792,6 +792,21 @@ describe('results dashboard view model', () => {
         ]);
     });
 
+    it('routes ready adaptive coach loops into the Spray Lab runner', () => {
+        const model = buildAdaptiveCoachLoopModel(createAnalysisResultForCoachLoop({
+            historySessionId: 'session-1',
+        }));
+
+        expect(model).toMatchObject({
+            state: 'ready',
+            cta: {
+                label: 'Abrir Spray Lab',
+                href: '/spray-lab?sourceSessionId=session-1',
+                tone: 'info',
+            },
+        });
+    });
+
     it('routes adaptive coach conflicts to compatible validation instead of stronger action', () => {
         const model = buildAdaptiveCoachLoopModel(createAnalysisResultForCoachLoop({
             historySessionId: 'session-1',

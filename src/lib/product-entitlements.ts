@@ -94,6 +94,10 @@ export interface ProductAccessResolution {
     readonly auditRefs: readonly string[];
 }
 
+export const ADMIN_PRO_AUDIT_REF = 'admin_pro_internal';
+export const ADMIN_PRO_QUOTA_LIMIT = 999_999;
+export const ADMIN_PRO_QUOTA_WARNING_AT = 900_000;
+
 const FREE_LIMIT = 3;
 const PRO_LIMIT = 100;
 const GRACE_PERIOD_MS = 3 * 24 * 60 * 60 * 1000;
@@ -368,6 +372,25 @@ export function resolveProductAccess(input: ResolveProductAccessInput = {}): Pro
         });
     }
 
+    const manualGrants = input.manualGrants ?? [];
+    const activeAdminGrant = manualGrants.find((grant) => (
+        grant.auditRef === ADMIN_PRO_AUDIT_REF
+        && isDateActive(grant.startsAt, grant.endsAt, now)
+    ));
+    if (activeAdminGrant) {
+        return makeResolution({
+            input,
+            effectiveTier: activeAdminGrant.tier,
+            accessState: 'manual_grant_active',
+            source: 'manual_grant',
+            billingStatus: 'manual_grant',
+            periodStart: activeAdminGrant.startsAt ?? null,
+            periodEnd: activeAdminGrant.endsAt ?? null,
+            expiresAt: activeAdminGrant.endsAt ?? null,
+            auditRefs: [activeAdminGrant.auditRef],
+        });
+    }
+
     const subscription = input.subscription;
     if (subscription) {
         if (
@@ -423,7 +446,6 @@ export function resolveProductAccess(input: ResolveProductAccessInput = {}): Pro
         }
     }
 
-    const manualGrants = input.manualGrants ?? [];
     const activeManualGrant = manualGrants.find((grant) => isDateActive(grant.startsAt, grant.endsAt, now));
     if (activeManualGrant) {
         return makeResolution({
@@ -482,4 +504,8 @@ export function hasProductEntitlement(
     key: ProductEntitlementKey,
 ): boolean {
     return resolution.features[key]?.granted ?? false;
+}
+
+export function isInternalAdminProAccess(resolution: ProductAccessResolution): boolean {
+    return resolution.auditRefs.includes(ADMIN_PRO_AUDIT_REF);
 }

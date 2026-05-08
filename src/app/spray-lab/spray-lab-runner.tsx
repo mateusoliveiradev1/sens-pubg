@@ -115,11 +115,30 @@ export function SprayLabRunner({ model }: SprayLabRunnerProps): React.JSX.Elemen
     if (model.routeState === 'empty') {
         return (
             <section className={styles.emptyState} aria-label="Spray Lab sem sessao">
-                <h2>{model.title}</h2>
-                <p>{model.body}</p>
+                <div className={styles.emptyIntro}>
+                    <span className={styles.eyebrow}>{model.title}</span>
+                    <h1>Abrir pelo resultado salvo</h1>
+                    <p>{model.body}</p>
+                </div>
+
+                <div className={styles.emptyGuide} aria-label="Entradas do Spray Lab">
+                    <div>
+                        <strong>01</strong>
+                        <span>Analise e salve um clip com protocolo completo.</span>
+                    </div>
+                    <div>
+                        <strong>02</strong>
+                        <span>Entre pelo historico ou pelo botao Abrir Spray Lab no resultado salvo.</span>
+                    </div>
+                    <div>
+                        <strong>03</strong>
+                        <span>Execute o bloco e volte ao Analyze para validacao compativel.</span>
+                    </div>
+                </div>
+
                 <div className={styles.emptyActions}>
-                    <Link className="btn btn-primary" href="/analyze">Analisar clip</Link>
-                    <Link className="btn btn-ghost" href="/history">Ver historico</Link>
+                    <Link className="btn btn-primary" href={model.primaryAction.href}>Ver historico</Link>
+                    <Link className="btn btn-secondary" href="/analyze">Analisar clip</Link>
                 </div>
             </section>
         );

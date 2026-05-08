@@ -9,6 +9,8 @@ describe('mobile navigation contract', () => {
     it('exposes paid route visibility and separates Sens dos Pros from paid plans', () => {
         expect(source).toContain("href: '/pricing'");
         expect(source).toContain("label: 'Planos'");
+        expect(source).toContain("href: '/spray-lab'");
+        expect(source).toContain("label: 'Spray Lab'");
         expect(source).toContain("href: '/billing'");
         expect(source).toContain("label: 'Assinatura'");
         expect(source).toContain("href: '/pros'");

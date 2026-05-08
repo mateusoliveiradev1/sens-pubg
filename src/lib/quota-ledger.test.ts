@@ -10,12 +10,21 @@ import {
     createAnalysisSaveAttemptId,
     recordSupportQuotaAdjustment,
     reserveAnalysisQuota,
+    resolveAnalysisSaveAccessWithResolution,
     resolveQuotaPeriod,
     summarizeQuotaState,
 } from './quota-ledger';
-import { resolveProductAccess } from './product-entitlements';
+import {
+    ADMIN_PRO_AUDIT_REF,
+    ADMIN_PRO_QUOTA_LIMIT,
+    hasProductEntitlement,
+    resolveProductAccess,
+} from './product-entitlements';
 
-function createMemoryQuotaRepository(seed: readonly AnalysisQuotaLedgerEntry[] = []): AnalysisQuotaLedgerRepository & {
+function createMemoryQuotaRepository(
+    seed: readonly AnalysisQuotaLedgerEntry[] = [],
+    userRole: string | null = null,
+): AnalysisQuotaLedgerRepository & {
     readonly entries: AnalysisQuotaLedgerEntry[];
 } {
     const entries = [...seed];
@@ -75,6 +84,9 @@ function createMemoryQuotaRepository(seed: readonly AnalysisQuotaLedgerEntry[] =
         },
         async loadMonetizationFlagRows() {
             return [];
+        },
+        async loadUserRole() {
+            return userRole;
         },
         async transaction(callback) {
             return callback(this);
@@ -167,6 +179,29 @@ describe('quota ledger policy', () => {
 
         expect(result.status).toBe('reserved');
         expect(result.quota.limit).toBe(100);
+    });
+
+    it('grants admin users internal Pro access with practical unlimited quota', async () => {
+        const now = new Date('2026-05-06T12:00:00.000Z');
+        const repository = createMemoryQuotaRepository([], 'admin');
+
+        const resolved = await resolveAnalysisSaveAccessWithResolution({
+            repository,
+            userId: 'admin-1',
+            now,
+        });
+        const period = resolveQuotaPeriod({ access: resolved.access, now });
+
+        expect(resolved.access).toMatchObject({
+            effectiveTier: 'pro',
+            accessState: 'manual_grant_active',
+            billingStatus: 'manual_grant',
+            auditRefs: [ADMIN_PRO_AUDIT_REF],
+        });
+        expect(resolved.state.canSave).toBe(true);
+        expect(resolved.access.quota.limit).toBe(ADMIN_PRO_QUOTA_LIMIT);
+        expect(period.limit).toBe(ADMIN_PRO_QUOTA_LIMIT);
+        expect(hasProductEntitlement(resolved.access, 'spray_lab.session_runner')).toBe(true);
     });
 
     it('enters warning state around 80/100 for Pro and 2/3 for Free', () => {

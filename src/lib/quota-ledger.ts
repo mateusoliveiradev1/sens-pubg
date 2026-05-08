@@ -8,6 +8,7 @@ import {
     productQuotaLedger,
     productSubscriptions,
     productUserGrants,
+    users,
     type MonetizationFlagRow,
     type ProductQuotaLedgerRow,
     type ProductSubscriptionRow,
@@ -18,6 +19,10 @@ import {
     type ResolvedMonetizationFlags,
 } from '@/lib/monetization-flags';
 import {
+    ADMIN_PRO_AUDIT_REF,
+    ADMIN_PRO_QUOTA_LIMIT,
+    ADMIN_PRO_QUOTA_WARNING_AT,
+    isInternalAdminProAccess,
     resolveProductAccess,
     type ProductAccessResolution,
     type ProductManualGrantFact,
@@ -157,6 +162,7 @@ export interface AnalysisQuotaLedgerRepository {
     readonly loadLatestSubscription: (userId: string) => Promise<ProductSubscriptionRow | null>;
     readonly loadUserGrants: (userId: string) => Promise<readonly ProductUserGrantRow[]>;
     readonly loadMonetizationFlagRows: () => Promise<readonly Pick<MonetizationFlagRow, 'key' | 'enabled'>[]>;
+    readonly loadUserRole?: (userId: string) => Promise<string | null>;
     readonly transaction: <T>(callback: (repository: AnalysisQuotaLedgerRepository) => Promise<T>) => Promise<T>;
 }
 
@@ -178,6 +184,18 @@ function resolveLimit(tier: ProductTier): number {
 
 function resolveWarningAt(tier: ProductTier): number {
     return tier === 'free' ? FREE_QUOTA_WARNING_AT : PRO_QUOTA_WARNING_AT;
+}
+
+function resolveLimitForAccess(access: ProductAccessResolution): number {
+    return isInternalAdminProAccess(access)
+        ? ADMIN_PRO_QUOTA_LIMIT
+        : resolveLimit(access.effectiveTier);
+}
+
+function resolveWarningAtForAccess(access: ProductAccessResolution): number {
+    return isInternalAdminProAccess(access)
+        ? ADMIN_PRO_QUOTA_WARNING_AT
+        : resolveWarningAt(access.effectiveTier);
 }
 
 function quotaStateForUsage(input: {
@@ -258,8 +276,8 @@ export function resolveQuotaPeriod(input: {
             source: 'stripe_subscription_period',
             start: input.access.periodStart!,
             end: input.access.periodEnd!,
-            limit: resolveLimit(tier),
-            warningAt: resolveWarningAt(tier),
+            limit: resolveLimitForAccess(input.access),
+            warningAt: resolveWarningAtForAccess(input.access),
         };
     }
 
@@ -268,8 +286,8 @@ export function resolveQuotaPeriod(input: {
         source: 'server_utc_month',
         start: startOfUtcMonth(now),
         end: startOfNextUtcMonth(now),
-        limit: resolveLimit(tier),
-        warningAt: resolveWarningAt(tier),
+        limit: resolveLimitForAccess(input.access),
+        warningAt: resolveWarningAtForAccess(input.access),
     };
 }
 
@@ -566,6 +584,17 @@ function rowsToManualGrantFacts(rows: readonly ProductUserGrantRow[]): readonly 
         }));
 }
 
+function roleToInternalManualGrant(role: string | null | undefined): readonly ProductManualGrantFact[] {
+    if (role !== 'admin') {
+        return [];
+    }
+
+    return [{
+        tier: 'pro',
+        auditRef: ADMIN_PRO_AUDIT_REF,
+    }];
+}
+
 function flagsToAccessFacts(flags: ResolvedMonetizationFlags) {
     return {
         entitlementSafeMode: flags.entitlementSafeMode,
@@ -636,10 +665,14 @@ export async function resolveAnalysisSaveAccessWithResolution(
     input: ResolveAnalysisSaveAccessInput,
 ): Promise<ResolvedAnalysisSaveAccess> {
     const now = input.now ?? new Date();
-    const [subscriptionRow, grantRows, flagRows] = await Promise.all([
+    const rolePromise = input.repository.loadUserRole
+        ? input.repository.loadUserRole(input.userId)
+        : Promise.resolve(null);
+    const [subscriptionRow, grantRows, flagRows, userRole] = await Promise.all([
         input.repository.loadLatestSubscription(input.userId),
         input.repository.loadUserGrants(input.userId),
         input.repository.loadMonetizationFlagRows(),
+        rolePromise,
     ]);
     const flags = resolveMonetizationFlags({
         environment: process.env.NODE_ENV === 'production'
@@ -656,7 +689,10 @@ export async function resolveAnalysisSaveAccessWithResolution(
     const baseAccessInput = {
         userId: input.userId,
         subscription: rowToSubscriptionFact(subscriptionRow),
-        manualGrants: rowsToManualGrantFacts(grantRows),
+        manualGrants: [
+            ...roleToInternalManualGrant(userRole),
+            ...rowsToManualGrantFacts(grantRows),
+        ],
         flags: flagsToAccessFacts(flags),
         now,
     };
@@ -775,6 +811,14 @@ export function createDrizzleQuotaLedgerRepository(database: Database): Analysis
                 key: monetizationFlags.key,
                 enabled: monetizationFlags.enabled,
             }).from(monetizationFlags);
+        },
+        async loadUserRole(userId) {
+            const rows = await quotaDatabase.select({ role: users.role })
+                .from(users)
+                .where(eq(users.id, userId))
+                .limit(1);
+
+            return rows[0]?.role ?? null;
         },
         async transaction(callback) {
             if (typeof quotaDatabase.transaction !== 'function') {

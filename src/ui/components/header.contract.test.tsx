@@ -11,6 +11,8 @@ describe('header monetization CTA contract', () => {
         expect(source).toContain('BrandLockup');
         expect(source).toContain('href="/pricing"');
         expect(source).toContain('Planos');
+        expect(source).toContain('href="/spray-lab"');
+        expect(source).toContain('Spray Lab');
         expect(source).toContain('href="/billing"');
         expect(source).toContain('Assinatura');
         expect(source).toContain('href="/pros"');
@@ -22,7 +24,7 @@ describe('header monetization CTA contract', () => {
 
     it('keeps desktop navigation in the Phase 7 order', () => {
         const source = readSource('src/ui/components/header.tsx');
-        const labels = ['Analisar', 'Dashboard', 'Historico', 'Sens dos Pros', 'Comunidade', 'Planos'];
+        const labels = ['Analisar', 'Spray Lab', 'Dashboard', 'Historico', 'Sens dos Pros', 'Comunidade', 'Planos'];
         const positions = labels.map((label) => source.indexOf(label));
 
         expect(positions.every((position) => position >= 0)).toBe(true);

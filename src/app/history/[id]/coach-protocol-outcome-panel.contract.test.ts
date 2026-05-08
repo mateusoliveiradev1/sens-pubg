@@ -33,6 +33,8 @@ describe('history coach protocol outcome panel contract', () => {
         expect(source).toMatch(/Dor\/fadiga/);
         expect(source).toMatch(/Outro motivo/);
         expect(source).toMatch(/Gravar validacao compativel/);
+        expect(source).toMatch(/\/spray-lab\?sourceSessionId=/);
+        expect(source).toMatch(/encodeURIComponent\(sessionId\)/);
         expect(source).toMatch(/aria-live="polite"/);
     });
 
@@ -44,6 +46,7 @@ describe('history coach protocol outcome panel contract', () => {
         expect(source).toMatch(/Grave o proximo clip assim/);
         expect(source).toMatch(/Transferencia em partida\/TDM/);
         expect(source).toMatch(/Registrar transferencia/);
+        expect(source).toMatch(/Transferencia registrada/);
         expect(source).toMatch(/dor, formigamento ou dormencia interrompe o bloco/);
         expect(source).toMatch(/sensitivity, grip, muzzle, optic, distance, stance, weapon ou preparation/);
         expect(source).not.toMatch(/continue com dor|continuar com dor|continue apesar da dor/i);

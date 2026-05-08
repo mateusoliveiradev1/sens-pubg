@@ -137,11 +137,13 @@ export function CoachProtocolOutcomePanel({ sessionId, coachPlan, outcomes }: Pr
     const [error, setError] = useState<string | null>(null);
     const [status, setStatus] = useState<string | null>(null);
     const [isCorrecting, setIsCorrecting] = useState(false);
+    const [transferSaved, setTransferSaved] = useState(false);
 
     const latestOutcome = getLatestOutcome(localOutcomes);
     const protocol = coachPlan.actionProtocols[0] ?? null;
     const completeProtocol = coachPlan.completeProtocol ?? null;
     const protocolId = completeProtocol?.id ?? protocol?.id ?? null;
+    const sprayLabHref = `/spray-lab?sourceSessionId=${encodeURIComponent(sessionId)}`;
     const shouldShowForm = !latestOutcome || isCorrecting;
     const requiresReason = selectedStatus === 'invalid_capture';
     const canSubmit = Boolean(protocolId) && (!requiresReason || reasonCodes.length > 0);
@@ -250,6 +252,7 @@ export function CoachProtocolOutcomePanel({ sessionId, coachPlan, outcomes }: Pr
                 return;
             }
 
+            setTransferSaved(true);
             setStatus('Transferencia registrada como evidencia pratica. Ela nao substitui validacao compativel.');
             router.refresh();
         });
@@ -298,10 +301,10 @@ export function CoachProtocolOutcomePanel({ sessionId, coachPlan, outcomes }: Pr
                     <button
                         type="button"
                         className="btn btn-secondary"
-                        disabled={isPending || !completeProtocol}
+                        disabled={isPending || !completeProtocol || transferSaved}
                         onClick={handleTransferSubmit}
                     >
-                        Registrar transferencia
+                        {transferSaved ? 'Transferencia registrada' : 'Registrar transferencia'}
                     </button>
                 </div>
             </div>
@@ -333,8 +336,8 @@ export function CoachProtocolOutcomePanel({ sessionId, coachPlan, outcomes }: Pr
                         </span>
                     ) : null}
                     <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
-                        <a href="/analyze" className="btn btn-primary">
-                            Gravar validacao compativel
+                        <a href={sprayLabHref} className="btn btn-primary">
+                            Gravar validacao compativel no Spray Lab
                         </a>
                         <button
                             type="button"

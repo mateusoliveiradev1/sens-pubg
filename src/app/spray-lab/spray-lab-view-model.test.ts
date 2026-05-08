@@ -120,7 +120,8 @@ describe('spray lab view model', () => {
         });
 
         expect(model.routeState).toBe('empty');
-        expect(model.primaryAction).toEqual({ label: 'Analisar clip', href: '/analyze' });
+        expect(model.primaryAction).toEqual({ label: 'Ver historico', href: '/history' });
+        expect(model.evidenceItems.map((item) => item.label)).toContain('Entrada');
         expect(model.loopStage).toBe('block');
     });
 

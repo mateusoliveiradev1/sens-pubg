@@ -215,6 +215,39 @@ describe('product entitlement resolver', () => {
         expect(expired.auditRefs).toEqual(['grant:expired']);
     });
 
+    it('lets the internal admin grant override billing so admin keeps Pro access', async () => {
+        const {
+            ADMIN_PRO_AUDIT_REF,
+            resolveProductAccess,
+            isInternalAdminProAccess,
+            hasProductEntitlement,
+        } = await loadProductEntitlementsModule();
+
+        const result = resolveProductAccess({
+            now,
+            subscription: {
+                status: 'active',
+                tier: 'pro',
+                currentPeriodStart: yesterday,
+                currentPeriodEnd: tomorrow,
+            },
+            manualGrants: [{
+                tier: 'pro',
+                auditRef: ADMIN_PRO_AUDIT_REF,
+            }],
+        });
+
+        expect(result).toMatchObject({
+            effectiveTier: 'pro',
+            accessState: 'manual_grant_active',
+            billingStatus: 'manual_grant',
+            auditRefs: [ADMIN_PRO_AUDIT_REF],
+        });
+        expect(isInternalAdminProAccess(result)).toBe(true);
+        expect(hasProductEntitlement(result, 'coach.full_plan')).toBe(true);
+        expect(hasProductEntitlement(result, 'spray_lab.session_runner')).toBe(true);
+    });
+
     it('makes suspension override Stripe active and manual grants', async () => {
         const { resolveProductAccess, hasProductEntitlement } = await loadProductEntitlementsModule();
 

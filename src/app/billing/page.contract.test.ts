@@ -9,6 +9,8 @@ describe('billing page contract', () => {
         expect(source).toMatch(/openBillingPortal/);
         expect(source).toMatch(/redirect\(result\.portalUrl\)/);
         expect(source).toContain('Abrir Portal Stripe');
+        expect(source).toContain('isInternalAdminProAccess');
+        expect(source).toContain('Admin Pro interno');
         expect(source).not.toMatch(/stripe\.billingPortal|localStorage|customerId.*input/);
     });
 
@@ -20,6 +22,8 @@ describe('billing page contract', () => {
 
         expect(normalized).toContain('assinatura');
         expect(normalized).toContain('seu acesso sens pubg');
+        expect(normalized).toContain('admin pro interno');
+        expect(normalized).toContain('operacional');
         expect(normalized).toContain('success url');
         expect(normalized).toContain('checkout em verificacao');
         expect(normalized).toContain('pagamento em graca');

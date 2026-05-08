@@ -141,21 +141,25 @@ export default async function SprayLabPage({
             <Header />
             <main className={styles.main}>
                 <div className={styles.container}>
-                    <PageCommandHeader
-                        body={model.body}
-                        evidenceItems={model.evidenceItems}
-                        primaryAction={model.primaryAction}
-                        roleLabel="Spray Lab"
-                        title={model.title}
-                    />
-                    <div className={styles.loopWrap}>
-                        <LoopRail
-                            blocked={model.routeState !== 'session'}
-                            currentStage={model.loopStage}
-                            evidenceLabel={model.loopEvidenceLabel}
-                            nextActionLabel={model.primaryAction.label}
+                    {model.routeState === 'empty' ? null : (
+                        <PageCommandHeader
+                            body={model.body}
+                            evidenceItems={model.evidenceItems}
+                            primaryAction={model.primaryAction}
+                            roleLabel="Spray Lab"
+                            title={model.title}
                         />
-                    </div>
+                    )}
+                    {model.routeState === 'empty' ? null : (
+                        <div className={styles.loopWrap}>
+                            <LoopRail
+                                blocked={model.routeState !== 'session'}
+                                currentStage={model.loopStage}
+                                evidenceLabel={model.loopEvidenceLabel}
+                                nextActionLabel={model.primaryAction.label}
+                            />
+                        </div>
+                    )}
                     <SprayLabRunner model={model} />
                 </div>
             </main>

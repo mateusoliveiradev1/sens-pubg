@@ -59,6 +59,7 @@ import {
     completeSprayLabSessionAction,
     createSprayLabSessionAction,
     createSprayLabValidationLinkAction,
+    getActiveSprayLabSessionAction,
     getSprayLabSessionAction,
     recordSprayLabSessionEventAction,
     resolveSprayLabValidationTargetAction,
@@ -313,6 +314,25 @@ describe('spray lab actions', () => {
         expect(result.success).toBe(true);
         expect(result.success ? result.value.id : null).toBe(snapshot.id);
         expect(result.success ? result.value.protocol.context.weaponId : null).toBe('beryl-m762');
+    });
+
+    it('keeps a completed source-session Lab open so validation buttons do not reset the runner', async () => {
+        const completed = labSnapshot({
+            status: 'completed',
+            act: 'fechar_resultado',
+            stepState: 'resultado',
+        });
+        mocks.limit.mockResolvedValueOnce([{ snapshot: completed }]);
+
+        const result = await getActiveSprayLabSessionAction({
+            baseAnalysisSessionId: 'analysis-1',
+        });
+
+        expect(result).toEqual({
+            success: true,
+            value: completed,
+        });
+        expect(mocks.orderBy).toHaveBeenCalled();
     });
 
     it('rejects events that would mutate a completed session', async () => {
