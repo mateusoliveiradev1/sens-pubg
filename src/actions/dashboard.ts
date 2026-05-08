@@ -1,11 +1,21 @@
 'use server';
 
 import { db } from '@/db';
-import { analysisSessions, coachProtocolOutcomes, precisionEvolutionLines, weaponProfiles, weaponRegistry } from '@/db/schema';
+import {
+    analysisSessions,
+    coachProtocolOutcomes,
+    precisionEvolutionLines,
+    sprayLabBenchmarkSnapshots,
+    sprayLabSessions,
+    sprayLabValidationLinks,
+    weaponProfiles,
+    weaponRegistry,
+} from '@/db/schema';
 import { auth } from '@/auth';
-import { eq, sql, gte, and, desc } from 'drizzle-orm';
+import { eq, sql, gte, and, desc, inArray } from 'drizzle-orm';
 import { hydrateAnalysisResultFromHistory } from '@/app/history/analysis-result-hydration';
 import { buildDashboardActiveCoachLoop, type DashboardActiveCoachLoop } from './dashboard-active-coach-loop';
+import { buildSprayLabCoachHandoff } from '@/core/spray-lab-coach-handoff';
 import { createPremiumProjectionSummary } from '@/lib/premium-projection';
 import { resolveProductAccess, type ProductAccessResolution } from '@/lib/product-entitlements';
 import {
@@ -412,11 +422,63 @@ export async function getDashboardStats(): Promise<DashboardStats | null> {
                 .limit(1)
             : [];
         const latestCoachOutcome = latestCoachOutcomeRows[0] ?? null;
+        const latestSprayLabRows = await db
+            .select({
+                snapshot: sprayLabSessions.snapshot,
+            })
+            .from(sprayLabSessions)
+            .where(
+                and(
+                    eq(sprayLabSessions.userId, userId),
+                    inArray(sprayLabSessions.status, ['draft', 'active', 'paused', 'blocked', 'completed']),
+                ),
+            )
+            .orderBy(desc(sprayLabSessions.updatedAt))
+            .limit(1);
+        const latestSprayLabSession = latestSprayLabRows[0]?.snapshot ?? null;
+        const latestSprayLabBenchmarkRows = latestSprayLabSession
+            ? await db
+                .select({
+                    snapshot: sprayLabBenchmarkSnapshots.snapshot,
+                })
+                .from(sprayLabBenchmarkSnapshots)
+                .where(
+                    and(
+                        eq(sprayLabBenchmarkSnapshots.userId, userId),
+                        eq(sprayLabBenchmarkSnapshots.labSessionId, latestSprayLabSession.id),
+                    ),
+                )
+                .orderBy(desc(sprayLabBenchmarkSnapshots.createdAt))
+                .limit(1)
+            : [];
+        const latestSprayLabValidationRows = latestSprayLabSession
+            ? await db
+                .select({
+                    payload: sprayLabValidationLinks.payload,
+                })
+                .from(sprayLabValidationLinks)
+                .where(
+                    and(
+                        eq(sprayLabValidationLinks.userId, userId),
+                        eq(sprayLabValidationLinks.labSessionId, latestSprayLabSession.id),
+                    ),
+                )
+                .orderBy(desc(sprayLabValidationLinks.updatedAt))
+                .limit(1)
+            : [];
+        const sprayLabHandoff = buildSprayLabCoachHandoff({
+            session: latestSprayLabSession,
+            benchmark: latestSprayLabBenchmarkRows[0]?.snapshot ?? null,
+            validationLink: latestSprayLabValidationRows[0]?.payload ?? null,
+        });
         const activeCoachLoop = buildDashboardActiveCoachLoop({
             sessionId: latestTruthRow?.id ?? null,
             result: latestTruthResult,
             latestOutcome: latestCoachOutcome,
+            sprayLabHandoff,
         });
+        const activeLoopVisible = access.features['coach.validation_loop'].granted
+            || Boolean(activeCoachLoop?.sprayLab);
 
         return {
             totalSessions: Number(basicStats[0]?.count || 0),
@@ -443,7 +505,7 @@ export async function getDashboardStats(): Promise<DashboardStats | null> {
             latestCoachNextBlock: buildLatestCoachNextBlock(latestTruthResult),
             trendEvidence: buildTrendEvidence(recentTruthSessions, hydratedRecentResults, delta),
             principalPrecisionTrend,
-            activeCoachLoop: access.features['coach.validation_loop'].granted ? activeCoachLoop : null,
+            activeCoachLoop: activeLoopVisible ? activeCoachLoop : null,
             premiumProjection: createPremiumProjectionSummary(access, latestTruthResult ?? undefined),
         };
     } catch (err) {

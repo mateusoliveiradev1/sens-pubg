@@ -27,6 +27,7 @@ O runner imprime um JSON com:
 - `summary`: total de clips, falhas, score agregado e metricas de tracking
 - `summary.tracking.confidenceCalibration`: amostra, confianca media, taxa observada de frames visiveis e Brier score
 - `summary.truth`: clips que preservaram o contrato de decisao, evidencia e protocolo
+- `clips[].truth.expected.sprayLab`: quando presente, contrato opcional do Spray Lab para lane, fidelidade, evidence level, indice, validacao, snapshot de benchmark, repair e projecao Free/Pro
 - `sourceBreakdown`: o mesmo resumo agregado separado por `synthetic`, `captured` e `augmented`
 - `clips`: resultado por clip para tracking, diagnostico, coach e truth
 - `regression`: delta contra o baseline e flag `isRegression`
@@ -44,6 +45,9 @@ O runner imprime um JSON com:
 - `expectedTruth.weakEvidenceDowngrade=true` so pode passar com `capture_again` ou `inconclusive`
 - `expectedTruth.primaryFocusArea` precisa bater exatamente; `secondaryFocusAreas` e validado como conjunto sem depender de ordem
 - `expectedTruth.nextBlock` valida estrutura do protocolo: tier, chave, titulo, duracao, exercicio ou primeiro passo, alvo, cobertura/confianca minima, criterio de sucesso, criterio de falha e marcador de validacao do proximo clip
+- `expectedTruth.sprayLab` e opcional; quando existe, valida `laneId`, `fidelityTier`, `evidenceLevel`, `indexState`, `validationStatus`, `benchmarkSnapshotStatus`, `repairState` e `entitlementProjection`
+- Spray Lab provisorio nao pode passar como validado: `validationStatus` precisa sustentar `evidenceLevel=validated_benchmark`, `indexState` validado e `benchmarkSnapshotStatus=validated`
+- `repairState` no benchmark protege contextos incompativeis, clips inconclusivos, practice-only e validacoes bloqueadas de virarem sucesso silencioso
 - quando o comportamento correto e recusar uma decisao forte, `capture_again` ou `inconclusive` e um resultado esperado valido e pode passar no benchmark
 - baselines ficam em `tests/goldens/benchmark` ao lado dos datasets
 - atualizacao de baseline exige comando explicito com `--reason`, `--affected-clips` e `--honesty-rationale`

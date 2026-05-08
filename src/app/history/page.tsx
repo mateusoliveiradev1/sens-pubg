@@ -884,8 +884,11 @@ export default async function HistoryPage({
                                     const evidenceTone = resolveHistoryEvidenceTone(evidenceSummary);
                                     const precisionContext = findSessionPrecisionContext(session.id, precisionLines);
                                     const protocolContinuity = session.protocolContinuity;
+                                    const sprayLabContinuity = session.sprayLabContinuity;
                                     const sessionActionLabel = session.coachOutcomeStatus
                                         ? 'Ver auditoria do coach'
+                                        : sprayLabContinuity
+                                            ? sprayLabContinuity.nextActionLabel
                                         : protocolContinuity
                                             ? 'Ver protocolo salvo'
                                         : 'Abrir auditoria';
@@ -1022,6 +1025,26 @@ export default async function HistoryPage({
                                                                     {protocolContinuity.protocolLabel}: {protocolContinuity.durationLabel}
                                                                 </span>
                                                             ) : null}
+
+                                                            {sprayLabContinuity ? (
+                                                                <span
+                                                                    style={{
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        padding: '6px 10px',
+                                                                        borderRadius: '999px',
+                                                                        border: '1px solid rgba(0, 240, 255, 0.2)',
+                                                                        background: 'rgba(0, 240, 255, 0.08)',
+                                                                        color: 'var(--color-accent-cyan)',
+                                                                        fontSize: '11px',
+                                                                        fontWeight: 700,
+                                                                        letterSpacing: '0.04em',
+                                                                        textTransform: 'uppercase',
+                                                                    }}
+                                                                >
+                                                                    Spray Lab: {sprayLabContinuity.statusLabel}
+                                                                </span>
+                                                            ) : null}
                                                         </div>
 
                                                         <p style={{ margin: 0, color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
@@ -1090,10 +1113,39 @@ export default async function HistoryPage({
                                                                 />
                                                             </>
                                                         ) : null}
+                                                        {sprayLabContinuity ? (
+                                                            <>
+                                                                <EvidenceChip
+                                                                    label="Spray Lab"
+                                                                    tone="info"
+                                                                    value={sprayLabContinuity.contextLabel}
+                                                                />
+                                                                <EvidenceChip
+                                                                    label="Fidelidade"
+                                                                    tone={sprayLabContinuity.blockerReasons.length > 0 ? 'warning' : 'info'}
+                                                                    value={sprayLabContinuity.fidelityLabel}
+                                                                />
+                                                                <EvidenceChip
+                                                                    label="Indice Lab"
+                                                                    tone={sprayLabContinuity.indexLabel.startsWith('validado') ? 'success' : 'warning'}
+                                                                    value={sprayLabContinuity.indexLabel}
+                                                                />
+                                                                <EvidenceChip
+                                                                    label="Validacao Lab"
+                                                                    tone={sprayLabContinuity.validationLabel === 'Validacao tecnica confirmada' ? 'success' : 'warning'}
+                                                                    value={sprayLabContinuity.validationLabel}
+                                                                />
+                                                                <EvidenceChip
+                                                                    label="Transferencia Lab"
+                                                                    tone="info"
+                                                                    value={sprayLabContinuity.transferLabel}
+                                                                />
+                                                            </>
+                                                        ) : null}
                                                     </div>
-                                                    {evidenceSummary?.blockerReasons.length ? (
+                                                    {evidenceSummary?.blockerReasons.length || sprayLabContinuity?.blockerReasons.length ? (
                                                         <div style={{ display: 'grid', gap: '6px' }} aria-label="Bloqueadores visiveis">
-                                                            {evidenceSummary.blockerReasons.slice(0, 2).map((reason) => (
+                                                            {[...(evidenceSummary?.blockerReasons ?? []), ...(sprayLabContinuity?.blockerReasons ?? [])].slice(0, 3).map((reason) => (
                                                                 <span
                                                                     key={reason}
                                                                     style={{

@@ -15,6 +15,7 @@ interface Props {
     readonly sessionId: string;
     readonly coachPlan: CoachPlan;
     readonly outcomes: readonly CoachProtocolOutcome[];
+    readonly sprayLabSessionId?: string | null;
 }
 
 const OUTCOME_OPTIONS: readonly {
@@ -126,7 +127,31 @@ function getLatestOutcome(outcomes: readonly CoachProtocolOutcome[]): CoachProto
     return outcomes[outcomes.length - 1] ?? null;
 }
 
-export function CoachProtocolOutcomePanel({ sessionId, coachPlan, outcomes }: Props) {
+function buildSprayLabHref(sessionId: string, protocolId: string | null): string {
+    const base = `/spray-lab?sourceSessionId=${encodeURIComponent(sessionId)}`;
+
+    return protocolId
+        ? `${base}&protocolId=${encodeURIComponent(protocolId)}`
+        : base;
+}
+
+function buildCompatibleValidationHref(input: {
+    readonly sessionId: string;
+    readonly protocolId: string | null;
+    readonly sprayLabSessionId: string | null;
+}): string {
+    if (!input.sprayLabSessionId) {
+        return buildSprayLabHref(input.sessionId, input.protocolId);
+    }
+
+    const protocolQuery = input.protocolId
+        ? `&protocolId=${encodeURIComponent(input.protocolId)}`
+        : '';
+
+    return `/analyze?mode=validation&labSessionId=${encodeURIComponent(input.sprayLabSessionId)}${protocolQuery}`;
+}
+
+export function CoachProtocolOutcomePanel({ sessionId, coachPlan, outcomes, sprayLabSessionId = null }: Props) {
     const router = useRouter();
     const receiptRef = useRef<HTMLDivElement>(null);
     const [isPending, startTransition] = useTransition();
@@ -143,7 +168,11 @@ export function CoachProtocolOutcomePanel({ sessionId, coachPlan, outcomes }: Pr
     const protocol = coachPlan.actionProtocols[0] ?? null;
     const completeProtocol = coachPlan.completeProtocol ?? null;
     const protocolId = completeProtocol?.id ?? protocol?.id ?? null;
-    const sprayLabHref = `/spray-lab?sourceSessionId=${encodeURIComponent(sessionId)}`;
+    const compatibleValidationHref = buildCompatibleValidationHref({
+        sessionId,
+        protocolId,
+        sprayLabSessionId,
+    });
     const shouldShowForm = !latestOutcome || isCorrecting;
     const requiresReason = selectedStatus === 'invalid_capture';
     const canSubmit = Boolean(protocolId) && (!requiresReason || reasonCodes.length > 0);
@@ -336,7 +365,7 @@ export function CoachProtocolOutcomePanel({ sessionId, coachPlan, outcomes }: Pr
                         </span>
                     ) : null}
                     <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
-                        <a href={sprayLabHref} className="btn btn-primary">
+                        <a href={compatibleValidationHref} className="btn btn-primary">
                             Gravar validacao compativel no Spray Lab
                         </a>
                         <button

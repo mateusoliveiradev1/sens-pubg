@@ -795,13 +795,16 @@ describe('results dashboard view model', () => {
     it('routes ready adaptive coach loops into the Spray Lab runner', () => {
         const model = buildAdaptiveCoachLoopModel(createAnalysisResultForCoachLoop({
             historySessionId: 'session-1',
+            coachPlan: createCoachPlan({
+                completeProtocol: createCompleteProtocol(),
+            }),
         }));
 
         expect(model).toMatchObject({
             state: 'ready',
             cta: {
                 label: 'Abrir Spray Lab',
-                href: '/spray-lab?sourceSessionId=session-1',
+                href: '/spray-lab?sourceSessionId=session-1&protocolId=complete-protocol-1',
                 tone: 'info',
             },
         });

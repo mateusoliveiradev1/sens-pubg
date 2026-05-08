@@ -3,6 +3,7 @@ import type {
     CoachProtocolOutcome,
     CompleteTrainingProtocol,
 } from '@/types/engine';
+import type { SprayLabCoachHandoff } from '@/core/spray-lab-coach-handoff';
 
 export interface HistoryProtocolRevisionInput {
     readonly revisionReason: string;
@@ -74,12 +75,25 @@ export interface HistoryProtocolAuditRow {
     readonly value: string;
 }
 
+export interface HistoryProtocolSprayLabCard {
+    readonly title: 'Spray Lab';
+    readonly contextLabel: string;
+    readonly fidelityLabel: string;
+    readonly indexLabel: string;
+    readonly validationLabel: string;
+    readonly transferLabel: string;
+    readonly nextActionLabel: string;
+    readonly nextActionHref: string;
+    readonly blockerReasons: readonly string[];
+}
+
 export interface HistoryProtocolViewModel {
     readonly snapshotCard: HistoryProtocolSnapshotCard;
     readonly outcomeCard: HistoryProtocolOutcomeCard;
     readonly validationCard: HistoryProtocolValidationCard;
     readonly transferCard: HistoryProtocolTransferCard;
     readonly revisionTimeline: readonly HistoryProtocolRevisionRow[];
+    readonly sprayLabCard: HistoryProtocolSprayLabCard | null;
     readonly auditRows: readonly HistoryProtocolAuditRow[];
 }
 
@@ -89,6 +103,7 @@ export function buildHistoryProtocolViewModel(input: {
     readonly outcomes?: readonly CoachProtocolOutcome[];
     readonly revisions?: readonly HistoryProtocolRevisionInput[];
     readonly transfers?: readonly HistoryProtocolTransferInput[];
+    readonly sprayLabHandoff?: SprayLabCoachHandoff | null;
     readonly canSeeFullProtocol?: boolean;
 }): HistoryProtocolViewModel | null {
     const protocol = input.result.coachPlan?.completeProtocol;
@@ -153,6 +168,19 @@ export function buildHistoryProtocolViewModel(input: {
             changedFieldsLabel: formatChangedFields(revision.changedFields),
             createdAt: formatDate(revision.createdAt),
         })),
+        sprayLabCard: input.sprayLabHandoff ? {
+            title: 'Spray Lab',
+            contextLabel: input.sprayLabHandoff.contextLabel,
+            fidelityLabel: input.sprayLabHandoff.fidelityTier
+                ? `${formatSprayLabFidelityTier(input.sprayLabHandoff.fidelityTier)} / ${formatSprayLabEvidenceLevel(input.sprayLabHandoff.evidenceLevel)}`
+                : formatSprayLabEvidenceLevel(input.sprayLabHandoff.evidenceLevel),
+            indexLabel: formatSprayLabIndex(input.sprayLabHandoff),
+            validationLabel: input.sprayLabHandoff.compatibleClipProof.label,
+            transferLabel: input.sprayLabHandoff.practicalTransfer.label,
+            nextActionLabel: input.sprayLabHandoff.nextAction.label,
+            nextActionHref: input.sprayLabHandoff.nextAction.href,
+            blockerReasons: input.sprayLabHandoff.blockerReasons,
+        } : null,
         auditRows: [
             { label: 'Downgrade codes', value: protocol.downgrade.reasons.join(', ') || 'sem downgrade' },
             { label: 'Blocker reasons', value: blockerReasons.join(' | ') || 'sem bloqueio ativo' },
@@ -166,6 +194,44 @@ export function buildHistoryProtocolViewModel(input: {
             },
         ],
     };
+}
+
+function formatSprayLabFidelityTier(tier: NonNullable<SprayLabCoachHandoff['fidelityTier']>): string {
+    switch (tier) {
+        case 'strong':
+            return 'forte';
+        case 'usable':
+            return 'util';
+        case 'practice_only':
+            return 'pratica';
+        case 'invalid_for_benchmark':
+            return 'fora do benchmark';
+    }
+}
+
+function formatSprayLabEvidenceLevel(level: SprayLabCoachHandoff['evidenceLevel']): string {
+    switch (level) {
+        case 'validated_benchmark':
+            return 'benchmark validado';
+        case 'provisional_benchmark':
+            return 'benchmark provisorio';
+        case 'weak_execution':
+            return 'execucao fraca';
+        case 'practice':
+            return 'pratica';
+    }
+}
+
+function formatSprayLabIndex(handoff: SprayLabCoachHandoff): string {
+    if (handoff.validatedScore !== null) {
+        return `validado ${handoff.validatedScore}/100`;
+    }
+
+    if (handoff.provisionalScore !== null) {
+        return `provisorio ${handoff.provisionalScore}/100`;
+    }
+
+    return 'indice pendente';
 }
 
 function formatProtocolTier(tier: CompleteTrainingProtocol['tier']): string {

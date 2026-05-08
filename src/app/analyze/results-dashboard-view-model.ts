@@ -485,11 +485,24 @@ function resolveAdaptiveCoachLoopState(result: AnalysisResult): AdaptiveCoachLoo
     return 'ready';
 }
 
+function buildSprayLabHref(result: AnalysisResult): string | null {
+    if (!result.historySessionId) {
+        return null;
+    }
+
+    const protocolId = result.coachPlan?.completeProtocol?.id
+        ?? result.coachPlan?.actionProtocols[0]?.id
+        ?? null;
+    const base = `/spray-lab?sourceSessionId=${encodeURIComponent(result.historySessionId)}`;
+
+    return protocolId
+        ? `${base}&protocolId=${encodeURIComponent(protocolId)}`
+        : base;
+}
+
 function buildAdaptiveCoachLoopCta(result: AnalysisResult, state: AdaptiveCoachLoopState): AdaptiveCoachLoopCtaModel {
     const historyHref = result.historySessionId ? `/history/${result.historySessionId}` : null;
-    const sprayLabHref = result.historySessionId
-        ? `/spray-lab?sourceSessionId=${encodeURIComponent(result.historySessionId)}`
-        : null;
+    const sprayLabHref = buildSprayLabHref(result);
 
     if (state === 'unsaved') {
         return {

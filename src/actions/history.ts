@@ -19,6 +19,10 @@ import { buildCoachPlan } from '@/core/coach-plan-builder';
 import { resolveMeasurementTruth } from '@/core/measurement-truth';
 import { buildPrecisionCompatibilityKey, formatPrecisionTrendLabel, resolvePrecisionTrend } from '@/core/precision-loop';
 import {
+    buildSprayLabCoachHandoff,
+    type SprayLabCoachHandoff,
+} from '@/core/spray-lab-coach-handoff';
+import {
     applySensitivityHistoryConvergence,
     type HistoricalSensitivitySignal,
 } from '@/core/sensitivity-history-convergence';
@@ -31,6 +35,9 @@ import {
     precisionCheckpoints,
     precisionEvolutionLines,
     sensitivityHistory,
+    sprayLabBenchmarkSnapshots,
+    sprayLabSessions,
+    sprayLabValidationLinks,
     trainingProtocolTransferRecords,
     weaponProfiles,
     type CoachProtocolOutcomeRow,
@@ -81,6 +88,9 @@ import type {
     SensitivityAcceptanceFeedback,
     SensitivityAcceptanceOutcome,
     SensitivityRecommendationTier,
+    SprayLabBenchmarkSnapshot,
+    SprayLabSessionSnapshot,
+    SprayLabValidationLink,
     WeaponLoadout,
 } from '@/types/engine';
 
@@ -100,6 +110,24 @@ interface StoredSensitivityHistorySession {
     readonly stance: string;
     readonly attachments: StoredHistoryAttachments;
     readonly fullResult: Record<string, unknown> | null;
+}
+
+interface HistorySprayLabSessionRow {
+    readonly baseAnalysisSessionId: string;
+    readonly snapshot: SprayLabSessionSnapshot;
+    readonly updatedAt: Date;
+}
+
+interface HistorySprayLabBenchmarkRow {
+    readonly labSessionId: string;
+    readonly snapshot: SprayLabBenchmarkSnapshot;
+    readonly createdAt: Date;
+}
+
+interface HistorySprayLabValidationRow {
+    readonly labSessionId: string;
+    readonly payload: SprayLabValidationLink;
+    readonly updatedAt: Date;
 }
 
 export interface PrecisionHistoryCheckpointSummary {
@@ -142,6 +170,19 @@ export interface HistorySessionEvidenceSummary {
     readonly sampleSize: number;
     readonly blockerReasons: readonly string[];
     readonly usableForAnalysis: boolean;
+}
+
+export interface HistorySprayLabContinuitySummary {
+    readonly sessionId: string;
+    readonly contextLabel: string;
+    readonly statusLabel: string;
+    readonly fidelityLabel: string;
+    readonly indexLabel: string;
+    readonly validationLabel: string;
+    readonly transferLabel: string;
+    readonly nextActionLabel: string;
+    readonly nextActionHref: string;
+    readonly blockerReasons: readonly string[];
 }
 
 export interface RecordCoachProtocolOutcomeInput {
@@ -1366,6 +1407,31 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function isHistorySprayLabSessionRow(row: unknown): row is HistorySprayLabSessionRow {
+    if (!isRecord(row) || !isRecord(row.snapshot)) {
+        return false;
+    }
+
+    return typeof row.baseAnalysisSessionId === 'string'
+        && typeof row.snapshot.id === 'string';
+}
+
+function isHistorySprayLabBenchmarkRow(row: unknown): row is HistorySprayLabBenchmarkRow {
+    if (!isRecord(row) || !isRecord(row.snapshot)) {
+        return false;
+    }
+
+    return typeof row.labSessionId === 'string';
+}
+
+function isHistorySprayLabValidationRow(row: unknown): row is HistorySprayLabValidationRow {
+    if (!isRecord(row) || !isRecord(row.payload)) {
+        return false;
+    }
+
+    return typeof row.labSessionId === 'string';
+}
+
 function readString(value: Record<string, unknown> | undefined, key: string): string | undefined {
     const property = value?.[key];
     return typeof property === 'string' && property.trim().length > 0
@@ -2210,6 +2276,84 @@ function buildHistoryProtocolContinuity(fullResult: Record<string, unknown> | nu
     };
 }
 
+function formatHistorySprayLabStatus(status: SprayLabCoachHandoff['status']): string {
+    switch (status) {
+        case 'draft':
+            return 'Lab em preparo';
+        case 'active':
+            return 'Lab em execucao';
+        case 'paused':
+            return 'Lab pausado';
+        case 'completed':
+            return 'Lab concluido';
+        case 'abandoned':
+            return 'Lab abandonado';
+        case 'blocked':
+            return 'Lab em reparo';
+    }
+}
+
+function formatHistorySprayLabIndex(handoff: SprayLabCoachHandoff): string {
+    if (handoff.validatedScore !== null) {
+        return `validado ${handoff.validatedScore}/100`;
+    }
+
+    if (handoff.provisionalScore !== null) {
+        return `provisorio ${handoff.provisionalScore}/100`;
+    }
+
+    return 'indice pendente';
+}
+
+function formatHistorySprayLabFidelityTier(tier: NonNullable<SprayLabCoachHandoff['fidelityTier']>): string {
+    switch (tier) {
+        case 'strong':
+            return 'forte';
+        case 'usable':
+            return 'util';
+        case 'practice_only':
+            return 'pratica';
+        case 'invalid_for_benchmark':
+            return 'fora do benchmark';
+    }
+}
+
+function formatHistorySprayLabEvidenceLevel(level: SprayLabCoachHandoff['evidenceLevel']): string {
+    switch (level) {
+        case 'validated_benchmark':
+            return 'benchmark validado';
+        case 'provisional_benchmark':
+            return 'benchmark provisorio';
+        case 'weak_execution':
+            return 'execucao fraca';
+        case 'practice':
+            return 'pratica';
+    }
+}
+
+function toHistorySprayLabContinuity(
+    handoff: SprayLabCoachHandoff | null,
+): HistorySprayLabContinuitySummary | undefined {
+    if (!handoff) {
+        return undefined;
+    }
+
+    return {
+        sessionId: handoff.labSessionId,
+        contextLabel: handoff.contextLabel,
+        statusLabel: formatHistorySprayLabStatus(handoff.status),
+        fidelityLabel: handoff.fidelityTier
+            ? `${formatHistorySprayLabFidelityTier(handoff.fidelityTier)} / ${formatHistorySprayLabEvidenceLevel(handoff.evidenceLevel)}`
+            : formatHistorySprayLabEvidenceLevel(handoff.evidenceLevel),
+        indexLabel: formatHistorySprayLabIndex(handoff),
+        validationLabel: handoff.compatibleClipProof.label,
+        transferLabel: handoff.practicalTransfer.label,
+        nextActionLabel: handoff.nextAction.label,
+        nextActionHref: handoff.nextAction.href,
+        blockerReasons: handoff.blockerReasons,
+    };
+}
+
 function isHistoryCoachFocusArea(value: unknown): value is CoachFocusArea {
     return value === 'capture_quality'
         || value === 'vertical_control'
@@ -2279,6 +2423,75 @@ export async function getHistorySessions() {
         const outcomeRows = Array.isArray(outcomeRowsResult)
             ? outcomeRowsResult.filter(isHistoryCoachProtocolOutcomeRow)
             : [];
+        const rawSprayLabRows = await db
+            .select({
+                baseAnalysisSessionId: sprayLabSessions.baseAnalysisSessionId,
+                snapshot: sprayLabSessions.snapshot,
+                updatedAt: sprayLabSessions.updatedAt,
+            })
+            .from(sprayLabSessions)
+            .where(eq(sprayLabSessions.userId, session.user.id))
+            .orderBy(sprayLabSessions.updatedAt);
+        const sprayLabRows = Array.isArray(rawSprayLabRows)
+            ? rawSprayLabRows.filter(isHistorySprayLabSessionRow)
+            : [];
+        const latestSprayLabByBaseSession = new Map<string, typeof sprayLabRows[number]>();
+
+        for (const row of sprayLabRows) {
+            latestSprayLabByBaseSession.set(row.baseAnalysisSessionId, row);
+        }
+
+        const labSessionIds = Array.from(new Set(sprayLabRows.map((row) => row.snapshot.id)));
+        const rawSprayLabBenchmarkRows = labSessionIds.length === 0
+            ? []
+            : await db
+                .select({
+                    labSessionId: sprayLabBenchmarkSnapshots.labSessionId,
+                    snapshot: sprayLabBenchmarkSnapshots.snapshot,
+                    createdAt: sprayLabBenchmarkSnapshots.createdAt,
+                })
+                .from(sprayLabBenchmarkSnapshots)
+                .where(
+                    and(
+                        eq(sprayLabBenchmarkSnapshots.userId, session.user.id),
+                        inArray(sprayLabBenchmarkSnapshots.labSessionId, labSessionIds),
+                    ),
+                )
+                .orderBy(sprayLabBenchmarkSnapshots.createdAt);
+        const sprayLabBenchmarkRows = Array.isArray(rawSprayLabBenchmarkRows)
+            ? rawSprayLabBenchmarkRows.filter(isHistorySprayLabBenchmarkRow)
+            : [];
+        const latestBenchmarkByLabSession = new Map<string, typeof sprayLabBenchmarkRows[number]>();
+
+        for (const row of sprayLabBenchmarkRows) {
+            latestBenchmarkByLabSession.set(row.labSessionId, row);
+        }
+
+        const rawSprayLabValidationRows = labSessionIds.length === 0
+            ? []
+            : await db
+                .select({
+                    labSessionId: sprayLabValidationLinks.labSessionId,
+                    payload: sprayLabValidationLinks.payload,
+                    updatedAt: sprayLabValidationLinks.updatedAt,
+                })
+                .from(sprayLabValidationLinks)
+                .where(
+                    and(
+                        eq(sprayLabValidationLinks.userId, session.user.id),
+                        inArray(sprayLabValidationLinks.labSessionId, labSessionIds),
+                    ),
+                )
+                .orderBy(sprayLabValidationLinks.updatedAt);
+        const sprayLabValidationRows = Array.isArray(rawSprayLabValidationRows)
+            ? rawSprayLabValidationRows.filter(isHistorySprayLabValidationRow)
+            : [];
+        const latestValidationByLabSession = new Map<string, typeof sprayLabValidationRows[number]>();
+
+        for (const row of sprayLabValidationRows) {
+            latestValidationByLabSession.set(row.labSessionId, row);
+        }
+
         const latestOutcomeBySession = new Map<string, CoachProtocolOutcome>();
         const revisionCountBySession = new Map<string, number>();
 
@@ -2303,6 +2516,17 @@ export async function getHistorySessions() {
             const recommendedProfile = storedSensitivity?.recommended;
             const acceptanceFeedback = normalizeStoredAcceptanceFeedback(storedSensitivity?.acceptanceFeedback);
             const latestOutcome = latestOutcomeBySession.get(historySession.id);
+            const latestSprayLab = latestSprayLabByBaseSession.get(historySession.id);
+            const sprayLabHandoff = buildSprayLabCoachHandoff({
+                session: latestSprayLab?.snapshot ?? null,
+                benchmark: latestSprayLab
+                    ? latestBenchmarkByLabSession.get(latestSprayLab.snapshot.id)?.snapshot ?? null
+                    : null,
+                validationLink: latestSprayLab
+                    ? latestValidationByLabSession.get(latestSprayLab.snapshot.id)?.payload ?? null
+                    : null,
+            });
+            const sprayLabContinuity = toHistorySprayLabContinuity(sprayLabHandoff);
             const hasCoachPlan = typeof coachPlan === 'object' && coachPlan !== null;
             const evidenceSummary = buildHistorySessionEvidenceSummary(fullResultRecord);
             const protocolContinuity = buildHistoryProtocolContinuity(fullResultRecord);
@@ -2332,6 +2556,7 @@ export async function getHistorySessions() {
                     : {}),
                 ...(acceptanceFeedback ? { acceptanceFeedback } : {}),
                 ...(protocolContinuity ? { protocolContinuity } : {}),
+                ...(sprayLabContinuity ? { sprayLabContinuity } : {}),
                 coachOutcomeStatus,
             };
         });

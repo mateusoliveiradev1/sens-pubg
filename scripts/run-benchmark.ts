@@ -10,7 +10,7 @@ import { resolveMeasurementTruth } from '../src/core/measurement-truth';
 import { getWeapon } from '../src/game/pubg';
 import { asMilliseconds, asPixels, asScore } from '../src/types/branded';
 import { parseCapturedFrameLabelTemplate, type CapturedFrameLabelTemplate } from '../src/types/captured-frame-labels';
-import { parseBenchmarkDataset, type BenchmarkAdaptiveCoachContext, type BenchmarkAdaptiveCoachExpectation, type BenchmarkClip, type BenchmarkCoachPlanExpectation, type BenchmarkDataset, type BenchmarkTrackingExpectation, type BenchmarkTruthExpectation } from '../src/types/benchmark';
+import { parseBenchmarkDataset, type BenchmarkAdaptiveCoachContext, type BenchmarkAdaptiveCoachExpectation, type BenchmarkClip, type BenchmarkCoachPlanExpectation, type BenchmarkDataset, type BenchmarkSprayLabExpectation, type BenchmarkTrackingExpectation, type BenchmarkTruthExpectation } from '../src/types/benchmark';
 import type { AnalysisResult, CoachFeedback, CoachMode, CoachProtocolOutcome, CompleteTrainingProtocol, Diagnosis, MetricEvidenceQuality, SprayMetricQuality, SprayMetricQualityKey, SprayMetrics, TrackingContaminationEvidence, TrackingFrameStatus, VideoQualityReport, WeaponLoadout } from '../src/types/engine';
 import {
     evaluateCoachGoldenFixture,
@@ -751,7 +751,7 @@ function buildCapturedBenchmarkProxy(
         diagnoses,
         coaching,
         coachPlan: toStableCoachPlanExpectation(coachPlan),
-        truth: toStableTruthExpectation(analysisResult, coachPlan),
+        truth: toStableTruthExpectation(analysisResult, coachPlan, clip.labels.expectedTruth.sprayLab),
     };
 }
 
@@ -846,9 +846,120 @@ function toStableCompleteProtocolExpectation(
     };
 }
 
+function isBenchmarkValidatedSprayLabStatus(
+    status: BenchmarkSprayLabExpectation['validationStatus'],
+): boolean {
+    return status === 'validacao_confirmada'
+        || status === 'sinal_promissor'
+        || status === 'sem_mudanca_clara'
+        || status === 'regressao_validada';
+}
+
+function resolveBenchmarkSprayLabEvidenceLevel(
+    expected: BenchmarkSprayLabExpectation,
+): BenchmarkSprayLabExpectation['evidenceLevel'] {
+    if (expected.fidelityTier === 'practice_only' || expected.fidelityTier === 'invalid_for_benchmark') {
+        return 'practice';
+    }
+
+    if (isBenchmarkValidatedSprayLabStatus(expected.validationStatus)) {
+        return 'validated_benchmark';
+    }
+
+    return expected.fidelityTier === 'strong'
+        ? 'provisional_benchmark'
+        : 'weak_execution';
+}
+
+function resolveBenchmarkSprayLabIndexState(
+    expected: BenchmarkSprayLabExpectation,
+): BenchmarkSprayLabExpectation['indexState'] {
+    if (expected.fidelityTier === 'practice_only' || expected.fidelityTier === 'invalid_for_benchmark') {
+        return 'bloqueado_por_fidelidade';
+    }
+
+    switch (expected.validationStatus) {
+        case 'not_requested':
+            return 'baseline';
+        case 'pending':
+            return 'em_validacao';
+        case 'sinal_promissor':
+            return 'sinal_promissor';
+        case 'validacao_confirmada':
+            return 'progresso_validado';
+        case 'regressao_validada':
+            return 'regressao_validada';
+        case 'sem_mudanca_clara':
+        case 'nao_compativel':
+        case 'inconclusivo':
+            return 'inconclusivo';
+    }
+}
+
+function resolveBenchmarkSprayLabSnapshotStatus(
+    evidenceLevel: BenchmarkSprayLabExpectation['evidenceLevel'],
+): BenchmarkSprayLabExpectation['benchmarkSnapshotStatus'] {
+    switch (evidenceLevel) {
+        case 'validated_benchmark':
+            return 'validated';
+        case 'provisional_benchmark':
+        case 'weak_execution':
+            return 'provisional';
+        case 'practice':
+            return 'blocked';
+    }
+}
+
+function resolveBenchmarkSprayLabRepairState(
+    expected: BenchmarkSprayLabExpectation,
+): BenchmarkSprayLabExpectation['repairState'] {
+    if (expected.fidelityTier === 'practice_only' || expected.fidelityTier === 'invalid_for_benchmark') {
+        return 'nao_contou_como_benchmark';
+    }
+
+    switch (expected.validationStatus) {
+        case 'nao_compativel':
+            return 'contexto_incompativel';
+        case 'inconclusivo':
+            return 'clip_inconclusivo';
+        case 'pending':
+            return expected.repairState === 'validacao_bloqueada'
+                ? 'validacao_bloqueada'
+                : 'none';
+        case 'not_requested':
+        case 'validacao_confirmada':
+        case 'sinal_promissor':
+        case 'sem_mudanca_clara':
+        case 'regressao_validada':
+            return 'none';
+    }
+}
+
+function toStableSprayLabExpectation(
+    expected: BenchmarkSprayLabExpectation | undefined,
+): BenchmarkSprayLabExpectation | undefined {
+    if (!expected) {
+        return undefined;
+    }
+
+    const evidenceLevel = resolveBenchmarkSprayLabEvidenceLevel(expected);
+
+    return {
+        laneId: expected.laneId,
+        fidelityTier: expected.fidelityTier,
+        evidenceLevel,
+        indexState: resolveBenchmarkSprayLabIndexState(expected),
+        validationStatus: expected.validationStatus,
+        benchmarkSnapshotStatus: resolveBenchmarkSprayLabSnapshotStatus(evidenceLevel),
+        repairState: resolveBenchmarkSprayLabRepairState(expected),
+        entitlementProjection: expected.entitlementProjection,
+    };
+}
+
 function toStableTruthExpectation(
     analysisResult: AnalysisResult,
-    coachPlan: ReturnType<typeof buildCoachPlan>
+    coachPlan: ReturnType<typeof buildCoachPlan>,
+    sprayLabExpectation?: BenchmarkSprayLabExpectation,
 ): BenchmarkTruthExpectation {
     const mastery = analysisResult.mastery ?? resolveMeasurementTruth({
         metrics: analysisResult.metrics,
@@ -887,6 +998,7 @@ function toStableTruthExpectation(
             nextClipValidation: nextBlockCheck?.label ?? coachPlan.nextBlock.title,
             ...(completeProtocol ? { completeProtocol } : {}),
         },
+        ...(sprayLabExpectation ? { sprayLab: toStableSprayLabExpectation(sprayLabExpectation) } : {}),
     };
 }
 
@@ -1068,7 +1180,7 @@ async function buildSyntheticTruthExpectation(clip: BenchmarkClip): Promise<Benc
     return toStableTruthExpectation({
         ...analysisResult,
         coachPlan,
-    }, coachPlan);
+    }, coachPlan, clip.labels.expectedTruth.sprayLab);
 }
 
 async function buildSyntheticAdaptiveCoachExpectation(clip: BenchmarkClip): Promise<BenchmarkAdaptiveCoachExpectation> {
@@ -1421,6 +1533,7 @@ function compareTruthExpectation(
         actual.nextBlock.completeProtocol,
         mismatches,
     );
+    compareSprayLabExpectation(expected.sprayLab, actual.sprayLab, mismatches);
 
     return mismatches;
 }
@@ -1467,6 +1580,41 @@ function compareCompleteProtocolExpectation(
             `nextBlock.completeProtocol.sprayReps: expected ${expected.sprayRepsMin}-${expected.sprayRepsMax} but received ${actualSprayReps}`,
         );
     }
+}
+
+function compareSprayLabExpectation(
+    expected: BenchmarkSprayLabExpectation | undefined,
+    actual: BenchmarkSprayLabExpectation | undefined,
+    mismatches: string[],
+): void {
+    if (!expected && !actual) {
+        return;
+    }
+
+    if (expected && !actual) {
+        mismatches.push('sprayLab: expected Spray Lab truth but received none');
+        return;
+    }
+
+    if (!expected && actual) {
+        mismatches.push('sprayLab: received Spray Lab truth without expected fixture contract');
+        return;
+    }
+
+    const compareField = (pathName: string, expectedValue: unknown, actualValue: unknown): void => {
+        if (stableJson(expectedValue) !== stableJson(actualValue)) {
+            mismatches.push(`${pathName}: expected ${stableJson(expectedValue)} but received ${stableJson(actualValue)}`);
+        }
+    };
+
+    compareField('sprayLab.laneId', expected!.laneId, actual!.laneId);
+    compareField('sprayLab.fidelityTier', expected!.fidelityTier, actual!.fidelityTier);
+    compareField('sprayLab.evidenceLevel', expected!.evidenceLevel, actual!.evidenceLevel);
+    compareField('sprayLab.indexState', expected!.indexState, actual!.indexState);
+    compareField('sprayLab.validationStatus', expected!.validationStatus, actual!.validationStatus);
+    compareField('sprayLab.benchmarkSnapshotStatus', expected!.benchmarkSnapshotStatus, actual!.benchmarkSnapshotStatus);
+    compareField('sprayLab.repairState', expected!.repairState, actual!.repairState);
+    compareField('sprayLab.entitlementProjection', expected!.entitlementProjection, actual!.entitlementProjection);
 }
 
 function compareAdaptiveCoachExpectation(

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AnalysisResult, CoachPlan, CompleteTrainingProtocol } from '@/types/engine';
+import type { SprayLabCoachHandoff } from '@/core/spray-lab-coach-handoff';
 
 import {
     buildDashboardActiveCoachLoop,
@@ -160,6 +161,50 @@ function createResult(): AnalysisResult {
     };
 }
 
+function sprayLabHandoff(
+    overrides: Partial<SprayLabCoachHandoff> = {},
+): SprayLabCoachHandoff {
+    return {
+        labSessionId: 'lab-1',
+        protocolId: 'complete-protocol-1',
+        laneId: 'lane-vertical',
+        contextKey: 'm416|3x|50|vertical',
+        contextLabel: 'M416 / 3x / 50m / Vertical',
+        status: 'active',
+        fidelityTier: 'usable',
+        evidenceLevel: 'weak_execution',
+        validationStatus: 'not_requested',
+        indexState: null,
+        provisionalScore: null,
+        validatedScore: null,
+        technicalProofState: 'none',
+        confidence: 0.46,
+        executionEvidence: {
+            label: 'Sessao Lab conta como pratica, nao prova tecnica.',
+            countsAsTechnicalProof: false,
+        },
+        compatibleClipProof: {
+            label: 'Sem clip compativel ainda; sessao Lab nao confirma melhora tecnica.',
+            countsAsTechnicalProof: false,
+        },
+        practicalTransfer: {
+            count: 0,
+            label: 'Sem transferencia pratica registrada.',
+            countsAsTechnicalProof: false,
+        },
+        blockerReasons: [],
+        repairReasonCodes: [],
+        nextAction: {
+            kind: 'continue_session',
+            label: 'Continuar Spray Lab',
+            href: '/spray-lab?labSessionId=lab-1',
+        },
+        coachSignals: [],
+        summary: 'Sessao Lab conta como pratica.',
+        ...overrides,
+    };
+}
+
 describe('dashboard active complete protocol continuity', () => {
     it('projects protocol action fields without treating transfer as technical validation', () => {
         const loop = buildDashboardActiveCoachLoop({
@@ -206,5 +251,48 @@ describe('dashboard active complete protocol continuity', () => {
             'benchmarkRunner',
             'guidedSession',
         ]));
+    });
+
+    it('uses one Spray Lab action as the dashboard primary loop action', () => {
+        const loop = buildDashboardActiveCoachLoop({
+            sessionId: 'session-1',
+            result: createResult(),
+            latestOutcome: null,
+            sprayLabHandoff: sprayLabHandoff(),
+        });
+
+        expect(loop?.ctaLabel).toBe('Continuar Spray Lab');
+        expect(loop?.ctaHref).toBe('/spray-lab?labSessionId=lab-1');
+        expect(loop?.sprayLab).toMatchObject({
+            contextLabel: 'M416 / 3x / 50m / Vertical',
+            validationLabel: expect.stringContaining('nao confirma melhora tecnica'),
+        });
+    });
+
+    it('turns repair Lab states into an honest next action instead of a Pro-only lock', () => {
+        const loop = buildDashboardActiveCoachLoop({
+            sessionId: 'session-1',
+            result: createResult(),
+            latestOutcome: {
+                status: 'invalid_capture',
+                evidenceStrength: 'invalid',
+                conflictPayload: null,
+                createdAt: new Date('2026-05-07T12:10:00.000Z'),
+            },
+            sprayLabHandoff: sprayLabHandoff({
+                fidelityTier: 'practice_only',
+                evidenceLevel: 'practice',
+                blockerReasons: ['variavel mudou durante a sessao'],
+                nextAction: {
+                    kind: 'repair_capture',
+                    label: 'Reparar captura',
+                    href: '/spray-lab?sourceSessionId=session-1',
+                },
+            }),
+        });
+
+        expect(loop?.status).toBe('validation_needed');
+        expect(loop?.ctaLabel).toBe('Reparar captura');
+        expect(loop?.sprayLab?.blockers).toContain('variavel mudou durante a sessao');
     });
 });

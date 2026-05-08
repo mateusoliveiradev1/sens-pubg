@@ -89,6 +89,17 @@ describe('runBenchmark', () => {
         expect(contaminatedClip?.tracking.contamination.flickPenalty).toBeGreaterThan(0.25);
         expect(contaminatedClip?.tracking.contaminationMismatches).toEqual([]);
 
+        const labClip = report.clips.find((clip) => clip.clipId === 'clean-centered-red-411');
+        expect(labClip?.truth.expected.sprayLab).toEqual(expect.objectContaining({
+            laneId: 'sensitivity_one_variable_test',
+            evidenceLevel: 'provisional_benchmark',
+            indexState: 'baseline',
+            validationStatus: 'not_requested',
+            benchmarkSnapshotStatus: 'provisional',
+            entitlementProjection: 'free_basic_runner',
+        }));
+        expect(labClip?.truth.actual?.sprayLab).toEqual(labClip?.truth.expected.sprayLab);
+
         for (const clip of report.clips) {
             expect(clip.truth.expected.nextBlock.completeProtocol, `${clip.clipId} should lock complete protocol truth`).toEqual(expect.objectContaining({
                 drillId: expect.any(String),
@@ -341,5 +352,25 @@ describe('runBenchmark', () => {
         expect(report.passed).toBe(false);
         expect(clip?.truth.passed).toBe(false);
         expect(clip?.truth.mismatches.some((mismatch) => mismatch.includes('nextBlock.completeProtocol.drillId'))).toBe(true);
+    });
+
+    it('fails when Spray Lab truth promotes provisional evidence as validated', async () => {
+        const tempDir = await mkdtemp(path.join(tmpdir(), 'truth-spray-lab-'));
+        const tempDatasetPath = path.join(tempDir, 'synthetic-benchmark.v1.json');
+        const dataset = JSON.parse(await readFile(datasetPath, 'utf8'));
+        dataset.clips[0].labels.expectedTruth.sprayLab.indexState = 'progresso_validado';
+        dataset.clips[0].labels.expectedTruth.sprayLab.benchmarkSnapshotStatus = 'validated';
+
+        await writeFile(tempDatasetPath, JSON.stringify(dataset, null, 2));
+
+        const report = await runBenchmark({
+            datasetPath: tempDatasetPath,
+        });
+        const clip = report.clips.find((item) => item.clipId === 'clean-centered-red-411');
+
+        expect(report.passed).toBe(false);
+        expect(clip?.truth.passed).toBe(false);
+        expect(clip?.truth.mismatches.some((mismatch) => mismatch.includes('sprayLab.indexState'))).toBe(true);
+        expect(clip?.truth.mismatches.some((mismatch) => mismatch.includes('sprayLab.benchmarkSnapshotStatus'))).toBe(true);
     });
 });

@@ -62,6 +62,16 @@
               "validationTarget": "Grave o proximo clip assim para validar sem forcar conclusao: perfil recomendado melhora com contexto fixo.",
               "transferCountsAsTechnicalValidation": false
             }
+          },
+          "sprayLab": {
+            "laneId": "sensitivity_one_variable_test",
+            "fidelityTier": "strong",
+            "evidenceLevel": "provisional_benchmark",
+            "indexState": "baseline",
+            "validationStatus": "not_requested",
+            "benchmarkSnapshotStatus": "provisional",
+            "repairState": "none",
+            "entitlementProjection": "free_basic_runner"
           }
         },
         "adaptiveCoachContext": {

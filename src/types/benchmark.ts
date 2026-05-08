@@ -119,6 +119,38 @@ const trainingProtocolDowngradeReasonCodeSchema = z.enum([
     'limited_weapon_support',
     'insufficient_compatible_validation',
 ]);
+const sprayLabFidelityTierSchema = z.enum(['strong', 'usable', 'practice_only', 'invalid_for_benchmark']);
+const sprayLabEvidenceLevelSchema = z.enum(['practice', 'weak_execution', 'provisional_benchmark', 'validated_benchmark']);
+const sprayLabIndexStateSchema = z.enum([
+    'baseline',
+    'em_validacao',
+    'sinal_promissor',
+    'progresso_validado',
+    'regressao_validada',
+    'bloqueado_por_fidelidade',
+    'inconclusivo',
+]);
+const sprayLabValidationStatusSchema = z.enum([
+    'not_requested',
+    'pending',
+    'validacao_confirmada',
+    'sinal_promissor',
+    'sem_mudanca_clara',
+    'regressao_validada',
+    'nao_compativel',
+    'inconclusivo',
+]);
+const sprayLabBenchmarkSnapshotStatusSchema = z.enum(['not_recorded', 'provisional', 'validated', 'blocked']);
+const sprayLabRepairStateSchema = z.enum([
+    'none',
+    'validacao_bloqueada',
+    'clip_inconclusivo',
+    'captura_fraca',
+    'contexto_incompativel',
+    'nao_contou_como_benchmark',
+    'tentativa_salva_como_pratica',
+]);
+const sprayLabEntitlementProjectionSchema = z.enum(['free_basic_runner', 'pro_benchmark_audit']);
 
 export const benchmarkClipMediaSchema = z.object({
     videoPath: z.string().min(1),
@@ -206,6 +238,17 @@ export const benchmarkTruthNextBlockExpectationSchema = z.object({
     }
 });
 
+export const benchmarkSprayLabExpectationSchema = z.object({
+    laneId: z.string().min(1),
+    fidelityTier: sprayLabFidelityTierSchema,
+    evidenceLevel: sprayLabEvidenceLevelSchema,
+    indexState: sprayLabIndexStateSchema,
+    validationStatus: sprayLabValidationStatusSchema,
+    benchmarkSnapshotStatus: sprayLabBenchmarkSnapshotStatusSchema,
+    repairState: sprayLabRepairStateSchema,
+    entitlementProjection: sprayLabEntitlementProjectionSchema,
+});
+
 export const benchmarkTruthExpectationSchema = z.object({
     actionState: actionStateSchema,
     mechanicalLevel: mechanicalLevelSchema,
@@ -214,6 +257,7 @@ export const benchmarkTruthExpectationSchema = z.object({
     primaryFocusArea: coachFocusAreaSchema,
     secondaryFocusAreas: z.array(coachFocusAreaSchema).optional(),
     nextBlock: benchmarkTruthNextBlockExpectationSchema,
+    sprayLab: benchmarkSprayLabExpectationSchema.optional(),
 });
 
 export const benchmarkAdaptiveCoachContextSchema = z.object({
@@ -421,6 +465,7 @@ export type BenchmarkClipOptic = z.infer<typeof benchmarkClipOpticSchema>;
 export type BenchmarkClipCapture = z.infer<typeof benchmarkClipCaptureSchema>;
 export type BenchmarkCoachPlanExpectation = z.infer<typeof benchmarkCoachPlanExpectationSchema>;
 export type BenchmarkTruthNextBlockExpectation = z.infer<typeof benchmarkTruthNextBlockExpectationSchema>;
+export type BenchmarkSprayLabExpectation = z.infer<typeof benchmarkSprayLabExpectationSchema>;
 export type BenchmarkTruthExpectation = z.infer<typeof benchmarkTruthExpectationSchema>;
 export type BenchmarkAdaptiveCoachContext = z.infer<typeof benchmarkAdaptiveCoachContextSchema>;
 export type BenchmarkAdaptiveCoachExpectation = z.infer<typeof benchmarkAdaptiveCoachExpectationSchema>;

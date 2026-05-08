@@ -1010,8 +1010,9 @@ export function ResultsDashboard({ result, mode = 'full' }: Props): React.JSX.El
         adaptiveCoachLoop,
         historySessionId: activeSession.historySessionId,
     });
+    const sprayLabProtocolId = coachPlan?.completeProtocol?.id ?? coachPlan?.actionProtocols[0]?.id ?? null;
     const sprayLabValidationHref = activeSession.historySessionId
-        ? `/spray-lab?sourceSessionId=${encodeURIComponent(activeSession.historySessionId)}`
+        ? `/spray-lab?sourceSessionId=${encodeURIComponent(activeSession.historySessionId)}${sprayLabProtocolId ? `&protocolId=${encodeURIComponent(sprayLabProtocolId)}` : ''}`
         : '/analyze';
     const reportBlocked = verdictModel.scoreTone === 'error'
         || quotaNotice?.tone === 'error'

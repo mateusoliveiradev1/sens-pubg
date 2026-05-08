@@ -5,6 +5,7 @@ import type {
     CoachProtocolOutcome,
     CompleteTrainingProtocol,
 } from '@/types/engine';
+import type { SprayLabCoachHandoff } from '@/core/spray-lab-coach-handoff';
 
 import { buildHistoryProtocolViewModel } from './history-protocol-view-model';
 
@@ -154,6 +155,45 @@ const improvedOutcome: CoachProtocolOutcome = {
     evidenceStrength: 'weak_self_report',
 };
 
+const sprayLabHandoff: SprayLabCoachHandoff = {
+    labSessionId: 'lab-1',
+    protocolId: 'protocol-1',
+    laneId: 'lane-vertical',
+    contextKey: 'beryl|3x|50|vertical',
+    contextLabel: 'Beryl / 3x / 50m / Vertical',
+    status: 'completed',
+    fidelityTier: 'strong',
+    evidenceLevel: 'validated_benchmark',
+    validationStatus: 'validacao_confirmada',
+    indexState: 'progresso_validado',
+    provisionalScore: 82,
+    validatedScore: 88,
+    technicalProofState: 'confirmed_progress',
+    confidence: 0.9,
+    executionEvidence: {
+        label: 'Sessao Lab tem benchmark validado.',
+        countsAsTechnicalProof: false,
+    },
+    compatibleClipProof: {
+        label: 'Clip compativel confirmou sinal tecnico para este contexto.',
+        countsAsTechnicalProof: true,
+    },
+    practicalTransfer: {
+        count: 1,
+        label: '1 transferencia pratica registrada; nao conta como validacao tecnica.',
+        countsAsTechnicalProof: false,
+    },
+    blockerReasons: [],
+    repairReasonCodes: [],
+    nextAction: {
+        kind: 'start_next_lane',
+        label: 'Iniciar proxima lane',
+        href: '/spray-lab?sourceSessionId=session-1&protocolId=protocol-1',
+    },
+    coachSignals: [],
+    summary: 'Spray Lab validado.',
+};
+
 describe('history protocol view model', () => {
     it('builds snapshot, outcome, validation, transfer, revision, and audit sections', () => {
         const model = buildHistoryProtocolViewModel({
@@ -177,6 +217,7 @@ describe('history protocol view model', () => {
                 countsAsTechnicalValidation: false,
                 createdAt: '2026-05-07T12:30:00.000Z',
             }],
+            sprayLabHandoff,
             canSeeFullProtocol: true,
         });
 
@@ -205,6 +246,13 @@ describe('history protocol view model', () => {
         expect(model?.revisionTimeline[0]).toMatchObject({
             tierDirection: 'more_conservative',
             changedFieldsLabel: 'tier, dose',
+        });
+        expect(model?.sprayLabCard).toMatchObject({
+            title: 'Spray Lab',
+            contextLabel: 'Beryl / 3x / 50m / Vertical',
+            indexLabel: 'validado 88/100',
+            validationLabel: expect.stringContaining('Clip compativel'),
+            transferLabel: expect.stringContaining('nao conta como validacao tecnica'),
         });
         expect(model?.auditRows.map((row) => row.label)).toEqual(expect.arrayContaining([
             'Downgrade codes',

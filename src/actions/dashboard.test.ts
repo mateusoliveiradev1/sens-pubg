@@ -175,7 +175,8 @@ describe('dashboard active coach loop model', () => {
     it('keeps Free dashboard payload on compact projection instead of exposing full Pro protocol audit', () => {
         const source = readFileSync(new URL('./dashboard.ts', import.meta.url), 'utf8');
 
-        expect(source).toMatch(/activeCoachLoop: access\.features\['coach\.validation_loop'\]\.granted \? activeCoachLoop : null/);
+        expect(source).toMatch(/const activeLoopVisible = access\.features\['coach\.validation_loop'\]\.granted\s*\|\| Boolean\(activeCoachLoop\?\.sprayLab\)/);
+        expect(source).toMatch(/activeCoachLoop: activeLoopVisible \? activeCoachLoop : null/);
         expect(source).toMatch(/premiumProjection: createPremiumProjectionSummary\(access, latestTruthResult \?\? undefined\)/);
         expect(source).not.toMatch(/activeCoachLoop: activeCoachLoop/);
         expect(source).not.toMatch(/timer|sessionRunner|benchmarkRunner/);

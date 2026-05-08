@@ -348,7 +348,7 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **Goal:** Build the PUBG-focused lab layer for guided drills, training sessions, and internal benchmarks.
 
-**Status:** In progress as of 2026-05-08. Plans 09-01 through 09-04 are complete with the Spray Lab core contract, persistence/actions, Free/Pro projection, mobile-first runner cockpit, Analyze validation mode, repair-aware validation UX, focused tests, lint, full Vitest, typecheck, and benchmark gate passing. Two executable plans remain for dashboard/history/coach continuity and Phase 9 benchmark/verification gates.
+**Status:** Delivered as of 2026-05-08. All six plans are complete with the Spray Lab core contract, persistence/actions, Free/Pro projection, mobile-first runner cockpit, Analyze validation mode, repair-aware validation UX, dashboard/history/coach continuity, benchmark truth, goldens, copy-safety checks, Playwright browser evidence, and final gates passing: `npm run typecheck`, `npx vitest run`, `npm run benchmark:gate`, `npm run verify:phase9:spray-lab`, and `npm run build`.
 
 **Requirements:** PREC-03, BENCH-01, BENCH-02, BENCH-03, COACH-01, COACH-02, COACH-03
 
@@ -375,10 +375,10 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 - `09-04` - Compatible Validation Mode And Repair-Aware Analyze Flow. Complete as of 2026-05-08 with server-owned validation targets, Analyze context preload, variable confirmation, validation links on save, and blocked/inconclusive repair states.
 
 **Wave 4 *(blocked on Wave 3 completion)***
-- `09-05` - Result, Dashboard, History, And Coach Continuity. Feeds Lab session fidelity, benchmark snapshots, validation links, repair outcomes, and contextual progression into the product loop.
+- `09-05` - Result, Dashboard, History, And Coach Continuity. Complete as of 2026-05-08 with Lab session fidelity, benchmark snapshots, validation links, repair outcomes, contextual progression, and coach-safe handoff through the product loop.
 
 **Wave 5 *(blocked on all prior plans)***
-- `09-06` - Spray Lab Benchmark, Goldens, Copy Safety, And No False Done Verification. Adds Lab benchmark truth, goldens, copy-safety checks, Playwright matrix, `verify:phase9:spray-lab`, and final evidence checklist.
+- `09-06` - Spray Lab Benchmark, Goldens, Copy Safety, And No False Done Verification. Complete as of 2026-05-08 with Lab benchmark truth, coach/copy goldens, copy-safety checks, Playwright desktop/mobile matrix, `verify:phase9:spray-lab`, and final Delivered evidence checklist.
 
 **Cross-cutting constraints:**
 - Preserve the browser-first clip analysis path; Spray Lab does not introduce backend video compute.

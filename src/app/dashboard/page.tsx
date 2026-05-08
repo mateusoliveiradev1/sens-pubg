@@ -633,6 +633,31 @@ export default async function DashboardPage() {
                                                 ) : null}
                                             </div>
                                         ) : null}
+                                        {activeCoachLoop.sprayLab ? (
+                                            <div className="mt-4 grid gap-3 border-t border-white/10 pt-4">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className="badge badge-info">Spray Lab</span>
+                                                    <span className="badge badge-info">{activeCoachLoop.sprayLab.contextLabel}</span>
+                                                    <span className="badge badge-info">{activeCoachLoop.sprayLab.fidelityLabel}</span>
+                                                    <span className="badge badge-info">{activeCoachLoop.sprayLab.indexLabel}</span>
+                                                </div>
+                                                <p className="text-xs leading-relaxed text-zinc-400">
+                                                    {activeCoachLoop.sprayLab.evidenceHierarchyLabel}
+                                                </p>
+                                                <p className="text-xs leading-relaxed text-zinc-500">
+                                                    {activeCoachLoop.sprayLab.validationLabel} {activeCoachLoop.sprayLab.transferLabel}
+                                                </p>
+                                                {activeCoachLoop.sprayLab.blockers.length > 0 ? (
+                                                    <div className="grid gap-1">
+                                                        {activeCoachLoop.sprayLab.blockers.slice(0, 3).map((blocker) => (
+                                                            <span key={blocker} className="text-xs leading-relaxed text-amber-200">
+                                                                Bloqueio Lab: {blocker}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                ) : null}
+                                            </div>
+                                        ) : null}
                                     </div>
                                 ) : null}
                                 {truthView.nextBlock ? (

@@ -300,6 +300,7 @@ code,
    ═══════════════════════════════════════════ */
 
 .glass-card {
+  min-width: 0;
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);

@@ -5,10 +5,13 @@ import {
     completeTrainingProtocolRevisions,
     precisionCheckpoints,
     precisionEvolutionLines,
+    sprayLabBenchmarkSnapshots,
+    sprayLabSessions,
+    sprayLabValidationLinks,
     trainingProtocolTransferRecords,
     weaponProfiles,
 } from '@/db/schema';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { auth } from '@/auth';
 import Link from 'next/link';
 import { SCOPE_LIST } from '@/game/pubg';
@@ -16,6 +19,7 @@ import { formatAnalysisDistancePresentation } from '@/app/analyze/analysis-dista
 import { ResultsDashboard } from '@/app/analyze/results-dashboard';
 import { getCoachProtocolOutcomesForSession } from '@/actions/history';
 import { formatPrecisionTrendLabel } from '@/core/precision-loop';
+import { buildSprayLabCoachHandoff } from '@/core/spray-lab-coach-handoff';
 import { EvidenceChip, type EvidenceTone } from '@/ui/components/evidence-chip';
 import { Header } from '@/ui/components/header';
 import { LoopRail, type LoopStageKey } from '@/ui/components/loop-rail';
@@ -408,6 +412,63 @@ export default async function HistoryDetailRoute({ params }: Props) {
             )
             .orderBy(trainingProtocolTransferRecords.createdAt)
         : [];
+    const [sprayLabRow] = analysisResult.coachPlan?.completeProtocol
+        ? await db
+            .select({
+                id: sprayLabSessions.id,
+                snapshot: sprayLabSessions.snapshot,
+            })
+            .from(sprayLabSessions)
+            .where(
+                and(
+                    eq(sprayLabSessions.baseAnalysisSessionId, record.id),
+                    eq(sprayLabSessions.userId, session.user.id),
+                ),
+            )
+            .orderBy(desc(sprayLabSessions.updatedAt))
+            .limit(1)
+        : [];
+    const [sprayLabBenchmarkRow] = sprayLabRow
+        ? await db
+            .select({
+                snapshot: sprayLabBenchmarkSnapshots.snapshot,
+            })
+            .from(sprayLabBenchmarkSnapshots)
+            .where(
+                and(
+                    eq(sprayLabBenchmarkSnapshots.labSessionId, sprayLabRow.id),
+                    eq(sprayLabBenchmarkSnapshots.userId, session.user.id),
+                ),
+            )
+            .orderBy(desc(sprayLabBenchmarkSnapshots.createdAt))
+            .limit(1)
+        : [];
+    const [sprayLabValidationRow] = sprayLabRow
+        ? await db
+            .select({
+                payload: sprayLabValidationLinks.payload,
+            })
+            .from(sprayLabValidationLinks)
+            .where(
+                and(
+                    eq(sprayLabValidationLinks.labSessionId, sprayLabRow.id),
+                    eq(sprayLabValidationLinks.userId, session.user.id),
+                ),
+            )
+            .orderBy(desc(sprayLabValidationLinks.updatedAt))
+            .limit(1)
+        : [];
+    const sprayLabHandoff = buildSprayLabCoachHandoff({
+        session: sprayLabRow?.snapshot ?? null,
+        benchmark: sprayLabBenchmarkRow?.snapshot ?? null,
+        validationLink: sprayLabValidationRow?.payload ?? null,
+        transfers: protocolTransferRows.map((transfer) => ({
+            situation: transfer.situation,
+            result: transfer.result,
+            countsAsTechnicalValidation: false,
+            createdAt: transfer.createdAt,
+        })),
+    });
     const analysisResultForDisplay: AnalysisResult = {
         ...analysisResult,
         historySessionId: record.id,
@@ -428,6 +489,7 @@ export default async function HistoryDetailRoute({ params }: Props) {
             ...transfer,
             countsAsTechnicalValidation: false,
         })),
+        sprayLabHandoff,
         canSeeFullProtocol: true,
     });
     const latestCoachOutcome = coachProtocolOutcomes.at(-1) ?? null;
@@ -821,6 +883,48 @@ export default async function HistoryDetailRoute({ params }: Props) {
                                         {historyProtocol.transferCard.countsAsTechnicalValidationCopy}
                                     </p>
                                 </div>
+
+                                {historyProtocol.sprayLabCard ? (
+                                    <div id="history-spray-lab-audit" style={{ display: 'grid', gap: '8px' }}>
+                                        <h3 style={{ margin: 0, fontSize: 'var(--text-base)' }}>
+                                            Spray Lab
+                                        </h3>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                            <span className="badge badge-info">{historyProtocol.sprayLabCard.contextLabel}</span>
+                                            <span className="badge badge-info">{historyProtocol.sprayLabCard.fidelityLabel}</span>
+                                            <span className="badge badge-info">{historyProtocol.sprayLabCard.indexLabel}</span>
+                                        </div>
+                                        <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+                                            {historyProtocol.sprayLabCard.validationLabel}
+                                        </p>
+                                        <p style={{ margin: 0, color: 'var(--color-text-secondary)', fontSize: 'var(--text-xs)', lineHeight: 1.6 }}>
+                                            {historyProtocol.sprayLabCard.transferLabel}
+                                        </p>
+                                        {historyProtocol.sprayLabCard.blockerReasons.length > 0 ? (
+                                            <div style={{ display: 'grid', gap: '6px' }}>
+                                                {historyProtocol.sprayLabCard.blockerReasons.slice(0, 3).map((reason) => (
+                                                    <span
+                                                        key={reason}
+                                                        style={{
+                                                            padding: '7px 9px',
+                                                            borderRadius: '8px',
+                                                            border: '1px solid rgba(255, 193, 7, 0.22)',
+                                                            background: 'rgba(255, 193, 7, 0.08)',
+                                                            color: 'var(--color-text-secondary)',
+                                                            fontSize: '12px',
+                                                            lineHeight: 1.45,
+                                                        }}
+                                                    >
+                                                        Reparo: {reason}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        ) : null}
+                                        <Link href={historyProtocol.sprayLabCard.nextActionHref} className="btn btn-secondary" style={{ width: 'fit-content' }}>
+                                            {historyProtocol.sprayLabCard.nextActionLabel}
+                                        </Link>
+                                    </div>
+                                ) : null}
                             </div>
 
                             <div style={{ display: 'grid', gap: 'var(--space-md)', marginTop: 'var(--space-lg)' }}>
@@ -959,6 +1063,7 @@ export default async function HistoryDetailRoute({ params }: Props) {
                                 sessionId={record.id}
                                 coachPlan={analysisResult.coachPlan}
                                 outcomes={coachProtocolOutcomes}
+                                sprayLabSessionId={sprayLabHandoff?.labSessionId ?? null}
                             />
                         </div>
                     ) : (
