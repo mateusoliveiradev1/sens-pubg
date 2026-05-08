@@ -702,6 +702,273 @@ export interface CompleteTrainingProtocol {
     readonly llmRewriteAllowed: boolean;
 }
 
+export type SprayLabVersion = 'spray-lab-v1';
+
+export type SprayLabAct =
+    | 'preparar'
+    | 'executar'
+    | 'fechar_resultado'
+    | 'validar_clip_compativel';
+
+export type SprayLabStepState =
+    | 'preparar'
+    | 'pronto_para_spray'
+    | 'spray_em_andamento'
+    | 'descanso'
+    | 'checagem_rapida'
+    | 'resultado'
+    | 'validar_clip';
+
+export type SprayLabSessionStatus =
+    | 'draft'
+    | 'active'
+    | 'paused'
+    | 'completed'
+    | 'abandoned'
+    | 'blocked';
+
+export type SprayLabEvidenceLevel =
+    | 'practice'
+    | 'weak_execution'
+    | 'provisional_benchmark'
+    | 'validated_benchmark';
+
+export type SprayLabValidationStatus =
+    | 'not_requested'
+    | 'pending'
+    | 'validacao_confirmada'
+    | 'sinal_promissor'
+    | 'sem_mudanca_clara'
+    | 'regressao_validada'
+    | 'nao_compativel'
+    | 'inconclusivo';
+
+export type SprayLabFidelityTier =
+    | 'strong'
+    | 'usable'
+    | 'practice_only'
+    | 'invalid_for_benchmark';
+
+export type SprayLabFidelityReasonCode =
+    | 'fatigue_or_pain'
+    | 'variable_changed'
+    | 'skipped_reps'
+    | 'excessive_pause'
+    | 'early_stop'
+    | 'capture_blocker'
+    | 'missing_context'
+    | 'user_confused';
+
+export type SprayLabLaneDifficulty = 'starter' | 'controlled' | 'advanced';
+export type SprayLabLaneSupportLevel = 'full' | 'limited' | 'practice_only';
+
+export type SprayLabIndexState =
+    | 'baseline'
+    | 'em_validacao'
+    | 'sinal_promissor'
+    | 'progresso_validado'
+    | 'regressao_validada'
+    | 'bloqueado_por_fidelidade'
+    | 'inconclusivo';
+
+export type SprayLabRepairStateType =
+    | 'validacao_bloqueada'
+    | 'clip_inconclusivo'
+    | 'captura_fraca'
+    | 'contexto_incompativel'
+    | 'nao_contou_como_benchmark'
+    | 'tentativa_salva_como_pratica';
+
+export type SprayLabSessionEventType =
+    | 'start'
+    | 'ready'
+    | 'spray_start'
+    | 'spray_end'
+    | 'rest_start'
+    | 'rest_end'
+    | 'quick_check'
+    | 'pause'
+    | 'resume'
+    | 'skip_rep'
+    | 'repeat_rep'
+    | 'report_problem'
+    | 'end_early'
+    | 'complete_result'
+    | 'request_validation';
+
+export interface SprayLabLaneEvidenceRequirements {
+    readonly minimumFidelityTier: SprayLabFidelityTier;
+    readonly compatibleValidationRequired: boolean;
+    readonly allowedEvidenceLevels: readonly SprayLabEvidenceLevel[];
+}
+
+export interface SprayLabLanePreset {
+    readonly version: SprayLabVersion;
+    readonly id: string;
+    readonly drillId: TrainingProtocolDrillId;
+    readonly label: string;
+    readonly shortLabel: string;
+    readonly objective: string;
+    readonly familyLabel: string;
+    readonly difficulty: SprayLabLaneDifficulty;
+    readonly recommendedEnvironment: TrainingProtocolEnvironmentType;
+    readonly targetContext?: Partial<TrainingProtocolContextSnapshot>;
+    readonly evidenceRequirements: SprayLabLaneEvidenceRequirements;
+    readonly suggestedSetup: readonly string[];
+    readonly supportNotes: readonly string[];
+    readonly supportLevel: SprayLabLaneSupportLevel;
+}
+
+export interface SprayLabSessionBlock {
+    readonly id: string;
+    readonly drillId: TrainingProtocolDrillId;
+    readonly label: string;
+    readonly target: string;
+    readonly repCount: number;
+    readonly spraysPerRep: number;
+    readonly restSeconds: number;
+    readonly completedReps: number;
+    readonly completedSprays: number;
+}
+
+export interface SprayLabSessionEvent {
+    readonly id: string;
+    readonly sessionId: string;
+    readonly type: SprayLabSessionEventType;
+    readonly occurredAt: string;
+    readonly repIndex?: number;
+    readonly sprayIndex?: number;
+    readonly completedSprays?: number;
+    readonly reasonCodes?: readonly SprayLabFidelityReasonCode[];
+    readonly note?: string;
+    readonly variablesChanged?: boolean;
+}
+
+export interface SprayLabRepairState {
+    readonly type: SprayLabRepairStateType;
+    readonly title: string;
+    readonly whatHappened: string;
+    readonly whyItMatters: string;
+    readonly stillUsefulAs: SprayLabEvidenceLevel;
+    readonly ctas: readonly string[];
+    readonly reasonCodes: readonly SprayLabFidelityReasonCode[];
+}
+
+export interface SprayLabFidelityComponent {
+    readonly key:
+        | 'preparacao'
+        | 'controle_variaveis'
+        | 'reps_concluidas'
+        | 'disciplina_pausas'
+        | 'seguranca_reparo'
+        | 'intervencao_manual';
+    readonly label: string;
+    readonly score: number;
+    readonly impact: 'positive' | 'downgrade' | 'blocker';
+}
+
+export interface SprayLabFidelityReport {
+    readonly version: SprayLabVersion;
+    readonly sessionId: string;
+    readonly tier: SprayLabFidelityTier;
+    readonly score: number;
+    readonly components: readonly SprayLabFidelityComponent[];
+    readonly reasonCodes: readonly SprayLabFidelityReasonCode[];
+    readonly evidenceLevel: SprayLabEvidenceLevel;
+    readonly benchmarkEligible: boolean;
+    readonly safetyDowngrade: boolean;
+    readonly coachImpactCopy: string;
+    readonly repairCtas: readonly string[];
+}
+
+export interface SprayLabIndexComponent {
+    readonly key: 'fidelity' | 'drill_execution' | 'rep_consistency' | 'compatible_validation';
+    readonly label: string;
+    readonly score: number;
+    readonly weight: number;
+}
+
+export interface SprayLabIndexSnapshot {
+    readonly version: SprayLabVersion;
+    readonly id: string;
+    readonly sessionId: string;
+    readonly protocolId: string;
+    readonly laneId: string;
+    readonly contextKey: string;
+    readonly state: SprayLabIndexState;
+    readonly evidenceLevel: SprayLabEvidenceLevel;
+    readonly provisionalScore: number;
+    readonly validatedScore?: number;
+    readonly components: readonly SprayLabIndexComponent[];
+    readonly fidelityTier: SprayLabFidelityTier;
+    readonly validationStatus: SprayLabValidationStatus;
+    readonly blockerReasons: readonly SprayLabFidelityReasonCode[];
+    readonly precisionTrend?: PrecisionTrendSummary;
+    readonly createdAt: string;
+}
+
+export interface SprayLabBenchmarkSnapshot {
+    readonly version: SprayLabVersion;
+    readonly id: string;
+    readonly sessionId: string;
+    readonly protocolId: string;
+    readonly laneId: string;
+    readonly contextKey: string;
+    readonly index: SprayLabIndexSnapshot;
+    readonly fidelityTier: SprayLabFidelityTier;
+    readonly evidenceLevel: SprayLabEvidenceLevel;
+    readonly validationStatus: SprayLabValidationStatus;
+    readonly eligibleForReleaseBenchmark: boolean;
+    readonly blockerReasons: readonly SprayLabFidelityReasonCode[];
+    readonly createdAt: string;
+}
+
+export interface SprayLabValidationLink {
+    readonly version: SprayLabVersion;
+    readonly id: string;
+    readonly labSessionId: string;
+    readonly baseAnalysisId?: string;
+    readonly validationAnalysisId?: string;
+    readonly contextKey: string;
+    readonly targetCopy: string;
+    readonly status: SprayLabValidationStatus;
+    readonly confirmedVariables: boolean;
+    readonly blockers: readonly PrecisionCompatibilityBlocker[];
+    readonly precisionTrend?: PrecisionTrendSummary;
+    readonly createdAt: string;
+    readonly updatedAt: string;
+}
+
+export interface SprayLabSessionSnapshot {
+    readonly version: SprayLabVersion;
+    readonly id: string;
+    readonly status: SprayLabSessionStatus;
+    readonly act: SprayLabAct;
+    readonly stepState: SprayLabStepState;
+    readonly protocolId: string;
+    readonly protocol: CompleteTrainingProtocol;
+    readonly lane: SprayLabLanePreset;
+    readonly contextKey: string;
+    readonly baseAnalysisId?: string;
+    readonly createdAt: string;
+    readonly updatedAt: string;
+    readonly activeBlockIndex: number;
+    readonly activeRepIndex: number;
+    readonly totalReps: number;
+    readonly completedReps: number;
+    readonly totalSprays: number;
+    readonly completedSprays: number;
+    readonly manualInterventionCount: number;
+    readonly problemReasonCodes: readonly SprayLabFidelityReasonCode[];
+    readonly blocks: readonly SprayLabSessionBlock[];
+    readonly eventIds: readonly string[];
+    readonly validationStatus: SprayLabValidationStatus;
+    readonly fidelity?: SprayLabFidelityReport;
+    readonly index?: SprayLabIndexSnapshot;
+    readonly validationLink?: SprayLabValidationLink;
+    readonly repairState?: SprayLabRepairState;
+}
+
 export interface CoachActionProtocol {
     readonly id: string;
     readonly kind: 'capture' | 'technique' | 'sens' | 'loadout' | 'drill';
