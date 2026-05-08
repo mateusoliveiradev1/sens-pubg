@@ -10,6 +10,8 @@ import {
     buildPrecisionTrendBlockModel,
     buildResultMetricCards,
     buildResultVerdictModel,
+    buildTrainingProgramEntryModel,
+    buildTrainingProgramHref,
     groupCoachFeedbackByDiagnosis,
     splitDiagnosesBySeverity,
 } from './results-dashboard-view-model';
@@ -808,6 +810,88 @@ describe('results dashboard view model', () => {
                 tone: 'info',
             },
         });
+    });
+
+    it('blocks Ciclo Pro entry until a result is saved and server-owned', () => {
+        const model = buildTrainingProgramEntryModel(createAnalysisResultForCoachLoop({
+            coachPlan: createCoachPlan({
+                completeProtocol: createCompleteProtocol(),
+            }),
+        }));
+
+        expect(buildTrainingProgramHref(createAnalysisResultForCoachLoop())).toBeNull();
+        expect(model).toMatchObject({
+            state: 'unsaved',
+            title: 'Ciclo Pro',
+            serverActionName: 'createTrainingProgramCycleAction',
+            cta: {
+                label: 'Salvar analise para abrir Ciclo Pro',
+                href: null,
+                disabled: true,
+                tone: 'warning',
+            },
+        });
+        expect(model.body).toContain('servidor confirmar propriedade');
+    });
+
+    it('routes weak saved analyses to Ciclo de Reparo instead of fake progress', () => {
+        const weakResult = createAnalysisResultForCoachLoop({
+            historySessionId: 'session-weak',
+            mastery: createMastery({
+                actionState: 'inconclusive',
+                actionLabel: 'Incerto',
+                blockedRecommendations: ['Cobertura abaixo de 60% bloqueia ciclo forte.'],
+                evidence: {
+                    ...createMastery().evidence,
+                    coverage: 0.52,
+                    confidence: 0.55,
+                },
+            }),
+            coachPlan: createCoachPlan({
+                completeProtocol: createCompleteProtocol(),
+            }),
+            analysisDecision: resolveAnalysisDecision({
+                confidence: 0.55,
+                coverage: 0.52,
+                blockerReasons: ['low_confidence', 'low_coverage'],
+            }),
+        });
+        const model = buildTrainingProgramEntryModel(weakResult);
+
+        expect(model).toMatchObject({
+            state: 'ciclo_reparo',
+            title: 'Ciclo de Reparo',
+            cta: {
+                label: 'Abrir Ciclo de Reparo',
+                href: '/ciclo-pro?sourceSessionId=session-weak&intent=repair&protocolId=complete-protocol-1',
+                disabled: false,
+                tone: 'warning',
+            },
+        });
+        expect(model.body).toContain('nao trata evidencia fraca como progresso tecnico');
+        expect(model.blockerReasons.join(' ')).toContain('low_confidence');
+    });
+
+    it('opens usable saved analyses into the Ciclo Pro start path with protocol context', () => {
+        const model = buildTrainingProgramEntryModel(createAnalysisResultForCoachLoop({
+            historySessionId: 'session-strong',
+            mastery: createMastery(),
+            coachPlan: createCoachPlan({
+                completeProtocol: createCompleteProtocol(),
+            }),
+        }));
+
+        expect(model).toMatchObject({
+            state: 'ciclo_pro',
+            title: 'Ciclo Pro',
+            cta: {
+                label: 'Abrir Ciclo Pro',
+                href: '/ciclo-pro?sourceSessionId=session-strong&intent=start&protocolId=complete-protocol-1',
+                disabled: false,
+                tone: 'info',
+            },
+        });
+        expect(`${model.body} ${model.proValueCopy}`.toLowerCase()).not.toMatch(/garant|perfeit|rank/);
     });
 
     it('routes adaptive coach conflicts to compatible validation instead of stronger action', () => {

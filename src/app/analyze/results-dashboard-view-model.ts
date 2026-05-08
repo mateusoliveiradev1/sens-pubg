@@ -187,6 +187,27 @@ export interface AdaptiveCoachLoopModel {
     readonly cta: AdaptiveCoachLoopCtaModel;
 }
 
+export type TrainingProgramEntryState = 'unsaved' | 'ciclo_pro' | 'ciclo_reparo';
+
+export interface TrainingProgramEntryModel {
+    readonly state: TrainingProgramEntryState;
+    readonly title: 'Ciclo Pro' | 'Ciclo de Reparo';
+    readonly body: string;
+    readonly evidenceSummary: string;
+    readonly blockerReasons: readonly string[];
+    readonly freeValueCopy: string;
+    readonly proValueCopy: string;
+    readonly serverActionName: 'createTrainingProgramCycleAction';
+    readonly cta: {
+        readonly label: 'Salvar analise para abrir Ciclo Pro' | 'Abrir Ciclo Pro' | 'Abrir Ciclo de Reparo';
+        readonly href: string | null;
+        readonly disabled: boolean;
+        readonly tone: ResultMetricTone;
+    };
+    readonly lockCtaLabel: 'Ver Pro' | 'Abrir billing' | null;
+    readonly lockCtaHref: '/pricing' | '/billing' | null;
+}
+
 interface BuildResultMetricCardsInput {
     readonly metrics: SprayMetrics;
     readonly sensitivity: Pick<SensitivityRecommendation, 'suggestedVSM'>;
@@ -498,6 +519,151 @@ function buildSprayLabHref(result: AnalysisResult): string | null {
     return protocolId
         ? `${base}&protocolId=${encodeURIComponent(protocolId)}`
         : base;
+}
+
+function hasWeakTrainingProgramBase(result: AnalysisResult): boolean {
+    const decision = result.analysisDecision;
+    const masteryEvidence = result.mastery?.evidence;
+
+    if (!result.coachPlan?.completeProtocol) {
+        return true;
+    }
+
+    if (
+        decision?.level === 'blocked_invalid_clip'
+        || decision?.level === 'inconclusive_recapture'
+        || decision?.level === 'partial_safe_read'
+        || decision?.permissionMatrix.canDisplayCoach === false
+        || decision?.permissionMatrix.countsAsUsefulAnalysis === false
+    ) {
+        return true;
+    }
+
+    if (result.mastery?.actionState === 'capture_again' || result.mastery?.actionState === 'inconclusive') {
+        return true;
+    }
+
+    if (masteryEvidence && (masteryEvidence.coverage < 0.6 || masteryEvidence.confidence < 0.6)) {
+        return true;
+    }
+
+    return result.videoQualityReport?.usableForAnalysis === false;
+}
+
+function buildTrainingProgramBlockers(result: AnalysisResult): readonly string[] {
+    const decisionBlockers = result.analysisDecision?.blockerReasons.map((reason) => `Decision ladder blocker: ${reason}.`) ?? [];
+    const masteryBlockers = result.mastery?.blockedRecommendations ?? [];
+    const protocolBlockers = result.coachPlan?.completeProtocol?.downgrade.reasons.map((reason) => `Protocolo em downgrade: ${reason}.`) ?? [];
+
+    return Array.from(new Set([
+        ...decisionBlockers,
+        ...masteryBlockers,
+        ...protocolBlockers,
+    ]));
+}
+
+function programLockCta(projection: PremiumProjectionSummary | undefined): Pick<TrainingProgramEntryModel, 'lockCtaLabel' | 'lockCtaHref'> {
+    const lock = projection?.locks.find((item) => (
+        item.featureKey === 'programs.guided_monthly'
+        || item.featureKey === 'programs.guided_weekly'
+    )) ?? null;
+
+    return {
+        lockCtaHref: lock?.ctaHref ?? null,
+        lockCtaLabel: lock?.ctaHref === '/pricing'
+            ? 'Ver Pro'
+            : lock?.ctaHref === '/billing'
+                ? 'Abrir billing'
+                : null,
+    };
+}
+
+export function buildTrainingProgramHref(result: AnalysisResult): string | null {
+    if (!result.historySessionId) {
+        return null;
+    }
+
+    const params = new URLSearchParams({
+        sourceSessionId: result.historySessionId,
+        intent: hasWeakTrainingProgramBase(result) ? 'repair' : 'start',
+    });
+    const protocolId = result.coachPlan?.completeProtocol?.id
+        ?? result.coachPlan?.actionProtocols[0]?.id
+        ?? null;
+
+    if (protocolId) {
+        params.set('protocolId', protocolId);
+    }
+
+    return `/ciclo-pro?${params.toString()}`;
+}
+
+export function buildTrainingProgramEntryModel(result: AnalysisResult): TrainingProgramEntryModel {
+    const href = buildTrainingProgramHref(result);
+    const weakBase = hasWeakTrainingProgramBase(result);
+    const blockers = buildTrainingProgramBlockers(result);
+    const lockCta = programLockCta(result.premiumProjection);
+    const evidenceSummary = result.mastery
+        ? `${formatPercent(result.mastery.evidence.confidence)} confianca, ${formatPercent(result.mastery.evidence.coverage)} cobertura, ${blockers.length} blocker${blockers.length === 1 ? '' : 's'}.`
+        : `Sem mastery salvo; ${blockers.length} blocker${blockers.length === 1 ? '' : 's'} no caminho.`;
+
+    if (!href) {
+        return {
+            state: 'unsaved',
+            title: 'Ciclo Pro',
+            body: 'Salve a analise antes de abrir um ciclo. A acao precisa de uma sessao do historico para o servidor confirmar propriedade e evidencia.',
+            evidenceSummary,
+            blockerReasons: blockers,
+            freeValueCopy: 'Free continua vendo a leitura, blockers e proximo passo antes do save.',
+            proValueCopy: 'Pro organiza a evolucao em um ciclo adaptativo e auditavel depois que a analise fica salva.',
+            serverActionName: 'createTrainingProgramCycleAction',
+            cta: {
+                label: 'Salvar analise para abrir Ciclo Pro',
+                href: null,
+                disabled: true,
+                tone: 'warning',
+            },
+            ...lockCta,
+        };
+    }
+
+    if (weakBase) {
+        return {
+            state: 'ciclo_reparo',
+            title: 'Ciclo de Reparo',
+            body: 'Esta base ainda pede reparo, consolidacao ou validacao curta. O ciclo nao trata evidencia fraca como progresso tecnico.',
+            evidenceSummary,
+            blockerReasons: blockers,
+            freeValueCopy: 'Free mostra o proximo passo real, blockers e evidencia sem esconder a verdade do resultado.',
+            proValueCopy: 'Pro transforma a base fraca em reparo guiado, reentrada, Spray Lab e validacao compativel auditavel.',
+            serverActionName: 'createTrainingProgramCycleAction',
+            cta: {
+                label: 'Abrir Ciclo de Reparo',
+                href,
+                disabled: false,
+                tone: 'warning',
+            },
+            ...lockCta,
+        };
+    }
+
+    return {
+        state: 'ciclo_pro',
+        title: 'Ciclo Pro',
+        body: 'A analise salva tem base para abrir o Programa Pro: Ciclo de Spray. O ciclo organiza missao, Spray Lab, validacao compativel e checkpoint sem prometer resultado.',
+        evidenceSummary,
+        blockerReasons: blockers,
+        freeValueCopy: 'Free mostra o proximo passo e uma missao basica com evidencia e blockers.',
+        proValueCopy: 'Pro desbloqueia o ciclo de 30 dias completo, adaptativo e auditavel.',
+        serverActionName: 'createTrainingProgramCycleAction',
+        cta: {
+            label: 'Abrir Ciclo Pro',
+            href,
+            disabled: false,
+            tone: 'info',
+        },
+        ...lockCta,
+    };
 }
 
 function buildAdaptiveCoachLoopCta(result: AnalysisResult, state: AdaptiveCoachLoopState): AdaptiveCoachLoopCtaModel {
