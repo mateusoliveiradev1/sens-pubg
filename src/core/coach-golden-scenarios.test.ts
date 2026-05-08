@@ -1,12 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import type {
+    AnalysisResult,
     CompleteTrainingProtocol,
+    PrecisionTrendSummary,
     SprayLabBenchmarkSnapshot,
     SprayLabSessionSnapshot,
     SprayLabValidationLink,
 } from '@/types/engine';
+import type { TrainingProgramCycleSnapshot, TrainingProgramEvidenceSummary } from '@/types/training-programs';
 
+import { buildCoachPlan } from './coach-plan-builder';
+import { analysisResultBase, analysisResultWithStrongSensitivity } from './coach-test-fixtures';
 import { buildSprayLabCoachHandoff } from './spray-lab-coach-handoff';
+import { buildTrainingProgramTechnicalCheckpoint } from './training-program-checkpoints';
+import { buildTrainingProgramCoachHandoff } from './training-program-coach-handoff';
+import { createTrainingProgramCycle } from './training-programs';
 
 function protocol(): CompleteTrainingProtocol {
     return {
@@ -224,6 +232,102 @@ function benchmark(sprayLabSession: SprayLabSessionSnapshot): SprayLabBenchmarkS
     };
 }
 
+function programProtocolFor(result: AnalysisResult): CompleteTrainingProtocol {
+    const completeProtocol = buildCoachPlan({ analysisResult: result }).completeProtocol;
+
+    if (!completeProtocol) {
+        throw new Error('Expected complete protocol fixture');
+    }
+
+    return completeProtocol;
+}
+
+function programCycle(result: AnalysisResult = analysisResultBase): TrainingProgramCycleSnapshot {
+    return createTrainingProgramCycle({
+        analysisResult: result,
+        protocol: programProtocolFor(result),
+        now: '2026-05-08T12:00:00.000Z',
+    });
+}
+
+function programPrecisionTrend(label: PrecisionTrendSummary['label']): PrecisionTrendSummary {
+    return {
+        label,
+        evidenceLevel: 'strong',
+        compatibleCount: 3,
+        baseline: null,
+        current: null,
+        recentWindow: null,
+        actionableDelta: null,
+        mechanicalDelta: null,
+        pillarDeltas: [],
+        recurringDiagnoses: [],
+        blockerSummaries: [],
+        blockedClips: [],
+        confidence: 0.91,
+        coverage: 0.9,
+        nextValidationHint: 'Validar o mesmo contexto antes de trocar variavel.',
+    };
+}
+
+function programValidation(status: SprayLabValidationLink['status']): SprayLabValidationLink {
+    return {
+        version: 'spray-lab-v1',
+        id: `program-validation-${status}`,
+        labSessionId: 'program-lab-1',
+        baseAnalysisId: 'analysis-fixture-base',
+        validationAnalysisId: 'program-validation-analysis',
+        contextKey: 'program:context',
+        targetCopy: 'Beryl Red Dot 30m',
+        status,
+        confirmedVariables: true,
+        blockers: [],
+        precisionTrend: programPrecisionTrend(status === 'regressao_validada' ? 'validated_regression' : 'validated_progress'),
+        createdAt: '2026-05-08T12:30:00.000Z',
+        updatedAt: '2026-05-08T12:30:00.000Z',
+    };
+}
+
+function programEvidence(
+    cycle: TrainingProgramCycleSnapshot,
+    status: SprayLabValidationLink['status'],
+): TrainingProgramEvidenceSummary {
+    return {
+        ...cycle.evidenceSummary,
+        validationLink: programValidation(status),
+        validationStatus: status,
+        precisionTrend: programPrecisionTrend(status === 'regressao_validada' ? 'validated_regression' : 'validated_progress'),
+        blockers: [],
+        confidence: 0.91,
+        coverage: 0.9,
+        summary: 'Validacao compativel anexada ao ciclo.',
+    };
+}
+
+function programCycleWithTechnicalCheckpoint(
+    status: SprayLabValidationLink['status'],
+): TrainingProgramCycleSnapshot {
+    const cycle = programCycle();
+    const evidenceSummary = programEvidence(cycle, status);
+    const checkpoint = buildTrainingProgramTechnicalCheckpoint({
+        cycle,
+        evidenceSummary,
+        now: '2026-05-08T12:40:00.000Z',
+    });
+
+    if (!checkpoint) {
+        throw new Error('Expected technical checkpoint fixture');
+    }
+
+    return {
+        ...cycle,
+        state: checkpoint.state,
+        checkpoints: [checkpoint],
+        reasonCodes: checkpoint.reasonCodes,
+        evidenceSummary,
+    };
+}
+
 describe('Phase 9 Spray Lab coach golden scenarios', () => {
     it('uses confirmed compatible validation as technical proof', () => {
         const validatedSession = session({
@@ -358,5 +462,54 @@ describe('Phase 9 Spray Lab coach golden scenarios', () => {
         expect(handoff?.compatibleClipProof.countsAsTechnicalProof).toBe(true);
         expect(handoff?.practicalTransfer.countsAsTechnicalProof).toBe(false);
         expect(handoff?.validatedScore).toBe(84);
+    });
+});
+
+describe('Phase 10 Ciclo Pro coach golden scenarios', () => {
+    it('does not let a completed program raise tier without compatible proof', () => {
+        const handoff = buildTrainingProgramCoachHandoff({
+            cycle: {
+                ...programCycle(),
+                state: 'concluido',
+                currentMissionId: null,
+                reasonCodes: [],
+            },
+        });
+        const plan = buildCoachPlan({
+            analysisResult: analysisResultWithStrongSensitivity,
+            trainingProgramHandoffs: handoff ? [handoff] : [],
+        });
+
+        expect(handoff?.executionEvidence.countsAsTechnicalProof).toBe(false);
+        expect(handoff?.compatibleValidation.countsAsTechnicalProof).toBe(false);
+        expect(plan.tier).toBe('test_protocol');
+    });
+
+    it('uses compatible technical checkpoint progress as bounded continuity', () => {
+        const handoff = buildTrainingProgramCoachHandoff({
+            cycle: programCycleWithTechnicalCheckpoint('validacao_confirmada'),
+        });
+        const plan = buildCoachPlan({
+            analysisResult: analysisResultWithStrongSensitivity,
+            trainingProgramHandoffs: handoff ? [handoff] : [],
+        });
+
+        expect(handoff?.technicalProofState).toBe('validated_progress');
+        expect(handoff?.summary).toContain('sem garantir melhora futura');
+        expect(plan.tier).toBe('apply_protocol');
+    });
+
+    it('routes program regression into conservative recovery', () => {
+        const handoff = buildTrainingProgramCoachHandoff({
+            cycle: programCycleWithTechnicalCheckpoint('regressao_validada'),
+        });
+        const plan = buildCoachPlan({
+            analysisResult: analysisResultWithStrongSensitivity,
+            trainingProgramHandoffs: handoff ? [handoff] : [],
+        });
+
+        expect(handoff?.technicalProofState).toBe('validated_regression');
+        expect(handoff?.nextAction.kind).toBe('recover_baseline');
+        expect(plan.tier).toBe('test_protocol');
     });
 });

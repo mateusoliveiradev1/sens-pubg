@@ -14,10 +14,12 @@ import { extractCoachMemorySignals } from './coach-memory';
 import { rankCoachPriorities } from './coach-priority-engine';
 import { extractCoachSignals } from './coach-signal-extractor';
 import { buildCompleteTrainingProtocol } from './training-protocols';
+import type { TrainingProgramCoachHandoff } from './training-program-coach-handoff';
 
 export interface BuildCoachPlanInput {
     readonly analysisResult?: AnalysisResult;
     readonly memorySnapshot?: CoachMemorySnapshot;
+    readonly trainingProgramHandoffs?: readonly TrainingProgramCoachHandoff[];
 }
 
 export interface ResolveCoachDecisionTierInput {
@@ -25,14 +27,17 @@ export interface ResolveCoachDecisionTierInput {
     readonly primaryFocus: CoachPriority;
     readonly priorities: readonly CoachPriority[];
     readonly memorySnapshot?: CoachMemorySnapshot;
+    readonly trainingProgramHandoffs?: readonly TrainingProgramCoachHandoff[];
 }
 
 export function buildCoachPlan(input: BuildCoachPlanInput = {}): CoachPlan {
+    const trainingProgramSignals = input.trainingProgramHandoffs?.flatMap((handoff) => handoff.coachSignals) ?? [];
     const priorities = input.analysisResult
         ? rankCoachPriorities({
             signals: [
                 ...extractCoachSignals({ analysisResult: input.analysisResult }),
                 ...extractCoachMemorySignals(input.memorySnapshot),
+                ...trainingProgramSignals,
             ],
         })
         : [];
@@ -55,6 +60,7 @@ export function buildCoachPlan(input: BuildCoachPlanInput = {}): CoachPlan {
         primaryFocus,
         priorities,
         ...(input.memorySnapshot ? { memorySnapshot: input.memorySnapshot } : {}),
+        ...(input.trainingProgramHandoffs ? { trainingProgramHandoffs: input.trainingProgramHandoffs } : {}),
     });
 
     const basePlan: Omit<CoachPlan, 'completeProtocol'> = {
@@ -67,6 +73,7 @@ export function buildCoachPlan(input: BuildCoachPlanInput = {}): CoachPlan {
             primaryFocus,
             analysisResult: input.analysisResult,
             ...(input.memorySnapshot ? { memorySnapshot: input.memorySnapshot } : {}),
+            ...(input.trainingProgramHandoffs ? { trainingProgramHandoffs: input.trainingProgramHandoffs } : {}),
         }),
         nextBlock: buildNextBlockPlan({ tier, primaryFocus }),
         stopConditions: buildStopConditions({ tier, primaryFocus }),
@@ -89,6 +96,7 @@ export function buildActionProtocols(input: {
     readonly primaryFocus: CoachPriority;
     readonly analysisResult: AnalysisResult | undefined;
     readonly memorySnapshot?: CoachMemorySnapshot;
+    readonly trainingProgramHandoffs?: readonly TrainingProgramCoachHandoff[];
 }): readonly CoachActionProtocol[] {
     const { tier, primaryFocus, analysisResult, memorySnapshot } = input;
 
@@ -219,6 +227,14 @@ export function resolveCoachDecisionTier(input: ResolveCoachDecisionTierInput): 
         return 'test_protocol';
     }
 
+    if (hasTrainingProgramRecoveryEvidence(input.trainingProgramHandoffs)) {
+        return 'test_protocol';
+    }
+
+    if (shouldStabilizeFromTrainingProgram(input.trainingProgramHandoffs)) {
+        return 'stabilize_block';
+    }
+
     if (shouldStabilizeFromMemory(input)) {
         return 'stabilize_block';
     }
@@ -276,6 +292,31 @@ function hasOutcomeFailureMemory(memorySnapshot: CoachMemorySnapshot | undefined
     return Boolean(outcomeMemory && outcomeMemory.repeatedFailureCount > 0);
 }
 
+function hasTrainingProgramRecoveryEvidence(
+    handoffs: readonly TrainingProgramCoachHandoff[] | undefined,
+): boolean {
+    return Boolean(handoffs?.some((handoff) => (
+        handoff.technicalProofState === 'validated_regression'
+        || handoff.technicalProofState === 'blocked'
+        || handoff.aggressiveness === 'recovery_or_baseline'
+        || handoff.reasonCodes.includes('line_restart')
+        || handoff.reasonCodes.includes('outcome_conflict')
+        || handoff.reasonCodes.includes('repeated_failure_consolidation')
+    )));
+}
+
+function shouldStabilizeFromTrainingProgram(
+    handoffs: readonly TrainingProgramCoachHandoff[] | undefined,
+): boolean {
+    return Boolean(handoffs?.some((handoff) => (
+        handoff.technicalProofState === 'pending'
+        || handoff.technicalProofState === 'inconclusive'
+        || handoff.technicalProofState === 'no_clear_change'
+        || handoff.aggressiveness === 'hold_validation'
+        || handoff.aggressiveness === 'reduce_dose'
+    )));
+}
+
 function shouldStabilizeFromMemory(input: ResolveCoachDecisionTierInput): boolean {
     const trendLabel = input.memorySnapshot?.precisionTrend?.label;
     if (
@@ -327,9 +368,14 @@ function shouldApplyProtocol(input: ResolveCoachDecisionTierInput): boolean {
 
 function hasStrongCompatibleValidation(input: ResolveCoachDecisionTierInput): boolean {
     const memorySnapshot = input.memorySnapshot;
+    const hasProgramTechnicalProgress = input.trainingProgramHandoffs?.some((handoff) => (
+        handoff.technicalProofState === 'validated_progress'
+        && handoff.compatibleValidation.countsAsTechnicalProof
+        && handoff.aggressiveness === 'support_continuity'
+    )) ?? false;
 
     if (!memorySnapshot) {
-        return false;
+        return hasProgramTechnicalProgress;
     }
 
     const outcomeMemory = memorySnapshot.outcomeMemory;
@@ -342,7 +388,7 @@ function hasStrongCompatibleValidation(input: ResolveCoachDecisionTierInput): bo
         && trend.evidenceLevel === 'strong'
         && trend.compatibleCount >= 3;
 
-    return hasConfirmedStrictOutcome || hasValidatedPrecisionTrend;
+    return hasConfirmedStrictOutcome || hasValidatedPrecisionTrend || hasProgramTechnicalProgress;
 }
 
 function hasSignal(priority: CoachPriority, key: string): boolean {
