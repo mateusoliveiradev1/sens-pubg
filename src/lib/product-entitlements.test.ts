@@ -46,6 +46,8 @@ describe('product entitlement resolver', () => {
         expect(hasProductEntitlement(result, 'metrics.basic')).toBe(true);
         expect(hasProductEntitlement(result, 'coach.full_plan')).toBe(false);
         expect(hasProductEntitlement(result, 'history.full')).toBe(false);
+        expect(hasProductEntitlement(result, 'programs.guided_weekly')).toBe(false);
+        expect(hasProductEntitlement(result, 'programs.guided_monthly')).toBe(false);
     });
 
     it('keeps free access but marks save quota as blocked when the free limit is reached', async () => {
@@ -125,6 +127,8 @@ describe('product entitlement resolver', () => {
             auditRefs: ['sub:pro'],
         });
         expect(hasProductEntitlement(pro, 'coach.full_plan')).toBe(true);
+        expect(hasProductEntitlement(pro, 'programs.guided_weekly')).toBe(true);
+        expect(hasProductEntitlement(pro, 'programs.guided_monthly')).toBe(true);
         expect(founder.accessState).toBe('founder_active');
         expect(canceling.accessState).toBe('canceling');
         expect(hasProductEntitlement(canceling, 'billing.portal_access')).toBe(true);

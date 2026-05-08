@@ -240,6 +240,11 @@ describe('premium projection policy', () => {
             featureKey: 'coach.full_plan',
             reason: 'pro_feature',
         }));
+        expect(projected.premiumProjection?.locks).toContainEqual(expect.objectContaining({
+            featureKey: 'programs.guided_monthly',
+            reason: 'pro_feature',
+            body: expect.stringContaining('Ciclo Pro de 30 dias'),
+        }));
     });
 
     it('returns the full coach and advanced loop when Pro entitlement exists', () => {
@@ -266,6 +271,10 @@ describe('premium projection policy', () => {
         expect(projected.coachPlan?.completeProtocol).toEqual(coachPlan().completeProtocol);
         expect(projected.premiumProjection?.canSeeFullCoachPlan).toBe(true);
         expect(projected.premiumProjection?.canSeeAdvancedMetrics).toBe(true);
+        expect(projected.premiumProjection?.visibleFeatureKeys).toEqual(expect.arrayContaining([
+            'programs.guided_weekly',
+            'programs.guided_monthly',
+        ]));
     });
 
     it('projects complete protocols directly for Free and Pro access', () => {

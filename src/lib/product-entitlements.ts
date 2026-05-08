@@ -122,6 +122,8 @@ export const productProEntitlementKeys = [
     'metrics.advanced',
     'coach.outcome_capture',
     'coach.validation_loop',
+    'programs.guided_weekly',
+    'programs.guided_monthly',
     'spray_lab.session_runner',
     'spray_lab.benchmarks',
     'billing.portal_access',
