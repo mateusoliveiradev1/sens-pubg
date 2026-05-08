@@ -328,6 +328,15 @@ function programCycleWithTechnicalCheckpoint(
     };
 }
 
+function programCycleInState(
+    overrides: Partial<TrainingProgramCycleSnapshot>,
+): TrainingProgramCycleSnapshot {
+    return {
+        ...programCycle(),
+        ...overrides,
+    };
+}
+
 describe('Phase 9 Spray Lab coach golden scenarios', () => {
     it('uses confirmed compatible validation as technical proof', () => {
         const validatedSession = session({
@@ -466,6 +475,113 @@ describe('Phase 9 Spray Lab coach golden scenarios', () => {
 });
 
 describe('Phase 10 Ciclo Pro coach golden scenarios', () => {
+    it.each([
+        {
+            name: 'repair',
+            cycle: () => programCycleInState({
+                state: 'reparando',
+                reasonCodes: ['weak_base_evidence'],
+                recoveryAction: 'reparar',
+            }),
+            expectedTechnicalProofState: 'none',
+            expectedAggressiveness: 'hold_validation',
+            expectedNextAction: 'repair_program',
+        },
+        {
+            name: 'consolidation',
+            cycle: () => programCycleInState({
+                state: 'consolidando',
+                reasonCodes: ['compatible_proof_missing'],
+                recoveryAction: 'consolidar',
+            }),
+            expectedTechnicalProofState: 'pending',
+            expectedAggressiveness: 'hold_validation',
+            expectedNextAction: 'record_validation',
+        },
+        {
+            name: 'validation pending',
+            cycle: () => programCycleInState({
+                state: 'validacao_pendente',
+                reasonCodes: ['compatible_proof_missing'],
+                nextCta: {
+                    label: 'Gravar validacao compativel',
+                    href: '/analyze?mode=validation',
+                    target: 'analyze_validation',
+                },
+            }),
+            expectedTechnicalProofState: 'pending',
+            expectedAggressiveness: 'hold_validation',
+            expectedNextAction: 'record_validation',
+        },
+        {
+            name: 'progress',
+            cycle: () => programCycleWithTechnicalCheckpoint('validacao_confirmada'),
+            expectedTechnicalProofState: 'validated_progress',
+            expectedAggressiveness: 'support_continuity',
+            expectedNextAction: 'continue_cycle',
+        },
+        {
+            name: 'no clear change',
+            cycle: () => programCycleWithTechnicalCheckpoint('sem_mudanca_clara'),
+            expectedTechnicalProofState: 'no_clear_change',
+            expectedAggressiveness: 'hold_validation',
+            expectedNextAction: 'consolidate_context',
+        },
+        {
+            name: 'regression',
+            cycle: () => programCycleWithTechnicalCheckpoint('regressao_validada'),
+            expectedTechnicalProofState: 'validated_regression',
+            expectedAggressiveness: 'recovery_or_baseline',
+            expectedNextAction: 'recover_baseline',
+        },
+        {
+            name: 'line restart',
+            cycle: () => programCycleInState({
+                state: 'linha_reiniciada',
+                reasonCodes: ['line_restart'],
+                recoveryAction: 'reiniciar_linha',
+                archivedLines: [{
+                    lineId: 'archived-line-1',
+                    contextKey: 'program:context',
+                    label: 'Linha anterior preservada',
+                    active: false,
+                    startedAt: '2026-05-08T12:00:00.000Z',
+                    archivedAt: '2026-05-08T12:45:00.000Z',
+                    restartReasonCodes: ['line_restart'],
+                }],
+            }),
+            expectedTechnicalProofState: 'blocked',
+            expectedAggressiveness: 'recovery_or_baseline',
+            expectedNextAction: 'recover_baseline',
+        },
+        {
+            name: 'completed cycle',
+            cycle: () => programCycleInState({
+                state: 'concluido',
+                currentMissionId: null,
+                reasonCodes: [],
+            }),
+            expectedTechnicalProofState: 'none',
+            expectedAggressiveness: 'support_continuity',
+            expectedNextAction: 'audit_history',
+        },
+    ])('covers the $name Ciclo Pro handoff state without overclaiming', ({
+        cycle,
+        expectedTechnicalProofState,
+        expectedAggressiveness,
+        expectedNextAction,
+    }) => {
+        const handoff = buildTrainingProgramCoachHandoff({ cycle: cycle() });
+
+        expect(handoff?.technicalProofState).toBe(expectedTechnicalProofState);
+        expect(handoff?.aggressiveness).toBe(expectedAggressiveness);
+        expect(handoff?.nextAction.kind).toBe(expectedNextAction);
+        expect(handoff?.executionEvidence.countsAsTechnicalProof).toBe(false);
+        expect(handoff?.practicalTransfer.countsAsTechnicalProof).toBe(false);
+        expect(handoff?.llmFactsMutable).toBe(false);
+        expect(handoff?.summary).not.toMatch(/melhora garantida|rank garantido|sensibilidade perfeita/i);
+    });
+
     it('does not let a completed program raise tier without compatible proof', () => {
         const handoff = buildTrainingProgramCoachHandoff({
             cycle: {

@@ -38,6 +38,55 @@ const DISALLOWED_SPRAY_LAB_CLAIMS = [
     'api pubg exclusiva',
 ] as const;
 
+const PHASE_10_PROGRAM_COPY_FILES = [
+    'src/app/ciclo-pro/page.tsx',
+    'src/app/ciclo-pro/ciclo-pro-view-model.ts',
+    'src/app/ciclo-pro/ciclo-pro-program-map.tsx',
+    'src/lib/training-program-projection.ts',
+    'src/actions/training-programs.ts',
+    'src/core/training-programs.ts',
+    'src/core/training-program-checkpoints.ts',
+    'src/core/training-program-coach-handoff.ts',
+    'src/actions/dashboard.ts',
+    'src/actions/dashboard-active-coach-loop.ts',
+    'src/app/dashboard/page.tsx',
+    'src/actions/history.ts',
+    'src/app/history/page.tsx',
+    'src/app/history/[id]/page.tsx',
+    'src/app/analyze/results-dashboard-view-model.ts',
+    'src/app/analyze/results-dashboard.tsx',
+] as const;
+
+const DISALLOWED_PHASE_10_PROGRAM_CLAIMS = [
+    /\bsensibilidade perfeita\b/,
+    /\bperfect sensitivity\b/,
+    /\bmelhora garantida\b/,
+    /\bguaranteed improvement\b/,
+    /\brank garantido\b/,
+    /\bguaranteed rank\b/,
+    /\bnota global garantida\b/,
+    /\bglobal score guaranteed\b/,
+    /\bglobal player grade\b/,
+    /\bgrade global\b/,
+    /\bpubg oficial\b/,
+    /\bofficial pubg\b/,
+    /\bparceiro oficial\b/,
+    /\bofficial partner\b/,
+    /\bkrafton partner\b/,
+    /\bparceiro krafton\b/,
+    /\bcurso\b/,
+    /\baula\b/,
+    /\bxp\b/,
+    /\bgrind\b/,
+    /\blesson\b/,
+    /\bcourse\b/,
+    /\blibrary\b/,
+    /\bbiblioteca\b/,
+    /\btdm\b.*\b(prova|confirma|valida)\b.*\b(progresso|tecnica)\b/,
+    /\bprogresso validado sem clip compativel\b/,
+    /\bprogress validated without compatible clip\b/,
+] as const;
+
 function readCopy(filePath: string): string {
     return readFileSync(join(process.cwd(), filePath), 'utf8');
 }
@@ -85,5 +134,58 @@ describe('Phase 9 Spray Lab copy safety', () => {
         expect(projectionCopy).toContain('auditoria');
         expect(projectionCopy).toContain('benchmark por contexto');
         expect(`${pricingCopy}\n${projectionCopy}`).not.toContain('acesso exclusivo a api pubg');
+    });
+});
+
+describe('Phase 10 Ciclo Pro copy safety', () => {
+    it('scans the program route, projection, dashboard, history, result, action, and core copy surfaces', () => {
+        expect(PHASE_10_PROGRAM_COPY_FILES).toEqual(expect.arrayContaining([
+            'src/app/ciclo-pro/page.tsx',
+            'src/lib/training-program-projection.ts',
+            'src/actions/dashboard.ts',
+            'src/app/history/page.tsx',
+            'src/app/history/[id]/page.tsx',
+            'src/app/analyze/results-dashboard-view-model.ts',
+            'src/actions/training-programs.ts',
+            'src/core/training-programs.ts',
+            'src/core/training-program-coach-handoff.ts',
+        ]));
+    });
+
+    it('blocks guarantees, affiliation claims, course framing, XP language, and TDM-as-proof claims', () => {
+        for (const filePath of PHASE_10_PROGRAM_COPY_FILES) {
+            const copy = normalize(readCopy(filePath));
+
+            for (const claimPattern of DISALLOWED_PHASE_10_PROGRAM_CLAIMS) {
+                expect(copy, `${filePath} should not match ${claimPattern}`).not.toMatch(claimPattern);
+            }
+        }
+    });
+
+    it('keeps progress-validado copy tied to compatible validation evidence', () => {
+        for (const filePath of PHASE_10_PROGRAM_COPY_FILES) {
+            const copy = normalize(readCopy(filePath));
+            const mentionsProgressValidated = copy.includes('progresso validado') || copy.includes('progress validated');
+
+            if (!mentionsProgressValidated) {
+                continue;
+            }
+
+            expect(copy, `${filePath} should bind progress validation to compatible evidence`).toMatch(
+                /validacao compativel|clip compativel|prova compativel/,
+            );
+        }
+    });
+
+    it('sells original Sens PUBG value through analysis, coach, history, Spray Lab, validation, and adaptive continuity', () => {
+        const combinedCopy = normalize(PHASE_10_PROGRAM_COPY_FILES.map(readCopy).join('\n'));
+
+        expect(combinedCopy).toContain('analise');
+        expect(combinedCopy).toContain('coach');
+        expect(combinedCopy).toContain('historico');
+        expect(combinedCopy).toContain('spray lab');
+        expect(combinedCopy).toContain('validacao');
+        expect(combinedCopy).toContain('continuidade');
+        expect(combinedCopy).toContain('adaptativo');
     });
 });

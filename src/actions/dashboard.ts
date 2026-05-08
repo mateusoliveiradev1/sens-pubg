@@ -335,7 +335,7 @@ function formatTrainingProgramState(state: TrainingProgramState): string {
         case 'validacao_pendente':
             return 'Validacao pendente';
         case 'progresso_validado':
-            return 'Progresso validado';
+            return 'Progresso validado por validacao compativel';
         case 'sem_mudanca_clara':
             return 'Sem mudanca clara';
         case 'regressao_validada':
