@@ -43,6 +43,12 @@ Focused Phase 10 checks:
 npx vitest run src/core/training-programs.test.ts src/actions/training-programs.test.ts src/lib/training-program-projection.test.ts src/app/ciclo-pro/page.contract.test.ts src/app/ciclo-pro/ciclo-pro-view-model.test.ts src/actions/dashboard.test.ts src/app/dashboard/page.contract.test.ts src/actions/history.test.ts src/app/history/page.contract.test.ts src/app/history/[id]/page.contract.test.ts src/core/training-program-coach-handoff.test.ts src/core/coach-golden-scenarios.test.ts src/core/copy-safety.test.ts src/ci/phase10-programs-evidence.test.ts
 ```
 
+Focused copy/golden evidence:
+
+```bash
+npx vitest run src/core/copy-safety.test.ts src/core/coach-golden-scenarios.test.ts # PASS, 28 tests
+```
+
 Browser evidence command:
 
 ```bash

@@ -488,6 +488,39 @@ describe('Phase 10 Ciclo Pro coach golden scenarios', () => {
             expectedNextAction: 'repair_program',
         },
         {
+            name: 'fatigue reduced dose',
+            cycle: () => programCycleInState({
+                state: 'reparando',
+                reasonCodes: ['fatigue_reduced_dose'],
+                recoveryAction: 'reparar',
+            }),
+            expectedTechnicalProofState: 'none',
+            expectedAggressiveness: 'reduce_dose',
+            expectedNextAction: 'repair_program',
+        },
+        {
+            name: 'discomfort safety pause',
+            cycle: () => programCycleInState({
+                state: 'pausado',
+                reasonCodes: ['discomfort_stop'],
+                recoveryAction: 'pausar_bloco',
+            }),
+            expectedTechnicalProofState: 'none',
+            expectedAggressiveness: 'reduce_dose',
+            expectedNextAction: 'pause_for_safety',
+        },
+        {
+            name: 'confusion simplified',
+            cycle: () => programCycleInState({
+                state: 'reparando',
+                reasonCodes: ['confusion_simplified'],
+                recoveryAction: 'reparar',
+            }),
+            expectedTechnicalProofState: 'none',
+            expectedAggressiveness: 'hold_validation',
+            expectedNextAction: 'repair_program',
+        },
+        {
             name: 'consolidation',
             cycle: () => programCycleInState({
                 state: 'consolidando',
