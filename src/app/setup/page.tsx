@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { SetupForm } from './setup-form';
+import { buildSetupWizardInitialData } from './setup-defaults';
 import { Header } from '@/ui/components/header';
 
 export default async function SetupPage() {
@@ -15,29 +16,26 @@ export default async function SetupPage() {
 
     const user = await db.query.users.findFirst({
         where: eq(users.id, session.user.id),
+        with: {
+            profile: true,
+        },
     });
 
     if (!user) {
         redirect('/login');
     }
 
-    // Optional: If user already has these filled, maybe they don't need the wizard?
-    // But it's better to let them update it if they access this page.
-
     return (
         <div className="min-h-screen flex flex-col">
             <Header />
-            <main className="flex-1 flex items-center justify-center p-6 bg-grid-pattern">
-                <div className="w-full max-w-4xl">
-                    <SetupForm initialData={{
-                        resolution: user.resolution,
-                        fov: user.fov,
-                        mouseDpi: user.mouseDpi,
-                        sensGeneral: user.sensGeneral,
-                        sens1x: user.sens1x,
-                        sens3x: user.sens3x,
-                        sens4x: user.sens4x,
-                    }} />
+            <main className="page animate-fade-in">
+                <div className="container" style={{ maxWidth: '1120px', margin: '0 auto' }}>
+                    <SetupForm
+                        initialData={buildSetupWizardInitialData({
+                            profile: user.profile,
+                            user,
+                        })}
+                    />
                 </div>
             </main>
         </div>
