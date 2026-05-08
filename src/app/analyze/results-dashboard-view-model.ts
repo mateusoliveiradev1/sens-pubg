@@ -206,6 +206,7 @@ interface TrackingEvidenceOverview {
 interface BuildResultVerdictModelInput {
     readonly mastery?: SprayMastery | undefined;
     readonly coachPlan?: CoachPlan | undefined;
+    readonly historySessionId?: string | undefined;
     readonly trackingOverview: TrackingEvidenceOverview;
     readonly sensitivity: Pick<SensitivityRecommendation, 'tier' | 'evidenceTier' | 'confidenceScore'>;
     readonly diagnoses?: readonly Diagnosis[] | undefined;
@@ -486,6 +487,9 @@ function resolveAdaptiveCoachLoopState(result: AnalysisResult): AdaptiveCoachLoo
 
 function buildAdaptiveCoachLoopCta(result: AnalysisResult, state: AdaptiveCoachLoopState): AdaptiveCoachLoopCtaModel {
     const historyHref = result.historySessionId ? `/history/${result.historySessionId}` : null;
+    const sprayLabHref = result.historySessionId
+        ? `/spray-lab?sourceSessionId=${encodeURIComponent(result.historySessionId)}`
+        : null;
 
     if (state === 'unsaved') {
         return {
@@ -505,7 +509,7 @@ function buildAdaptiveCoachLoopCta(result: AnalysisResult, state: AdaptiveCoachL
 
     return {
         label: 'Gravar validacao compativel',
-        href: '/analyze',
+        href: sprayLabHref,
         tone: state === 'conflict' ? 'error' : 'info',
     };
 }
@@ -995,7 +999,10 @@ export function buildResultVerdictModel(input: BuildResultVerdictModelInput): Re
                 ...analysisDecisionReasons,
             ],
             nextBlock: buildNextBlockSummary(coachPlan?.nextBlock),
-            completeTrainingProtocol: buildCompleteTrainingProtocolViewModelFromProtocol(coachPlan?.completeProtocol),
+            completeTrainingProtocol: buildCompleteTrainingProtocolViewModelFromProtocol(
+                coachPlan?.completeProtocol,
+                { baseAnalysisSessionId: input.historySessionId ?? null },
+            ),
             scoreTone: 'info',
         };
     }
@@ -1027,7 +1034,10 @@ export function buildResultVerdictModel(input: BuildResultVerdictModelInput): Re
         diagnosisLabel,
         blockedReasons,
         nextBlock: buildNextBlockSummary(coachPlan?.nextBlock),
-        completeTrainingProtocol: buildCompleteTrainingProtocolViewModelFromProtocol(coachPlan?.completeProtocol),
+        completeTrainingProtocol: buildCompleteTrainingProtocolViewModelFromProtocol(
+            coachPlan?.completeProtocol,
+            { baseAnalysisSessionId: input.historySessionId ?? null },
+        ),
         scoreTone: toneFromActionLabel(mastery.actionLabel),
     };
 }

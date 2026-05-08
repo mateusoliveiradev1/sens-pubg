@@ -4,12 +4,14 @@
 
 import { Header } from '@/ui/components/header';
 import { AnalysisClient } from './analysis-client';
+import { resolveSprayLabValidationTargetAction } from '@/actions/spray-lab';
 import { getProfile } from '@/actions/profile';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { db } from '@/db';
 import { isProfileReadyForAnalysis } from './analysis-profile';
 import { formatSprayClipDurationLabel } from '@/core';
+import { buildAnalysisValidationTarget, type AnalysisValidationTarget } from './analysis-validation-mode';
 
 const clipDurationLabel = formatSprayClipDurationLabel('pt-BR');
 
@@ -18,7 +20,52 @@ export const metadata: Metadata = {
     description: `Envie um clip de spray de ${clipDurationLabel} e receba um diagnostico estruturado do seu spray.`,
 };
 
-export default async function AnalyzePage() {
+type AnalyzeSearchParams = Record<string, string | string[] | undefined>;
+
+function readSearchParam(params: AnalyzeSearchParams, key: string): string | undefined {
+    const value = params[key];
+    if (Array.isArray(value)) {
+        return value[0];
+    }
+
+    return value;
+}
+
+async function resolveSearchParams(
+    searchParams: Promise<AnalyzeSearchParams> | undefined,
+): Promise<AnalyzeSearchParams> {
+    return searchParams ? Promise.resolve(searchParams) : {};
+}
+
+async function resolveValidationTarget(
+    params: AnalyzeSearchParams,
+): Promise<{
+    readonly target: AnalysisValidationTarget | null;
+    readonly warning: string | null;
+}> {
+    if (readSearchParam(params, 'mode') !== 'validation') {
+        return { target: null, warning: null };
+    }
+
+    const labSessionId = readSearchParam(params, 'labSessionId');
+    const validationLinkId = readSearchParam(params, 'validationLinkId');
+    const resolved = await resolveSprayLabValidationTargetAction({
+        ...(labSessionId ? { labSessionId } : {}),
+        ...(validationLinkId ? { validationLinkId } : {}),
+    });
+
+    return resolved.success
+        ? { target: buildAnalysisValidationTarget(resolved.value), warning: null }
+        : { target: null, warning: resolved.error };
+}
+
+export default async function AnalyzePage({
+    searchParams,
+}: {
+    readonly searchParams?: Promise<AnalyzeSearchParams>;
+}) {
+    const params = await resolveSearchParams(searchParams);
+    const validation = await resolveValidationTarget(params);
     const profileBundle = await getProfile();
     const profile = profileBundle?.profile ?? null;
     const profileReady = isProfileReadyForAnalysis(profile);
@@ -52,7 +99,12 @@ export default async function AnalyzePage() {
                             </Link>
                         </div>
                     ) : (
-                        <AnalysisClient profile={profile} dbWeapons={dbWeaponProfiles} />
+                        <AnalysisClient
+                            dbWeapons={dbWeaponProfiles}
+                            profile={profile}
+                            validationTarget={validation.target}
+                            validationWarning={validation.warning}
+                        />
                     )}
                 </div>
             </div>

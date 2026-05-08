@@ -484,10 +484,22 @@ function CompleteTrainingProtocolPanel({
                         {protocol.tierLabel} · {protocol.durationLabel} · {protocol.environmentLabel}
                     </p>
                 </div>
-                <a className={styles.completeProtocolCta} href="/analyze">
-                    {protocol.primaryCtaLabel}
-                </a>
+                <div className={styles.completeProtocolActions}>
+                    {protocol.sprayLabCta.href ? (
+                        <a className={styles.completeProtocolCta} href={protocol.sprayLabCta.href}>
+                            {protocol.sprayLabCta.label}
+                        </a>
+                    ) : (
+                        <span className={styles.completeProtocolDisabledCta}>
+                            {protocol.sprayLabCta.label}
+                        </span>
+                    )}
+                    <a className={styles.completeProtocolSecondaryCta} href="/analyze">
+                        {protocol.primaryCtaLabel}
+                    </a>
+                </div>
             </div>
+            <p className={styles.completeProtocolCtaBody}>{protocol.sprayLabCta.body}</p>
 
             <div className={styles.protocolSummaryRows} aria-label="Resumo do protocolo">
                 {protocol.summaryRows.map((row) => (
@@ -968,6 +980,7 @@ export function ResultsDashboard({ result, mode = 'full' }: Props): React.JSX.El
     const verdictModel = buildResultVerdictModel({
         mastery: activeSession.mastery,
         coachPlan,
+        historySessionId: activeSession.historySessionId,
         trackingOverview,
         sensitivity,
         diagnoses,
@@ -997,6 +1010,9 @@ export function ResultsDashboard({ result, mode = 'full' }: Props): React.JSX.El
         adaptiveCoachLoop,
         historySessionId: activeSession.historySessionId,
     });
+    const sprayLabValidationHref = activeSession.historySessionId
+        ? `/spray-lab?sourceSessionId=${encodeURIComponent(activeSession.historySessionId)}`
+        : '/analyze';
     const reportBlocked = verdictModel.scoreTone === 'error'
         || quotaNotice?.tone === 'error'
         || verdictModel.actionLabel === 'Capturar de novo'
@@ -1386,7 +1402,7 @@ export function ResultsDashboard({ result, mode = 'full' }: Props): React.JSX.El
                             {precisionTrendBlock.conservativeReason ? (
                                 <p className={styles.precisionTrendReason}>{precisionTrendBlock.conservativeReason}</p>
                             ) : null}
-                            <a href="/analyze" className={styles.precisionTrendCta}>
+                            <a href={sprayLabValidationHref} className={styles.precisionTrendCta}>
                                 {precisionTrendBlock.ctaLabel}
                             </a>
                         </div>

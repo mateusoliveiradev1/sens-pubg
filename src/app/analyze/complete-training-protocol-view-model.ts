@@ -50,6 +50,12 @@ export interface CompleteTrainingProtocolViewModel {
     readonly durationLabel: string;
     readonly environmentLabel: string;
     readonly primaryCtaLabel: string;
+    readonly sprayLabCta: {
+        readonly label: 'Abrir Spray Lab' | 'Salvar analise para abrir Spray Lab';
+        readonly href: string | null;
+        readonly body: string;
+        readonly disabled: boolean;
+    };
     readonly summaryRows: readonly ProtocolSummaryRow[];
     readonly essentialSteps: readonly string[];
     readonly preparationItems: readonly ProtocolPreparationItemModel[];
@@ -63,15 +69,25 @@ export interface CompleteTrainingProtocolViewModel {
 export function buildCompleteTrainingProtocolViewModel(
     result: AnalysisResult,
 ): CompleteTrainingProtocolViewModel | null {
-    return buildCompleteTrainingProtocolViewModelFromProtocol(result.coachPlan?.completeProtocol);
+    return buildCompleteTrainingProtocolViewModelFromProtocol(
+        result.coachPlan?.completeProtocol,
+        { baseAnalysisSessionId: result.historySessionId ?? null },
+    );
 }
 
 export function buildCompleteTrainingProtocolViewModelFromProtocol(
     protocol: CompleteTrainingProtocol | undefined,
+    options: {
+        readonly baseAnalysisSessionId?: string | null;
+    } = {},
 ): CompleteTrainingProtocolViewModel | null {
     if (!protocol) {
         return null;
     }
+
+    const sprayLabHref = options.baseAnalysisSessionId
+        ? `/spray-lab?sourceSessionId=${encodeURIComponent(options.baseAnalysisSessionId)}&protocolId=${encodeURIComponent(protocol.id)}`
+        : null;
 
     return {
         headline: protocol.title,
@@ -79,6 +95,14 @@ export function buildCompleteTrainingProtocolViewModelFromProtocol(
         durationLabel: `${protocol.dose.durationMinutes} min`,
         environmentLabel: formatEnvironmentLabel(protocol.environment),
         primaryCtaLabel: formatPrimaryCtaLabel(protocol.tier),
+        sprayLabCta: {
+            label: sprayLabHref ? 'Abrir Spray Lab' : 'Salvar analise para abrir Spray Lab',
+            href: sprayLabHref,
+            body: sprayLabHref
+                ? 'Executa esta ficha como sessao Lab com timer, checklist, fidelidade e validacao compativel.'
+                : 'A ficha precisa estar salva no historico antes de abrir uma sessao Lab auditavel.',
+            disabled: !sprayLabHref,
+        },
         summaryRows: [
             { label: 'Arma', value: protocol.context.weaponName ?? protocol.context.weaponId ?? 'Arma a confirmar' },
             { label: 'Mira', value: protocol.context.opticName ?? protocol.context.opticId ?? 'Mira a confirmar' },

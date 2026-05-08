@@ -14,6 +14,10 @@ import {
     createSprayLabSessionFromProtocol,
     reduceSprayLabSessionEvent,
 } from '@/core/spray-lab-session';
+import {
+    buildSprayLabValidationTarget,
+    resolveSprayLabValidationStatus,
+} from '@/core/spray-lab-validation';
 import { db } from '@/db';
 import {
     analysisSessions,
@@ -27,7 +31,6 @@ import {
 import type {
     CompleteTrainingProtocol,
     PrecisionCompatibilityBlocker,
-    PrecisionTrendLabel,
     PrecisionTrendSummary,
     SprayLabBenchmarkSnapshot,
     SprayLabFidelityReasonCode,
@@ -47,6 +50,10 @@ export interface CreateSprayLabSessionActionInput {
 
 export interface GetActiveSprayLabSessionActionInput {
     readonly baseAnalysisSessionId?: string;
+}
+
+export interface GetSprayLabSessionActionInput {
+    readonly labSessionId: string;
 }
 
 export interface RecordSprayLabSessionEventActionInput {
@@ -92,7 +99,13 @@ export interface SprayLabValidationTarget {
     readonly opticId: string | null;
     readonly opticName: string | null;
     readonly distanceMeters: number | null;
+    readonly distanceMode: CompleteTrainingProtocol['context']['distanceMode'] | null;
     readonly stance: string | null;
+    readonly muzzle: CompleteTrainingProtocol['context']['attachments']['muzzle'] | null;
+    readonly grip: CompleteTrainingProtocol['context']['attachments']['grip'] | null;
+    readonly stock: CompleteTrainingProtocol['context']['attachments']['stock'] | null;
+    readonly sensitivityProfile: CompleteTrainingProtocol['context']['sensitivityProfile'] | null;
+    readonly patchVersion: string | null;
     readonly checklist: readonly string[];
     readonly validationStatus: SprayLabValidationStatus;
 }
@@ -489,30 +502,6 @@ function buildTargetCopy(snapshot: SprayLabSessionSnapshot): string {
     return `Validando ${weapon} - ${optic} - ${distance} - ${snapshot.lane.shortLabel}`;
 }
 
-function mapTrendLabelToValidationStatus(
-    trend: PrecisionTrendSummary | undefined,
-): SprayLabValidationStatus {
-    const label: PrecisionTrendLabel | undefined = trend?.label;
-
-    switch (label) {
-        case 'validated_progress':
-        case 'consolidated':
-            return 'validacao_confirmada';
-        case 'validated_regression':
-            return 'regressao_validada';
-        case 'initial_signal':
-        case 'in_validation':
-            return 'sinal_promissor';
-        case 'oscillation':
-        case 'baseline':
-            return 'sem_mudanca_clara';
-        case 'not_comparable':
-            return 'nao_compativel';
-        case undefined:
-            return 'pending';
-    }
-}
-
 function readPrecisionTrend(fullResult: Record<string, unknown> | null): PrecisionTrendSummary | undefined {
     const trend = fullResult?.precisionTrend;
 
@@ -538,26 +527,38 @@ function buildValidationTarget(
     row: OwnedLabSessionRow,
     link: SprayLabValidationLink | null,
 ): SprayLabValidationTarget {
-    const context = snapshot.protocol.context;
+    const target = buildSprayLabValidationTarget({
+        session: snapshot,
+        baseAnalysisSessionId: row.baseAnalysisSessionId,
+        validationAnalysisSessionId: link?.validationAnalysisId ?? null,
+        validationLink: link,
+    });
+    const context = target.context;
 
     return {
         labSessionId: row.id,
-        validationLinkId: link?.id ?? null,
+        validationLinkId: target.validationLinkId,
         baseAnalysisSessionId: row.baseAnalysisSessionId,
-        validationAnalysisSessionId: link?.validationAnalysisId ?? null,
-        protocolId: snapshot.protocolId,
-        laneId: snapshot.lane.id,
-        laneLabel: snapshot.lane.label,
-        contextKey: snapshot.contextKey,
-        targetCopy: link?.targetCopy ?? buildTargetCopy(snapshot),
-        weaponId: context.weaponId ?? null,
-        weaponName: context.weaponName ?? null,
-        opticId: context.opticId ?? null,
-        opticName: context.opticName ?? null,
-        distanceMeters: context.distanceMeters ?? null,
+        validationAnalysisSessionId: target.validationAnalysisSessionId,
+        protocolId: target.protocolId,
+        laneId: target.laneId,
+        laneLabel: target.laneLabel,
+        contextKey: target.contextKey,
+        targetCopy: target.targetCopy,
+        weaponId: context.weaponId,
+        weaponName: context.weaponName,
+        opticId: context.opticId,
+        opticName: context.opticName,
+        distanceMeters: context.distanceMeters,
+        distanceMode: context.distanceMode,
         stance: context.stance ?? null,
-        checklist: snapshot.protocol.validation.compatibleClipChecklist,
-        validationStatus: link?.status ?? snapshot.validationStatus,
+        muzzle: context.muzzle ?? null,
+        grip: context.grip ?? null,
+        stock: context.stock ?? null,
+        sensitivityProfile: context.sensitivityProfile ?? null,
+        patchVersion: context.patchVersion ?? null,
+        checklist: target.checklist,
+        validationStatus: target.validationStatus,
     };
 }
 
@@ -676,6 +677,22 @@ export async function getActiveSprayLabSessionAction(
         .limit(1);
 
     return { success: true, value: row?.snapshot ?? null };
+}
+
+export async function getSprayLabSessionAction(
+    input: GetSprayLabSessionActionInput,
+): Promise<SprayLabActionResult<SprayLabSessionSnapshot>> {
+    const userId = await resolveActionUserId();
+    if (!userId) {
+        return { success: false, error: 'Nao autenticado.' };
+    }
+
+    const row = await loadOwnedLabSession(userId, input.labSessionId);
+    if (!row) {
+        return { success: false, error: 'Sessao Lab nao encontrada.' };
+    }
+
+    return { success: true, value: row.snapshot };
 }
 
 export async function recordSprayLabSessionEventAction(
@@ -834,9 +851,11 @@ export async function createSprayLabValidationLinkAction(
             field: 'variables',
             message: 'Variaveis alteradas rebaixam a tentativa para pratica ou evidencia fraca.',
         } satisfies PrecisionCompatibilityBlocker];
-    const status = confirmedVariables
-        ? mapTrendLabelToValidationStatus(precisionTrend)
-        : 'nao_compativel';
+    const status = resolveSprayLabValidationStatus({
+        confirmedVariables,
+        ...(precisionTrend ? { trend: precisionTrend } : {}),
+        ...(blockers.length > 0 ? { compatibility: { compatible: false, blockers } } : {}),
+    });
     const now = new Date().toISOString();
     const link: SprayLabValidationLink = {
         version: 'spray-lab-v1',

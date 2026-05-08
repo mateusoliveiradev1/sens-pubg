@@ -483,6 +483,7 @@ describe('results dashboard view model', () => {
             coachPlan: createCoachPlan({
                 completeProtocol: createCompleteProtocol(),
             }),
+            historySessionId: 'session-1',
             trackingOverview: baseTrackingOverview,
             sensitivity: baseSensitivity,
             diagnoses: [{ type: 'underpull', severity: 4 }] as readonly Diagnosis[],
@@ -497,6 +498,10 @@ describe('results dashboard view model', () => {
             blockerPanel: expect.objectContaining({
                 reason: 'Distancia ausente',
             }),
+            sprayLabCta: expect.objectContaining({
+                label: 'Abrir Spray Lab',
+                href: '/spray-lab?sourceSessionId=session-1&protocolId=complete-protocol-1',
+            }),
         }));
         expect(verdict.completeTrainingProtocol?.preparationItems).toHaveLength(5);
         expect(verdict.completeTrainingProtocol?.transferCard.technicalProofCopy)
@@ -505,6 +510,7 @@ describe('results dashboard view model', () => {
 
     it('builds a standalone complete protocol view model from an analysis result', () => {
         const model = buildCompleteTrainingProtocolViewModel(createAnalysisResultForCoachLoop({
+            historySessionId: 'session-1',
             coachPlan: createCoachPlan({
                 completeProtocol: createCompleteProtocol(),
             }),
@@ -517,6 +523,7 @@ describe('results dashboard view model', () => {
             'Foco',
             'Alvo',
         ]);
+        expect(model?.sprayLabCta.href).toBe('/spray-lab?sourceSessionId=session-1&protocolId=complete-protocol-1');
         expect(model?.validationCard.checklist.length).toBeLessThanOrEqual(8);
     });
 
@@ -808,7 +815,7 @@ describe('results dashboard view model', () => {
             warningCopy: expect.stringContaining('validacao compativel piorou'),
             cta: {
                 label: 'Gravar validacao compativel',
-                href: '/analyze',
+                href: '/spray-lab?sourceSessionId=session-1',
                 tone: 'error',
             },
         });

@@ -59,6 +59,7 @@ import {
     completeSprayLabSessionAction,
     createSprayLabSessionAction,
     createSprayLabValidationLinkAction,
+    getSprayLabSessionAction,
     recordSprayLabSessionEventAction,
     resolveSprayLabValidationTargetAction,
 } from './spray-lab';
@@ -301,6 +302,19 @@ describe('spray lab actions', () => {
         }));
     });
 
+    it('loads an owned Lab session snapshot for the runner route', async () => {
+        const snapshot = labSnapshot();
+        mocks.limit.mockResolvedValueOnce([labRow(snapshot)]);
+
+        const result = await getSprayLabSessionAction({
+            labSessionId: snapshot.id,
+        });
+
+        expect(result.success).toBe(true);
+        expect(result.success ? result.value.id : null).toBe(snapshot.id);
+        expect(result.success ? result.value.protocol.context.weaponId : null).toBe('beryl-m762');
+    });
+
     it('rejects events that would mutate a completed session', async () => {
         mocks.limit.mockResolvedValueOnce([{
             id: 'lab-session-1',
@@ -346,6 +360,31 @@ describe('spray lab actions', () => {
             success: false,
             error: 'Alvo de validacao nao encontrado.',
         });
+    });
+
+    it('resolves validation target with preloadable context for Analyze validation mode', async () => {
+        const snapshot = labSnapshot();
+        mocks.limit.mockResolvedValueOnce([labRow(snapshot)]);
+
+        const result = await resolveSprayLabValidationTargetAction({
+            labSessionId: snapshot.id,
+        });
+
+        expect(result.success).toBe(true);
+        expect(result.success ? result.value : null).toEqual(expect.objectContaining({
+            labSessionId: snapshot.id,
+            baseAnalysisSessionId: 'analysis-1',
+            weaponId: 'beryl-m762',
+            opticId: 'scope-3x',
+            distanceMeters: 50,
+            distanceMode: 'exact',
+            stance: 'standing',
+            muzzle: 'compensator',
+            grip: 'vertical',
+            stock: 'none',
+            sensitivityProfile: 'balanced',
+            patchVersion: '36.1',
+        }));
     });
 
     it('composes and persists a benchmark snapshot when completing a Lab session', async () => {

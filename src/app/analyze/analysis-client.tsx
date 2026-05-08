@@ -31,6 +31,7 @@ import type {
     MuzzleAttachment,
     PlayStyle,
     PlayerStance,
+    SprayLabRepairState,
     StockAttachment,
     VideoQualityBlockingReason,
     VideoQualityFrameIssue,
@@ -47,6 +48,7 @@ import { AnalysisGuide } from './analysis-guide';
 import { UploadDropzone } from './upload-dropzone';
 import { createAnalysisContext } from './analysis-context';
 import {
+    type SupportedAnalysisWeapon,
     resolvePersistedAnalysisWeaponId,
     resolvePreferredAnalysisWeaponId,
     resolveSupportedAnalysisWeapon,
@@ -64,6 +66,8 @@ import { runWorkerTrackingAnalysis } from './analysis-worker-runner';
 import { buildAnalysisQuotaNoticeModel } from './results-dashboard-view-model';
 import styles from './analysis.module.css';
 import type { AnalysisSaveAccessState } from '@/types/monetization';
+import type { AnalysisValidationTarget } from './analysis-validation-mode';
+import { buildSprayLabValidationRepairState } from '@/core/spray-lab-validation';
 
 const clipDurationLabel = formatSprayClipDurationLabel('pt-BR');
 
@@ -128,6 +132,65 @@ type CrosshairColor = 'RED' | 'GREEN';
 interface Props {
     readonly profile: PlayerProfile;
     readonly dbWeapons: (typeof weaponProfiles.$inferSelect)[];
+    readonly validationTarget?: AnalysisValidationTarget | null;
+    readonly validationWarning?: string | null;
+}
+
+const PLAYER_STANCES: readonly PlayerStance[] = ['standing', 'crouching', 'prone'];
+
+function normalizeLookup(value: string | null | undefined): string {
+    return value?.trim().toLowerCase() ?? '';
+}
+
+function isPlayerStance(value: string | null): value is PlayerStance {
+    return PLAYER_STANCES.includes(value as PlayerStance);
+}
+
+function isMuzzleAttachment(value: string | null): value is MuzzleAttachment {
+    return Boolean(value && value in MUZZLE_LABELS);
+}
+
+function isGripAttachment(value: string | null): value is GripAttachment {
+    return Boolean(value && value in GRIP_LABELS);
+}
+
+function isStockAttachment(value: string | null): value is StockAttachment {
+    return Boolean(value && value in STOCK_LABELS);
+}
+
+function resolveValidationWeaponId<T extends { readonly id: string; readonly name: string; readonly category: string }>(
+    target: AnalysisValidationTarget,
+    supportedWeapons: readonly SupportedAnalysisWeapon<T>[],
+): string | null {
+    const targetId = normalizeLookup(target.preload.weaponId);
+    const targetName = normalizeLookup(target.preload.weaponName);
+    const match = supportedWeapons.find((entry) => {
+        const dbId = normalizeLookup(entry.dbWeapon.id);
+        const technicalId = normalizeLookup(entry.technicalWeapon.id);
+        const dbName = normalizeLookup(entry.dbWeapon.name);
+
+        return (targetId.length > 0 && (targetId === dbId || targetId === technicalId))
+            || (targetName.length > 0 && targetName === dbName);
+    });
+
+    return match?.dbWeapon.id ?? null;
+}
+
+function resolveValidationScopeId(target: AnalysisValidationTarget): string | null {
+    const targetId = normalizeLookup(target.preload.opticId);
+    const targetName = normalizeLookup(target.preload.opticName);
+    const match = SCOPE_LIST.find((scope) => {
+        const ids = [
+            scope.id,
+            scope.opticId,
+            scope.stateId,
+        ].map(normalizeLookup);
+
+        return (targetId.length > 0 && ids.includes(targetId))
+            || (targetName.length > 0 && normalizeLookup(scope.name) === targetName);
+    });
+
+    return match?.id ?? null;
 }
 
 function formatPreviewClipDuration(durationSeconds: number): string {
@@ -272,7 +335,12 @@ function QualityTimelineEvidence({ timeline }: { readonly timeline: VideoQuality
     );
 }
 
-export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element {
+export function AnalysisClient({
+    profile,
+    dbWeapons,
+    validationTarget = null,
+    validationWarning = null,
+}: Props): React.JSX.Element {
     const [step, setStep] = useState<AnalysisStep>('upload');
     const [video, setVideo] = useState<VideoMetadata | null>(null);
     const [weaponId, setWeaponId] = useState('');
@@ -295,8 +363,11 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
     const [isGuideOpen, setIsGuideOpen] = useState(false);
     const [worker, setWorker] = useState<Worker | null>(null);
     const [saveAccess, setSaveAccess] = useState<AnalysisSaveAccessState | null>(null);
+    const [validationVariablesChanged, setValidationVariablesChanged] = useState(false);
+    const [validationRepair, setValidationRepair] = useState<SprayLabRepairState | null>(null);
 
     const videoRef = useRef<HTMLVideoElement>(null);
+    const validationPreloadKeyRef = useRef<string | null>(null);
 
     useEffect(() => {
         const nextWorker = new Worker(new URL('../../workers/aimAnalyzer.worker.ts', import.meta.url));
@@ -338,6 +409,50 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
 
         setWeaponId(preferredWeaponId);
     }, [preferredWeaponId, weaponId, weaponSupport.supported]);
+
+    useEffect(() => {
+        if (!validationTarget) {
+            validationPreloadKeyRef.current = null;
+            return;
+        }
+
+        const preloadKey = `${validationTarget.labSessionId}:${validationTarget.contextKey}`;
+        if (validationPreloadKeyRef.current === preloadKey) {
+            return;
+        }
+
+        const validationWeaponId = resolveValidationWeaponId(validationTarget, weaponSupport.supported);
+        const validationScopeId = resolveValidationScopeId(validationTarget);
+
+        if (validationWeaponId) {
+            setWeaponId(validationWeaponId);
+        }
+        if (validationScopeId) {
+            setScopeId(validationScopeId);
+        }
+        if (typeof validationTarget.preload.distanceMeters === 'number') {
+            setDistance(validationTarget.preload.distanceMeters);
+        }
+        if (validationTarget.preload.distanceMode) {
+            setDistanceMode(validationTarget.preload.distanceMode);
+        }
+        if (isPlayerStance(validationTarget.preload.stance)) {
+            setStance(validationTarget.preload.stance);
+        }
+        if (isMuzzleAttachment(validationTarget.preload.muzzle)) {
+            setMuzzle(validationTarget.preload.muzzle);
+        }
+        if (isGripAttachment(validationTarget.preload.grip)) {
+            setGrip(validationTarget.preload.grip);
+        }
+        if (isStockAttachment(validationTarget.preload.stock)) {
+            setStock(validationTarget.preload.stock);
+        }
+
+        setValidationVariablesChanged(false);
+        setValidationRepair(null);
+        validationPreloadKeyRef.current = preloadKey;
+    }, [validationTarget, weaponSupport.supported]);
 
     const weaponsByCategory = useMemo(() => {
         const grouped: Record<string, (typeof weaponProfiles.$inferSelect)[]> = {};
@@ -511,7 +626,22 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                 });
 
                 if (sprayValidity.decisionLevel === 'blocked_invalid_clip') {
-                    throw new Error(formatSprayValidityBlockerMessage(sprayValidity));
+                    const message = formatSprayValidityBlockerMessage(sprayValidity);
+                    if (!validationTarget) {
+                        throw new Error(message);
+                    }
+
+                    setValidationRepair(buildSprayLabValidationRepairState({
+                        status: 'inconclusivo',
+                        blockers: [{
+                            code: 'capture_quality_unusable',
+                            field: 'sprayValidity',
+                            message,
+                        }],
+                    }));
+                    setError(message);
+                    setStep('error');
+                    return;
                 }
 
                 const framesForTracking = sprayValidity.window
@@ -652,11 +782,21 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
             let resultToDisplay: AnalysisResult = finalResult;
 
             try {
+                const validationMetadata = validationTarget
+                    ? {
+                        sprayLabValidation: {
+                            labSessionId: validationTarget.labSessionId,
+                            ...(validationTarget.validationLinkId ? { validationLinkId: validationTarget.validationLinkId } : {}),
+                            confirmedVariables: !validationVariablesChanged,
+                        },
+                    }
+                    : undefined;
                 const persisted = await saveAnalysisResult(
                     finalResult,
                     persistedWeaponId,
                     scopeId,
                     effectiveDistanceMeters,
+                    validationMetadata,
                 );
                 if (persisted.result) {
                     resultToDisplay = persisted.result;
@@ -675,7 +815,7 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
             setError(analysisError instanceof Error ? analysisError.message : 'Erro na analise');
             setStep('error');
         }
-    }, [video, worker, weaponSupport.supported, weaponId, scopeId, effectiveDistanceMeters, distanceMode, markers, muzzle, profile, crosshairColor, stance, grip, stock]);
+    }, [video, worker, weaponSupport.supported, weaponId, scopeId, effectiveDistanceMeters, distanceMode, markers, muzzle, profile, crosshairColor, stance, grip, stock, validationTarget, validationVariablesChanged]);
 
     const handleReset = useCallback(() => {
         if (video) releaseVideoUrl(video.url);
@@ -686,6 +826,8 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
         setQualityWarning(null);
         setDragActive(false);
         setIsValidatingUpload(false);
+        setValidationRepair(null);
+        setValidationVariablesChanged(false);
     }, [video]);
 
     const phaseLabels: Record<ProcessingPhase, string> = {
@@ -709,10 +851,50 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                 : saveAccessNotice?.tone === 'warning'
                     ? 'quota_warning'
                     : 'empty';
+    const validationModePanel = validationTarget ? (
+        <div className={styles.validationModePanel} role="status">
+            <div className={styles.validationModeHeader}>
+                <div>
+                    <span className={styles.uploadStateBadge} data-tone="info">Validacao Spray Lab</span>
+                    <h3>{validationTarget.targetCopy}</h3>
+                    <p>
+                        Contexto carregado para {validationTarget.laneLabel}. A tentativa so conta como validacao
+                        tecnica se arma, mira, distancia, postura, attachments e sensibilidade continuarem iguais.
+                    </p>
+                </div>
+                <span className={styles.validationModeStatus}>{validationTarget.statusLabel}</span>
+            </div>
+            {validationTarget.warning ? (
+                <p className={styles.validationModeWarning}>{validationTarget.warning}</p>
+            ) : null}
+            {validationWarning ? (
+                <p className={styles.validationModeWarning}>{validationWarning}</p>
+            ) : null}
+            <div className={styles.validationChecklist}>
+                {validationTarget.checklist.slice(0, 6).map((item) => (
+                    <span key={item}>{item}</span>
+                ))}
+            </div>
+            <label className={styles.validationToggle}>
+                <input
+                    checked={!validationVariablesChanged}
+                    onChange={(event) => setValidationVariablesChanged(!event.target.checked)}
+                    type="checkbox"
+                />
+                <span>Confirmo que as variaveis do clip continuam iguais ao alvo do Lab.</span>
+            </label>
+        </div>
+    ) : validationWarning ? (
+        <div className={styles.validationModePanel} role="status">
+            <span className={styles.uploadStateBadge} data-tone="warning">Validacao indisponivel</span>
+            <p>{validationWarning}</p>
+        </div>
+    ) : null;
 
     if (step === 'upload') {
         return (
             <div>
+                {validationModePanel}
                 <UploadDropzone
                     clipRequirementLabel={uploadRequirementLabel}
                     dragActive={dragActive}
@@ -779,6 +961,8 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
                         </div>
                     </div>
                 ) : null}
+
+                {validationModePanel}
 
                 {uploadedQualityDiagnostic ? (
                     <div className="glass-card" style={{ padding: 'var(--space-lg)', marginBottom: 'var(--space-lg)' }}>
@@ -1084,6 +1268,28 @@ export function AnalysisClient({ profile, dbWeapons }: Props): React.JSX.Element
     }
 
     if (step === 'error') {
+        if (validationRepair) {
+            return (
+                <div className={`glass-card ${styles.processing}`}>
+                    <div className={styles.uploadStateBadge} data-tone="warning">Validacao bloqueada</div>
+                    <h3>{validationRepair.title}</h3>
+                    <p>{validationRepair.whatHappened}</p>
+                    <p>{validationRepair.whyItMatters}</p>
+                    {error ? <p>{error}</p> : null}
+                    <div className={styles.validationRepairActions}>
+                        <button type="button" className="btn btn-primary" onClick={handleReset}>
+                            Gravar outro clip
+                        </button>
+                        {validationTarget ? (
+                            <a className="btn btn-ghost" href={`/spray-lab?labSessionId=${encodeURIComponent(validationTarget.labSessionId)}`}>
+                                Voltar ao Spray Lab
+                            </a>
+                        ) : null}
+                    </div>
+                </div>
+            );
+        }
+
         return (
             <div className={`glass-card ${styles.processing}`}>
                 <div className={styles.uploadStateBadge} data-tone="error">Erro</div>

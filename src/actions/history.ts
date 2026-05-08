@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 
 import { createAnalysisContext } from '@/app/analyze/analysis-context';
 import { hydrateAnalysisResultFromHistory } from '@/app/history/analysis-result-hydration';
+import { createSprayLabValidationLinkAction } from '@/actions/spray-lab';
 import { auth } from '@/auth';
 import { enrichAnalysisResultCoaching } from '@/core/analysis-result-coach-enrichment';
 import { buildCoachMemorySnapshot, type CoachMemoryHistorySession } from '@/core/coach-memory';
@@ -207,6 +208,14 @@ export interface TrainingProtocolTransferRecord {
 }
 
 type SaveAnalysisResultQuotaCode = 'limit_reached' | 'save_failed';
+
+export interface SaveAnalysisResultMetadata {
+    readonly sprayLabValidation?: {
+        readonly labSessionId: string;
+        readonly validationLinkId?: string | null;
+        readonly confirmedVariables: boolean;
+    };
+}
 
 export type SaveAnalysisResultResult =
     | {
@@ -988,7 +997,8 @@ export async function saveAnalysisResult(
     result: AnalysisResult,
     weaponId: string,
     scopeId: string,
-    distance: number
+    distance: number,
+    metadata: SaveAnalysisResultMetadata = {},
 ): Promise<SaveAnalysisResultResult> {
     const session = await auth();
     if (!session?.user?.id) {
@@ -1206,6 +1216,18 @@ export async function saveAnalysisResult(
             trend: enrichedResult.precisionTrend!,
             priorSessions,
         });
+
+        if (metadata.sprayLabValidation?.labSessionId) {
+            try {
+                await createSprayLabValidationLinkAction({
+                    labSessionId: metadata.sprayLabValidation.labSessionId,
+                    validationAnalysisSessionId: sessionId,
+                    confirmedVariables: metadata.sprayLabValidation.confirmedVariables,
+                });
+            } catch (validationError) {
+                console.error('[saveAnalysisResult:sprayLabValidation]', validationError);
+            }
+        }
 
         const historyRows = enrichedResult.sensitivity.profiles.map((profileItem) => ({
             userId: session.user.id,

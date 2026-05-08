@@ -110,6 +110,11 @@ describe('complete training protocol view model', () => {
 
         expect(model).not.toBeNull();
         expect(model?.headline).toBe('Ficha de controle vertical');
+        expect(model?.sprayLabCta).toMatchObject({
+            label: 'Salvar analise para abrir Spray Lab',
+            href: null,
+            disabled: true,
+        });
         expect(model?.summaryRows.map((row) => row.label)).toEqual(['Arma', 'Mira', 'Distancia', 'Foco', 'Alvo']);
         expect(model?.essentialSteps).toEqual(['Spray 1', 'Spray 2', 'Spray 3']);
         expect(model?.preparationItems).toHaveLength(5);
@@ -127,5 +132,19 @@ describe('complete training protocol view model', () => {
             coverage: '86%',
             downgradeCodes: ['missing_distance'],
         });
+    });
+
+    it('builds a Spray Lab CTA once the analysis has a saved history session', () => {
+        const model = buildCompleteTrainingProtocolViewModelFromProtocol(
+            createCompleteProtocol(),
+            { baseAnalysisSessionId: 'session-1' },
+        );
+
+        expect(model?.sprayLabCta).toMatchObject({
+            label: 'Abrir Spray Lab',
+            href: '/spray-lab?sourceSessionId=session-1&protocolId=complete-protocol-1',
+            disabled: false,
+        });
+        expect(model?.sprayLabCta.body).toContain('sessao Lab');
     });
 });
