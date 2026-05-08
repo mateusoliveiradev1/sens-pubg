@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: ready_for_next_phase
-last_updated: "2026-05-08T14:17:27Z"
+last_updated: "2026-05-08T19:15:18.655Z"
 progress:
   total_phases: 13
   completed_phases: 9
@@ -113,6 +113,7 @@ Start Phase 10 discussion for Guided Pro Training Programs.
 - [Phase 09]: Coach, dashboard, and history separate Lab execution evidence, compatible technical validation, and TDM/real-match practical transfer.
 - [Phase 09]: Benchmark truth treats provisional Spray Lab evidence as provisional; validated Lab score requires compatible validation and benchmark-eligible fidelity.
 - [Phase 09]: Final browser proof seeds authenticated Spray Lab rows and verifies runner, validation, dashboard, history, detail audit, and repair states on desktop/mobile.
+- [Phase 10]: Guided Pro program context is locked around Programa Pro: Ciclo de Spray, Ciclo de Reparo, evidence-bound missions/checkpoints, Free premium/Pro full cycle, and a dedicated verify:phase10:programs gate.
 
 ## Open Questions
 
