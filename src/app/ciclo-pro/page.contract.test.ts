@@ -32,6 +32,7 @@ describe('ciclo pro route contract', () => {
     it('renders the full route through map UI without duplicating Analyze or Spray Lab runners', () => {
         const pageSource = readRoute();
         const componentSource = readFileSync(join(process.cwd(), 'src/app/ciclo-pro/ciclo-pro-program-map.tsx'), 'utf8');
+        const viewModelSource = readFileSync(join(process.cwd(), 'src/app/ciclo-pro/ciclo-pro-view-model.ts'), 'utf8');
         const stylesSource = readFileSync(join(process.cwd(), 'src/app/ciclo-pro/ciclo-pro.module.css'), 'utf8');
 
         expect(componentSource).toContain('Agora');
@@ -43,6 +44,8 @@ describe('ciclo pro route contract', () => {
         expect(componentSource).toContain('/dashboard');
         expect(componentSource).toContain('/history');
         expect(componentSource).toContain('Sem nota global');
+        expect(viewModelSource).toContain('Desbloqueie o Ciclo Pro de 30 dias');
+        expect(viewModelSource).toContain('O Free te mostra o proximo passo');
         expect(componentSource).not.toMatch(/createSprayLabSessionAction|AnalysisClient|video|canvas/);
         expect(pageSource).not.toMatch(/createSprayLabSessionAction|AnalysisClient/);
         expect(stylesSource).toContain('.missionCard');

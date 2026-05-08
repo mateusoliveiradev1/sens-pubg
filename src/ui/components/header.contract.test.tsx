@@ -13,6 +13,8 @@ describe('header monetization CTA contract', () => {
         expect(source).toContain('Planos');
         expect(source).toContain('href="/spray-lab"');
         expect(source).toContain('Spray Lab');
+        expect(source).toContain('href="/ciclo-pro"');
+        expect(source).toContain('Ciclo Pro');
         expect(source).toContain('href="/billing"');
         expect(source).toContain('Assinatura');
         expect(source).toContain('href="/pros"');
@@ -24,10 +26,13 @@ describe('header monetization CTA contract', () => {
 
     it('keeps desktop navigation in the Phase 7 order', () => {
         const source = readSource('src/ui/components/header.tsx');
-        const labels = ['Analisar', 'Spray Lab', 'Dashboard', 'Historico', 'Sens dos Pros', 'Comunidade', 'Planos'];
+        const labels = ['Analisar', 'Spray Lab', 'Ciclo Pro', 'Dashboard', 'Historico', 'Sens dos Pros', 'Comunidade', 'Planos'];
         const positions = labels.map((label) => source.indexOf(label));
 
         expect(positions.every((position) => position >= 0)).toBe(true);
         expect([...positions].sort((left, right) => left - right)).toEqual(positions);
+        expect(source).toMatch(/href="\/ciclo-pro"[\s\S]*Ciclo Pro/);
+        expect(source).toMatch(/href="\/pros"[\s\S]*Sens dos Pros/);
+        expect(source.indexOf('Ciclo Pro')).toBeLessThan(source.indexOf('Sens dos Pros'));
     });
 });

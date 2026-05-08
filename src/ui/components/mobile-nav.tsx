@@ -13,7 +13,7 @@ interface MobileNavProps {
     } | null | undefined;
 }
 
-type GlyphKind = 'target' | 'lab' | 'grid' | 'audit' | 'pros' | 'community' | 'plan' | 'billing' | 'admin';
+type GlyphKind = 'target' | 'lab' | 'cycle' | 'grid' | 'audit' | 'pros' | 'community' | 'plan' | 'billing' | 'admin';
 
 interface MobileRoute {
     readonly href: string;
@@ -27,6 +27,7 @@ const MOBILE_ROUTES: readonly MobileRoute[] = [
     { href: '/admin', label: 'Painel Admin', glyph: 'admin', adminOnly: true },
     { href: '/analyze', label: 'Analisar', glyph: 'target' },
     { href: '/spray-lab', label: 'Spray Lab', glyph: 'lab' },
+    { href: '/ciclo-pro', label: 'Ciclo Pro', glyph: 'cycle' },
     { href: '/dashboard', label: 'Dashboard', glyph: 'grid' },
     { href: '/history', label: 'Historico', glyph: 'audit' },
     { href: '/pros', label: 'Sens dos Pros', glyph: 'pros' },
@@ -39,6 +40,7 @@ function NavGlyph({ kind }: { readonly kind: GlyphKind }): React.JSX.Element {
     const pathByKind: Record<GlyphKind, string> = {
         target: 'M12 3v4M12 17v4M3 12h4M17 12h4M8 12a4 4 0 1 0 8 0 4 4 0 0 0-8 0Z',
         lab: 'M9 3h6M10 3v5l-4 8a3 3 0 0 0 3 5h6a3 3 0 0 0 3-5l-4-8V3M8 15h8',
+        cycle: 'M7 7h7a4 4 0 0 1 4 4v1M17 7l1 4 3-3M17 17h-7a4 4 0 0 1-4-4v-1M7 17l-1-4-3 3',
         grid: 'M4 5h6v6H4zM14 5h6v6h-6zM4 15h6v4H4zM14 15h6v4h-6z',
         audit: 'M6 4h12v16H6zM9 8h6M9 12h6M9 16h4',
         pros: 'M5 16c3-7 7-10 14-12M6 17l4 3 8-8',

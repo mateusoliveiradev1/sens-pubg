@@ -11,6 +11,8 @@ describe('mobile navigation contract', () => {
         expect(source).toContain("label: 'Planos'");
         expect(source).toContain("href: '/spray-lab'");
         expect(source).toContain("label: 'Spray Lab'");
+        expect(source).toContain("href: '/ciclo-pro'");
+        expect(source).toContain("label: 'Ciclo Pro'");
         expect(source).toContain("href: '/billing'");
         expect(source).toContain("label: 'Assinatura'");
         expect(source).toContain("href: '/pros'");
