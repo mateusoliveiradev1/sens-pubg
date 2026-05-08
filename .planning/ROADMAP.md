@@ -348,7 +348,7 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **Goal:** Build the PUBG-focused lab layer for guided drills, training sessions, and internal benchmarks.
 
-**Status:** Planned as of 2026-05-08. Six executable plans cover the Spray Lab core contract, persistence/actions, mobile-first session runner, compatible validation and repair UX, dashboard/history/coach continuity, and Phase 9 benchmark/verification gates.
+**Status:** In progress as of 2026-05-08. Plan 09-01 is complete with the Spray Lab core contract, lane catalog, deterministic session state machine, fidelity scoring, contextual index, benchmark snapshots, focused tests, full Vitest, typecheck, and benchmark gate passing. Five executable plans remain for persistence/actions, mobile-first session runner, compatible validation and repair UX, dashboard/history/coach continuity, and Phase 9 benchmark/verification gates.
 
 **Requirements:** PREC-03, BENCH-01, BENCH-02, BENCH-03, COACH-01, COACH-02, COACH-03
 
@@ -365,7 +365,7 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 **Plans:**
 
 **Wave 1**
-- `09-01` - Spray Lab Core Contract, Lanes, Session Fidelity, And Contextual Index. Adds versioned Lab contracts, PUBG lane presets, deterministic session state machine, fidelity tiers, and provisional/validated contextual index rules.
+- `09-01` - Spray Lab Core Contract, Lanes, Session Fidelity, And Contextual Index. Complete as of 2026-05-08 with versioned Lab contracts, PUBG lane presets, deterministic session state machine, fidelity tiers, repair states, and provisional/validated contextual index rules.
 
 **Wave 2 *(blocked on Wave 1 completion)***
 - `09-02` - Spray Lab Persistence, Actions, Validation Links, And Free/Pro Projection. Adds Lab sessions/events/snapshots/validation links, authenticated actions, minimal privacy-safe persistence, and server-owned Free/Pro depth.

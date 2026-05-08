@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: ready_to_execute
-last_updated: "2026-05-08T05:22:37.177Z"
+last_updated: "2026-05-08T05:42:18.378Z"
 progress:
   total_phases: 13
   completed_phases: 8
   total_plans: 47
-  completed_plans: 41
-  percent: 87
+  completed_plans: 42
+  percent: 89
 ---
 
 # State: Sens PUBG
@@ -72,12 +72,13 @@ Phase 9: PUBG Spray Lab Session Runner And Benchmark
 - Phase 8 automated gates pass: focused Phase 8 Vitest, `npm run verify:phase8:training`, `npm run typecheck`, `npx vitest run`, `npm run benchmark:gate`, and `npm run build`.
 - Phase 8 final status is Delivered: implementation and automated verification are complete, and `drizzle/0011_complete_training_protocols.sql` has been applied and verified in the configured target database for protocol revision/transfer persistence.
 - Phase 9 planning is complete with 6 executable Spray Lab plans across 5 waves, backed by `09-RESEARCH.md` and full 62/62 decision coverage from `09-CONTEXT.md`.
+- Phase 9 plan 09-01 is complete with Spray Lab v1 contracts, compact PUBG lane presets, deterministic session creation/reducer, fidelity scoring/repair states, contextual index snapshots, benchmark snapshots, focused tests, full Vitest, typecheck, and benchmark gate passing.
 
 ## Next Recommended Command
 
-`$gsd-execute-phase 09`
+`$gsd-execute-phase 09 --wave 2`
 
-Execute Phase 9: PUBG Spray Lab Session Runner And Benchmark.
+Execute Phase 9 Wave 2: Spray Lab Persistence, Actions, Validation Links, And Free/Pro Projection.
 
 ## Open Questions
 
@@ -126,3 +127,4 @@ Execute Phase 9: PUBG Spray Lab Session Runner And Benchmark.
 - Phase 8 08-05 executed: Added complete protocol LLM immutable facts, display-only adapter rewrite checks, complete protocol coach goldens for normal/weak/conflict/fatigue cases, synthetic benchmark completeProtocol truth locks, medical/strength copy-safety gates, focused tests, full Vitest, typecheck, and benchmark gate passing.
 - Phase 8 08-06 executed: Added `verify:phase8:training`, final No False Done checklist/docs, command evidence, production build evidence, and final Delivered status after applying and verifying the target DB migration.
 - Phase 9 planned: 6 executable PUBG Spray Lab plans across 5 waves, covering Lab contracts/lanes/session fidelity/contextual index, persistence/actions/validation links/Free-Pro projection, `/spray-lab` cockpit, compatible validation/repair UX, dashboard/history/coach continuity, benchmark/goldens/copy safety, and `verify:phase9:spray-lab`.
+- Phase 9 09-01 executed: Added Spray Lab v1 engine contracts, family-based lane catalog, protocol-backed session reducer, fidelity/repair scoring, contextual index and benchmark snapshot builders, plus focused/full verification gates.
