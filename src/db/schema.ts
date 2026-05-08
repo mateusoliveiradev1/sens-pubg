@@ -31,6 +31,17 @@ import type {
     PrecisionCheckpointState,
     PrecisionTrendSummary,
     PrecisionVariableInTest,
+    SprayLabAct,
+    SprayLabBenchmarkSnapshot,
+    SprayLabEvidenceLevel,
+    SprayLabFidelityTier,
+    SprayLabSessionEvent,
+    SprayLabSessionEventType,
+    SprayLabSessionSnapshot,
+    SprayLabSessionStatus,
+    SprayLabStepState,
+    SprayLabValidationLink,
+    SprayLabValidationStatus,
 } from '@/types/engine';
 import type {
     CommunityEntitlementKey,
@@ -203,6 +214,16 @@ export interface CompleteTrainingProtocolRevisionEvidencePayload {
     readonly [key: string]: unknown;
 }
 
+export interface SprayLabSessionPayload {
+    readonly snapshot: SprayLabSessionSnapshot;
+    readonly metadata?: Record<string, unknown>;
+}
+
+export interface SprayLabSessionEventPayload {
+    readonly event: SprayLabSessionEvent;
+    readonly metadata?: Record<string, unknown>;
+}
+
 // ═══════════════════════════════════════════
 // Auth.js Tables (NextAuth adapter)
 // ═══════════════════════════════════════════
@@ -254,6 +275,10 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     coachProtocolOutcomes: many(coachProtocolOutcomes),
     completeTrainingProtocolRevisions: many(completeTrainingProtocolRevisions),
     trainingProtocolTransferRecords: many(trainingProtocolTransferRecords),
+    sprayLabSessions: many(sprayLabSessions),
+    sprayLabSessionEvents: many(sprayLabSessionEvents),
+    sprayLabBenchmarkSnapshots: many(sprayLabBenchmarkSnapshots),
+    sprayLabValidationLinks: many(sprayLabValidationLinks),
     squadOwnerships: many(communitySquads, {
         relationName: 'community_squads_owner',
     }),
@@ -542,6 +567,124 @@ export const trainingProtocolTransferRecords = pgTable('training_protocol_transf
     index('training_protocol_transfer_records_protocol_idx').on(table.protocolId),
 ]);
 
+export const sprayLabSessions = pgTable('spray_lab_sessions', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    baseAnalysisSessionId: uuid('base_analysis_session_id')
+        .notNull()
+        .references(() => analysisSessions.id, { onDelete: 'cascade' }),
+    protocolRevisionId: uuid('protocol_revision_id').references(
+        () => completeTrainingProtocolRevisions.id,
+        { onDelete: 'set null' },
+    ),
+    protocolId: text('protocol_id').notNull(),
+    laneId: text('lane_id').notNull(),
+    contextKey: text('context_key').notNull(),
+    status: text('status').$type<SprayLabSessionStatus>().notNull().default('draft'),
+    act: text('act').$type<SprayLabAct>().notNull().default('preparar'),
+    stepState: text('step_state').$type<SprayLabStepState>().notNull().default('preparar'),
+    evidenceLevel: text('evidence_level').$type<SprayLabEvidenceLevel>().notNull().default('practice'),
+    fidelityTier: text('fidelity_tier').$type<SprayLabFidelityTier>(),
+    validationStatus: text('validation_status')
+        .$type<SprayLabValidationStatus>()
+        .notNull()
+        .default('not_requested'),
+    snapshot: jsonb('snapshot').notNull().$type<SprayLabSessionSnapshot>(),
+    payload: jsonb('payload').notNull().default('{}').$type<SprayLabSessionPayload>(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+    completedAt: timestamp('completed_at', { mode: 'date' }),
+}, (table) => [
+    index('spray_lab_sessions_user_status_updated_idx').on(table.userId, table.status, table.updatedAt),
+    index('spray_lab_sessions_base_analysis_idx').on(table.baseAnalysisSessionId),
+    index('spray_lab_sessions_user_base_idx').on(table.userId, table.baseAnalysisSessionId),
+    index('spray_lab_sessions_context_status_idx').on(table.contextKey, table.status),
+    index('spray_lab_sessions_protocol_revision_idx').on(table.protocolRevisionId),
+]);
+
+export const sprayLabSessionEvents = pgTable('spray_lab_session_events', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    labSessionId: uuid('lab_session_id')
+        .notNull()
+        .references(() => sprayLabSessions.id, { onDelete: 'cascade' }),
+    eventId: text('event_id').notNull(),
+    eventType: text('event_type').$type<SprayLabSessionEventType>().notNull(),
+    act: text('act').$type<SprayLabAct>().notNull(),
+    stepState: text('step_state').$type<SprayLabStepState>().notNull(),
+    occurredAt: timestamp('occurred_at', { mode: 'date' }).notNull(),
+    payload: jsonb('payload').notNull().$type<SprayLabSessionEventPayload>(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => [
+    uniqueIndex('spray_lab_session_events_session_event_uidx').on(table.labSessionId, table.eventId),
+    index('spray_lab_session_events_user_created_idx').on(table.userId, table.createdAt),
+    index('spray_lab_session_events_session_created_idx').on(table.labSessionId, table.createdAt),
+]);
+
+export const sprayLabBenchmarkSnapshots = pgTable('spray_lab_benchmark_snapshots', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    labSessionId: uuid('lab_session_id')
+        .notNull()
+        .references(() => sprayLabSessions.id, { onDelete: 'cascade' }),
+    baseAnalysisSessionId: uuid('base_analysis_session_id')
+        .notNull()
+        .references(() => analysisSessions.id, { onDelete: 'cascade' }),
+    protocolRevisionId: uuid('protocol_revision_id').references(
+        () => completeTrainingProtocolRevisions.id,
+        { onDelete: 'set null' },
+    ),
+    protocolId: text('protocol_id').notNull(),
+    laneId: text('lane_id').notNull(),
+    contextKey: text('context_key').notNull(),
+    evidenceLevel: text('evidence_level').$type<SprayLabEvidenceLevel>().notNull(),
+    fidelityTier: text('fidelity_tier').$type<SprayLabFidelityTier>().notNull(),
+    validationStatus: text('validation_status').$type<SprayLabValidationStatus>().notNull(),
+    eligibleForReleaseBenchmark: boolean('eligible_for_release_benchmark').default(false).notNull(),
+    snapshot: jsonb('snapshot').notNull().$type<SprayLabBenchmarkSnapshot>(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => [
+    index('spray_lab_benchmark_snapshots_user_context_idx').on(table.userId, table.contextKey),
+    index('spray_lab_benchmark_snapshots_session_created_idx').on(table.labSessionId, table.createdAt),
+    index('spray_lab_benchmark_snapshots_base_analysis_idx').on(table.baseAnalysisSessionId),
+    index('spray_lab_benchmark_snapshots_release_idx').on(table.eligibleForReleaseBenchmark, table.createdAt),
+]);
+
+export const sprayLabValidationLinks = pgTable('spray_lab_validation_links', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    labSessionId: uuid('lab_session_id')
+        .notNull()
+        .references(() => sprayLabSessions.id, { onDelete: 'cascade' }),
+    baseAnalysisSessionId: uuid('base_analysis_session_id')
+        .notNull()
+        .references(() => analysisSessions.id, { onDelete: 'cascade' }),
+    validationAnalysisSessionId: uuid('validation_analysis_session_id').references(
+        () => analysisSessions.id,
+        { onDelete: 'set null' },
+    ),
+    contextKey: text('context_key').notNull(),
+    status: text('status').$type<SprayLabValidationStatus>().notNull().default('pending'),
+    confirmedVariables: boolean('confirmed_variables').default(false).notNull(),
+    payload: jsonb('payload').notNull().$type<SprayLabValidationLink>(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => [
+    index('spray_lab_validation_links_user_status_idx').on(table.userId, table.status),
+    index('spray_lab_validation_links_lab_session_idx').on(table.labSessionId),
+    index('spray_lab_validation_links_base_analysis_idx').on(table.baseAnalysisSessionId),
+    index('spray_lab_validation_links_validation_analysis_idx').on(table.validationAnalysisSessionId),
+    index('spray_lab_validation_links_context_status_idx').on(table.contextKey, table.status),
+]);
+
 export const analysisSessionsRelations = relations(analysisSessions, ({ one, many }) => ({
     user: one(users, {
         fields: [analysisSessions.userId],
@@ -558,6 +701,14 @@ export const analysisSessionsRelations = relations(analysisSessions, ({ one, man
     coachProtocolOutcomes: many(coachProtocolOutcomes),
     completeTrainingProtocolRevisions: many(completeTrainingProtocolRevisions),
     trainingProtocolTransferRecords: many(trainingProtocolTransferRecords),
+    sprayLabSessions: many(sprayLabSessions),
+    sprayLabBenchmarkSnapshots: many(sprayLabBenchmarkSnapshots),
+    sprayLabBaseValidationLinks: many(sprayLabValidationLinks, {
+        relationName: 'spray_lab_validation_links_base_analysis',
+    }),
+    sprayLabValidationLinks: many(sprayLabValidationLinks, {
+        relationName: 'spray_lab_validation_links_validation_analysis',
+    }),
     communitySourcePosts: many(communityPosts),
     communityPostAnalysisSnapshots: many(communityPostAnalysisSnapshots),
 }));
@@ -1939,6 +2090,75 @@ export const trainingProtocolTransferRecordsRelations = relations(trainingProtoc
     }),
 }));
 
+export const sprayLabSessionsRelations = relations(sprayLabSessions, ({ one, many }) => ({
+    user: one(users, {
+        fields: [sprayLabSessions.userId],
+        references: [users.id],
+    }),
+    baseAnalysisSession: one(analysisSessions, {
+        fields: [sprayLabSessions.baseAnalysisSessionId],
+        references: [analysisSessions.id],
+    }),
+    protocolRevision: one(completeTrainingProtocolRevisions, {
+        fields: [sprayLabSessions.protocolRevisionId],
+        references: [completeTrainingProtocolRevisions.id],
+    }),
+    events: many(sprayLabSessionEvents),
+    benchmarkSnapshots: many(sprayLabBenchmarkSnapshots),
+    validationLinks: many(sprayLabValidationLinks),
+}));
+
+export const sprayLabSessionEventsRelations = relations(sprayLabSessionEvents, ({ one }) => ({
+    user: one(users, {
+        fields: [sprayLabSessionEvents.userId],
+        references: [users.id],
+    }),
+    labSession: one(sprayLabSessions, {
+        fields: [sprayLabSessionEvents.labSessionId],
+        references: [sprayLabSessions.id],
+    }),
+}));
+
+export const sprayLabBenchmarkSnapshotsRelations = relations(sprayLabBenchmarkSnapshots, ({ one }) => ({
+    user: one(users, {
+        fields: [sprayLabBenchmarkSnapshots.userId],
+        references: [users.id],
+    }),
+    labSession: one(sprayLabSessions, {
+        fields: [sprayLabBenchmarkSnapshots.labSessionId],
+        references: [sprayLabSessions.id],
+    }),
+    baseAnalysisSession: one(analysisSessions, {
+        fields: [sprayLabBenchmarkSnapshots.baseAnalysisSessionId],
+        references: [analysisSessions.id],
+    }),
+    protocolRevision: one(completeTrainingProtocolRevisions, {
+        fields: [sprayLabBenchmarkSnapshots.protocolRevisionId],
+        references: [completeTrainingProtocolRevisions.id],
+    }),
+}));
+
+export const sprayLabValidationLinksRelations = relations(sprayLabValidationLinks, ({ one }) => ({
+    user: one(users, {
+        fields: [sprayLabValidationLinks.userId],
+        references: [users.id],
+    }),
+    labSession: one(sprayLabSessions, {
+        fields: [sprayLabValidationLinks.labSessionId],
+        references: [sprayLabSessions.id],
+    }),
+    baseAnalysisSession: one(analysisSessions, {
+        relationName: 'spray_lab_validation_links_base_analysis',
+        fields: [sprayLabValidationLinks.baseAnalysisSessionId],
+        references: [analysisSessions.id],
+    }),
+    validationAnalysisSession: one(analysisSessions, {
+        relationName: 'spray_lab_validation_links_validation_analysis',
+        fields: [sprayLabValidationLinks.validationAnalysisSessionId],
+        references: [analysisSessions.id],
+    }),
+}));
+
 export const botHeartbeat = pgTable('bot_heartbeat', {
     id: text('id').primaryKey().default('main_bot'),
     lastSeen: timestamp('last_seen', { mode: 'date' }).defaultNow().notNull(),
@@ -1992,6 +2212,14 @@ export type CompleteTrainingProtocolRevisionRow = typeof completeTrainingProtoco
 export type NewCompleteTrainingProtocolRevision = typeof completeTrainingProtocolRevisions.$inferInsert;
 export type TrainingProtocolTransferRecordRow = typeof trainingProtocolTransferRecords.$inferSelect;
 export type NewTrainingProtocolTransferRecord = typeof trainingProtocolTransferRecords.$inferInsert;
+export type SprayLabSessionRow = typeof sprayLabSessions.$inferSelect;
+export type NewSprayLabSession = typeof sprayLabSessions.$inferInsert;
+export type SprayLabSessionEventRow = typeof sprayLabSessionEvents.$inferSelect;
+export type NewSprayLabSessionEvent = typeof sprayLabSessionEvents.$inferInsert;
+export type SprayLabBenchmarkSnapshotRow = typeof sprayLabBenchmarkSnapshots.$inferSelect;
+export type NewSprayLabBenchmarkSnapshot = typeof sprayLabBenchmarkSnapshots.$inferInsert;
+export type SprayLabValidationLinkRow = typeof sprayLabValidationLinks.$inferSelect;
+export type NewSprayLabValidationLink = typeof sprayLabValidationLinks.$inferInsert;
 export type SensitivityHistoryRow = typeof sensitivityHistory.$inferSelect;
 export type NewSensitivityHistory = typeof sensitivityHistory.$inferInsert;
 export type WeaponProfile = typeof weaponProfiles.$inferSelect;
