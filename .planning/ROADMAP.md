@@ -348,6 +348,8 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **Goal:** Build the PUBG-focused lab layer for guided drills, training sessions, and internal benchmarks.
 
+**Status:** Planned as of 2026-05-08. Six executable plans cover the Spray Lab core contract, persistence/actions, mobile-first session runner, compatible validation and repair UX, dashboard/history/coach continuity, and Phase 9 benchmark/verification gates.
+
 **Requirements:** PREC-03, BENCH-01, BENCH-02, BENCH-03, COACH-01, COACH-02, COACH-03
 
 **Success Criteria:**
@@ -359,6 +361,34 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 5. Benchmark/session data feeds the coach loop and dashboard in privacy-safe, entitlement-aware ways.
 
 **UI hint:** yes
+
+**Plans:**
+
+**Wave 1**
+- `09-01` - Spray Lab Core Contract, Lanes, Session Fidelity, And Contextual Index. Adds versioned Lab contracts, PUBG lane presets, deterministic session state machine, fidelity tiers, and provisional/validated contextual index rules.
+
+**Wave 2 *(blocked on Wave 1 completion)***
+- `09-02` - Spray Lab Persistence, Actions, Validation Links, And Free/Pro Projection. Adds Lab sessions/events/snapshots/validation links, authenticated actions, minimal privacy-safe persistence, and server-owned Free/Pro depth.
+
+**Wave 3 *(blocked on Wave 2 completion)***
+- `09-03` - Mobile-First Spray Lab Session Runner Cockpit. Builds `/spray-lab` as a functional cockpit for prepare, spray, rest, quick check, result, and validation states with manual controls.
+- `09-04` - Compatible Validation Mode And Repair-Aware Analyze Flow. Turns `Gravar validacao compativel` into a preloaded validation mode and maps blocked/inconclusive clips into repair states instead of generic errors.
+
+**Wave 4 *(blocked on Wave 3 completion)***
+- `09-05` - Result, Dashboard, History, And Coach Continuity. Feeds Lab session fidelity, benchmark snapshots, validation links, repair outcomes, and contextual progression into the product loop.
+
+**Wave 5 *(blocked on all prior plans)***
+- `09-06` - Spray Lab Benchmark, Goldens, Copy Safety, And No False Done Verification. Adds Lab benchmark truth, goldens, copy-safety checks, Playwright matrix, `verify:phase9:spray-lab`, and final evidence checklist.
+
+**Cross-cutting constraints:**
+- Preserve the browser-first clip analysis path; Spray Lab does not introduce backend video compute.
+- Spray Lab executes the Phase 8 complete protocol and must not replace analysis, coach truth, precision trends, or Phase 10 guided programs.
+- Fidelity controls evidence strength; broken fidelity can remain useful as practice but cannot become strong benchmark or technical validation.
+- Compatible clip validation is the technical proof layer; Lab sessions are execution evidence and TDM/real-match records are practical transfer only.
+- Free must remain useful and polished; Pro unlocks deeper runner, audit, validated index, benchmarks, comparisons, and continuity through server-owned entitlements.
+- Persist only evidence-needed Lab data and reason codes; do not persist raw Lab video, detailed pain history, health profile, physical routine, body metrics, or medical details.
+- No copy may claim perfect sensitivity, guaranteed improvement/rank, global player grade, medical benefit, or official PUBG/KRAFTON affiliation.
+- Final Delivered status requires focused tests, `npm run typecheck`, `npx vitest run`, `npm run benchmark:gate`, Playwright/browser evidence, and `npm run verify:phase9:spray-lab`.
 
 ## Phase 10: Guided Pro Training Programs
 

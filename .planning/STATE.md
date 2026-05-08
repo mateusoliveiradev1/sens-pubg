@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready_to_discuss
-last_updated: "2026-05-08T05:03:34.981Z"
+status: ready_to_execute
+last_updated: "2026-05-08T05:22:37.177Z"
 progress:
   total_phases: 13
   completed_phases: 8
-  total_plans: 41
+  total_plans: 47
   completed_plans: 41
-  percent: 100
+  percent: 87
 ---
 
 # State: Sens PUBG
@@ -71,12 +71,13 @@ Phase 9: PUBG Spray Lab Session Runner And Benchmark
 - Phase 8 plan 08-06 is complete with a deterministic `verify:phase8:training` evidence script, CI coverage, No False Done checklist, verification docs, final command recording, and cleanup of two Phase 8 test warnings found by `npm run build`.
 - Phase 8 automated gates pass: focused Phase 8 Vitest, `npm run verify:phase8:training`, `npm run typecheck`, `npx vitest run`, `npm run benchmark:gate`, and `npm run build`.
 - Phase 8 final status is Delivered: implementation and automated verification are complete, and `drizzle/0011_complete_training_protocols.sql` has been applied and verified in the configured target database for protocol revision/transfer persistence.
+- Phase 9 planning is complete with 6 executable Spray Lab plans across 5 waves, backed by `09-RESEARCH.md` and full 62/62 decision coverage from `09-CONTEXT.md`.
 
 ## Next Recommended Command
 
-`$gsd-discuss-phase 09`
+`$gsd-execute-phase 09`
 
-Start Phase 9 discussion: PUBG Spray Lab Session Runner And Benchmark.
+Execute Phase 9: PUBG Spray Lab Session Runner And Benchmark.
 
 ## Open Questions
 
@@ -124,3 +125,4 @@ Start Phase 9 discussion: PUBG Spray Lab Session Runner And Benchmark.
 - Phase 8 08-04 executed: Added active dashboard protocol state, history/detail protocol audit modeling, saved protocol/outcome/validation/transfer labels, safe fatigue/confusion/variable-change outcome paths, real-match/TDM transfer action, focused tests, full Vitest, typecheck, and benchmark gate passing.
 - Phase 8 08-05 executed: Added complete protocol LLM immutable facts, display-only adapter rewrite checks, complete protocol coach goldens for normal/weak/conflict/fatigue cases, synthetic benchmark completeProtocol truth locks, medical/strength copy-safety gates, focused tests, full Vitest, typecheck, and benchmark gate passing.
 - Phase 8 08-06 executed: Added `verify:phase8:training`, final No False Done checklist/docs, command evidence, production build evidence, and final Delivered status after applying and verifying the target DB migration.
+- Phase 9 planned: 6 executable PUBG Spray Lab plans across 5 waves, covering Lab contracts/lanes/session fidelity/contextual index, persistence/actions/validation links/Free-Pro projection, `/spray-lab` cockpit, compatible validation/repair UX, dashboard/history/coach continuity, benchmark/goldens/copy safety, and `verify:phase9:spray-lab`.
