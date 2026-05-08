@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: ready_to_execute
-last_updated: "2026-05-08T20:30:06.897Z"
+last_updated: "2026-05-08T21:17:55.344Z"
 progress:
   total_phases: 13
   completed_phases: 9
   total_plans: 53
-  completed_plans: 50
-  percent: 94
+  completed_plans: 52
+  percent: 98
 ---
 
 # State: Sens PUBG
@@ -83,17 +83,20 @@ Phase 10: Guided Pro Training Programs
 - Phase 10 planning is complete with 6 executable Ciclo Pro plans across 5 waves, backed by `10-RESEARCH.md` and full 83/83 decision coverage from `10-CONTEXT.md`.
 - Phase 10 plan 10-01 is complete with Ciclo Pro/Ciclo de Reparo contracts, deterministic eligibility, evidence-bound missions, checkpoint layers, recovery/reentry state machine, focused tests, full Vitest, typecheck, and benchmark gate passing.
 - Phase 10 plan 10-02 is complete with privacy-minimal Ciclo Pro persistence, authenticated lifecycle actions, Pro program entitlements, honest Free/Pro projection, focused tests, full Vitest, typecheck, Drizzle check/push, target DB catalog verification, and benchmark gate passing.
+- Phase 10 plan 10-03 is complete with the dedicated `/ciclo-pro` route loader, entitlement-owned view model, full map UI, Free mission lock state, repair states, navigation entry points, focused tests, typecheck, full Vitest, and benchmark gate passing.
+- Phase 10 plan 10-04 is complete with dashboard active program now-state, post-analysis Ciclo Pro/Ciclo de Reparo entry, server-owned result handoffs, Spray Lab/Analyze routing, focused tests, and typecheck passing.
+- Phase 10 plan 10-05 is complete with history list/detail program continuity and audit, bounded compatible-validation-aware coach handoff, Phase 10 copy-safety/golden coverage, focused tests, full Vitest, typecheck, and benchmark gate passing.
 
 ## Next Recommended Command
 
 `$gsd-execute-phase 10`
 
-Continue Phase 10 Guided Pro Training Programs from plan 10-03.
+Continue Phase 10 Guided Pro Training Programs from plan 10-06.
 
 ## Session
 
-- Last session: 2026-05-08T20:30:06Z
-- Stopped At: Completed 10-02-PLAN.md. Ready for Phase 10 plan 10-03.
+- Last session: 2026-05-08T21:17:55Z
+- Stopped At: Completed 10-05-PLAN.md. Ready for Phase 10 plan 10-06.
 - Resume File: None
 
 ## Performance Metrics
@@ -106,6 +109,9 @@ Continue Phase 10 Guided Pro Training Programs from plan 10-03.
 | Phase 09 P05 | 32 min | 4 tasks | 14 files |
 | Phase 10 P01 | 15 min | 5 tasks | 4 files |
 | Phase 10 P02 | 205 min | 4 tasks | 10 files |
+| Phase 10 P03 | 12 min | 4 tasks | 10 files |
+| Phase 10 P04 | 18 min | 4 tasks | 10 files |
+| Phase 10 P05 | 23 min | 4 tasks | 12 files |
 
 ## Decisions
 
@@ -126,6 +132,13 @@ Continue Phase 10 Guided Pro Training Programs from plan 10-03.
 - [Phase 10 Plan 10-02]: Program mutations stay server-owned; actions accept identifiers and reload owned analysis, protocol, Lab, and validation evidence before writing lifecycle state.
 - [Phase 10 Plan 10-02]: Free projection exposes one real basic next step with evidence and locks, while Pro unlocks the full weekly and monthly adaptive cycle.
 - [Phase 10 Plan 10-02]: Migration `0013_guided_pro_training_programs.sql` was applied through Drizzle and verified against the target database catalog.
+- [Phase 10 Plan 10-03]: `/ciclo-pro` owns the full 30-day program map and stays independent from the Analyze report and Spray Lab runner.
+- [Phase 10 Plan 10-03]: Free access can see one real next mission and honest blockers, while Pro access unlocks the full weekly/checkpoint audit.
+- [Phase 10 Plan 10-04]: Dashboard remains a compact now-cockpit for the active program; it does not duplicate the full `/ciclo-pro` map.
+- [Phase 10 Plan 10-04]: Post-analysis program entry creates or opens cycles only through server-owned actions against saved history sessions.
+- [Phase 10 Plan 10-05]: Program completion, Spray Lab execution, and TDM/real-match transfer are audit facts, not technical proof without compatible validation.
+- [Phase 10 Plan 10-05]: Validated program progress can support same-context continuity, but copy must remain bounded and cannot promise improvement.
+- [Phase 10 Plan 10-05]: Repair, consolidation, no-clear-change, inconclusive, regression, line restart, discomfort, fatigue, confusion, and repeated failure lower or hold coach aggressiveness.
 
 ## Open Questions
 
@@ -182,3 +195,6 @@ Continue Phase 10 Guided Pro Training Programs from plan 10-03.
 - Phase 9 09-06 executed: Added Spray Lab benchmark expectations, coach/copy goldens, copy-safety gates, dedicated No False Done verifier/checklist, desktop/mobile Playwright evidence, final docs, and Delivered status after all final gates passed.
 - Phase 10 10-01 executed: Added versioned Ciclo Pro/Ciclo de Reparo contracts, deterministic cycle birth, active-line restarts, four-week mission composition, repair missions, checkpoint layers, recovery/reentry reducer, and focused truth tests.
 - Phase 10 10-02 executed: Added normalized program persistence, authenticated lifecycle server actions, guided program entitlements, Free/Pro projection, focused tests, target DB schema application/verification, and full repo gates.
+- Phase 10 10-03 executed: Added the `/ciclo-pro` route, program projection loader, view model, full weekly map UI, Free lock/basic mission behavior, repair/completed route states, and route/navigation contract tests.
+- Phase 10 10-04 executed: Added active program dashboard projection, now-cockpit UI, post-analysis cycle entry models, result server action handoffs, and Spray Lab/Analyze routing from program missions.
+- Phase 10 10-05 executed: Added history list/detail program continuity and audit, compatible-validation-bound coach handoff/signals, copy-safety scan across program surfaces, and eight-state coach golden coverage.
