@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: ready_to_execute
-last_updated: "2026-05-08T19:49:36.574Z"
+last_updated: "2026-05-08T20:30:06.897Z"
 progress:
   total_phases: 13
   completed_phases: 9
   total_plans: 53
-  completed_plans: 48
-  percent: 91
+  completed_plans: 50
+  percent: 94
 ---
 
 # State: Sens PUBG
@@ -82,17 +82,18 @@ Phase 10: Guided Pro Training Programs
 - Phase 9 final status is Delivered: all six plans are complete, the target DB migration was applied earlier in the phase, every No False Done checklist row is PASS, and browser evidence covers runner, Analyze validation, dashboard, history, history detail, and repair states on desktop/mobile.
 - Phase 10 planning is complete with 6 executable Ciclo Pro plans across 5 waves, backed by `10-RESEARCH.md` and full 83/83 decision coverage from `10-CONTEXT.md`.
 - Phase 10 plan 10-01 is complete with Ciclo Pro/Ciclo de Reparo contracts, deterministic eligibility, evidence-bound missions, checkpoint layers, recovery/reentry state machine, focused tests, full Vitest, typecheck, and benchmark gate passing.
+- Phase 10 plan 10-02 is complete with privacy-minimal Ciclo Pro persistence, authenticated lifecycle actions, Pro program entitlements, honest Free/Pro projection, focused tests, full Vitest, typecheck, Drizzle check/push, target DB catalog verification, and benchmark gate passing.
 
 ## Next Recommended Command
 
 `$gsd-execute-phase 10`
 
-Continue Phase 10 Guided Pro Training Programs from plan 10-02.
+Continue Phase 10 Guided Pro Training Programs from plan 10-03.
 
 ## Session
 
-- Last session: 2026-05-08T19:48:09Z
-- Stopped At: Completed 10-01-PLAN.md. Ready for Phase 10 plan 10-02.
+- Last session: 2026-05-08T20:30:06Z
+- Stopped At: Completed 10-02-PLAN.md. Ready for Phase 10 plan 10-03.
 - Resume File: None
 
 ## Performance Metrics
@@ -104,6 +105,7 @@ Continue Phase 10 Guided Pro Training Programs from plan 10-02.
 | Phase 09 P04 | 34 min | 4 tasks | 10 files |
 | Phase 09 P05 | 32 min | 4 tasks | 14 files |
 | Phase 10 P01 | 15 min | 5 tasks | 4 files |
+| Phase 10 P02 | 205 min | 4 tasks | 10 files |
 
 ## Decisions
 
@@ -120,6 +122,10 @@ Continue Phase 10 Guided Pro Training Programs from plan 10-02.
 - [Phase 10 Plan 10-01]: Full Ciclo Pro starts only from saved usable analysis plus recognizable context and a complete protocol or active line; weak or incomplete bases route to Ciclo de Reparo.
 - [Phase 10 Plan 10-01]: Weekly rhythm can close operationally, but difficulty and coach aggressiveness can increase only after compatible technical evidence converges.
 - [Phase 10 Plan 10-01]: Pain or meaningful discomfort pauses the block as safety/recovery, never as skill regression.
+- [Phase 10 Plan 10-02]: Program row IDs reuse 10-01 deterministic snapshot IDs so persisted cycles, weeks, missions, checkpoints, and events stay auditable without parallel program types.
+- [Phase 10 Plan 10-02]: Program mutations stay server-owned; actions accept identifiers and reload owned analysis, protocol, Lab, and validation evidence before writing lifecycle state.
+- [Phase 10 Plan 10-02]: Free projection exposes one real basic next step with evidence and locks, while Pro unlocks the full weekly and monthly adaptive cycle.
+- [Phase 10 Plan 10-02]: Migration `0013_guided_pro_training_programs.sql` was applied through Drizzle and verified against the target database catalog.
 
 ## Open Questions
 
@@ -175,3 +181,4 @@ Continue Phase 10 Guided Pro Training Programs from plan 10-02.
 - Phase 9 09-05 executed: Added Spray Lab coach handoff, dashboard active Lab command, history list/detail continuity, and Lab/protocol-preserving validation CTAs while keeping execution, technical validation, and transfer evidence separate.
 - Phase 9 09-06 executed: Added Spray Lab benchmark expectations, coach/copy goldens, copy-safety gates, dedicated No False Done verifier/checklist, desktop/mobile Playwright evidence, final docs, and Delivered status after all final gates passed.
 - Phase 10 10-01 executed: Added versioned Ciclo Pro/Ciclo de Reparo contracts, deterministic cycle birth, active-line restarts, four-week mission composition, repair missions, checkpoint layers, recovery/reentry reducer, and focused truth tests.
+- Phase 10 10-02 executed: Added normalized program persistence, authenticated lifecycle server actions, guided program entitlements, Free/Pro projection, focused tests, target DB schema application/verification, and full repo gates.
