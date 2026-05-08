@@ -348,7 +348,7 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **Goal:** Build the PUBG-focused lab layer for guided drills, training sessions, and internal benchmarks.
 
-**Status:** In progress as of 2026-05-08. Plan 09-01 is complete with the Spray Lab core contract, lane catalog, deterministic session state machine, fidelity scoring, contextual index, benchmark snapshots, focused tests, full Vitest, typecheck, and benchmark gate passing. Five executable plans remain for persistence/actions, mobile-first session runner, compatible validation and repair UX, dashboard/history/coach continuity, and Phase 9 benchmark/verification gates.
+**Status:** In progress as of 2026-05-08. Plans 09-01 through 09-04 are complete with the Spray Lab core contract, persistence/actions, Free/Pro projection, mobile-first runner cockpit, Analyze validation mode, repair-aware validation UX, focused tests, lint, full Vitest, typecheck, and benchmark gate passing. Two executable plans remain for dashboard/history/coach continuity and Phase 9 benchmark/verification gates.
 
 **Requirements:** PREC-03, BENCH-01, BENCH-02, BENCH-03, COACH-01, COACH-02, COACH-03
 
@@ -368,11 +368,11 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 - `09-01` - Spray Lab Core Contract, Lanes, Session Fidelity, And Contextual Index. Complete as of 2026-05-08 with versioned Lab contracts, PUBG lane presets, deterministic session state machine, fidelity tiers, repair states, and provisional/validated contextual index rules.
 
 **Wave 2 *(blocked on Wave 1 completion)***
-- `09-02` - Spray Lab Persistence, Actions, Validation Links, And Free/Pro Projection. Adds Lab sessions/events/snapshots/validation links, authenticated actions, minimal privacy-safe persistence, and server-owned Free/Pro depth.
+- `09-02` - Spray Lab Persistence, Actions, Validation Links, And Free/Pro Projection. Complete as of 2026-05-08 with Lab persistence, authenticated actions, validation links, benchmark snapshots, and server-owned Free/Pro depth.
 
 **Wave 3 *(blocked on Wave 2 completion)***
-- `09-03` - Mobile-First Spray Lab Session Runner Cockpit. Builds `/spray-lab` as a functional cockpit for prepare, spray, rest, quick check, result, and validation states with manual controls.
-- `09-04` - Compatible Validation Mode And Repair-Aware Analyze Flow. Turns `Gravar validacao compativel` into a preloaded validation mode and maps blocked/inconclusive clips into repair states instead of generic errors.
+- `09-03` - Mobile-First Spray Lab Session Runner Cockpit. Complete as of 2026-05-08 with `/spray-lab` route resolution, cockpit state model, mobile runner controls, protocol checklist, repair panel, and result CTAs into Spray Lab.
+- `09-04` - Compatible Validation Mode And Repair-Aware Analyze Flow. Complete as of 2026-05-08 with server-owned validation targets, Analyze context preload, variable confirmation, validation links on save, and blocked/inconclusive repair states.
 
 **Wave 4 *(blocked on Wave 3 completion)***
 - `09-05` - Result, Dashboard, History, And Coach Continuity. Feeds Lab session fidelity, benchmark snapshots, validation links, repair outcomes, and contextual progression into the product loop.

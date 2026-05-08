@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: ready_to_execute
-last_updated: "2026-05-08T06:21:36Z"
+last_updated: "2026-05-08T06:56:32Z"
 progress:
   total_phases: 13
   completed_phases: 8
   total_plans: 47
-  completed_plans: 43
-  percent: 91
+  completed_plans: 45
+  percent: 96
 ---
 
 # State: Sens PUBG
@@ -74,17 +74,19 @@ Phase 9: PUBG Spray Lab Session Runner And Benchmark
 - Phase 9 planning is complete with 6 executable Spray Lab plans across 5 waves, backed by `09-RESEARCH.md` and full 62/62 decision coverage from `09-CONTEXT.md`.
 - Phase 9 plan 09-01 is complete with Spray Lab v1 contracts, compact PUBG lane presets, deterministic session creation/reducer, fidelity scoring/repair states, contextual index snapshots, benchmark snapshots, focused tests, full Vitest, typecheck, and benchmark gate passing.
 - Phase 9 plan 09-02 is complete with privacy-minimal Lab persistence, authenticated session/benchmark/validation actions, server-derived validation links, Free/Pro Spray Lab projection, focused tests, full Vitest, typecheck, Drizzle consistency check, target DB migration application, and benchmark gate passing.
+- Phase 9 plan 09-03 is complete with `/spray-lab` route resolution, a mobile-first runner cockpit, manual audit controls, protocol checklist, repair panel, Free/Pro projection display, and result CTAs into Spray Lab.
+- Phase 9 plan 09-04 is complete with server-owned validation targets, Analyze validation mode context preload, explicit variable confirmation, validation link creation on save, and blocked/inconclusive repair states.
 
 ## Next Recommended Command
 
-`$gsd-execute-phase 09 --wave 3`
+`$gsd-execute-phase 09 --wave 4`
 
-Execute Phase 9 Wave 3: Spray Lab cockpit UI and compatible validation UX.
+Execute Phase 9 Wave 4: result, dashboard, history, and coach continuity for Spray Lab sessions.
 
 ## Session
 
-- Last session: 2026-05-08T06:10:42Z
-- Stopped At: Completed 09-02-PLAN.md
+- Last session: 2026-05-08T06:56:32Z
+- Stopped At: Completed 09-04-PLAN.md
 - Resume File: None
 
 ## Performance Metrics
@@ -92,6 +94,8 @@ Execute Phase 9 Wave 3: Spray Lab cockpit UI and compatible validation UX.
 | Plan | Duration | Tasks | Files |
 | ---- | -------- | ----- | ----- |
 | Phase 09 P02 | 15 min | 4 tasks | 8 files |
+| Phase 09 P03 | 34 min | 4 tasks | 13 files |
+| Phase 09 P04 | 34 min | 4 tasks | 10 files |
 
 ## Decisions
 
@@ -99,6 +103,8 @@ Execute Phase 9 Wave 3: Spray Lab cockpit UI and compatible validation UX.
 - [Phase 09]: Validation status is derived server-side from owned validation analysis trend evidence and variable confirmation, with changed variables mapped to `nao_compativel`.
 - [Phase 09]: Free receives a useful basic Lab projection, while Pro entitlements unlock audit drawers, session history, validated index, benchmarks, and comparisons.
 - [Phase 09]: Lab event notes are not persisted; minimal reason codes and versioned snapshots carry the audit surface.
+- [Phase 09]: Result CTAs open Spray Lab only when an analysis has a saved history session ID; unsaved results ask the user to save first.
+- [Phase 09]: Analyze validation mode derives preload context from owned Lab targets and persists variable confirmation truth with the validation link.
 
 ## Open Questions
 
