@@ -406,6 +406,34 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **UI hint:** yes
 
+**Plans:**
+
+**Wave 1**
+- `10-01` - Program Contracts, Missions, Checkpoints, And Recovery Engine. Defines Ciclo Pro/Ciclo de Reparo truth contracts, eligibility, mission anatomy, checkpoint layers, adaptation reasons, missed-day reentry, and recovery state machine.
+
+**Wave 2 *(blocked on Wave 1 completion)***
+- `10-02` - Program Persistence, Actions, Entitlements, And Free/Pro Projection. Adds program cycle/week/mission/checkpoint/event storage, authenticated lifecycle actions, Pro program entitlements, and honest Free/Pro projection.
+
+**Wave 3 *(blocked on Wave 2 completion)***
+- `10-03` - Dedicated Ciclo Pro Program Route. Builds `/ciclo-pro` as the full 30-day map with four adaptive weeks, missions, checkpoints, active line, repair/consolidation, and useful Free/Pro states.
+- `10-04` - Dashboard Cockpit, Result Entry, And Handoffs. Integrates Ciclo Pro into dashboard now-state, post-analysis entry, Spray Lab execution links, Analyze validation links, and evidence-preserving reentry copy.
+
+**Wave 4 *(blocked on Wave 3 completion)***
+- `10-05` - History Audit, Coach Continuity, And Copy Safety. Adds history list/detail program audit, bounded coach handoff, goldens, and copy-safety coverage for overclaim/course-language risks.
+
+**Wave 5 *(blocked on all prior plans)***
+- `10-06` - Program Verification And No False Done Evidence. Adds `verify:phase10:programs`, Playwright state matrix, final docs/checklist, migration evidence, and final command recording.
+
+**Cross-cutting constraints:**
+- Preserve browser-first analysis; Ciclo Pro organizes evidence and action, but Analyze remains clip ingestion/validation.
+- Spray Lab remains the execution cockpit; Ciclo Pro must link to it instead of rebuilding the runner.
+- Compatible clip validation is the technical proof layer; Lab/TDM/real-match evidence cannot replace it.
+- Weak, conflicting, stale, or incomplete evidence must route to repair, consolidation, validation pending, or line restart instead of fake progress.
+- Free remains useful and honest; Pro unlocks the full 30-day adaptive/auditable cycle.
+- Do not claim perfect sensitivity, guaranteed improvement/rank, global player grade, medical benefit, or official PUBG/KRAFTON affiliation.
+- Program storage must stay privacy-minimal and avoid raw video, health history, body metrics, or medical detail.
+- Final Delivered status requires the dedicated Phase 10 verifier, focused tests, typecheck, full Vitest, benchmark gate, build, browser evidence, and target DB migration evidence.
+
 ## Phase 11: Social Pro Community Premium
 
 **Goal:** Add Pro social value while keeping public community as a trust funnel.
