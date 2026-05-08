@@ -181,4 +181,24 @@ describe('dashboard active coach loop model', () => {
         expect(source).not.toMatch(/activeCoachLoop: activeCoachLoop/);
         expect(source).not.toMatch(/timer|sessionRunner|benchmarkRunner/);
     });
+
+    it('loads the active Ciclo Pro cycle through server-owned projection for dashboard now-state', () => {
+        const source = readFileSync(new URL('./dashboard.ts', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/getActiveTrainingProgramCycleAction/);
+        expect(source).toMatch(/projectTrainingProgramForAccess/);
+        expect(source).toMatch(/buildDashboardActiveTrainingProgram/);
+        expect(source).toMatch(/activeTrainingProgramProjection/);
+        expect(source).toMatch(/activeTrainingProgram,/);
+        expect(source).toMatch(/currentWeekLabel: `Semana \$\{mission\.weekNumber\} de 4`/);
+        expect(source).toMatch(/currentMissionTitle: mission\.title/);
+        expect(source).toMatch(/visibleAdaptationReason/);
+        expect(source).toMatch(/blockerCount/);
+        expect(source).toMatch(/evidenceStatus/);
+        expect(source).toMatch(/primaryCtaLabel: mission\.proximoCta\.label/);
+        expect(source).toMatch(/programCtaLabel: 'Abrir Ciclo Pro'/);
+        expect(source).toMatch(/lockState/);
+        expect(source).toMatch(/projection\.canSeeFullThirtyDayCycle/);
+        expect(source).not.toMatch(/activeTrainingProgram: activeProgramCycle/);
+    });
 });

@@ -15,9 +15,16 @@ import { auth } from '@/auth';
 import { eq, sql, gte, and, desc, inArray } from 'drizzle-orm';
 import { hydrateAnalysisResultFromHistory } from '@/app/history/analysis-result-hydration';
 import { buildDashboardActiveCoachLoop, type DashboardActiveCoachLoop } from './dashboard-active-coach-loop';
+import { getActiveTrainingProgramCycleAction } from './training-programs';
 import { buildSprayLabCoachHandoff } from '@/core/spray-lab-coach-handoff';
+import { trainingProgramReasonCopy } from '@/core/training-programs';
 import { createPremiumProjectionSummary } from '@/lib/premium-projection';
 import { resolveProductAccess, type ProductAccessResolution } from '@/lib/product-entitlements';
+import {
+    projectTrainingProgramForAccess,
+    type TrainingProgramProjectedMission,
+    type TrainingProgramProjection,
+} from '@/lib/training-program-projection';
 import {
     createDrizzleQuotaLedgerRepository,
     resolveAnalysisSaveAccessWithResolution,
@@ -31,8 +38,18 @@ import type {
     SprayActionState,
     SprayMastery,
 } from '@/types/engine';
+import type {
+    TrainingProgramCycleSnapshot,
+    TrainingProgramEvidenceReference,
+    TrainingProgramKind,
+    TrainingProgramMissionCategory,
+    TrainingProgramReasonCode,
+    TrainingProgramState,
+} from '@/types/training-programs';
 
 export type DashboardTrendEvidenceState = 'strong' | 'moderate' | 'weak' | 'missing';
+export type DashboardTrainingProgramEvidenceStatus = 'missing' | 'repair' | 'validation_pending' | 'usable' | 'strong';
+export type DashboardTrainingProgramLockState = 'free_basic' | 'pro_full' | 'locked';
 
 export interface DashboardLatestMastery {
     readonly actionState: SprayActionState;
@@ -80,6 +97,31 @@ export interface DashboardPrincipalPrecisionTrend {
     readonly updatedAt: string;
 }
 
+export interface DashboardActiveTrainingProgram {
+    readonly cycleId: string;
+    readonly kind: TrainingProgramKind;
+    readonly kindLabel: string;
+    readonly state: TrainingProgramState;
+    readonly stateLabel: string;
+    readonly currentWeekLabel: string;
+    readonly currentMissionTitle: string;
+    readonly currentMissionCategory: TrainingProgramMissionCategory;
+    readonly currentMissionCategoryLabel: string;
+    readonly visibleAdaptationReason: string;
+    readonly blockerCount: number;
+    readonly evidenceStatus: DashboardTrainingProgramEvidenceStatus;
+    readonly evidenceLabel: string;
+    readonly primaryCtaLabel: string;
+    readonly primaryCtaHref: string;
+    readonly programCtaLabel: 'Abrir Ciclo Pro';
+    readonly programHref: '/ciclo-pro';
+    readonly lockState: DashboardTrainingProgramLockState;
+    readonly lockLabel: string;
+    readonly lockBody: string | null;
+    readonly lockCtaHref: '/pricing' | '/billing' | null;
+    readonly lockCtaLabel: 'Ver Pro' | 'Abrir billing' | null;
+}
+
 export interface DashboardStats {
     totalSessions: number;
     avgStabilityScore: number;
@@ -94,6 +136,7 @@ export interface DashboardStats {
     trendEvidence: DashboardTrendEvidence;
     principalPrecisionTrend: DashboardPrincipalPrecisionTrend | null;
     activeCoachLoop: DashboardActiveCoachLoop | null;
+    activeTrainingProgram: DashboardActiveTrainingProgram | null;
     premiumProjection: PremiumProjectionSummary;
 }
 
@@ -267,6 +310,237 @@ function buildPrincipalPrecisionTrend(
         updatedAt: updatedAt instanceof Date
             ? updatedAt.toISOString()
             : updatedAt ?? new Date().toISOString(),
+    };
+}
+
+function formatTrainingProgramKind(kind: TrainingProgramKind): string {
+    switch (kind) {
+        case 'ciclo_pro':
+            return 'Ciclo Pro';
+        case 'ciclo_reparo':
+            return 'Ciclo de Reparo';
+    }
+}
+
+function formatTrainingProgramState(state: TrainingProgramState): string {
+    switch (state) {
+        case 'preparando':
+            return 'Preparando';
+        case 'ativo':
+            return 'Ativo';
+        case 'reparando':
+            return 'Reparo';
+        case 'consolidando':
+            return 'Consolidacao';
+        case 'validacao_pendente':
+            return 'Validacao pendente';
+        case 'progresso_validado':
+            return 'Progresso validado';
+        case 'sem_mudanca_clara':
+            return 'Sem mudanca clara';
+        case 'regressao_validada':
+            return 'Regressao validada';
+        case 'inconclusivo':
+            return 'Inconclusivo';
+        case 'linha_reiniciada':
+            return 'Linha reiniciada';
+        case 'concluido':
+            return 'Concluido';
+        case 'pausado':
+            return 'Pausado';
+        case 'contexto_desatualizado':
+            return 'Contexto desatualizado';
+    }
+}
+
+function formatTrainingProgramMissionCategory(category: TrainingProgramMissionCategory): string {
+    switch (category) {
+        case 'execution':
+            return 'Execucao';
+        case 'validation':
+            return 'Validacao';
+        case 'repair':
+            return 'Reparo';
+        case 'preparation':
+            return 'Preparacao';
+        case 'transfer':
+            return 'Transferencia pratica';
+    }
+}
+
+function findTrainingProgramEvidenceRef(
+    projection: TrainingProgramProjection,
+    mission: TrainingProgramProjectedMission,
+    kind: TrainingProgramEvidenceReference['kind'],
+): TrainingProgramEvidenceReference | null {
+    return mission.evidenceRefs.find((ref) => ref.kind === kind)
+        ?? projection.evidence?.evidenceRefs.find((ref) => ref.kind === kind)
+        ?? null;
+}
+
+function buildTrainingProgramHref(
+    projection: TrainingProgramProjection,
+    mission: TrainingProgramProjectedMission,
+): string {
+    const analysisId = findTrainingProgramEvidenceRef(projection, mission, 'analysis')?.id ?? null;
+    const protocolId = findTrainingProgramEvidenceRef(projection, mission, 'protocol')?.id ?? null;
+    const labSessionId = findTrainingProgramEvidenceRef(projection, mission, 'spray_lab_session')?.id ?? null;
+    const validationLinkId = findTrainingProgramEvidenceRef(projection, mission, 'validation_link')?.id ?? null;
+
+    if (mission.category === 'validation') {
+        if (validationLinkId) {
+            return `/analyze?mode=validation&validationLinkId=${encodeURIComponent(validationLinkId)}`;
+        }
+
+        if (labSessionId && protocolId) {
+            return `/analyze?mode=validation&labSessionId=${encodeURIComponent(labSessionId)}&protocolId=${encodeURIComponent(protocolId)}`;
+        }
+
+        const params = new URLSearchParams({ mode: 'validation' });
+        if (analysisId) {
+            params.set('baseSessionId', analysisId);
+        }
+        if (protocolId) {
+            params.set('protocolId', protocolId);
+        }
+
+        return `/analyze?${params.toString()}`;
+    }
+
+    if (mission.category === 'preparation' && mission.proximoCta.target === 'analyze_validation') {
+        return analysisId && protocolId
+            ? `/analyze?mode=validation&baseSessionId=${encodeURIComponent(analysisId)}&protocolId=${encodeURIComponent(protocolId)}`
+            : '/analyze?mode=validation';
+    }
+
+    if (labSessionId) {
+        return `/spray-lab?labSessionId=${encodeURIComponent(labSessionId)}`;
+    }
+
+    if (analysisId && protocolId) {
+        return `/spray-lab?sourceSessionId=${encodeURIComponent(analysisId)}&protocolId=${encodeURIComponent(protocolId)}`;
+    }
+
+    if (analysisId) {
+        return `/spray-lab?sourceSessionId=${encodeURIComponent(analysisId)}`;
+    }
+
+    return mission.proximoCta.href;
+}
+
+function resolveTrainingProgramEvidenceStatus(
+    projection: TrainingProgramProjection,
+    state: TrainingProgramState,
+    blockerCount: number,
+): DashboardTrainingProgramEvidenceStatus {
+    if (!projection.evidence) {
+        return 'missing';
+    }
+
+    if (
+        blockerCount > 0
+        || state === 'reparando'
+        || state === 'inconclusivo'
+        || state === 'linha_reiniciada'
+        || state === 'contexto_desatualizado'
+        || state === 'pausado'
+    ) {
+        return 'repair';
+    }
+
+    if (state === 'validacao_pendente') {
+        return 'validation_pending';
+    }
+
+    return projection.evidence.confidence >= 0.8 && projection.evidence.coverage >= 0.8
+        ? 'strong'
+        : 'usable';
+}
+
+function formatTrainingProgramEvidenceStatus(status: DashboardTrainingProgramEvidenceStatus): string {
+    switch (status) {
+        case 'missing':
+            return 'Evidencia ausente';
+        case 'repair':
+            return 'Reparo ou reencaixe';
+        case 'validation_pending':
+            return 'Validacao pendente';
+        case 'usable':
+            return 'Evidencia utilizavel';
+        case 'strong':
+            return 'Evidencia forte';
+    }
+}
+
+function resolveTrainingProgramLockState(
+    projection: TrainingProgramProjection,
+): Pick<DashboardActiveTrainingProgram, 'lockState' | 'lockLabel' | 'lockBody' | 'lockCtaHref' | 'lockCtaLabel'> {
+    if (projection.canSeeFullThirtyDayCycle) {
+        return {
+            lockState: 'pro_full',
+            lockLabel: 'Pro: ciclo completo ativo',
+            lockBody: null,
+            lockCtaHref: null,
+            lockCtaLabel: null,
+        };
+    }
+
+    const lock = projection.locks[0] ?? null;
+    const lockCtaLabel = lock?.ctaHref === '/pricing'
+        ? 'Ver Pro'
+        : lock?.ctaHref === '/billing'
+            ? 'Abrir billing'
+            : null;
+
+    return {
+        lockState: lock ? 'locked' : 'free_basic',
+        lockLabel: 'Free: proximo passo visivel',
+        lockBody: lock?.body ?? projection.proValueCopy,
+        lockCtaHref: lock?.ctaHref ?? null,
+        lockCtaLabel,
+    };
+}
+
+export function buildDashboardActiveTrainingProgram(
+    projection: TrainingProgramProjection,
+    cycle: TrainingProgramCycleSnapshot | null,
+): DashboardActiveTrainingProgram | null {
+    const mission = projection.basicMission;
+
+    if (!cycle || !mission || !projection.evidence) {
+        return null;
+    }
+
+    const reasonCodes = Array.from(new Set<TrainingProgramReasonCode>([
+        ...projection.evidence.reasonCodes,
+        ...projection.evidence.blockers,
+        ...mission.reasonCodes,
+    ]));
+    const blockerCount = reasonCodes.length;
+    const evidenceStatus = resolveTrainingProgramEvidenceStatus(projection, cycle.state, blockerCount);
+    const lock = resolveTrainingProgramLockState(projection);
+
+    return {
+        cycleId: cycle.id,
+        kind: cycle.kind,
+        kindLabel: formatTrainingProgramKind(cycle.kind),
+        state: cycle.state,
+        stateLabel: formatTrainingProgramState(cycle.state),
+        currentWeekLabel: `Semana ${mission.weekNumber} de 4`,
+        currentMissionTitle: mission.title,
+        currentMissionCategory: mission.category,
+        currentMissionCategoryLabel: formatTrainingProgramMissionCategory(mission.category),
+        visibleAdaptationReason: reasonCodes[0]
+            ? trainingProgramReasonCopy(reasonCodes[0])
+            : projection.evidence.summary,
+        blockerCount,
+        evidenceStatus,
+        evidenceLabel: formatTrainingProgramEvidenceStatus(evidenceStatus),
+        primaryCtaLabel: mission.proximoCta.label,
+        primaryCtaHref: buildTrainingProgramHref(projection, mission),
+        programCtaLabel: 'Abrir Ciclo Pro',
+        programHref: '/ciclo-pro',
+        ...lock,
     };
 }
 
@@ -479,6 +753,16 @@ export async function getDashboardStats(): Promise<DashboardStats | null> {
         });
         const activeLoopVisible = access.features['coach.validation_loop'].granted
             || Boolean(activeCoachLoop?.sprayLab);
+        const activeProgramResult = await getActiveTrainingProgramCycleAction();
+        const activeProgramCycle = activeProgramResult.success ? activeProgramResult.value : null;
+        const activeTrainingProgramProjection = projectTrainingProgramForAccess({
+            access,
+            cycle: activeProgramCycle,
+        });
+        const activeTrainingProgram = buildDashboardActiveTrainingProgram(
+            activeTrainingProgramProjection,
+            activeProgramCycle,
+        );
 
         return {
             totalSessions: Number(basicStats[0]?.count || 0),
@@ -506,6 +790,7 @@ export async function getDashboardStats(): Promise<DashboardStats | null> {
             trendEvidence: buildTrendEvidence(recentTruthSessions, hydratedRecentResults, delta),
             principalPrecisionTrend,
             activeCoachLoop: activeLoopVisible ? activeCoachLoop : null,
+            activeTrainingProgram,
             premiumProjection: createPremiumProjectionSummary(access, latestTruthResult ?? undefined),
         };
     } catch (err) {
