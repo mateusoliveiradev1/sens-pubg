@@ -501,7 +501,7 @@ function resolveTrainingProgramLockState(
     };
 }
 
-export function buildDashboardActiveTrainingProgram(
+function buildDashboardActiveTrainingProgram(
     projection: TrainingProgramProjection,
     cycle: TrainingProgramCycleSnapshot | null,
 ): DashboardActiveTrainingProgram | null {

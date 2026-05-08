@@ -1,0 +1,376 @@
+.shell {
+    min-height: 100vh;
+    background:
+        linear-gradient(180deg, rgba(8, 8, 12, 0.98), rgba(13, 14, 18, 0.98)),
+        #08080c;
+    color: #fff;
+}
+
+.main {
+    padding: calc(var(--header-height) + var(--space-2xl)) 0 64px;
+}
+
+.container {
+    width: min(1220px, calc(100% - 32px));
+    margin: 0 auto;
+}
+
+.loopWrap {
+    margin: 20px 0 28px;
+}
+
+.programStack {
+    display: grid;
+    gap: 28px;
+}
+
+.kicker {
+    display: inline-flex;
+    width: fit-content;
+    min-height: 22px;
+    align-items: center;
+    border: 1px solid rgba(34, 211, 238, 0.24);
+    background: rgba(34, 211, 238, 0.08);
+    color: #67e8f9;
+    padding: 4px 8px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0;
+    text-transform: uppercase;
+}
+
+.primaryLink,
+.secondaryLink {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 900;
+    line-height: 1.2;
+    text-align: center;
+    text-decoration: none;
+    text-transform: uppercase;
+}
+
+.primaryLink {
+    border: 1px solid #f97316;
+    background: #f97316;
+    color: #111;
+}
+
+.secondaryLink {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.045);
+    color: rgb(235, 237, 244);
+}
+
+.emptyState,
+.lockPanel,
+.activeLinePanel {
+    display: grid;
+    gap: 18px;
+    padding: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 8px;
+    background: rgba(12, 13, 18, 0.86);
+}
+
+.emptyState {
+    grid-template-columns: minmax(260px, 0.82fr) minmax(0, 1fr);
+    align-items: center;
+    border-color: rgba(34, 211, 238, 0.22);
+    background:
+        linear-gradient(135deg, rgba(6, 182, 212, 0.08), rgba(249, 115, 22, 0.06)),
+        rgba(12, 13, 18, 0.9);
+}
+
+.emptyState h2,
+.lockPanel h2,
+.activeLinePanel h2,
+.sectionHeader h2 {
+    margin: 10px 0 0;
+    font-size: clamp(28px, 3.4vw, 46px);
+    line-height: 1;
+    font-weight: 900;
+    letter-spacing: 0;
+    text-transform: uppercase;
+}
+
+.emptyState p,
+.lockPanel p,
+.activeLinePanel p,
+.sectionHeader p,
+.overviewGrid p,
+.missionCard p,
+.missionCard dd,
+.checkpointCard p,
+.repairPanel p {
+    margin: 0;
+    color: rgb(183, 187, 198);
+    font-size: 14px;
+    line-height: 1.55;
+}
+
+.emptyState p,
+.lockPanel p,
+.activeLinePanel p,
+.sectionHeader p {
+    margin-top: 12px;
+    max-width: 760px;
+}
+
+.emptyActions,
+.lockActions,
+.lineActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.overviewGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.overviewGrid > div {
+    min-height: 150px;
+    display: grid;
+    align-content: start;
+    gap: 10px;
+    padding: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(12, 13, 18, 0.76);
+}
+
+.overviewGrid strong {
+    color: #fff;
+    font-size: 22px;
+    font-weight: 900;
+    line-height: 1.08;
+    overflow-wrap: anywhere;
+}
+
+.sectionHeader {
+    display: grid;
+    gap: 0;
+    margin-bottom: 18px;
+}
+
+.weekMap {
+    display: grid;
+    gap: 24px;
+}
+
+.weekBlock {
+    display: grid;
+    gap: 16px;
+    padding-top: 22px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.weekBlock[data-active='true'] {
+    border-top-color: rgba(249, 115, 22, 0.64);
+}
+
+.weekHeader {
+    display: grid;
+    grid-template-columns: minmax(0, 0.7fr) minmax(0, 1fr);
+    gap: 16px;
+    align-items: end;
+}
+
+.weekHeader h3 {
+    margin: 10px 0 0;
+    color: #fff;
+    font-size: clamp(24px, 3vw, 38px);
+    font-weight: 900;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
+.weekMeta,
+.checkpointMeta,
+.missionTopline,
+.missionEvidence,
+.reasonList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.weekMeta {
+    justify-content: flex-end;
+}
+
+.weekMeta span,
+.checkpointMeta span,
+.missionTopline span,
+.missionEvidence span,
+.reasonList span {
+    min-height: 28px;
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 999px;
+    color: rgb(224, 227, 236);
+    background: rgba(0, 0, 0, 0.2);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+    text-transform: uppercase;
+}
+
+.reasonList span {
+    border-color: rgba(251, 191, 36, 0.26);
+    color: #fde68a;
+    background: rgba(251, 191, 36, 0.08);
+    text-transform: none;
+}
+
+.missionGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.singleMission {
+    max-width: 720px;
+}
+
+.missionCard,
+.checkpointCard,
+.repairPanel {
+    display: grid;
+    gap: 14px;
+    min-width: 0;
+    padding: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(12, 13, 18, 0.86);
+    box-shadow: 0 18px 58px rgba(0, 0, 0, 0.22);
+}
+
+.missionCard h3,
+.checkpointCard h3,
+.repairPanel h3 {
+    margin: 0;
+    color: #fff;
+    font-size: 22px;
+    font-weight: 900;
+    line-height: 1.08;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+}
+
+.missionAnatomy {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+}
+
+.missionAnatomy div {
+    display: grid;
+    gap: 4px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.missionAnatomy dt {
+    color: rgb(132, 139, 156);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 900;
+    line-height: 1.2;
+    text-transform: uppercase;
+}
+
+.checkpointRail {
+    display: grid;
+    gap: 0;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.checkpointGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.checkpointCard > span {
+    width: fit-content;
+    color: #67e8f9;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.activeLinePanel {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    border-color: rgba(34, 211, 238, 0.18);
+}
+
+.repairGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.repairPanel {
+    border-color: rgba(251, 191, 36, 0.24);
+    background: rgba(36, 25, 9, 0.72);
+}
+
+@media (max-width: 920px) {
+    .main {
+        padding-top: calc(var(--header-height) + var(--space-lg));
+    }
+
+    .container {
+        width: min(100% - 20px, 680px);
+    }
+
+    .emptyState,
+    .overviewGrid,
+    .weekHeader,
+    .missionGrid,
+    .checkpointGrid,
+    .activeLinePanel,
+    .repairGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .weekMeta {
+        justify-content: flex-start;
+    }
+
+    .lineActions,
+    .lockActions,
+    .emptyActions {
+        width: 100%;
+    }
+
+    .primaryLink,
+    .secondaryLink {
+        width: 100%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .primaryLink,
+    .secondaryLink {
+        transition: none;
+    }
+}

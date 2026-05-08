@@ -8,8 +8,12 @@ import {
 import { projectTrainingProgramForAccess } from '@/lib/training-program-projection';
 import { resolveServerProductAccess } from '@/lib/product-access-server';
 import { Header } from '@/ui/components/header';
+import { LoopRail } from '@/ui/components/loop-rail';
 import { PageCommandHeader } from '@/ui/components/page-command-header';
 import type { TrainingProgramCycleSnapshot } from '@/types/training-programs';
+import { CicloProProgramMap } from './ciclo-pro-program-map';
+import { buildCicloProViewModel } from './ciclo-pro-view-model';
+import styles from './ciclo-pro.module.css';
 
 export const metadata: Metadata = {
     title: 'Ciclo Pro | Sens PUBG',
@@ -71,69 +75,32 @@ export default async function CicloProPage({
         access,
         cycle: programState.cycle,
     });
-
-    if (programState.loadError) {
-        return (
-            <div className="min-h-screen bg-[#08080c] text-white">
-                <Header />
-                <main className="page">
-                    <div className="container" style={{ maxWidth: '1180px' }}>
-                        <PageCommandHeader
-                            body="Nao foi possivel abrir esse ciclo com seguranca. Use uma analise salva ou retome pelo historico."
-                            evidenceItems={[
-                                { label: 'Estado', value: 'Reparo', tone: 'warning' },
-                                { label: 'Motivo', value: programState.loadError, tone: 'warning' },
-                                { label: 'Acesso', value: projection.tier, tone: projection.tier === 'free' ? 'info' : 'pro' },
-                            ]}
-                            primaryAction={{ label: 'Abrir historico', href: '/history' }}
-                            roleLabel="Ciclo Pro"
-                            title="Ciclo Pro em reparo"
-                        />
-                    </div>
-                </main>
-            </div>
-        );
-    }
-
-    if (!programState.cycle) {
-        return (
-            <div className="min-h-screen bg-[#08080c] text-white">
-                <Header />
-                <main className="page">
-                    <div className="container" style={{ maxWidth: '1180px' }}>
-                        <PageCommandHeader
-                            body="Nenhum Ciclo Pro ativo foi encontrado. Salve uma analise com protocolo, abra o historico ou grave uma validacao antes de criar um mapa real."
-                            evidenceItems={[
-                                { label: 'Estado', value: 'Sem ciclo ativo', tone: 'warning' },
-                                { label: 'Entrada', value: 'analise salva ou protocolo', tone: 'info' },
-                                { label: 'Verdade', value: 'sem programa inventado', tone: 'success' },
-                            ]}
-                            primaryAction={{ label: 'Abrir Analyze', href: '/analyze' }}
-                            roleLabel="Ciclo Pro"
-                            title="Nenhum Ciclo Pro ativo"
-                        />
-                    </div>
-                </main>
-            </div>
-        );
-    }
+    const model = buildCicloProViewModel({
+        projection,
+        loadError: programState.loadError,
+    });
 
     return (
-        <div className="min-h-screen bg-[#08080c] text-white">
+        <div className={styles.shell}>
             <Header />
-            <main className="page">
-                <div className="container" style={{ maxWidth: '1180px' }}>
+            <main className={styles.main}>
+                <div className={styles.container}>
                     <PageCommandHeader
-                        body={projection.evidence?.summary ?? 'Ciclo carregado com evidencia preservada.'}
-                        evidenceItems={[
-                            { label: 'Estado', value: projection.fullCycle?.state ?? programState.cycle.state, tone: 'info' },
-                            { label: 'Semana', value: `${programState.cycle.currentWeekNumber} de 4`, tone: 'info' },
-                            { label: 'Acesso', value: projection.tier, tone: projection.tier === 'free' ? 'info' : 'pro' },
-                        ]}
-                        primaryAction={projection.nextStep}
-                        roleLabel="Ciclo Pro"
-                        title={projection.fullCycle?.label ?? 'Desbloqueie o Ciclo Pro de 30 dias'}
+                        body={model.body}
+                        evidenceItems={model.evidenceItems}
+                        primaryAction={model.primaryAction}
+                        roleLabel={model.roleLabel}
+                        title={model.title}
                     />
+                    <div className={styles.loopWrap}>
+                        <LoopRail
+                            blocked={model.routeState === 'empty' || model.routeState === 'locked' || model.routeState === 'repair'}
+                            currentStage={model.loopStage}
+                            evidenceLabel={model.loopEvidenceLabel}
+                            nextActionLabel={model.primaryAction.label}
+                        />
+                    </div>
+                    <CicloProProgramMap model={model} />
                 </div>
             </main>
         </div>
