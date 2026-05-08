@@ -19,6 +19,8 @@ const FULL_TREND_FEATURE: ProductEntitlementKey = 'trends.compatible_full';
 const EVOLUTION_FEATURE: ProductEntitlementKey = 'precision.evolution_lines';
 const CHECKPOINT_FEATURE: ProductEntitlementKey = 'precision.checkpoints';
 const VALIDATION_FEATURE: ProductEntitlementKey = 'coach.validation_loop';
+const SPRAY_LAB_SESSION_RUNNER_FEATURE: ProductEntitlementKey = 'spray_lab.session_runner';
+const SPRAY_LAB_BENCHMARKS_FEATURE: ProductEntitlementKey = 'spray_lab.benchmarks';
 
 const PREMIUM_FEATURES = [
     FULL_COACH_FEATURE,
@@ -30,6 +32,8 @@ const PREMIUM_FEATURES = [
     EVOLUTION_FEATURE,
     CHECKPOINT_FEATURE,
     VALIDATION_FEATURE,
+    SPRAY_LAB_SESSION_RUNNER_FEATURE,
+    SPRAY_LAB_BENCHMARKS_FEATURE,
 ] as const satisfies readonly ProductEntitlementKey[];
 
 const FEATURE_TITLES: Record<ProductEntitlementKey, string> = {
@@ -78,6 +82,8 @@ const FREE_VISIBLE_COPY: Partial<Record<ProductEntitlementKey, string>> = {
     'trends.compatible_full': 'resumo de tendencia e motivo de bloqueio continuam visiveis no Free',
     'precision.evolution_lines': 'direcao principal e checkpoints essenciais continuam visiveis no Free',
     'precision.checkpoints': 'estado atual do clip e proxima validacao continuam visiveis no Free',
+    'spray_lab.session_runner': 'sessao guiada basica, checklist, timer simples, score provisorio e CTA de validacao continuam visiveis no Free',
+    'spray_lab.benchmarks': 'score provisorio e status de fidelidade continuam visiveis no Free sem vender dado externo exclusivo',
 };
 
 const PRO_VALUE_COPY: Partial<Record<ProductEntitlementKey, string>> = {
@@ -90,6 +96,8 @@ const PRO_VALUE_COPY: Partial<Record<ProductEntitlementKey, string>> = {
     'trends.compatible_full': 'Pro adiciona tendencia comparavel completa com deltas e bloqueios auditaveis',
     'precision.evolution_lines': 'Pro adiciona linhas de evolucao por contexto estrito',
     'precision.checkpoints': 'Pro adiciona checkpoints antigos e retomada de linha ativa',
+    'spray_lab.session_runner': 'Pro adiciona runner profundo, lanes avancadas, auditoria, historico de sessoes e continuidade por contexto',
+    'spray_lab.benchmarks': 'Pro adiciona indice validado, benchmark por contexto e comparacoes entre suas sessoes e clips compativeis',
 };
 
 function reasonFromAccess(access: ProductAccessResolution): PremiumLockReason {

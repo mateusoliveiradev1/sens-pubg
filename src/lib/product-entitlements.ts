@@ -118,6 +118,8 @@ export const productProEntitlementKeys = [
     'metrics.advanced',
     'coach.outcome_capture',
     'coach.validation_loop',
+    'spray_lab.session_runner',
+    'spray_lab.benchmarks',
     'billing.portal_access',
 ] as const satisfies readonly ProductEntitlementKey[];
 
