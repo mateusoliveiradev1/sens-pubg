@@ -394,6 +394,8 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **Goal:** Organize the Pro loop into weekly and monthly adaptive training programs.
 
+**Status:** In progress as of 2026-05-08. Plan 10-01 is complete; 1/6 plans complete.
+
 **Requirements:** PREC-03, COACH-01, COACH-02, COACH-03, COACH-04, COACH-05, MON-01, MON-02
 
 **Success Criteria:**
