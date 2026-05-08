@@ -26,6 +26,7 @@ import {
     applySensitivityHistoryConvergence,
     type HistoricalSensitivitySignal,
 } from '@/core/sensitivity-history-convergence';
+import { trainingProgramReasonCopy } from '@/core/training-programs';
 import { db } from '@/db';
 import {
     analysisSessions,
@@ -39,6 +40,7 @@ import {
     sprayLabSessions,
     sprayLabValidationLinks,
     trainingProtocolTransferRecords,
+    trainingProgramCycles,
     weaponProfiles,
     type CoachProtocolOutcomeRow,
 } from '@/db/schema';
@@ -63,11 +65,20 @@ import {
     type AnalysisQuotaReservation,
 } from '@/lib/quota-ledger';
 import { resolveProductAccess, type ProductAccessResolution } from '@/lib/product-entitlements';
+import { projectTrainingProgramForAccess } from '@/lib/training-program-projection';
 import type {
     AnalysisSaveAccessState,
     AnalysisSaveQuotaNotice,
     ProductQuotaSummary,
 } from '@/types/monetization';
+import type {
+    TrainingProgramCheckpointLayer,
+    TrainingProgramCycleSnapshot,
+    TrainingProgramKind,
+    TrainingProgramMissionStatus,
+    TrainingProgramReasonCode,
+    TrainingProgramState,
+} from '@/types/training-programs';
 import type {
     AnalysisResult,
     CoachDecisionSnapshot,
@@ -130,6 +141,20 @@ interface HistorySprayLabValidationRow {
     readonly updatedAt: Date;
 }
 
+interface HistoryTrainingProgramCycleRow {
+    readonly baseAnalysisSessionId: string;
+    readonly kind: TrainingProgramKind;
+    readonly state: TrainingProgramState;
+    readonly currentWeekNumber: number;
+    readonly reasonCodes: readonly TrainingProgramReasonCode[];
+    readonly visibleReason: string;
+    readonly blockerSummary: string;
+    readonly snapshot: TrainingProgramCycleSnapshot;
+    readonly updatedAt: Date;
+    readonly archivedAt: Date | null;
+    readonly completedAt: Date | null;
+}
+
 export interface PrecisionHistoryCheckpointSummary {
     readonly id: string;
     readonly lineId: string;
@@ -183,6 +208,29 @@ export interface HistorySprayLabContinuitySummary {
     readonly nextActionLabel: string;
     readonly nextActionHref: string;
     readonly blockerReasons: readonly string[];
+}
+
+export interface HistoryTrainingProgramContinuitySummary {
+    readonly cycleId: string;
+    readonly kindLabel: string;
+    readonly cycleLabel: string;
+    readonly stateLabel: string;
+    readonly strictContextLabel: string;
+    readonly weekLabel: string;
+    readonly latestMissionLabel: string;
+    readonly latestMissionStatusLabel: string;
+    readonly latestCheckpointLabel: string;
+    readonly latestCheckpointLayerLabel: string;
+    readonly reasonLabel: string;
+    readonly blockerReasons: readonly string[];
+    readonly nextActionLabel: string;
+    readonly nextActionHref: string;
+    readonly auditHref: string;
+    readonly projectionDepth: 'basic_next_step' | 'full_30_day_cycle';
+    readonly canSeeProgramAudit: boolean;
+    readonly archivedLineCount: number;
+    readonly archivedAt: Date | null;
+    readonly completedAt: Date | null;
 }
 
 export interface RecordCoachProtocolOutcomeInput {
@@ -1432,6 +1480,83 @@ function isHistorySprayLabValidationRow(row: unknown): row is HistorySprayLabVal
     return typeof row.labSessionId === 'string';
 }
 
+function isTrainingProgramKind(value: unknown): value is TrainingProgramKind {
+    return value === 'ciclo_pro' || value === 'ciclo_reparo';
+}
+
+function isTrainingProgramState(value: unknown): value is TrainingProgramState {
+    return value === 'preparando'
+        || value === 'ativo'
+        || value === 'reparando'
+        || value === 'consolidando'
+        || value === 'validacao_pendente'
+        || value === 'progresso_validado'
+        || value === 'sem_mudanca_clara'
+        || value === 'regressao_validada'
+        || value === 'inconclusivo'
+        || value === 'linha_reiniciada'
+        || value === 'concluido'
+        || value === 'pausado'
+        || value === 'contexto_desatualizado';
+}
+
+function isTrainingProgramReasonCode(value: unknown): value is TrainingProgramReasonCode {
+    return value === 'fidelity_dropped'
+        || value === 'validation_inconclusive'
+        || value === 'variable_changed'
+        || value === 'outcome_conflict'
+        || value === 'fatigue_reduced_dose'
+        || value === 'discomfort_stop'
+        || value === 'stale_context'
+        || value === 'compatible_proof_missing'
+        || value === 'blocker_repaired'
+        || value === 'missed_day_reentry'
+        || value === 'line_restart'
+        || value === 'missing_saved_analysis'
+        || value === 'missing_context'
+        || value === 'missing_protocol'
+        || value === 'weak_base_evidence'
+        || value === 'low_coverage'
+        || value === 'low_confidence'
+        || value === 'confusion_simplified'
+        || value === 'repeated_failure_consolidation';
+}
+
+function isHistoryTrainingProgramCycleSnapshot(value: unknown): value is TrainingProgramCycleSnapshot {
+    if (!isRecord(value)) {
+        return false;
+    }
+
+    return value.version === 'ciclo-pro-v1'
+        && typeof value.id === 'string'
+        && isTrainingProgramKind(value.kind)
+        && isTrainingProgramState(value.state)
+        && typeof value.label === 'string'
+        && typeof value.strictContextLabel === 'string'
+        && Array.isArray(value.weeks)
+        && Array.isArray(value.checkpoints)
+        && Array.isArray(value.transitionEvents)
+        && typeof value.currentWeekNumber === 'number';
+}
+
+function isHistoryTrainingProgramCycleRow(row: unknown): row is HistoryTrainingProgramCycleRow {
+    if (!isRecord(row) || !isHistoryTrainingProgramCycleSnapshot(row.snapshot)) {
+        return false;
+    }
+
+    return typeof row.baseAnalysisSessionId === 'string'
+        && isTrainingProgramKind(row.kind)
+        && isTrainingProgramState(row.state)
+        && typeof row.currentWeekNumber === 'number'
+        && Array.isArray(row.reasonCodes)
+        && row.reasonCodes.every(isTrainingProgramReasonCode)
+        && typeof row.visibleReason === 'string'
+        && typeof row.blockerSummary === 'string'
+        && row.updatedAt instanceof Date
+        && (row.archivedAt === null || row.archivedAt instanceof Date)
+        && (row.completedAt === null || row.completedAt instanceof Date);
+}
+
 function readString(value: Record<string, unknown> | undefined, key: string): string | undefined {
     const property = value?.[key];
     return typeof property === 'string' && property.trim().length > 0
@@ -2354,6 +2479,147 @@ function toHistorySprayLabContinuity(
     };
 }
 
+function formatTrainingProgramKindLabel(kind: TrainingProgramKind): string {
+    switch (kind) {
+        case 'ciclo_pro':
+            return 'Ciclo Pro';
+        case 'ciclo_reparo':
+            return 'Ciclo Reparo';
+    }
+}
+
+function formatTrainingProgramStateLabel(state: TrainingProgramState): string {
+    switch (state) {
+        case 'preparando':
+            return 'Preparando';
+        case 'ativo':
+            return 'Ativo';
+        case 'reparando':
+            return 'Em reparo';
+        case 'consolidando':
+            return 'Consolidando';
+        case 'validacao_pendente':
+            return 'Validacao pendente';
+        case 'progresso_validado':
+            return 'Progresso validado';
+        case 'sem_mudanca_clara':
+            return 'Sem mudanca clara';
+        case 'regressao_validada':
+            return 'Regressao validada';
+        case 'inconclusivo':
+            return 'Inconclusivo';
+        case 'linha_reiniciada':
+            return 'Linha reiniciada';
+        case 'concluido':
+            return 'Concluido';
+        case 'pausado':
+            return 'Pausado';
+        case 'contexto_desatualizado':
+            return 'Contexto desatualizado';
+    }
+}
+
+function formatTrainingProgramMissionStatusLabel(status: TrainingProgramMissionStatus): string {
+    switch (status) {
+        case 'locked':
+            return 'bloqueada';
+        case 'available':
+            return 'disponivel';
+        case 'active':
+            return 'ativa';
+        case 'completed':
+            return 'concluida';
+        case 'blocked':
+            return 'bloqueada por evidencia';
+        case 'skipped_reentered':
+            return 'reencaixada';
+    }
+}
+
+function formatTrainingProgramCheckpointLayerLabel(layer: TrainingProgramCheckpointLayer): string {
+    switch (layer) {
+        case 'weekly_operational':
+            return 'Checkpoint semanal operacional';
+        case 'technical_validated':
+            return 'Checkpoint tecnico validado';
+        case 'monthly_program':
+            return 'Checkpoint mensal do ciclo';
+    }
+}
+
+function latestTrainingProgramMission(cycle: TrainingProgramCycleSnapshot) {
+    const missions = cycle.weeks.flatMap((week) => week.missions);
+
+    return missions.find((mission) => mission.id === cycle.currentMissionId)
+        ?? [...missions].reverse().find((mission) => mission.status === 'completed')
+        ?? missions.find((mission) => mission.status !== 'locked')
+        ?? missions[0]
+        ?? null;
+}
+
+function latestTrainingProgramCheckpoint(cycle: TrainingProgramCycleSnapshot) {
+    return [...cycle.checkpoints]
+        .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))[0]
+        ?? null;
+}
+
+function formatTrainingProgramReasons(
+    reasonCodes: readonly TrainingProgramReasonCode[],
+    fallback: string,
+): string {
+    if (reasonCodes.length === 0) {
+        return fallback;
+    }
+
+    return reasonCodes.map(trainingProgramReasonCopy).join(' ');
+}
+
+function toHistoryTrainingProgramContinuity(
+    row: HistoryTrainingProgramCycleRow,
+    access: ProductAccessResolution,
+): HistoryTrainingProgramContinuitySummary {
+    const cycle = row.snapshot;
+    const projection = projectTrainingProgramForAccess({
+        access,
+        cycle,
+    });
+    const mission = projection.basicMission ?? latestTrainingProgramMission(cycle);
+    const latestCheckpoint = latestTrainingProgramCheckpoint(cycle);
+    const reasonCodes = row.reasonCodes.length > 0 ? row.reasonCodes : cycle.reasonCodes;
+    const blockerReasons = Array.from(new Set([
+        ...cycle.evidenceSummary.blockers.map(trainingProgramReasonCopy),
+        ...reasonCodes.map(trainingProgramReasonCopy),
+    ]));
+
+    return {
+        cycleId: cycle.id,
+        kindLabel: formatTrainingProgramKindLabel(row.kind),
+        cycleLabel: cycle.label,
+        stateLabel: formatTrainingProgramStateLabel(row.state),
+        strictContextLabel: cycle.strictContextLabel,
+        weekLabel: `Semana ${cycle.currentWeekNumber}/4`,
+        latestMissionLabel: mission?.title ?? 'Missao pendente',
+        latestMissionStatusLabel: mission ? formatTrainingProgramMissionStatusLabel(mission.status) : 'pendente',
+        latestCheckpointLabel: latestCheckpoint?.summary ?? 'Checkpoint pendente',
+        latestCheckpointLayerLabel: latestCheckpoint
+            ? formatTrainingProgramCheckpointLayerLabel(latestCheckpoint.layer)
+            : 'Checkpoint pendente',
+        reasonLabel: formatTrainingProgramReasons(
+            reasonCodes,
+            row.visibleReason || cycle.evidenceSummary.summary,
+        ),
+        blockerReasons,
+        nextActionLabel: projection.nextStep.label,
+        nextActionHref: projection.nextStep.href,
+        auditHref: `/history/${row.baseAnalysisSessionId}#history-training-program-audit`,
+        projectionDepth: projection.depth,
+        canSeeProgramAudit: projection.canSeeProgramAudit,
+        archivedLineCount: cycle.archivedLines.length,
+        archivedAt: row.archivedAt,
+        completedAt: row.completedAt,
+    };
+}
+
 function isHistoryCoachFocusArea(value: unknown): value is CoachFocusArea {
     return value === 'capture_quality'
         || value === 'vertical_control'
@@ -2492,6 +2758,36 @@ export async function getHistorySessions() {
             latestValidationByLabSession.set(row.labSessionId, row);
         }
 
+        const rawTrainingProgramRows = await db
+            .select({
+                baseAnalysisSessionId: trainingProgramCycles.baseAnalysisSessionId,
+                kind: trainingProgramCycles.kind,
+                state: trainingProgramCycles.state,
+                currentWeekNumber: trainingProgramCycles.currentWeekNumber,
+                reasonCodes: trainingProgramCycles.reasonCodes,
+                visibleReason: trainingProgramCycles.visibleReason,
+                blockerSummary: trainingProgramCycles.blockerSummary,
+                snapshot: trainingProgramCycles.snapshot,
+                updatedAt: trainingProgramCycles.updatedAt,
+                archivedAt: trainingProgramCycles.archivedAt,
+                completedAt: trainingProgramCycles.completedAt,
+            })
+            .from(trainingProgramCycles)
+            .where(eq(trainingProgramCycles.userId, session.user.id))
+            .orderBy(desc(trainingProgramCycles.updatedAt));
+        const trainingProgramRows = Array.isArray(rawTrainingProgramRows)
+            ? rawTrainingProgramRows.filter(isHistoryTrainingProgramCycleRow)
+            : [];
+        const latestTrainingProgramByBaseSession = new Map<string, HistoryTrainingProgramCycleRow>();
+
+        for (const row of trainingProgramRows) {
+            const current = latestTrainingProgramByBaseSession.get(row.baseAnalysisSessionId);
+
+            if (!current || row.updatedAt.getTime() > current.updatedAt.getTime()) {
+                latestTrainingProgramByBaseSession.set(row.baseAnalysisSessionId, row);
+            }
+        }
+
         const latestOutcomeBySession = new Map<string, CoachProtocolOutcome>();
         const revisionCountBySession = new Map<string, number>();
 
@@ -2527,6 +2823,10 @@ export async function getHistorySessions() {
                     : null,
             });
             const sprayLabContinuity = toHistorySprayLabContinuity(sprayLabHandoff);
+            const trainingProgramRow = latestTrainingProgramByBaseSession.get(historySession.id);
+            const trainingProgramContinuity = trainingProgramRow
+                ? toHistoryTrainingProgramContinuity(trainingProgramRow, access)
+                : undefined;
             const hasCoachPlan = typeof coachPlan === 'object' && coachPlan !== null;
             const evidenceSummary = buildHistorySessionEvidenceSummary(fullResultRecord);
             const protocolContinuity = buildHistoryProtocolContinuity(fullResultRecord);
@@ -2557,6 +2857,7 @@ export async function getHistorySessions() {
                 ...(acceptanceFeedback ? { acceptanceFeedback } : {}),
                 ...(protocolContinuity ? { protocolContinuity } : {}),
                 ...(sprayLabContinuity ? { sprayLabContinuity } : {}),
+                ...(trainingProgramContinuity ? { trainingProgramContinuity } : {}),
                 coachOutcomeStatus,
             };
         });

@@ -885,8 +885,11 @@ export default async function HistoryPage({
                                     const precisionContext = findSessionPrecisionContext(session.id, precisionLines);
                                     const protocolContinuity = session.protocolContinuity;
                                     const sprayLabContinuity = session.sprayLabContinuity;
+                                    const trainingProgramContinuity = session.trainingProgramContinuity;
                                     const sessionActionLabel = session.coachOutcomeStatus
                                         ? 'Ver auditoria do coach'
+                                        : trainingProgramContinuity
+                                            ? trainingProgramContinuity.nextActionLabel
                                         : sprayLabContinuity
                                             ? sprayLabContinuity.nextActionLabel
                                         : protocolContinuity
@@ -1045,6 +1048,26 @@ export default async function HistoryPage({
                                                                     Spray Lab: {sprayLabContinuity.statusLabel}
                                                                 </span>
                                                             ) : null}
+
+                                                            {trainingProgramContinuity ? (
+                                                                <span
+                                                                    style={{
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        padding: '6px 10px',
+                                                                        borderRadius: '999px',
+                                                                        border: '1px solid rgba(34, 197, 94, 0.22)',
+                                                                        background: 'rgba(34, 197, 94, 0.1)',
+                                                                        color: 'var(--color-success)',
+                                                                        fontSize: '11px',
+                                                                        fontWeight: 700,
+                                                                        letterSpacing: '0.04em',
+                                                                        textTransform: 'uppercase',
+                                                                    }}
+                                                                >
+                                                                    {trainingProgramContinuity.kindLabel}: {trainingProgramContinuity.stateLabel}
+                                                                </span>
+                                                            ) : null}
                                                         </div>
 
                                                         <p style={{ margin: 0, color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
@@ -1142,10 +1165,34 @@ export default async function HistoryPage({
                                                                 />
                                                             </>
                                                         ) : null}
+                                                        {trainingProgramContinuity ? (
+                                                            <>
+                                                                <EvidenceChip
+                                                                    label={trainingProgramContinuity.kindLabel}
+                                                                    tone={trainingProgramContinuity.blockerReasons.length > 0 ? 'warning' : 'success'}
+                                                                    value={trainingProgramContinuity.cycleLabel}
+                                                                />
+                                                                <EvidenceChip
+                                                                    label="Semana Ciclo Pro"
+                                                                    tone="info"
+                                                                    value={trainingProgramContinuity.weekLabel}
+                                                                />
+                                                                <EvidenceChip
+                                                                    label="Missao Ciclo Pro"
+                                                                    tone={trainingProgramContinuity.latestMissionStatusLabel === 'bloqueada por evidencia' ? 'warning' : 'info'}
+                                                                    value={trainingProgramContinuity.latestMissionLabel}
+                                                                />
+                                                                <EvidenceChip
+                                                                    label="Checkpoint Ciclo Pro"
+                                                                    tone={trainingProgramContinuity.latestCheckpointLabel === 'Checkpoint pendente' ? 'warning' : 'info'}
+                                                                    value={trainingProgramContinuity.latestCheckpointLayerLabel}
+                                                                />
+                                                            </>
+                                                        ) : null}
                                                     </div>
-                                                    {evidenceSummary?.blockerReasons.length || sprayLabContinuity?.blockerReasons.length ? (
+                                                    {evidenceSummary?.blockerReasons.length || sprayLabContinuity?.blockerReasons.length || trainingProgramContinuity?.blockerReasons.length ? (
                                                         <div style={{ display: 'grid', gap: '6px' }} aria-label="Bloqueadores visiveis">
-                                                            {[...(evidenceSummary?.blockerReasons ?? []), ...(sprayLabContinuity?.blockerReasons ?? [])].slice(0, 3).map((reason) => (
+                                                            {[...(evidenceSummary?.blockerReasons ?? []), ...(sprayLabContinuity?.blockerReasons ?? []), ...(trainingProgramContinuity?.blockerReasons ?? [])].slice(0, 3).map((reason) => (
                                                                 <span
                                                                     key={reason}
                                                                     style={{

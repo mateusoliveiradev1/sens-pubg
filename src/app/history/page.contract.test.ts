@@ -85,6 +85,11 @@ describe('history page field evolution contract', () => {
         expect(listSource).toMatch(/Protocolo salvo/);
         expect(listSource).toMatch(/Validacao compativel/);
         expect(listSource).toMatch(/Transferencia em partida\/TDM/);
+        expect(listSource).toMatch(/trainingProgramContinuity/);
+        expect(listSource).toMatch(/Ciclo Pro/);
+        expect(listSource).toMatch(/Semana Ciclo Pro/);
+        expect(listSource).toMatch(/Missao Ciclo Pro/);
+        expect(listSource).toMatch(/Checkpoint Ciclo Pro/);
 
         expect(detailSource).toMatch(/Auditoria do coach/);
         expect(detailSource).toMatch(/buildHistoryProtocolViewModel/);

@@ -14,6 +14,7 @@ import { resolveAnalysisDecision } from '@/core/analysis-decision';
 import { buildCompatibleValidationChecklistFromProtocol } from '@/core/complete-training-protocol-validation';
 import { CURRENT_PUBG_PATCH_VERSION } from '@/game/pubg/patch';
 import type { AnalysisResult, CoachPlan, CompleteTrainingProtocol, PrecisionTrendSummary } from '@/types/engine';
+import type { TrainingProgramCycleSnapshot } from '@/types/training-programs';
 
 const mocks = vi.hoisted(() => {
     const auth = vi.fn();
@@ -588,6 +589,136 @@ function createCompleteProtocol(overrides: Partial<CompleteTrainingProtocol> = {
         freeSummary: ['Foco, duracao e passos essenciais ficam visiveis.'],
         proSections: ['Reps completas', 'Auditoria completa'],
         llmRewriteAllowed: false,
+        ...overrides,
+    };
+}
+
+function createTrainingProgramCycleSnapshot(
+    overrides: Partial<TrainingProgramCycleSnapshot> = {},
+): TrainingProgramCycleSnapshot {
+    const mission = {
+        id: 'program-mission-2',
+        weekNumber: 2 as const,
+        slot: 'main_2' as const,
+        category: 'validation' as const,
+        status: 'active' as const,
+        title: 'Validar controle vertical no contexto Beryl',
+        anatomy: {
+            agora: 'Grave validacao compativel mantendo as mesmas variaveis.',
+            porQueImporta: 'Sem clip compativel, execucao do ciclo nao vira prova tecnica.',
+            oQueInvalida: 'Trocar mira, distancia, grip ou sensibilidade invalida a comparacao.',
+            evidenciaGerada: 'Clip compativel para checkpoint tecnico.',
+            proximoCta: {
+                label: 'Gravar validacao compativel',
+                href: '/analyze?mode=validation',
+                target: 'analyze_validation' as const,
+            },
+        },
+        stateAfterCompletion: 'validacao_pendente' as const,
+        reasonCodes: ['compatible_proof_missing'] as const,
+        evidenceRefs: [],
+    };
+    const checkpoint = {
+        id: 'program-checkpoint-week-1',
+        layer: 'weekly_operational' as const,
+        weekNumber: 1 as const,
+        state: 'validacao_pendente' as const,
+        outcome: 'validation_pending' as const,
+        createdAt: '2026-05-06T12:00:00.000Z',
+        evidenceSummary: {
+            savedAnalysisId: 'session-1',
+            analysisDecisionLevel: 'usable_analysis' as const,
+            context: createCompleteProtocol().context,
+            fidelityReasonCodes: [],
+            confidence: 0.78,
+            coverage: 0.8,
+            blockers: ['compatible_proof_missing'] as const,
+            summary: 'Semana executada; validacao compativel ainda pendente.',
+        },
+        reasonCodes: ['compatible_proof_missing'] as const,
+        canIncreaseDifficulty: false,
+        nextRecommendation: 'consolidar' as const,
+        summary: 'Checkpoint semanal operacional: manter validacao compativel pendente.',
+    };
+
+    return {
+        version: 'ciclo-pro-v1',
+        id: 'program-cycle-1',
+        kind: 'ciclo_pro',
+        state: 'validacao_pendente',
+        label: 'Ciclo Pro Beryl 3x 50m',
+        createdAt: '2026-05-05T12:00:00.000Z',
+        updatedAt: '2026-05-06T12:00:00.000Z',
+        baseAnalysisId: 'session-1',
+        activeLine: {
+            lineId: 'line-1',
+            contextKey: 'beryl:red-dot:50m',
+            label: 'Beryl / Red Dot / 50m',
+            active: true,
+            startedAt: '2026-05-05T12:00:00.000Z',
+            restartReasonCodes: [],
+        },
+        archivedLines: [],
+        strictContextKey: 'beryl:red-dot:50m',
+        strictContextLabel: 'Beryl M762 / Red Dot / 50m',
+        evidenceSummary: {
+            savedAnalysisId: 'session-1',
+            analysisDecisionLevel: 'usable_analysis',
+            protocol: createCompleteProtocol(),
+            protocolId: 'complete-protocol-1',
+            context: createCompleteProtocol().context,
+            fidelityReasonCodes: [],
+            confidence: 0.78,
+            coverage: 0.8,
+            blockers: ['compatible_proof_missing'],
+            summary: 'Base suficiente para ciclo, mas progresso tecnico ainda precisa de clip compativel.',
+        },
+        weeks: [
+            {
+                id: 'program-week-1',
+                weekNumber: 1,
+                label: 'Semana 1',
+                state: 'validacao_pendente',
+                startedAt: '2026-05-05T12:00:00.000Z',
+                closedAt: '2026-05-06T12:00:00.000Z',
+                missions: [
+                    {
+                        ...mission,
+                        id: 'program-mission-1',
+                        weekNumber: 1,
+                        slot: 'main_1',
+                        status: 'completed',
+                        title: 'Executar lane base Beryl',
+                    },
+                ],
+                checkpointIds: ['program-checkpoint-week-1'],
+                reasonCodes: ['compatible_proof_missing'],
+                canIncreaseDifficulty: false,
+                recoveryAction: 'consolidar',
+            },
+            {
+                id: 'program-week-2',
+                weekNumber: 2,
+                label: 'Semana 2',
+                state: 'validacao_pendente',
+                missions: [mission],
+                checkpointIds: [],
+                reasonCodes: ['compatible_proof_missing'],
+                canIncreaseDifficulty: false,
+                recoveryAction: 'consolidar',
+            },
+        ],
+        checkpoints: [checkpoint],
+        transitionEvents: [],
+        currentWeekNumber: 2,
+        currentMissionId: 'program-mission-2',
+        reasonCodes: ['compatible_proof_missing'],
+        recoveryAction: 'consolidar',
+        nextCta: {
+            label: 'Gravar validacao compativel',
+            href: '/analyze?mode=validation',
+            target: 'analyze_validation',
+        },
         ...overrides,
     };
 }
@@ -2034,6 +2165,134 @@ describe('getHistorySessions', () => {
                 revisionCount: 1,
             },
         });
+    });
+
+    it('adds Ciclo Pro continuity without turning pending validation into proof', async () => {
+        const cycle = createTrainingProgramCycleSnapshot();
+
+        mocks.orderBy
+            .mockResolvedValueOnce([
+                {
+                    id: 'session-1',
+                    weaponId: 'beryl-m762',
+                    scopeId: 'red-dot',
+                    patchVersion: CURRENT_PUBG_PATCH_VERSION,
+                    stabilityScore: 78,
+                    verticalControl: 1.02,
+                    horizontalNoise: 0.18,
+                    createdAt: new Date('2026-05-05T12:00:00.000Z'),
+                    weaponName: 'Beryl M762',
+                    weaponCategory: 'ar',
+                    fullResult: {
+                        mastery: {
+                            actionState: 'testable',
+                            actionLabel: 'Testavel',
+                            blockedRecommendations: ['Validar mais um clip antes de consolidar.'],
+                            evidence: {
+                                confidence: 0.78,
+                                coverage: 0.8,
+                                sampleSize: 24,
+                                usableForAnalysis: true,
+                            },
+                        },
+                    },
+                },
+            ])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([
+                {
+                    baseAnalysisSessionId: 'session-1',
+                    kind: 'ciclo_pro',
+                    state: 'validacao_pendente',
+                    currentWeekNumber: 2,
+                    reasonCodes: ['compatible_proof_missing'],
+                    visibleReason: 'Validacao compativel pendente.',
+                    blockerSummary: 'Ainda falta validacao compativel.',
+                    snapshot: cycle,
+                    updatedAt: new Date('2026-05-06T12:00:00.000Z'),
+                    archivedAt: null,
+                    completedAt: null,
+                },
+            ]);
+
+        const [session] = await getHistorySessions();
+
+        expect(session.trainingProgramContinuity).toEqual(expect.objectContaining({
+            kindLabel: 'Ciclo Pro',
+            cycleLabel: 'Ciclo Pro Beryl 3x 50m',
+            stateLabel: 'Validacao pendente',
+            weekLabel: 'Semana 2/4',
+            latestMissionLabel: 'Validar controle vertical no contexto Beryl',
+            latestCheckpointLayerLabel: 'Checkpoint semanal operacional',
+            nextActionLabel: 'Gravar validacao compativel',
+            projectionDepth: 'basic_next_step',
+            canSeeProgramAudit: false,
+        }));
+        expect(session.trainingProgramContinuity?.blockerReasons.join(' ')).toContain('clip compativel');
+        expect(session.trainingProgramContinuity?.latestCheckpointLabel).not.toMatch(/progresso validado/i);
+    });
+
+    it('keeps restarted program line labels tied to the archived cycle row', async () => {
+        const archivedCycle = createTrainingProgramCycleSnapshot({
+            id: 'program-cycle-archived',
+            state: 'linha_reiniciada',
+            label: 'Ciclo Pro Beryl 3x 50m - linha anterior',
+            archivedLines: [{
+                lineId: 'line-old',
+                contextKey: 'beryl:red-dot:50m',
+                label: 'Linha antiga Beryl / Red Dot / 50m',
+                active: false,
+                startedAt: '2026-05-01T12:00:00.000Z',
+                archivedAt: '2026-05-06T12:00:00.000Z',
+                restartReasonCodes: ['line_restart'],
+            }],
+            currentWeekNumber: 1,
+            reasonCodes: ['line_restart'],
+        });
+
+        mocks.orderBy
+            .mockResolvedValueOnce([
+                {
+                    id: 'session-archived',
+                    weaponId: 'beryl-m762',
+                    scopeId: 'red-dot',
+                    patchVersion: CURRENT_PUBG_PATCH_VERSION,
+                    stabilityScore: 71,
+                    verticalControl: 1.08,
+                    horizontalNoise: 0.22,
+                    createdAt: new Date('2026-05-01T12:00:00.000Z'),
+                    weaponName: 'Beryl M762',
+                    weaponCategory: 'ar',
+                    fullResult: {},
+                },
+            ])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([
+                {
+                    baseAnalysisSessionId: 'session-archived',
+                    kind: 'ciclo_pro',
+                    state: 'linha_reiniciada',
+                    currentWeekNumber: 1,
+                    reasonCodes: ['line_restart'],
+                    visibleReason: 'Linha reiniciada por contexto novo.',
+                    blockerSummary: 'Linha anterior arquivada.',
+                    snapshot: archivedCycle,
+                    updatedAt: new Date('2026-05-06T12:00:00.000Z'),
+                    archivedAt: new Date('2026-05-06T12:00:00.000Z'),
+                    completedAt: null,
+                },
+            ]);
+
+        const [session] = await getHistorySessions();
+
+        expect(session.trainingProgramContinuity).toEqual(expect.objectContaining({
+            cycleId: 'program-cycle-archived',
+            cycleLabel: 'Ciclo Pro Beryl 3x 50m - linha anterior',
+            stateLabel: 'Linha reiniciada',
+            archivedLineCount: 1,
+        }));
     });
 });
 
