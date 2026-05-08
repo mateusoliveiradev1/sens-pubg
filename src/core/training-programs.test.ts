@@ -18,6 +18,7 @@ import {
     resolveTrainingProgramRecoveryState,
     resolveTrainingProgramContextKey,
     resolveTrainingProgramEligibility,
+    trainingProgramReasonCopy,
 } from './training-programs';
 import type {
     AnalysisResult,
@@ -29,6 +30,7 @@ import type {
     TrainingProgramCycleSnapshot,
     TrainingProgramEvidenceSummary,
     TrainingProgramReasonCode,
+    TrainingProgramState,
     TrainingProgramTransitionEvent,
 } from '../types/training-programs';
 
@@ -546,5 +548,254 @@ describe('training program checkpoints and recovery', () => {
         expect(reduced.weeks[0]?.missions[0]?.status).toBe('completed');
         expect(reduced.currentMissionId).not.toBe(missionId);
         expect(reduced.state).toBe('ativo');
+    });
+});
+
+describe('training program truth coverage', () => {
+    it('covers every official Ciclo Pro state through deterministic transitions or checkpoints', () => {
+        const cycle = fullCycle();
+        const weakAnalysis = createAnalysisResultFixture({
+            ...analysisResultWithWeakCapture,
+            historySessionId: 'history-weak-state',
+            analysisDecision: resolveAnalysisDecision({
+                blockerReasons: ['low_confidence'],
+                confidence: 0.42,
+                coverage: 0.58,
+            }),
+        });
+        const repairCycle = createTrainingProgramCycle({
+            analysisResult: weakAnalysis,
+            protocol: protocolFor(weakAnalysis),
+            now: NOW,
+        });
+        const lineRestart = reduceTrainingProgramEvent(cycle, transitionEvent(cycle, 'variable_changed', ['variable_changed']));
+        const completed = reduceTrainingProgramEvent(cycle, transitionEvent(cycle, 'cycle_completed', [], {
+            toState: 'concluido',
+        }));
+        const stale = resolveTrainingProgramRecoveryState({
+            cycle,
+            staleContext: true,
+        });
+        const paused = resolveTrainingProgramRecoveryState({
+            cycle,
+            event: transitionEvent(cycle, 'discomfort_reported', ['discomfort_stop']),
+        });
+        const pendingCheckpoint = buildTrainingProgramWeeklyCheckpoint({
+            cycle,
+            evidenceSummary: {
+                ...cycle.evidenceSummary,
+                validationStatus: 'pending',
+                blockers: [],
+            },
+            now: NOW,
+        });
+        const progressCheckpoint = buildTrainingProgramTechnicalCheckpoint({
+            cycle,
+            evidenceSummary: technicalEvidence(cycle, 'validacao_confirmada'),
+            now: NOW,
+        });
+        const noChangeCheckpoint = buildTrainingProgramTechnicalCheckpoint({
+            cycle,
+            evidenceSummary: technicalEvidence(cycle, 'sem_mudanca_clara'),
+            now: NOW,
+        });
+        const regressionCheckpoint = buildTrainingProgramTechnicalCheckpoint({
+            cycle,
+            evidenceSummary: technicalEvidence(cycle, 'regressao_validada'),
+            now: NOW,
+        });
+        const states = new Set<TrainingProgramState>([
+            cycle.state,
+            repairCycle.state,
+            lineRestart.state,
+            completed.state,
+            stale.state,
+            paused.state,
+            pendingCheckpoint.state,
+            progressCheckpoint?.state ?? 'inconclusivo',
+            noChangeCheckpoint?.state ?? 'inconclusivo',
+            regressionCheckpoint?.state ?? 'inconclusivo',
+            ...cycle.weeks.flatMap((week) => week.missions.map((mission) => mission.stateAfterCompletion)),
+            ...repairCycle.weeks.flatMap((week) => week.missions.map((mission) => mission.stateAfterCompletion)),
+        ]);
+        const officialStates: readonly TrainingProgramState[] = [
+            'preparando',
+            'ativo',
+            'reparando',
+            'consolidando',
+            'validacao_pendente',
+            'progresso_validado',
+            'sem_mudanca_clara',
+            'regressao_validada',
+            'inconclusivo',
+            'linha_reiniciada',
+            'concluido',
+        ];
+
+        for (const state of officialStates) {
+            expect(states.has(state)).toBe(true);
+        }
+        expect(states.has('pausado')).toBe(true);
+        expect(states.has('contexto_desatualizado')).toBe(true);
+    });
+
+    it('maps validation pending, progress, no-clear-change and regression without fake escalation', () => {
+        const cycle = fullCycle();
+        const pending = buildTrainingProgramWeeklyCheckpoint({
+            cycle,
+            evidenceSummary: {
+                ...cycle.evidenceSummary,
+                validationStatus: 'pending',
+                blockers: [],
+            },
+            now: NOW,
+        });
+        const progress = buildTrainingProgramTechnicalCheckpoint({
+            cycle,
+            evidenceSummary: technicalEvidence(cycle, 'validacao_confirmada'),
+            now: NOW,
+        });
+        const noClearChange = buildTrainingProgramTechnicalCheckpoint({
+            cycle,
+            evidenceSummary: technicalEvidence(cycle, 'sem_mudanca_clara'),
+            now: NOW,
+        });
+        const regression = buildTrainingProgramTechnicalCheckpoint({
+            cycle,
+            evidenceSummary: technicalEvidence(cycle, 'regressao_validada'),
+            now: NOW,
+        });
+
+        expect(pending).toMatchObject({
+            state: 'validacao_pendente',
+            canIncreaseDifficulty: false,
+        });
+        expect(progress).toMatchObject({
+            state: 'progresso_validado',
+            outcome: 'progress_validated',
+            canIncreaseDifficulty: true,
+        });
+        expect(noClearChange).toMatchObject({
+            state: 'sem_mudanca_clara',
+            outcome: 'no_clear_change',
+            canIncreaseDifficulty: false,
+        });
+        expect(regression).toMatchObject({
+            state: 'regressao_validada',
+            outcome: 'regression_validated',
+            canIncreaseDifficulty: false,
+        });
+    });
+
+    it('handles missed day, stale context and variable change as reentry or line restart reasons', () => {
+        const cycle = fullCycle();
+        const missedDay = resolveTrainingProgramRecoveryState({
+            cycle,
+            event: transitionEvent(cycle, 'missed_day_reentered', ['missed_day_reentry']),
+            missedDays: 2,
+        });
+        const stale = resolveTrainingProgramRecoveryState({
+            cycle,
+            event: transitionEvent(cycle, 'context_marked_stale', ['stale_context']),
+        });
+        const variableChanged = resolveTrainingProgramRecoveryState({
+            cycle,
+            event: transitionEvent(cycle, 'variable_changed', ['variable_changed']),
+        });
+
+        expect(missedDay).toMatchObject({
+            state: 'ativo',
+            recoveryAction: 'reencaixar',
+            canIncreaseDifficulty: false,
+        });
+        expect(missedDay.userVisibleReason).toContain('reencaixado');
+        expect(stale).toMatchObject({
+            state: 'contexto_desatualizado',
+            recoveryAction: 'reparar',
+        });
+        expect(variableChanged).toMatchObject({
+            state: 'linha_reiniciada',
+            recoveryAction: 'reiniciar_linha',
+        });
+    });
+
+    it('keeps weak evidence from producing validated progress or difficulty increases', () => {
+        const weakAnalysis = createAnalysisResultFixture({
+            ...analysisResultWithWeakCapture,
+            historySessionId: 'history-weak-no-progress',
+            analysisDecision: resolveAnalysisDecision({
+                blockerReasons: ['low_confidence', 'low_coverage'],
+                confidence: 0.42,
+                coverage: 0.48,
+            }),
+        });
+        const cycle = createTrainingProgramCycle({
+            analysisResult: weakAnalysis,
+            protocol: protocolFor(weakAnalysis),
+            now: NOW,
+        });
+        const weekly = buildTrainingProgramWeeklyCheckpoint({
+            cycle,
+            now: NOW,
+        });
+        const technical = buildTrainingProgramTechnicalCheckpoint({
+            cycle,
+            now: NOW,
+        });
+
+        expect(cycle.kind).toBe('ciclo_reparo');
+        expect(cycle.state).not.toBe('progresso_validado');
+        expect(cycle.recoveryAction).toBe('reparar');
+        expect(weekly.canIncreaseDifficulty).toBe(false);
+        expect(weekly.outcome).not.toBe('progress_validated');
+        expect(technical).toBeNull();
+    });
+
+    it('keeps core program copy out of course, XP, guarantee and global-grade language', () => {
+        const cycle = fullCycle();
+        const weekly = buildTrainingProgramWeeklyCheckpoint({
+            cycle,
+            now: NOW,
+        });
+        const monthly = buildTrainingProgramMonthlyCheckpoint({
+            cycle: {
+                ...cycle,
+                checkpoints: [weekly],
+            },
+            now: NOW,
+        });
+        const reasonCopy = ([
+            'fidelity_dropped',
+            'validation_inconclusive',
+            'variable_changed',
+            'outcome_conflict',
+            'fatigue_reduced_dose',
+            'discomfort_stop',
+            'stale_context',
+            'compatible_proof_missing',
+            'blocker_repaired',
+            'missed_day_reentry',
+            'line_restart',
+            'weak_base_evidence',
+        ] satisfies readonly TrainingProgramReasonCode[])
+            .map(trainingProgramReasonCopy);
+        const missionCopy = cycle.weeks.flatMap((week) => week.missions).flatMap((mission) => [
+            mission.title,
+            mission.anatomy.agora,
+            mission.anatomy.porQueImporta,
+            mission.anatomy.oQueInvalida,
+            mission.anatomy.evidenciaGerada,
+            mission.anatomy.proximoCta.label,
+        ]);
+        const copy = [
+            ...missionCopy,
+            weekly.summary,
+            monthly.summary,
+            ...reasonCopy,
+        ].join(' ').toLowerCase();
+
+        expect(copy).not.toMatch(/\bxp\b|curso|aula|lesson|grind|rank|garantid|promessa de rank|nota global|grade global|global player grade|melhore sua mira|treine 20 minutos/);
+        expect(copy).toContain('evidencia');
+        expect(copy).toContain('contexto');
     });
 });
