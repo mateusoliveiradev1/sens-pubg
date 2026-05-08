@@ -3,19 +3,34 @@ import { describe, expect, it } from 'vitest';
 import { resolveAnalysisDecision } from './analysis-decision';
 import { buildCoachPlan } from './coach-plan-builder';
 import {
+    buildTrainingProgramMonthlyCheckpoint,
+    buildTrainingProgramTechnicalCheckpoint,
+    buildTrainingProgramWeeklyCheckpoint,
+} from './training-program-checkpoints';
+import {
     analysisResultWithWeakCapture,
     createAnalysisResultFixture,
 } from './coach-test-fixtures';
 import {
     createRepairProgramCycle,
     createTrainingProgramCycle,
+    reduceTrainingProgramEvent,
+    resolveTrainingProgramRecoveryState,
     resolveTrainingProgramContextKey,
     resolveTrainingProgramEligibility,
 } from './training-programs';
 import type {
     AnalysisResult,
     CompleteTrainingProtocol,
+    PrecisionTrendSummary,
+    SprayLabValidationLink,
 } from '../types/engine';
+import type {
+    TrainingProgramCycleSnapshot,
+    TrainingProgramEvidenceSummary,
+    TrainingProgramReasonCode,
+    TrainingProgramTransitionEvent,
+} from '../types/training-programs';
 
 const NOW = '2026-05-08T20:00:00.000Z';
 
@@ -65,6 +80,99 @@ function protocolFor(result: AnalysisResult): CompleteTrainingProtocol {
     }
 
     return protocol;
+}
+
+function fullCycle(): TrainingProgramCycleSnapshot {
+    const analysis = savedAnalysis();
+
+    return createTrainingProgramCycle({
+        analysisResult: analysis,
+        protocol: protocolFor(analysis),
+        now: NOW,
+    });
+}
+
+function precisionTrend(label: PrecisionTrendSummary['label']): PrecisionTrendSummary {
+    return {
+        label,
+        evidenceLevel: 'strong',
+        compatibleCount: 3,
+        baseline: null,
+        current: {
+            resultId: 'history-validation-1',
+            timestamp: '2026-05-08T21:00:00.000Z',
+            actionableScore: 82,
+            mechanicalScore: 78,
+            coverage: 0.9,
+            confidence: 0.91,
+            clipQuality: 86,
+        },
+        recentWindow: null,
+        actionableDelta: null,
+        mechanicalDelta: null,
+        pillarDeltas: [],
+        recurringDiagnoses: [],
+        blockerSummaries: [],
+        blockedClips: [],
+        confidence: 0.91,
+        coverage: 0.9,
+        nextValidationHint: 'Manter contexto compativel.',
+    };
+}
+
+function validationLink(status: SprayLabValidationLink['status']): SprayLabValidationLink {
+    return {
+        version: 'spray-lab-v1',
+        id: `validation-${status}`,
+        labSessionId: 'lab-1',
+        baseAnalysisId: 'history-analysis-1',
+        validationAnalysisId: 'history-validation-1',
+        contextKey: 'program:context',
+        targetCopy: 'Beryl Red Dot 30m',
+        status,
+        confirmedVariables: true,
+        blockers: [],
+        precisionTrend: precisionTrend(status === 'regressao_validada' ? 'validated_regression' : 'validated_progress'),
+        createdAt: '2026-05-08T21:00:00.000Z',
+        updatedAt: '2026-05-08T21:00:00.000Z',
+    };
+}
+
+function technicalEvidence(
+    cycle: TrainingProgramCycleSnapshot,
+    status: SprayLabValidationLink['status'] = 'validacao_confirmada',
+): TrainingProgramEvidenceSummary {
+    return {
+        ...cycle.evidenceSummary,
+        validationLink: validationLink(status),
+        validationStatus: status,
+        precisionTrend: precisionTrend(status === 'regressao_validada' ? 'validated_regression' : 'validated_progress'),
+        fidelityTier: 'strong',
+        blockers: [],
+        confidence: 0.91,
+        coverage: 0.9,
+        summary: 'Validacao compativel anexada ao contexto do ciclo.',
+    };
+}
+
+function transitionEvent(
+    cycle: TrainingProgramCycleSnapshot,
+    type: TrainingProgramTransitionEvent['type'],
+    reasons: readonly TrainingProgramReasonCode[] = [],
+    patch: Partial<TrainingProgramTransitionEvent> = {},
+): TrainingProgramTransitionEvent {
+    return {
+        id: `${cycle.id}:event:${type}:${reasons.join('-') || 'none'}`,
+        cycleId: cycle.id,
+        type,
+        occurredAt: '2026-05-08T22:00:00.000Z',
+        fromState: cycle.state,
+        toState: cycle.state,
+        reasonCodes: reasons,
+        userVisibleReason: reasons[0] ?? 'sem mudanca automatica',
+        evidenceRefs: [],
+        ...patch,
+    };
 }
 
 describe('training program eligibility and cycle birth', () => {
@@ -309,5 +417,134 @@ describe('training program adaptive week and mission composition', () => {
         expect(missions.some((mission) => mission.category === 'repair')).toBe(true);
         expect(missions.every((mission) => mission.reasonCodes.length > 0)).toBe(true);
         expect(missions.map((mission) => mission.stateAfterCompletion)).toContain('validacao_pendente');
+    });
+});
+
+describe('training program checkpoints and recovery', () => {
+    it('always builds an operational weekly checkpoint without escalating on rhythm alone', () => {
+        const cycle = fullCycle();
+        const checkpoint = buildTrainingProgramWeeklyCheckpoint({
+            cycle,
+            weekNumber: 1,
+            now: NOW,
+        });
+
+        expect(checkpoint.layer).toBe('weekly_operational');
+        expect(checkpoint.weekNumber).toBe(1);
+        expect(checkpoint.summary).toContain('Semana 1 fechada');
+        expect(checkpoint.canIncreaseDifficulty).toBe(false);
+        expect(checkpoint.reasonCodes).toContain('compatible_proof_missing');
+    });
+
+    it('creates technical checkpoints only when compatible clip evidence exists', () => {
+        const cycle = fullCycle();
+        const withoutValidation = buildTrainingProgramTechnicalCheckpoint({
+            cycle,
+            now: NOW,
+        });
+        const withValidation = buildTrainingProgramTechnicalCheckpoint({
+            cycle,
+            evidenceSummary: technicalEvidence(cycle),
+            now: NOW,
+        });
+
+        expect(withoutValidation).toBeNull();
+        expect(withValidation).toMatchObject({
+            layer: 'technical_validated',
+            state: 'progresso_validado',
+            outcome: 'progress_validated',
+            canIncreaseDifficulty: true,
+        });
+        expect(withValidation?.summary).toContain('Conta apenas para este contexto compativel');
+    });
+
+    it('summarizes monthly context without a global player grade', () => {
+        const cycle = fullCycle();
+        const weekly = buildTrainingProgramWeeklyCheckpoint({
+            cycle,
+            evidenceSummary: technicalEvidence(cycle),
+            now: NOW,
+        });
+        const technical = buildTrainingProgramTechnicalCheckpoint({
+            cycle,
+            evidenceSummary: technicalEvidence(cycle),
+            now: NOW,
+        });
+        const monthly = buildTrainingProgramMonthlyCheckpoint({
+            cycle: {
+                ...cycle,
+                checkpoints: technical ? [weekly, technical] : [weekly],
+                state: 'progresso_validado',
+            },
+            evidenceSummary: technicalEvidence(cycle),
+            now: NOW,
+        });
+
+        expect(monthly.layer).toBe('monthly_program');
+        expect(monthly.outcome).toBe('cycle_completed');
+        expect(monthly.summary).toContain(cycle.strictContextLabel.split(' ')[0] ?? 'Beryl');
+        expect(monthly.summary.toLowerCase()).not.toMatch(/rank|nota global|grade global|garantid/);
+    });
+
+    it('reduces fatigue, discomfort, confusion and repeated failure without treating them as skill regression', () => {
+        const cycle = fullCycle();
+        const fatigue = resolveTrainingProgramRecoveryState({
+            cycle,
+            event: transitionEvent(cycle, 'fatigue_reported', ['fatigue_reduced_dose']),
+        });
+        const discomfort = resolveTrainingProgramRecoveryState({
+            cycle,
+            event: transitionEvent(cycle, 'discomfort_reported', ['discomfort_stop']),
+        });
+        const confusion = resolveTrainingProgramRecoveryState({
+            cycle,
+            event: transitionEvent(cycle, 'confusion_reported', ['confusion_simplified']),
+        });
+        const repeatedFailure = resolveTrainingProgramRecoveryState({
+            cycle,
+            repeatedFailureCount: 2,
+        });
+
+        expect(fatigue).toMatchObject({
+            state: 'reparando',
+            recoveryAction: 'reparar',
+            canIncreaseDifficulty: false,
+        });
+        expect(fatigue.doseMultiplier).toBeLessThan(1);
+        expect(fatigue.doseMultiplier).toBeGreaterThan(0);
+
+        expect(discomfort).toMatchObject({
+            state: 'pausado',
+            recoveryAction: 'pausar_bloco',
+            doseMultiplier: 0,
+        });
+        expect(discomfort.state).not.toBe('regressao_validada');
+
+        expect(confusion.reasonCodes).toContain('confusion_simplified');
+        expect(confusion.userVisibleReason).toContain('simplificada');
+        expect(repeatedFailure).toMatchObject({
+            state: 'consolidando',
+            recoveryAction: 'consolidar',
+            canIncreaseDifficulty: false,
+        });
+    });
+
+    it('reduces mission events into auditable state transitions', () => {
+        const cycle = fullCycle();
+        const missionId = cycle.currentMissionId;
+
+        if (!missionId) {
+            throw new Error('Expected active mission');
+        }
+
+        const reduced = reduceTrainingProgramEvent(cycle, transitionEvent(cycle, 'mission_completed', [], {
+            missionId,
+            toState: 'ativo',
+        }));
+
+        expect(reduced.transitionEvents).toHaveLength(1);
+        expect(reduced.weeks[0]?.missions[0]?.status).toBe('completed');
+        expect(reduced.currentMissionId).not.toBe(missionId);
+        expect(reduced.state).toBe('ativo');
     });
 });

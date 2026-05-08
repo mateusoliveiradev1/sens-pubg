@@ -6,6 +6,7 @@ import type {
 import type {
     TrainingProgramActiveLineReference,
     TrainingProgramAdaptiveWeek,
+    TrainingProgramCheckpoint,
     TrainingProgramCycleSnapshot,
     TrainingProgramEvidenceReference,
     TrainingProgramEvidenceSummary,
@@ -16,6 +17,7 @@ import type {
     TrainingProgramReasonCode,
     TrainingProgramRecoveryAction,
     TrainingProgramState,
+    TrainingProgramTransitionEvent,
 } from '../types/training-programs';
 import { buildTrainingProtocolContextSnapshot } from './training-protocol-drills';
 import { buildSprayLabLaneContextKey } from './spray-lab-lanes';
@@ -37,6 +39,24 @@ export interface TrainingProgramEligibility {
     readonly reasonCodes: readonly TrainingProgramReasonCode[];
     readonly userVisibleReasons: readonly string[];
     readonly lineRestartRequired: boolean;
+}
+
+export interface ResolveTrainingProgramRecoveryStateInput {
+    readonly cycle: TrainingProgramCycleSnapshot;
+    readonly event?: TrainingProgramTransitionEvent;
+    readonly evidenceSummary?: TrainingProgramEvidenceSummary;
+    readonly repeatedFailureCount?: number;
+    readonly missedDays?: number;
+    readonly staleContext?: boolean;
+}
+
+export interface TrainingProgramRecoveryStateDecision {
+    readonly state: TrainingProgramState;
+    readonly recoveryAction: TrainingProgramRecoveryAction;
+    readonly reasonCodes: readonly TrainingProgramReasonCode[];
+    readonly canIncreaseDifficulty: boolean;
+    readonly doseMultiplier: number;
+    readonly userVisibleReason: string;
 }
 
 export function resolveTrainingProgramEligibility(
@@ -243,6 +263,246 @@ export function trainingProgramReasonCopy(code: TrainingProgramReasonCode): stri
         case 'repeated_failure_consolidation':
             return 'Falhas repetidas viram consolidacao, nao aumento de dificuldade.';
     }
+}
+
+export function resolveTrainingProgramRecoveryState(
+    input: ResolveTrainingProgramRecoveryStateInput,
+): TrainingProgramRecoveryStateDecision {
+    const reasons = new Set<TrainingProgramReasonCode>([
+        ...input.cycle.reasonCodes,
+        ...(input.evidenceSummary?.blockers ?? []),
+        ...(input.event?.reasonCodes ?? []),
+    ]);
+    const eventType = input.event?.type;
+
+    if (eventType === 'discomfort_reported' || reasons.has('discomfort_stop')) {
+        reasons.add('discomfort_stop');
+
+        return recoveryDecision({
+            state: 'pausado',
+            recoveryAction: 'pausar_bloco',
+            reasonCodes: Array.from(reasons),
+            canIncreaseDifficulty: false,
+            doseMultiplier: 0,
+            userVisibleReason: trainingProgramReasonCopy('discomfort_stop'),
+        });
+    }
+
+    if (eventType === 'fatigue_reported' || reasons.has('fatigue_reduced_dose')) {
+        reasons.add('fatigue_reduced_dose');
+
+        return recoveryDecision({
+            state: 'reparando',
+            recoveryAction: 'reparar',
+            reasonCodes: Array.from(reasons),
+            canIncreaseDifficulty: false,
+            doseMultiplier: 0.5,
+            userVisibleReason: trainingProgramReasonCopy('fatigue_reduced_dose'),
+        });
+    }
+
+    if (eventType === 'confusion_reported' || reasons.has('confusion_simplified')) {
+        reasons.add('confusion_simplified');
+
+        return recoveryDecision({
+            state: 'reparando',
+            recoveryAction: 'reparar',
+            reasonCodes: Array.from(reasons),
+            canIncreaseDifficulty: false,
+            doseMultiplier: 0.65,
+            userVisibleReason: trainingProgramReasonCopy('confusion_simplified'),
+        });
+    }
+
+    if (eventType === 'variable_changed' || reasons.has('variable_changed') || reasons.has('line_restart')) {
+        reasons.add('line_restart');
+
+        return recoveryDecision({
+            state: 'linha_reiniciada',
+            recoveryAction: 'reiniciar_linha',
+            reasonCodes: Array.from(reasons),
+            canIncreaseDifficulty: false,
+            doseMultiplier: 1,
+            userVisibleReason: trainingProgramReasonCopy('line_restart'),
+        });
+    }
+
+    if (
+        eventType === 'context_marked_stale'
+        || input.staleContext === true
+        || input.missedDays !== undefined && input.missedDays >= 7
+    ) {
+        reasons.add('stale_context');
+
+        return recoveryDecision({
+            state: 'contexto_desatualizado',
+            recoveryAction: 'reparar',
+            reasonCodes: Array.from(reasons),
+            canIncreaseDifficulty: false,
+            doseMultiplier: 0.75,
+            userVisibleReason: trainingProgramReasonCopy('stale_context'),
+        });
+    }
+
+    if (eventType === 'missed_day_reentered' || input.missedDays !== undefined && input.missedDays > 0) {
+        reasons.add('missed_day_reentry');
+
+        return recoveryDecision({
+            state: input.cycle.state === 'preparando' ? 'preparando' : 'ativo',
+            recoveryAction: 'reencaixar',
+            reasonCodes: Array.from(reasons),
+            canIncreaseDifficulty: false,
+            doseMultiplier: 1,
+            userVisibleReason: trainingProgramReasonCopy('missed_day_reentry'),
+        });
+    }
+
+    if (
+        input.repeatedFailureCount !== undefined && input.repeatedFailureCount >= 2
+        || reasons.has('repeated_failure_consolidation')
+    ) {
+        reasons.add('repeated_failure_consolidation');
+
+        return recoveryDecision({
+            state: 'consolidando',
+            recoveryAction: 'consolidar',
+            reasonCodes: Array.from(reasons),
+            canIncreaseDifficulty: false,
+            doseMultiplier: 0.85,
+            userVisibleReason: trainingProgramReasonCopy('repeated_failure_consolidation'),
+        });
+    }
+
+    if (reasons.size > 0) {
+        return recoveryDecision({
+            state: input.cycle.state === 'linha_reiniciada' ? 'linha_reiniciada' : 'reparando',
+            recoveryAction: input.cycle.state === 'linha_reiniciada' ? 'reiniciar_linha' : 'reparar',
+            reasonCodes: Array.from(reasons),
+            canIncreaseDifficulty: false,
+            doseMultiplier: 0.8,
+            userVisibleReason: trainingProgramReasonCopy(Array.from(reasons)[0] ?? 'weak_base_evidence'),
+        });
+    }
+
+    return recoveryDecision({
+        state: input.cycle.state,
+        recoveryAction: recoveryActionForState(input.cycle.state),
+        reasonCodes: [],
+        canIncreaseDifficulty: input.cycle.state === 'progresso_validado',
+        doseMultiplier: 1,
+        userVisibleReason: 'Sem mudanca automatica: manter contexto e proxima validacao.',
+    });
+}
+
+export function reduceTrainingProgramEvent(
+    cycle: TrainingProgramCycleSnapshot,
+    event: TrainingProgramTransitionEvent,
+): TrainingProgramCycleSnapshot {
+    if (event.cycleId !== cycle.id) {
+        throw new Error(`Training program event ${event.id} does not belong to cycle ${cycle.id}`);
+    }
+
+    if (cycle.transitionEvents.some((current) => current.id === event.id)) {
+        return cycle;
+    }
+
+    const mission = event.missionId
+        ? cycle.weeks.flatMap((week) => week.missions).find((current) => current.id === event.missionId)
+        : undefined;
+    const eventState = event.type === 'mission_completed' && mission
+        ? mission.stateAfterCompletion
+        : event.toState;
+    const decision = resolveTrainingProgramRecoveryState({
+        cycle: {
+            ...cycle,
+            state: eventState,
+        },
+        event,
+    });
+    const toState = decision.reasonCodes.length > 0 && event.type !== 'mission_completed'
+        ? decision.state
+        : eventState;
+    const reasonCodes = mergeProgramReasons(cycle.reasonCodes, event.reasonCodes, decision.reasonCodes);
+    const weeks = updateMissionState(cycle.weeks, event);
+    const currentMissionId = resolveNextMissionId(cycle.currentMissionId, weeks, event);
+    const recordedEvent: TrainingProgramTransitionEvent = {
+        ...event,
+        fromState: cycle.state,
+        toState,
+        reasonCodes: event.reasonCodes.length > 0 ? event.reasonCodes : decision.reasonCodes,
+        userVisibleReason: event.userVisibleReason || decision.userVisibleReason,
+    };
+
+    return {
+        ...cycle,
+        state: toState,
+        updatedAt: event.occurredAt,
+        weeks,
+        checkpoints: attachCheckpointId(cycle.checkpoints, event.checkpointId),
+        transitionEvents: [...cycle.transitionEvents, recordedEvent],
+        currentMissionId,
+        reasonCodes,
+        recoveryAction: decision.recoveryAction,
+    };
+}
+
+function recoveryDecision(input: TrainingProgramRecoveryStateDecision): TrainingProgramRecoveryStateDecision {
+    return input;
+}
+
+function updateMissionState(
+    weeks: readonly TrainingProgramAdaptiveWeek[],
+    event: TrainingProgramTransitionEvent,
+): readonly TrainingProgramAdaptiveWeek[] {
+    if (!event.missionId || event.type !== 'mission_started' && event.type !== 'mission_completed') {
+        return weeks;
+    }
+
+    return weeks.map((week) => ({
+        ...week,
+        missions: week.missions.map((mission) => {
+            if (mission.id !== event.missionId) {
+                return mission;
+            }
+
+            return {
+                ...mission,
+                status: event.type === 'mission_completed' ? 'completed' : 'active',
+            };
+        }),
+    }));
+}
+
+function resolveNextMissionId(
+    currentMissionId: string | null,
+    weeks: readonly TrainingProgramAdaptiveWeek[],
+    event: TrainingProgramTransitionEvent,
+): string | null {
+    if (event.type !== 'mission_completed' || !event.missionId) {
+        return currentMissionId;
+    }
+
+    const missions = weeks.flatMap((week) => week.missions);
+    const currentIndex = missions.findIndex((mission) => mission.id === event.missionId);
+
+    if (currentIndex < 0) {
+        return currentMissionId;
+    }
+
+    return missions.slice(currentIndex + 1).find((mission) => mission.status !== 'completed')?.id ?? null;
+}
+
+function attachCheckpointId(
+    checkpoints: readonly TrainingProgramCheckpoint[],
+    _checkpointId: string | undefined,
+): readonly TrainingProgramCheckpoint[] {
+    return checkpoints;
+}
+
+function mergeProgramReasons(
+    ...groups: readonly (readonly TrainingProgramReasonCode[])[]
+): readonly TrainingProgramReasonCode[] {
+    return Array.from(new Set(groups.flat()));
 }
 
 function buildFullProgramWeeks(input: {
