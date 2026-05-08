@@ -1316,6 +1316,79 @@
     font-weight: 800;
 }
 
+.trainingProgramEntry {
+    display: grid;
+    gap: var(--space-lg);
+    margin-bottom: var(--space-3xl);
+    padding: var(--space-xl);
+    border: 1px solid var(--result-tone-border, rgba(0, 240, 255, 0.22));
+    border-radius: 8px;
+    background: linear-gradient(180deg, var(--result-tone-soft, rgba(0, 240, 255, 0.07)), rgba(0, 0, 0, 0.18));
+}
+
+.trainingProgramEntryHeader,
+.trainingProgramEntryFooter {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-lg);
+    align-items: flex-start;
+}
+
+.trainingProgramEntryTitle {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: var(--text-2xl);
+    line-height: 1.15;
+}
+
+.trainingProgramEntryBody,
+.trainingProgramEntryGrid p,
+.trainingProgramEntryGrid li,
+.trainingProgramEntryFooter span {
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+    line-height: 1.6;
+}
+
+.trainingProgramEntryBadges {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: 460px;
+    gap: var(--space-sm);
+}
+
+.trainingProgramEntryGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-md);
+}
+
+.trainingProgramEntryGrid > div {
+    display: grid;
+    gap: var(--space-xs);
+    padding: var(--space-lg);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.16);
+}
+
+.trainingProgramEntryGrid ul {
+    display: grid;
+    gap: var(--space-xs);
+    margin: 0;
+    padding-left: 1rem;
+}
+
+.trainingProgramEntryFooter {
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.trainingProgramEntryFeedback {
+    color: var(--color-warning) !important;
+}
+
 .completeProtocolPanel {
     display: grid;
     gap: var(--space-lg);
@@ -2764,6 +2837,7 @@
     .verdictReport,
     .adaptiveCoachLoop,
     .precisionTrendBlock,
+    .trainingProgramEntry,
     .completeProtocolPanel {
         padding: var(--space-lg);
     }
@@ -2772,6 +2846,7 @@
     .evidenceBadgeGrid,
     .pillarGrid,
     .adaptiveCoachGrid,
+    .trainingProgramEntryGrid,
     .precisionTrendDeltas,
     .protocolSummaryRows {
         grid-template-columns: 1fr;
@@ -2779,11 +2854,14 @@
 
     .adaptiveCoachHeader,
     .adaptiveCoachFooter,
+    .trainingProgramEntryHeader,
+    .trainingProgramEntryFooter,
     .completeProtocolHeader {
         flex-direction: column;
     }
 
-    .adaptiveCoachBadges {
+    .adaptiveCoachBadges,
+    .trainingProgramEntryBadges {
         justify-content: flex-start;
     }
 

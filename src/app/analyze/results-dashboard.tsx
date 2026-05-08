@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import type {
     AnalysisResult,
     CoachAttachmentEvidence,
@@ -22,6 +22,7 @@ import type {
     VideoQualityFrameTimeline,
     VideoQualityTier,
 } from '@/types/engine';
+import { createTrainingProgramCycleAction } from '@/actions/training-programs';
 import { formatDiagnosisTruthLabel } from '@/core/measurement-truth';
 import { formatAnalysisDistancePresentation } from './analysis-distance-presentation';
 import { SprayTrailPanel } from './spray-trail-panel';
@@ -42,6 +43,7 @@ import {
     buildPrecisionTrendBlockModel,
     buildResultMetricCards,
     buildResultVerdictModel,
+    buildTrainingProgramEntryModel,
     groupCoachFeedbackByDiagnosis,
     splitDiagnosesBySeverity,
     type PremiumLockCardModel,
@@ -404,9 +406,18 @@ function resolveReportLoopStage(input: {
     readonly quotaTone: ResultMetricTone | undefined;
     readonly adaptiveState: 'unsaved' | 'pending' | 'validation_needed' | 'conflict' | 'ready' | undefined;
     readonly hasNextBlock: boolean;
+    readonly trainingProgramState: 'unsaved' | 'ciclo_pro' | 'ciclo_reparo' | undefined;
 }): LoopStageKey {
     if (input.quotaTone === 'error') {
         return 'evidence';
+    }
+
+    if (input.trainingProgramState === 'ciclo_reparo') {
+        return 'validation';
+    }
+
+    if (input.trainingProgramState === 'ciclo_pro') {
+        return 'block';
     }
 
     if (input.adaptiveState === 'validation_needed' || input.adaptiveState === 'conflict') {
@@ -423,12 +434,20 @@ function resolveReportLoopStage(input: {
 function resolveReportPrimaryAction(input: {
     readonly quotaNotice: ReturnType<typeof buildAnalysisQuotaNoticeModel>;
     readonly adaptiveCoachLoop: ReturnType<typeof buildAdaptiveCoachLoopModel>;
+    readonly trainingProgramEntry: ReturnType<typeof buildTrainingProgramEntryModel>;
     readonly historySessionId: string | null | undefined;
 }): { readonly label: string; readonly href: string; readonly disabled?: boolean } {
     if (input.quotaNotice?.tone === 'error' && input.quotaNotice.href) {
         return {
             label: input.quotaNotice.href === '/billing' ? 'Ver Assinatura' : 'Ver Planos',
             href: input.quotaNotice.href,
+        };
+    }
+
+    if (input.trainingProgramEntry.cta.href && !input.trainingProgramEntry.cta.disabled) {
+        return {
+            label: input.trainingProgramEntry.cta.label,
+            href: input.trainingProgramEntry.cta.href,
         };
     }
 
@@ -589,6 +608,83 @@ function CompleteTrainingProtocolPanel({
                     proValueLabel="Pro adiciona reps, local, alvo, criterios, preparacao completa, auditoria, revisao, validacao compativel e transferencia real."
                 />
             ) : null}
+        </section>
+    );
+}
+
+function TrainingProgramEntryPanel({
+    model,
+    pending,
+    feedback,
+    onStart,
+}: {
+    readonly model: ReturnType<typeof buildTrainingProgramEntryModel>;
+    readonly pending: boolean;
+    readonly feedback: string | null;
+    readonly onStart: () => void;
+}): React.JSX.Element {
+    return (
+        <section
+            className={`${styles.trainingProgramEntry} ${resultToneClass(model.cta.tone)}`}
+            aria-labelledby="training-program-entry-title"
+        >
+            <div className={styles.trainingProgramEntryHeader}>
+                <div>
+                    <span className={styles.reportEyebrow}>Programa Pro</span>
+                    <h3 id="training-program-entry-title" className={styles.trainingProgramEntryTitle}>
+                        {model.title}
+                    </h3>
+                    <p className={styles.trainingProgramEntryBody}>{model.body}</p>
+                </div>
+                <div className={styles.trainingProgramEntryBadges}>
+                    <span className="badge badge-info">{model.evidenceSummary}</span>
+                    <span className={model.state === 'ciclo_reparo' ? 'badge badge-warning' : 'badge badge-info'}>
+                        {model.state === 'ciclo_reparo' ? 'Reparo antes de progresso' : 'Continuidade auditavel'}
+                    </span>
+                </div>
+            </div>
+
+            <div className={styles.trainingProgramEntryGrid}>
+                <div>
+                    <span className={styles.reportEyebrow}>Visivel agora</span>
+                    <p>{model.freeValueCopy}</p>
+                </div>
+                <div>
+                    <span className={styles.reportEyebrow}>Com Pro</span>
+                    <p>{model.proValueCopy}</p>
+                </div>
+                {model.blockerReasons.length > 0 ? (
+                    <div>
+                        <span className={styles.reportEyebrow}>Blockers preservados</span>
+                        <ul>
+                            {model.blockerReasons.slice(0, 3).map((reason) => (
+                                <li key={reason}>{reason}</li>
+                            ))}
+                        </ul>
+                    </div>
+                ) : null}
+            </div>
+
+            <div className={styles.trainingProgramEntryFooter}>
+                <button
+                    className="btn btn-primary"
+                    disabled={model.cta.disabled || pending}
+                    onClick={onStart}
+                    type="button"
+                >
+                    {pending ? 'Abrindo ciclo...' : model.cta.label}
+                </button>
+                {model.lockCtaHref && model.lockCtaLabel ? (
+                    <a className="btn btn-ghost" href={model.lockCtaHref}>
+                        {model.lockCtaLabel}
+                    </a>
+                ) : null}
+                {feedback ? (
+                    <span className={styles.trainingProgramEntryFeedback}>{feedback}</span>
+                ) : (
+                    <span>O servidor cria ou abre o ciclo a partir da analise salva e revalida propriedade.</span>
+                )}
+            </div>
         </section>
     );
 }
@@ -879,6 +975,8 @@ export function ResultsDashboard({ result, mode = 'full' }: Props): React.JSX.El
     const [selectedProfileType, setSelectedProfileType] = useState<ProfileType | null>(null);
     const [expandedCoach, setExpandedCoach] = useState<number | null>(null);
     const [showMinorDiags, setShowMinorDiags] = useState(false);
+    const [programActionFeedback, setProgramActionFeedback] = useState<string | null>(null);
+    const [programActionPending, startProgramActionTransition] = useTransition();
     const isAggregated = activeSession.id === result.id;
     const subSessions = result.subSessions ?? [];
     const hasMultipleSubSessions = subSessions.length > 1;
@@ -995,6 +1093,7 @@ export function ResultsDashboard({ result, mode = 'full' }: Props): React.JSX.El
     });
     const adaptiveCoachLoop = buildAdaptiveCoachLoopModel(activeSession);
     const precisionTrendBlock = buildPrecisionTrendBlockModel(activeSession.precisionTrend);
+    const trainingProgramEntry = buildTrainingProgramEntryModel(activeSession);
     const quotaNotice = buildAnalysisQuotaNoticeModel({ quota: activeSession.quota ?? null });
     const premiumLocks = buildPremiumLockCards(activeSession.premiumProjection);
     const completeProtocolLock = premiumLocks.find((lock) => lock.featureKey === 'training.next_block_protocol');
@@ -1004,10 +1103,12 @@ export function ResultsDashboard({ result, mode = 'full' }: Props): React.JSX.El
         quotaTone: quotaNotice?.tone,
         adaptiveState: adaptiveCoachLoop?.state,
         hasNextBlock: verdictModel.nextBlock !== null,
+        trainingProgramState: trainingProgramEntry.state,
     });
     const primaryReportAction = resolveReportPrimaryAction({
         quotaNotice,
         adaptiveCoachLoop,
+        trainingProgramEntry,
         historySessionId: activeSession.historySessionId,
     });
     const sprayLabProtocolId = coachPlan?.completeProtocol?.id ?? coachPlan?.actionProtocols[0]?.id ?? null;
@@ -1017,9 +1118,30 @@ export function ResultsDashboard({ result, mode = 'full' }: Props): React.JSX.El
     const reportBlocked = verdictModel.scoreTone === 'error'
         || quotaNotice?.tone === 'error'
         || verdictModel.actionLabel === 'Capturar de novo'
-        || verdictModel.actionLabel === 'Incerto';
+        || verdictModel.actionLabel === 'Incerto'
+        || trainingProgramEntry.state === 'ciclo_reparo';
     const visibleTruthLabel = `Confianca ${Math.round(trackingOverview.confidence * 100)}%, cobertura ${Math.round(trackingOverview.coverage * 100)}%, bloqueadores ${verdictModel.blockedReasons.length}.`;
     const showReportChrome = mode === 'full';
+    const handleTrainingProgramEntry = () => {
+        if (!activeSession.historySessionId || trainingProgramEntry.cta.disabled) {
+            setProgramActionFeedback('Salve a analise antes de pedir que o servidor crie o ciclo.');
+            return;
+        }
+
+        setProgramActionFeedback(null);
+        startProgramActionTransition(async () => {
+            const created = await createTrainingProgramCycleAction({
+                baseAnalysisSessionId: activeSession.historySessionId!,
+            });
+
+            if (!created.success) {
+                setProgramActionFeedback(created.error);
+                return;
+            }
+
+            window.location.assign(`/ciclo-pro?cycleId=${encodeURIComponent(created.value.id)}`);
+        });
+    };
 
     return (
         <div className={`${styles.dashboard} ${mode === 'audit-detail' ? styles.dashboardAuditDetail : ''}`}>
@@ -1294,6 +1416,15 @@ export function ResultsDashboard({ result, mode = 'full' }: Props): React.JSX.El
                         protocol={verdictModel.completeTrainingProtocol}
                     />
                 )
+            ) : null}
+
+            {showReportChrome ? (
+                <TrainingProgramEntryPanel
+                    feedback={programActionFeedback}
+                    model={trainingProgramEntry}
+                    onStart={handleTrainingProgramEntry}
+                    pending={programActionPending}
+                />
             ) : null}
 
             {adaptiveCoachLoop ? (

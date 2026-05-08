@@ -109,6 +109,27 @@ describe('results dashboard visualization contract', () => {
         expect(revisionIndex).toBe(-1);
     });
 
+    it('renders Ciclo Pro and repair entry points through a server-owned action', () => {
+        const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
+        const viewModelSource = readFileSync(new URL('./results-dashboard-view-model.ts', import.meta.url), 'utf8');
+        const stylesSource = readFileSync(new URL('./analysis.module.css', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/createTrainingProgramCycleAction/);
+        expect(source).toMatch(/buildTrainingProgramEntryModel/);
+        expect(source).toMatch(/TrainingProgramEntryPanel/);
+        expect(source).toMatch(/baseAnalysisSessionId: activeSession\.historySessionId!/);
+        expect(source).toMatch(/window\.location\.assign\(`\/ciclo-pro\?cycleId=/);
+        expect(source).toMatch(/Programa Pro/);
+        expect(source).toMatch(/Reparo antes de progresso/);
+        expect(viewModelSource).toMatch(/buildTrainingProgramHref/);
+        expect(viewModelSource).toMatch(/intent: hasWeakTrainingProgramBase\(result\) \? 'repair' : 'start'/);
+        expect(viewModelSource).toMatch(/serverActionName: 'createTrainingProgramCycleAction'/);
+        expect(viewModelSource).toMatch(/Salvar analise para abrir Ciclo Pro/);
+        expect(viewModelSource).toMatch(/Abrir Ciclo de Reparo/);
+        expect(stylesSource).toMatch(/\.trainingProgramEntry/);
+        expect(source).not.toMatch(/localStorage|clientPro|isPro/);
+    });
+
     it('shows the next block, evidence badges, mastery pillars, and spray proof in the report', () => {
         const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
         const sprayPanelSource = readFileSync(new URL('./spray-trail-panel.tsx', import.meta.url), 'utf8');
