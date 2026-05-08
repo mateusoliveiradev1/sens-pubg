@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: ready_to_execute
-last_updated: "2026-05-08T06:15:39.706Z"
+last_updated: "2026-05-08T06:21:36Z"
 progress:
   total_phases: 13
   completed_phases: 8
@@ -73,7 +73,7 @@ Phase 9: PUBG Spray Lab Session Runner And Benchmark
 - Phase 8 final status is Delivered: implementation and automated verification are complete, and `drizzle/0011_complete_training_protocols.sql` has been applied and verified in the configured target database for protocol revision/transfer persistence.
 - Phase 9 planning is complete with 6 executable Spray Lab plans across 5 waves, backed by `09-RESEARCH.md` and full 62/62 decision coverage from `09-CONTEXT.md`.
 - Phase 9 plan 09-01 is complete with Spray Lab v1 contracts, compact PUBG lane presets, deterministic session creation/reducer, fidelity scoring/repair states, contextual index snapshots, benchmark snapshots, focused tests, full Vitest, typecheck, and benchmark gate passing.
-- Phase 9 plan 09-02 is complete with privacy-minimal Lab persistence, authenticated session/benchmark/validation actions, server-derived validation links, Free/Pro Spray Lab projection, focused tests, full Vitest, typecheck, Drizzle consistency check, and benchmark gate passing.
+- Phase 9 plan 09-02 is complete with privacy-minimal Lab persistence, authenticated session/benchmark/validation actions, server-derived validation links, Free/Pro Spray Lab projection, focused tests, full Vitest, typecheck, Drizzle consistency check, target DB migration application, and benchmark gate passing.
 
 ## Next Recommended Command
 
@@ -148,4 +148,4 @@ Execute Phase 9 Wave 3: Spray Lab cockpit UI and compatible validation UX.
 - Phase 8 08-06 executed: Added `verify:phase8:training`, final No False Done checklist/docs, command evidence, production build evidence, and final Delivered status after applying and verifying the target DB migration.
 - Phase 9 planned: 6 executable PUBG Spray Lab plans across 5 waves, covering Lab contracts/lanes/session fidelity/contextual index, persistence/actions/validation links/Free-Pro projection, `/spray-lab` cockpit, compatible validation/repair UX, dashboard/history/coach continuity, benchmark/goldens/copy safety, and `verify:phase9:spray-lab`.
 - Phase 9 09-01 executed: Added Spray Lab v1 engine contracts, family-based lane catalog, protocol-backed session reducer, fidelity/repair scoring, contextual index and benchmark snapshot builders, plus focused/full verification gates.
-- Phase 9 09-02 executed: Added Lab persistence schema/migration, authenticated server actions, benchmark snapshot persistence, validation link resolution, and entitlement-owned Free/Pro projection; migration consistency passed, target DB apply remains an operational setup step.
+- Phase 9 09-02 executed: Added Lab persistence schema/migration, authenticated server actions, benchmark snapshot persistence, validation link resolution, and entitlement-owned Free/Pro projection; migration consistency passed, and `drizzle/0012_spray_lab_sessions.sql` was applied and verified in the configured target database on 2026-05-08T06:21:36Z.

@@ -107,7 +107,6 @@ None - plan executed within the requested scope.
 ## Issues Encountered
 
 - `src/core/spray-lab-validation.ts` was listed in Task 3 `read_first`, but it does not exist in this repo state. I used the Phase 9 contracts in `src/types/engine.ts` plus `src/core/spray-lab-scoring.ts` and `src/core/spray-lab-fidelity.ts` as the implemented validation/status source.
-- `npx drizzle-kit check` validated migration file consistency, but `drizzle/0012_spray_lab_sessions.sql` was not applied to the target database in this execution. The target DB migration application remains a required operational step before declaring the wider phase fully closed.
 - Full Vitest passed with expected stderr from existing tests that intentionally simulate dropped product analytics/database failures.
 
 ## Verification
@@ -118,7 +117,8 @@ None - plan executed within the requested scope.
 - `npx vitest run src/lib/product-entitlements.test.ts src/lib/premium-projection.test.ts src/lib/spray-lab-projection.test.ts` - PASS, 3 files / 19 tests.
 - `npx vitest run src/actions/spray-lab.test.ts src/lib/spray-lab-projection.test.ts` - PASS, 2 files / 10 tests.
 - `npm run typecheck` - PASS.
-- `npx drizzle-kit check` - PASS: migration files are consistent; no DB apply performed.
+- `npx drizzle-kit check` - PASS: migration files are consistent.
+- `drizzle/0012_spray_lab_sessions.sql` - APPLIED on 2026-05-08T06:21:36Z against the configured target database; verified 4 Spray Lab tables, 21 indexes, and 13 foreign keys present.
 - `npx vitest run` - PASS.
 - `npm run benchmark:gate` - PASS: synthetic benchmark, captured benchmark, and coverage starter gate passed.
 
@@ -128,7 +128,7 @@ None.
 
 ## User Setup Required
 
-Apply and verify `drizzle/0012_spray_lab_sessions.sql` in the configured target database before declaring Phase 9 persistence fully operational.
+None for Plan 09-02. `drizzle/0012_spray_lab_sessions.sql` has been applied and verified in the configured target database.
 
 ## Next Phase Readiness
 
