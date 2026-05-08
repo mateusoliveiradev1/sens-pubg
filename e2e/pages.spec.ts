@@ -8,9 +8,9 @@ import { test, expect } from '@playwright/test';
 test.describe('Page Loading', () => {
     test('landing page loads with hero section', async ({ page }) => {
         await page.goto('/');
-        await expect(page).toHaveTitle(/PUBG Aim Analyzer/);
+        await expect(page).toHaveTitle(/Sens PUBG/);
         await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-        await expect(page.getByText(/Come.*Anal/i)).toBeVisible();
+        await expect(page.getByRole('link', { name: /analisar meu spray/i }).first()).toBeVisible();
     });
 
     test('login page shows auth providers', async ({ page }) => {
@@ -41,6 +41,6 @@ test.describe('Page Loading', () => {
 
     test('header shows ENTRAR button when not logged in', async ({ page }) => {
         await page.goto('/');
-        await expect(page.getByRole('link', { name: 'Entrar' })).toBeVisible();
+        await expect(page.getByRole('link', { name: 'Entrar', exact: true })).toBeVisible();
     });
 });

@@ -17,7 +17,7 @@ import { auth } from '@/auth';
 import { playerProfileSchema } from '@/types/schemas';
 import { and, eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
-import { normalizeScopeSensitivityMap } from '@/game/pubg';
+import { buildPlayerProfilePersistenceData } from '@/lib/player-profile-persistence';
 import { trackCommunityProgressionForAction } from '@/lib/community-progression-recorder';
 
 export interface ProfileActionResult {
@@ -42,37 +42,7 @@ export const saveProfile = authActionClient
                 .where(eq(playerProfiles.userId, session.user.id))
                 .limit(1);
 
-            const profileData = {
-                userId: session.user.id,
-                mouseModel: data.mouse.model,
-                mouseSensor: data.mouse.sensor,
-                mouseDpi: data.mouse.dpi,
-                mousePollingRate: data.mouse.pollingRate,
-                mouseWeight: data.mouse.weightGrams,
-                mouseLod: data.mouse.liftOffDistance,
-                mousepadModel: data.mousepad.model,
-                mousepadWidth: data.mousepad.widthCm,
-                mousepadHeight: data.mousepad.heightCm,
-                mousepadType: data.mousepad.type,
-                mousepadMaterial: data.mousepad.material,
-                gripStyle: data.gripStyle,
-                playStyle: data.playStyle,
-                monitorResolution: data.monitor.resolution,
-                monitorRefreshRate: data.monitor.refreshRate,
-                monitorPanel: data.monitor.panelType,
-                generalSens: data.pubgSettings.generalSens,
-                adsSens: data.pubgSettings.adsSens,
-                scopeSens: normalizeScopeSensitivityMap(data.pubgSettings.scopeSens),
-                fov: data.pubgSettings.fov,
-                verticalMultiplier: data.pubgSettings.verticalMultiplier,
-                mouseAcceleration: data.pubgSettings.mouseAcceleration,
-                armLength: data.physical.armLength,
-                deskSpace: data.physical.deskSpaceCm,
-                bio: data.identity?.bio ?? null,
-                twitter: data.identity?.twitter ?? null,
-                twitch: data.identity?.twitch ?? null,
-                updatedAt: new Date(),
-            };
+            const profileData = buildPlayerProfilePersistenceData(session.user.id, data);
 
             if (existing[0]) {
                 await db

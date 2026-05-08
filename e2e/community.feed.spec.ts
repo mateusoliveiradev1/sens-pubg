@@ -297,7 +297,7 @@ async function seedCommunityFeedFixture() {
             primaryPatchVersion: '35.2',
             primaryDiagnosisKey: 'vertical_control',
             copySensPreset: copySensPreset as never,
-            featuredUntil: new Date('2026-05-01T00:00:00.000Z'),
+            featuredUntil: new Date('2099-05-01T00:00:00.000Z'),
             publishedAt: new Date('2026-04-18T15:30:00.000Z'),
         },
         {

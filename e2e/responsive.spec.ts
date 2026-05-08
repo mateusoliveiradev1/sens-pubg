@@ -17,7 +17,7 @@ test.describe('Responsive - Mobile', () => {
     test('landing page renders on mobile', async ({ page }) => {
         await page.goto('/');
         await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-        await expect(page.getByText(/Come.*Anal/i)).toBeVisible();
+        await expect(page.getByRole('link', { name: /analisar meu spray/i }).first()).toBeVisible();
     });
 
     test('login page is usable on mobile', async ({ page }) => {
@@ -37,7 +37,7 @@ test.describe('Responsive - Tablet', () => {
 
     test('features section renders on tablet', async ({ page }) => {
         await page.goto('/');
-        const heading = page.getByRole('heading', { name: 'Como Funciona' });
+        const heading = page.getByRole('heading', { name: /do clip para o treino/i });
         await heading.scrollIntoViewIfNeeded();
         await expect(heading).toBeVisible();
     });

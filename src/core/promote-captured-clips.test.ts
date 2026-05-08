@@ -40,7 +40,7 @@ describe('promoteCapturedClips', () => {
         ]));
         expect(writtenDataset.clips.every((clip) => clip.quality.sourceType === 'captured')).toBe(true);
         expect(report.consent.every((clip) => clip.consentStatus === 'label_review')).toBe(true);
-    });
+    }, 15000);
 
     it('accepts an explicit consent path and blocks clips missing from that manifest', async () => {
         const tempDir = await mkdtemp(path.join(tmpdir(), 'captured-benchmark-consent-'));

@@ -243,7 +243,7 @@ test.describe('Community publish flow', () => {
             await signInAsSeededUser(page, fixture.user);
             await page.goto(`/history/${fixture.analysisSessionId}`);
 
-            await page.getByRole('button', { name: /publicar na comunidade/i }).click();
+            await page.getByRole('button', { name: /publicar analise/i }).click();
 
             await expect(page.getByText(/publicado na comunidade/i)).toBeVisible();
             await expect(page.getByRole('button', { name: /^publicado$/i })).toBeDisabled();
@@ -281,8 +281,8 @@ test.describe('Community publish flow', () => {
                     }),
                 );
 
-            await expect(page.getByRole('link', { name: /abrir publicacao/i })).toBeVisible();
-            await page.getByRole('link', { name: /abrir publicacao/i }).click();
+            await expect(page.getByRole('link', { name: /abrir post/i })).toBeVisible();
+            await page.getByRole('link', { name: /abrir post/i }).click();
 
             await expect(page).toHaveURL(`/community/${fixture.expectedSlug}`);
             await expect(page.getByRole('heading', { level: 1, name: /beryl-m762 - analise de spray/i })).toBeVisible();
