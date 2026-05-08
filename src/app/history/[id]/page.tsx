@@ -9,6 +9,7 @@ import {
     sprayLabSessions,
     sprayLabValidationLinks,
     trainingProtocolTransferRecords,
+    trainingProgramCycles,
     weaponProfiles,
 } from '@/db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
@@ -20,6 +21,7 @@ import { ResultsDashboard } from '@/app/analyze/results-dashboard';
 import { getCoachProtocolOutcomesForSession } from '@/actions/history';
 import { formatPrecisionTrendLabel } from '@/core/precision-loop';
 import { buildSprayLabCoachHandoff } from '@/core/spray-lab-coach-handoff';
+import { trainingProgramReasonCopy } from '@/core/training-programs';
 import { EvidenceChip, type EvidenceTone } from '@/ui/components/evidence-chip';
 import { Header } from '@/ui/components/header';
 import { LoopRail, type LoopStageKey } from '@/ui/components/loop-rail';
@@ -40,6 +42,16 @@ import type {
     PrecisionTrendSummary,
     PrecisionVariableInTest,
 } from '@/types/engine';
+import type {
+    TrainingProgramCheckpoint,
+    TrainingProgramCheckpointLayer,
+    TrainingProgramCycleSnapshot,
+    TrainingProgramEventType,
+    TrainingProgramKind,
+    TrainingProgramMissionStatus,
+    TrainingProgramReasonCode,
+    TrainingProgramState,
+} from '@/types/training-programs';
 
 interface Props {
     params: Promise<{ id: string }>;
@@ -62,6 +74,61 @@ const HISTORY_OUTCOME_REASON_LABELS = {
     other: 'Outro motivo',
 } as const;
 
+type ProgramAuditCycleRow = {
+    readonly id: string;
+    readonly kind: TrainingProgramKind;
+    readonly state: TrainingProgramState;
+    readonly visibleReason: string;
+    readonly blockerSummary: string;
+    readonly snapshot: TrainingProgramCycleSnapshot;
+    readonly updatedAt: Date;
+    readonly archivedAt: Date | null;
+    readonly completedAt: Date | null;
+};
+
+interface TrainingProgramEvidenceLink {
+    readonly key: string;
+    readonly label: string;
+    readonly href: string | null;
+}
+
+interface TrainingProgramAuditViewModel {
+    readonly cycleId: string;
+    readonly kindLabel: string;
+    readonly label: string;
+    readonly stateLabel: string;
+    readonly strictContextLabel: string;
+    readonly currentWeekLabel: string;
+    readonly reasonLabel: string;
+    readonly blockerReasons: readonly string[];
+    readonly technicalCheckpointLabel: string;
+    readonly monthlyCheckpointLabel: string;
+    readonly weeklyCheckpoints: readonly TrainingProgramCheckpoint[];
+    readonly technicalCheckpoints: readonly TrainingProgramCheckpoint[];
+    readonly monthlyCheckpoints: readonly TrainingProgramCheckpoint[];
+    readonly missionRows: readonly {
+        readonly id: string;
+        readonly weekLabel: string;
+        readonly title: string;
+        readonly statusLabel: string;
+        readonly categoryLabel: string;
+        readonly reasonLabel: string;
+        readonly evidenceLinks: readonly TrainingProgramEvidenceLink[];
+    }[];
+    readonly eventRows: readonly {
+        readonly id: string;
+        readonly typeLabel: string;
+        readonly occurredAtLabel: string;
+        readonly reasonLabel: string;
+    }[];
+    readonly relatedSprayLabLinks: readonly TrainingProgramEvidenceLink[];
+    readonly relatedValidationLinks: readonly TrainingProgramEvidenceLink[];
+    readonly relatedAnalysisLinks: readonly TrainingProgramEvidenceLink[];
+    readonly cicloProHref: string;
+    readonly archivedAtLabel: string | null;
+    readonly completedAtLabel: string | null;
+}
+
 function historyOutcomeStatusLabel(status: CoachProtocolOutcome['status']): string {
     switch (status) {
         case 'started':
@@ -83,6 +150,306 @@ function historyOutcomeStatusLabel(status: CoachProtocolOutcome['status']): stri
         case 'variable_changed':
             return 'Variavel mudou';
     }
+}
+
+function trainingProgramKindLabel(kind: TrainingProgramKind): string {
+    switch (kind) {
+        case 'ciclo_pro':
+            return 'Ciclo Pro';
+        case 'ciclo_reparo':
+            return 'Ciclo Reparo';
+    }
+}
+
+function trainingProgramStateLabel(state: TrainingProgramState): string {
+    switch (state) {
+        case 'preparando':
+            return 'Preparando';
+        case 'ativo':
+            return 'Ativo';
+        case 'reparando':
+            return 'Em reparo';
+        case 'consolidando':
+            return 'Consolidando';
+        case 'validacao_pendente':
+            return 'Validacao pendente';
+        case 'progresso_validado':
+            return 'Progresso validado';
+        case 'sem_mudanca_clara':
+            return 'Sem mudanca clara';
+        case 'regressao_validada':
+            return 'Regressao validada';
+        case 'inconclusivo':
+            return 'Inconclusivo';
+        case 'linha_reiniciada':
+            return 'Linha reiniciada';
+        case 'concluido':
+            return 'Concluido';
+        case 'pausado':
+            return 'Pausado';
+        case 'contexto_desatualizado':
+            return 'Contexto desatualizado';
+    }
+}
+
+function trainingProgramMissionStatusLabel(status: TrainingProgramMissionStatus): string {
+    switch (status) {
+        case 'locked':
+            return 'bloqueada';
+        case 'available':
+            return 'disponivel';
+        case 'active':
+            return 'ativa';
+        case 'completed':
+            return 'concluida';
+        case 'blocked':
+            return 'bloqueada por evidencia';
+        case 'skipped_reentered':
+            return 'reencaixada';
+    }
+}
+
+function trainingProgramCheckpointLayerLabel(layer: TrainingProgramCheckpointLayer): string {
+    switch (layer) {
+        case 'weekly_operational':
+            return 'Semanal operacional';
+        case 'technical_validated':
+            return 'Tecnico validado';
+        case 'monthly_program':
+            return 'Mensal do ciclo';
+    }
+}
+
+function trainingProgramEventTypeLabel(type: TrainingProgramEventType): string {
+    switch (type) {
+        case 'mission_started':
+            return 'Missao iniciada';
+        case 'mission_completed':
+            return 'Missao concluida';
+        case 'lab_evidence_attached':
+            return 'Spray Lab anexado';
+        case 'validation_attached':
+            return 'Validacao anexada';
+        case 'checkpoint_recorded':
+            return 'Checkpoint registrado';
+        case 'fatigue_reported':
+            return 'Fadiga reportada';
+        case 'discomfort_reported':
+            return 'Pausa por desconforto';
+        case 'confusion_reported':
+            return 'Protocolo simplificado';
+        case 'variable_changed':
+            return 'Variavel mudou';
+        case 'missed_day_reentered':
+            return 'Reentrada de agenda';
+        case 'context_marked_stale':
+            return 'Contexto desatualizado';
+        case 'line_restarted':
+            return 'Linha reiniciada';
+        case 'cycle_completed':
+            return 'Ciclo concluido';
+    }
+}
+
+function formatProgramReasons(
+    reasonCodes: readonly TrainingProgramReasonCode[],
+    fallback: string,
+): string {
+    if (reasonCodes.length === 0) {
+        return fallback;
+    }
+
+    return reasonCodes.map(trainingProgramReasonCopy).join(' ');
+}
+
+function formatProgramDate(value: Date | string): string {
+    const date = value instanceof Date ? value : new Date(value);
+
+    return Number.isNaN(date.getTime())
+        ? 'data nao registrada'
+        : date.toLocaleDateString('pt-BR');
+}
+
+function evidenceLinkLabel(kind: TrainingProgramEvidenceLink['label'], id: string): string {
+    return `${kind}: ${id.slice(0, 8)}`;
+}
+
+function buildTrainingProgramEvidenceLinks(
+    cycle: TrainingProgramCycleSnapshot,
+): readonly TrainingProgramEvidenceLink[] {
+    const refs = [
+        ...(cycle.evidenceSummary.savedAnalysisId ? [{
+            kind: 'analysis' as const,
+            id: cycle.evidenceSummary.savedAnalysisId,
+            href: `/history/${cycle.evidenceSummary.savedAnalysisId}`,
+        }] : []),
+        ...cycle.weeks.flatMap((week) => week.missions.flatMap((mission) => mission.evidenceRefs)),
+        ...cycle.checkpoints.flatMap((checkpoint) => [
+            ...(checkpoint.evidenceSummary.savedAnalysisId ? [{
+                kind: 'analysis' as const,
+                id: checkpoint.evidenceSummary.savedAnalysisId,
+                href: `/history/${checkpoint.evidenceSummary.savedAnalysisId}`,
+            }] : []),
+            ...(checkpoint.evidenceSummary.sprayLabSession ? [{
+                kind: 'spray_lab_session' as const,
+                id: checkpoint.evidenceSummary.sprayLabSession.id,
+                href: `/spray-lab?sessionId=${checkpoint.evidenceSummary.sprayLabSession.id}`,
+            }] : []),
+            ...(checkpoint.evidenceSummary.validationLink ? [{
+                kind: 'validation_link' as const,
+                id: checkpoint.evidenceSummary.validationLink.id,
+                href: `/analyze?mode=validation&validationLinkId=${checkpoint.evidenceSummary.validationLink.id}`,
+            }] : []),
+        ]),
+        ...cycle.transitionEvents.flatMap((event) => event.evidenceRefs),
+    ];
+    const seen = new Set<string>();
+
+    return refs
+        .filter((ref) => {
+            const key = `${ref.kind}:${ref.id}`;
+            if (seen.has(key)) {
+                return false;
+            }
+            seen.add(key);
+            return true;
+        })
+        .map((ref): TrainingProgramEvidenceLink => {
+            switch (ref.kind) {
+                case 'analysis':
+                    return {
+                        key: `${ref.kind}:${ref.id}`,
+                        label: evidenceLinkLabel('Analyze', ref.id),
+                        href: ref.href ?? `/history/${ref.id}`,
+                    };
+                case 'spray_lab_session':
+                case 'spray_lab_benchmark':
+                    return {
+                        key: `${ref.kind}:${ref.id}`,
+                        label: evidenceLinkLabel('Spray Lab', ref.id),
+                        href: ref.href ?? `/spray-lab?sessionId=${ref.id}`,
+                    };
+                case 'validation_link':
+                case 'precision_trend':
+                case 'precision_checkpoint':
+                    return {
+                        key: `${ref.kind}:${ref.id}`,
+                        label: evidenceLinkLabel('Validacao', ref.id),
+                        href: ref.href ?? null,
+                    };
+                case 'protocol':
+                case 'coach_outcome':
+                    return {
+                        key: `${ref.kind}:${ref.id}`,
+                        label: evidenceLinkLabel('Coach', ref.id),
+                        href: ref.href ?? null,
+                    };
+            }
+        });
+}
+
+function linksForMission(
+    missionRefs: TrainingProgramCycleSnapshot['weeks'][number]['missions'][number]['evidenceRefs'],
+    allLinks: readonly TrainingProgramEvidenceLink[],
+): readonly TrainingProgramEvidenceLink[] {
+    const wanted = new Set(missionRefs.map((ref) => `${ref.kind}:${ref.id}`));
+
+    return allLinks.filter((link) => wanted.has(link.key));
+}
+
+function buildTrainingProgramAuditViewModel(row: ProgramAuditCycleRow): TrainingProgramAuditViewModel {
+    const cycle = row.snapshot;
+    const weeklyCheckpoints = cycle.checkpoints.filter((checkpoint) => checkpoint.layer === 'weekly_operational');
+    const technicalCheckpoints = cycle.checkpoints.filter((checkpoint) => checkpoint.layer === 'technical_validated');
+    const monthlyCheckpoints = cycle.checkpoints.filter((checkpoint) => checkpoint.layer === 'monthly_program');
+    const evidenceLinks = buildTrainingProgramEvidenceLinks(cycle);
+    const relatedSprayLabLinks = evidenceLinks.filter((link) => link.label.startsWith('Spray Lab'));
+    const relatedValidationLinks = evidenceLinks.filter((link) => link.label.startsWith('Validacao'));
+    const relatedAnalysisLinks = evidenceLinks.filter((link) => link.label.startsWith('Analyze'));
+    const reasonCodes = row.snapshot.reasonCodes.length > 0 ? row.snapshot.reasonCodes : row.snapshot.evidenceSummary.blockers;
+    const technicalCheckpointLabel = technicalCheckpoints.at(-1)?.summary
+        ?? 'Checkpoint tecnico pendente: so conta quando existe clip compativel confirmado.';
+    const monthlyCheckpointLabel = monthlyCheckpoints.at(-1)?.summary
+        ?? 'Resumo mensal pendente; o ciclo nao classifica jogador nem fecha certeza final.';
+
+    return {
+        cycleId: cycle.id,
+        kindLabel: trainingProgramKindLabel(row.kind),
+        label: cycle.label,
+        stateLabel: trainingProgramStateLabel(row.state),
+        strictContextLabel: cycle.strictContextLabel,
+        currentWeekLabel: `Semana ${cycle.currentWeekNumber}/4`,
+        reasonLabel: formatProgramReasons(reasonCodes, row.visibleReason || row.blockerSummary),
+        blockerReasons: Array.from(new Set([
+            ...cycle.evidenceSummary.blockers.map(trainingProgramReasonCopy),
+            ...reasonCodes.map(trainingProgramReasonCopy),
+        ])),
+        technicalCheckpointLabel,
+        monthlyCheckpointLabel,
+        weeklyCheckpoints,
+        technicalCheckpoints,
+        monthlyCheckpoints,
+        missionRows: cycle.weeks.flatMap((week) => week.missions.map((mission) => ({
+            id: mission.id,
+            weekLabel: `Semana ${week.weekNumber}`,
+            title: mission.title,
+            statusLabel: trainingProgramMissionStatusLabel(mission.status),
+            categoryLabel: mission.category,
+            reasonLabel: formatProgramReasons(mission.reasonCodes, mission.anatomy.porQueImporta),
+            evidenceLinks: linksForMission(mission.evidenceRefs, evidenceLinks),
+        }))),
+        eventRows: [...cycle.transitionEvents]
+            .sort((left, right) => Date.parse(right.occurredAt) - Date.parse(left.occurredAt))
+            .map((event) => ({
+                id: event.id,
+                typeLabel: trainingProgramEventTypeLabel(event.type),
+                occurredAtLabel: formatProgramDate(event.occurredAt),
+                reasonLabel: event.userVisibleReason || formatProgramReasons(event.reasonCodes, 'Mudanca registrada no ciclo.'),
+            })),
+        relatedSprayLabLinks,
+        relatedValidationLinks,
+        relatedAnalysisLinks,
+        cicloProHref: `/ciclo-pro?cycleId=${encodeURIComponent(cycle.id)}`,
+        archivedAtLabel: row.archivedAt ? formatProgramDate(row.archivedAt) : null,
+        completedAtLabel: row.completedAt ? formatProgramDate(row.completedAt) : null,
+    };
+}
+
+function ProgramEvidenceLinkList({
+    emptyLabel,
+    links,
+}: {
+    readonly emptyLabel: string;
+    readonly links: readonly TrainingProgramEvidenceLink[];
+}) {
+    if (links.length === 0) {
+        return (
+            <span style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }}>
+                {emptyLabel}
+            </span>
+        );
+    }
+
+    return (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {links.map((link) => (
+                link.href ? (
+                    <Link
+                        className="badge badge-info"
+                        href={link.href}
+                        key={link.key}
+                        style={{ textDecoration: 'none' }}
+                    >
+                        {link.label}
+                    </Link>
+                ) : (
+                    <span className="badge badge-info" key={link.key}>
+                        {link.label}
+                    </span>
+                )
+            ))}
+        </div>
+    );
 }
 
 function buildHistoryCoachOutcomeSnapshot(
@@ -412,6 +779,27 @@ export default async function HistoryDetailRoute({ params }: Props) {
             )
             .orderBy(trainingProtocolTransferRecords.createdAt)
         : [];
+    const programCycleRows = await db
+        .select({
+            id: trainingProgramCycles.id,
+            kind: trainingProgramCycles.kind,
+            state: trainingProgramCycles.state,
+            visibleReason: trainingProgramCycles.visibleReason,
+            blockerSummary: trainingProgramCycles.blockerSummary,
+            snapshot: trainingProgramCycles.snapshot,
+            updatedAt: trainingProgramCycles.updatedAt,
+            archivedAt: trainingProgramCycles.archivedAt,
+            completedAt: trainingProgramCycles.completedAt,
+        })
+        .from(trainingProgramCycles)
+        .where(
+            and(
+                eq(trainingProgramCycles.baseAnalysisSessionId, record.id),
+                eq(trainingProgramCycles.userId, session.user.id),
+            ),
+        )
+        .orderBy(desc(trainingProgramCycles.updatedAt));
+    const trainingProgramAudits = programCycleRows.map(buildTrainingProgramAuditViewModel);
     const [sprayLabRow] = analysisResult.coachPlan?.completeProtocol
         ? await db
             .select({
@@ -804,6 +1192,238 @@ export default async function HistoryDetailRoute({ params }: Props) {
                                         Nenhum outcome registrado ainda. Use o painel de resultado para iniciar a trilha auditavel.
                                     </p>
                                 )}
+                            </div>
+                        </section>
+                    ) : null}
+
+                    {trainingProgramAudits.length > 0 ? (
+                        <section
+                            id="history-training-program-audit"
+                            className="glass-card"
+                            style={{
+                                padding: 'var(--space-lg)',
+                                border: '1px solid rgba(34, 197, 94, 0.2)',
+                                background: 'linear-gradient(145deg, rgba(5, 24, 15, 0.78), rgba(8, 8, 12, 0.92))',
+                            }}
+                        >
+                            <div style={{ display: 'grid', gap: 'var(--space-lg)' }}>
+                                <div
+                                    style={{
+                                        display: 'flex',
+                                        flexWrap: 'wrap',
+                                        justifyContent: 'space-between',
+                                        gap: 'var(--space-lg)',
+                                        alignItems: 'flex-start',
+                                    }}
+                                >
+                                    <div style={{ maxWidth: 620, minWidth: 0 }}>
+                                        <p
+                                            style={{
+                                                margin: '0 0 var(--space-xs) 0',
+                                                fontSize: '11px',
+                                                letterSpacing: '0.18em',
+                                                textTransform: 'uppercase',
+                                                color: 'var(--color-success)',
+                                                fontWeight: 700,
+                                            }}
+                                        >
+                                            Auditoria do Ciclo Pro
+                                        </p>
+                                        <h2 style={{ margin: 0, fontSize: 'var(--text-2xl)', lineHeight: 1.15 }}>
+                                            Ciclo, checkpoints e reentrada
+                                        </h2>
+                                        <p style={{ margin: 'var(--space-sm) 0 0 0', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+                                            Historico preserva o motivo de cada mudanca do programa. Execucao, Spray Lab e transferencia pratica ajudam o coach, mas progresso tecnico depende de validacao compativel.
+                                        </p>
+                                    </div>
+                                    <Link href="/ciclo-pro" className="btn btn-secondary">
+                                        Abrir Ciclo Pro
+                                    </Link>
+                                </div>
+
+                                {trainingProgramAudits.map((program) => (
+                                    <div
+                                        key={program.cycleId}
+                                        style={{
+                                            display: 'grid',
+                                            gap: 'var(--space-lg)',
+                                            paddingTop: 'var(--space-lg)',
+                                            borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                                        }}
+                                    >
+                                        <div style={{ display: 'grid', gap: 'var(--space-md)' }}>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                                <span className="badge badge-info">{program.kindLabel}</span>
+                                                <span className="badge badge-info">{program.stateLabel}</span>
+                                                <span className="badge badge-info">{program.currentWeekLabel}</span>
+                                                {program.archivedAtLabel ? (
+                                                    <span className="badge badge-warning">Arquivado em {program.archivedAtLabel}</span>
+                                                ) : null}
+                                                {program.completedAtLabel ? (
+                                                    <span className="badge badge-info">Concluido em {program.completedAtLabel}</span>
+                                                ) : null}
+                                            </div>
+                                            <div>
+                                                <h3 style={{ margin: 0, fontSize: 'var(--text-xl)', lineHeight: 1.2 }}>
+                                                    {program.label}
+                                                </h3>
+                                                <p style={{ margin: '6px 0 0 0', color: 'var(--color-text-secondary)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+                                                    Contexto estrito: {program.strictContextLabel}
+                                                </p>
+                                                <p style={{ margin: '6px 0 0 0', color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+                                                    Motivo visivel: {program.reasonLabel}
+                                                </p>
+                                            </div>
+                                            {program.blockerReasons.length > 0 ? (
+                                                <div style={{ display: 'grid', gap: '6px' }} aria-label="Bloqueadores do Ciclo Pro">
+                                                    {program.blockerReasons.slice(0, 5).map((reason) => (
+                                                        <span
+                                                            key={reason}
+                                                            style={{
+                                                                padding: '8px 10px',
+                                                                borderRadius: '8px',
+                                                                border: '1px solid rgba(255, 193, 7, 0.22)',
+                                                                background: 'rgba(255, 193, 7, 0.08)',
+                                                                color: 'var(--color-text-secondary)',
+                                                                fontSize: 'var(--text-sm)',
+                                                                lineHeight: 1.5,
+                                                            }}
+                                                        >
+                                                            Reparo/pendencia: {reason}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            ) : null}
+                                        </div>
+
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 'var(--space-md)' }}>
+                                            <div style={{ display: 'grid', gap: '8px' }}>
+                                                <h3 style={{ margin: 0, fontSize: 'var(--text-base)' }}>
+                                                    Checkpoints semanais operacionais
+                                                </h3>
+                                                {program.weeklyCheckpoints.length > 0 ? (
+                                                    program.weeklyCheckpoints.map((checkpoint) => (
+                                                        <p key={checkpoint.id} style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+                                                            Semana {checkpoint.weekNumber ?? '-'}: {checkpoint.summary}
+                                                        </p>
+                                                    ))
+                                                ) : (
+                                                    <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+                                                        Nenhum checkpoint semanal registrado ainda.
+                                                    </p>
+                                                )}
+                                            </div>
+
+                                            <div style={{ display: 'grid', gap: '8px' }}>
+                                                <h3 style={{ margin: 0, fontSize: 'var(--text-base)' }}>
+                                                    Checkpoint tecnico validado
+                                                </h3>
+                                                <p style={{ margin: 0, color: program.technicalCheckpoints.length > 0 ? 'var(--color-text-muted)' : 'var(--color-warning)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+                                                    {program.technicalCheckpointLabel}
+                                                </p>
+                                            </div>
+
+                                            <div style={{ display: 'grid', gap: '8px' }}>
+                                                <h3 style={{ margin: 0, fontSize: 'var(--text-base)' }}>
+                                                    Checkpoint mensal
+                                                </h3>
+                                                <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+                                                    {program.monthlyCheckpointLabel}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: 'grid', gap: 'var(--space-sm)' }}>
+                                            <h3 style={{ margin: 0, fontSize: 'var(--text-base)' }}>
+                                                Missoes, outcomes e motivos
+                                            </h3>
+                                            <div style={{ display: 'grid', gap: '8px' }}>
+                                                {program.missionRows.map((mission) => (
+                                                    <div
+                                                        key={mission.id}
+                                                        style={{
+                                                            padding: 'var(--space-sm)',
+                                                            borderRadius: '8px',
+                                                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                                                            background: 'rgba(0, 0, 0, 0.16)',
+                                                            display: 'grid',
+                                                            gap: '6px',
+                                                        }}
+                                                    >
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                                            <span className="badge badge-info">{mission.weekLabel}</span>
+                                                            <span className="badge badge-info">{mission.categoryLabel}</span>
+                                                            <span className={mission.statusLabel === 'bloqueada por evidencia' ? 'badge badge-warning' : 'badge badge-info'}>
+                                                                {mission.statusLabel}
+                                                            </span>
+                                                        </div>
+                                                        <p style={{ margin: 0, color: 'var(--color-text-secondary)', fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
+                                                            {mission.title}
+                                                        </p>
+                                                        <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: 'var(--text-xs)', lineHeight: 1.5 }}>
+                                                            Motivo: {mission.reasonLabel}
+                                                        </p>
+                                                        <ProgramEvidenceLinkList
+                                                            emptyLabel="Sem evidencia anexada diretamente nesta missao."
+                                                            links={mission.evidenceLinks}
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 'var(--space-md)' }}>
+                                            <div style={{ display: 'grid', gap: '8px' }}>
+                                                <h3 style={{ margin: 0, fontSize: 'var(--text-base)' }}>
+                                                    Spray Lab relacionado
+                                                </h3>
+                                                <ProgramEvidenceLinkList
+                                                    emptyLabel="Sem sessao Spray Lab anexada ao ciclo."
+                                                    links={program.relatedSprayLabLinks}
+                                                />
+                                            </div>
+                                            <div style={{ display: 'grid', gap: '8px' }}>
+                                                <h3 style={{ margin: 0, fontSize: 'var(--text-base)' }}>
+                                                    Clips de validacao Analyze
+                                                </h3>
+                                                <ProgramEvidenceLinkList
+                                                    emptyLabel="Sem clip de validacao compativel anexado."
+                                                    links={program.relatedValidationLinks}
+                                                />
+                                            </div>
+                                            <div style={{ display: 'grid', gap: '8px' }}>
+                                                <h3 style={{ margin: 0, fontSize: 'var(--text-base)' }}>
+                                                    Analises base
+                                                </h3>
+                                                <ProgramEvidenceLinkList
+                                                    emptyLabel="Sem analise base vinculada."
+                                                    links={program.relatedAnalysisLinks}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: 'grid', gap: '8px' }}>
+                                            <h3 style={{ margin: 0, fontSize: 'var(--text-base)' }}>
+                                                Reparos, reentrada e reinicio de linha
+                                            </h3>
+                                            {program.eventRows.length > 0 ? (
+                                                program.eventRows.map((event) => (
+                                                    <p key={event.id} style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+                                                        {event.occurredAtLabel} - {event.typeLabel}: {event.reasonLabel}
+                                                    </p>
+                                                ))
+                                            ) : (
+                                                <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+                                                    Nenhum reparo, reentrada ou reinicio registrado para este ciclo.
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <Link href={program.cicloProHref} className="btn btn-secondary" style={{ width: 'fit-content' }}>
+                                            Voltar para o Ciclo Pro
+                                        </Link>
+                                    </div>
+                                ))}
                             </div>
                         </section>
                     ) : null}
