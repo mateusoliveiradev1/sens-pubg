@@ -193,3 +193,121 @@ describe('training program eligibility and cycle birth', () => {
         expect(restartedCycle.activeLine?.contextKey).toBe(restartedCycle.strictContextKey);
     });
 });
+
+describe('training program adaptive week and mission composition', () => {
+    it('composes four adaptive weeks with five main missions and two flex slots each', () => {
+        const analysis = savedAnalysis();
+        const cycle = createTrainingProgramCycle({
+            analysisResult: analysis,
+            protocol: protocolFor(analysis),
+            now: NOW,
+        });
+
+        expect(cycle.weeks).toHaveLength(4);
+
+        for (const week of cycle.weeks) {
+            expect(week.missions).toHaveLength(7);
+            expect(week.missions.map((mission) => mission.slot)).toEqual([
+                'main_1',
+                'main_2',
+                'main_3',
+                'main_4',
+                'main_5',
+                'flex_1',
+                'flex_2',
+            ]);
+        }
+
+        expect(cycle.weeks[0]?.missions.map((mission) => mission.category)).toEqual([
+            'preparation',
+            'execution',
+            'repair',
+            'validation',
+            'validation',
+            'repair',
+            'transfer',
+        ]);
+        expect(cycle.currentMissionId).toBe(cycle.weeks[0]?.missions[0]?.id);
+    });
+
+    it('keeps every mission evidence-bound with complete anatomy and handoff CTAs', () => {
+        const analysis = savedAnalysis();
+        const cycle = createTrainingProgramCycle({
+            analysisResult: analysis,
+            protocol: protocolFor(analysis),
+            now: NOW,
+        });
+        const missions = cycle.weeks.flatMap((week) => week.missions);
+
+        expect(missions.length).toBe(28);
+
+        for (const current of missions) {
+            expect(current.anatomy.agora).not.toHaveLength(0);
+            expect(current.anatomy.porQueImporta).not.toHaveLength(0);
+            expect(current.anatomy.oQueInvalida).not.toHaveLength(0);
+            expect(current.anatomy.evidenciaGerada).not.toHaveLength(0);
+            expect(current.anatomy.proximoCta.label).not.toHaveLength(0);
+            expect(current.anatomy.proximoCta.href).toMatch(/^\/(spray-lab|analyze\?mode=validation)/);
+            expect(current.stateAfterCompletion).not.toBe('preparando');
+            expect(current.evidenceRefs.some((ref) => ref.kind === 'protocol')).toBe(true);
+        }
+
+        const copy = missions.map((mission) => [
+            mission.title,
+            mission.anatomy.agora,
+            mission.anatomy.porQueImporta,
+            mission.anatomy.oQueInvalida,
+            mission.anatomy.evidenciaGerada,
+            mission.anatomy.proximoCta.label,
+        ].join(' ')).join(' ').toLowerCase();
+
+        expect(copy).not.toMatch(/\bxp\b|curso|aula|lesson|grind|rank|garantid|melhore sua mira|treine 20 minutos/);
+        expect(copy).not.toContain('nota global');
+    });
+
+    it('routes execution to Spray Lab and validation to Analyze validation mode', () => {
+        const analysis = savedAnalysis();
+        const cycle = createTrainingProgramCycle({
+            analysisResult: analysis,
+            protocol: protocolFor(analysis),
+            now: NOW,
+        });
+        const missions = cycle.weeks[0]?.missions ?? [];
+        const execution = missions.find((mission) => mission.slot === 'main_2');
+        const validation = missions.find((mission) => mission.slot === 'main_4');
+
+        expect(execution?.category).toBe('execution');
+        expect(execution?.anatomy.agora).toContain('lane vinculada');
+        expect(execution?.anatomy.evidenciaGerada).toContain('Fidelidade');
+        expect(execution?.anatomy.proximoCta.href).toContain('/spray-lab');
+
+        expect(validation?.category).toBe('validation');
+        expect(validation?.anatomy.agora).toContain('mesmo contexto');
+        expect(validation?.anatomy.oQueInvalida).toContain('sensibilidade');
+        expect(validation?.anatomy.proximoCta.href).toContain('/analyze?mode=validation');
+    });
+
+    it('creates repair missions for weak base evidence without pretending full progression', () => {
+        const weakAnalysis = createAnalysisResultFixture({
+            ...analysisResultWithWeakCapture,
+            historySessionId: 'history-weak-2',
+            analysisDecision: resolveAnalysisDecision({
+                blockerReasons: ['low_confidence', 'low_coverage'],
+                confidence: 0.42,
+                coverage: 0.48,
+            }),
+        });
+        const cycle = createTrainingProgramCycle({
+            analysisResult: weakAnalysis,
+            protocol: protocolFor(weakAnalysis),
+            now: NOW,
+        });
+        const missions = cycle.weeks.flatMap((week) => week.missions);
+
+        expect(cycle.kind).toBe('ciclo_reparo');
+        expect(cycle.weeks).toHaveLength(1);
+        expect(missions.some((mission) => mission.category === 'repair')).toBe(true);
+        expect(missions.every((mission) => mission.reasonCodes.length > 0)).toBe(true);
+        expect(missions.map((mission) => mission.stateAfterCompletion)).toContain('validacao_pendente');
+    });
+});

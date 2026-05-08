@@ -5,10 +5,14 @@ import type {
 } from '../types/engine';
 import type {
     TrainingProgramActiveLineReference,
+    TrainingProgramAdaptiveWeek,
     TrainingProgramCycleSnapshot,
     TrainingProgramEvidenceReference,
     TrainingProgramEvidenceSummary,
     TrainingProgramKind,
+    TrainingProgramMission,
+    TrainingProgramMissionCategory,
+    TrainingProgramMissionSlot,
     TrainingProgramReasonCode,
     TrainingProgramRecoveryAction,
     TrainingProgramState,
@@ -103,6 +107,13 @@ export function createTrainingProgramCycle(
     const activeLine = buildActiveLineReference(input, eligibility, evidenceSummary);
     const archivedLines = buildArchivedLines(input, eligibility);
     const cycleId = buildCycleId('ciclo-pro-v1', eligibility.contextKey, input.now);
+    const weeks = buildFullProgramWeeks({
+        cycleId,
+        contextLabel: eligibility.contextLabel,
+        state: eligibility.state,
+        evidenceSummary,
+    });
+    const currentMissionId = weeks[0]?.missions[0]?.id ?? null;
 
     return {
         version: 'ciclo-pro-v1',
@@ -118,16 +129,16 @@ export function createTrainingProgramCycle(
         strictContextKey: eligibility.contextKey,
         strictContextLabel: eligibility.contextLabel,
         evidenceSummary,
-        weeks: [],
+        weeks,
         checkpoints: [],
         transitionEvents: [],
         currentWeekNumber: 1,
-        currentMissionId: null,
+        currentMissionId,
         reasonCodes: eligibility.reasonCodes,
         recoveryAction: eligibility.lineRestartRequired ? 'reiniciar_linha' : 'consolidar',
         nextCta: {
             label: 'Abrir Ciclo Pro',
-            href: '/spray-lab',
+            href: currentMissionId ? `/spray-lab?programMissionId=${encodeURIComponent(currentMissionId)}` : '/spray-lab',
             target: 'spray_lab',
         },
     };
@@ -142,6 +153,13 @@ export function createRepairProgramCycle(
         : ['weak_base_evidence'] as const;
     const evidenceSummary = buildTrainingProgramEvidenceSummary(input, reasons);
     const cycleId = buildCycleId('ciclo-reparo-v1', eligibility.contextKey, input.now);
+    const weeks = buildRepairProgramWeeks({
+        cycleId,
+        contextLabel: eligibility.contextLabel,
+        evidenceSummary,
+        reasonCodes: reasons,
+    });
+    const currentMissionId = weeks[0]?.missions[0]?.id ?? null;
 
     return {
         version: 'ciclo-pro-v1',
@@ -157,16 +175,16 @@ export function createRepairProgramCycle(
         strictContextKey: eligibility.contextKey,
         strictContextLabel: eligibility.contextLabel,
         evidenceSummary,
-        weeks: [],
+        weeks,
         checkpoints: [],
         transitionEvents: [],
         currentWeekNumber: 1,
-        currentMissionId: null,
+        currentMissionId,
         reasonCodes: reasons,
         recoveryAction: eligibility.lineRestartRequired ? 'reiniciar_linha' : 'reparar',
         nextCta: {
             label: 'Reparar base do Ciclo',
-            href: '/analyze?mode=validation',
+            href: currentMissionId ? `/analyze?mode=validation&programMissionId=${encodeURIComponent(currentMissionId)}` : '/analyze?mode=validation',
             target: 'analyze_validation',
         },
     };
@@ -225,6 +243,363 @@ export function trainingProgramReasonCopy(code: TrainingProgramReasonCode): stri
         case 'repeated_failure_consolidation':
             return 'Falhas repetidas viram consolidacao, nao aumento de dificuldade.';
     }
+}
+
+function buildFullProgramWeeks(input: {
+    readonly cycleId: string;
+    readonly contextLabel: string;
+    readonly state: TrainingProgramState;
+    readonly evidenceSummary: TrainingProgramEvidenceSummary;
+}): readonly TrainingProgramAdaptiveWeek[] {
+    return ([1, 2, 3, 4] as const).map((weekNumber) => {
+        const missions = buildFullWeekMissions({
+            cycleId: input.cycleId,
+            weekNumber,
+            contextLabel: input.contextLabel,
+            evidenceSummary: input.evidenceSummary,
+            futureWeek: weekNumber > 1,
+        });
+
+        return {
+            id: `${input.cycleId}:week:${weekNumber}`,
+            weekNumber,
+            label: `Semana ${weekNumber} de 4`,
+            state: weekNumber === 1 ? input.state : 'preparando',
+            missions,
+            checkpointIds: [],
+            reasonCodes: weekNumber === 1 ? input.evidenceSummary.blockers : [],
+            canIncreaseDifficulty: false,
+        };
+    });
+}
+
+function buildRepairProgramWeeks(input: {
+    readonly cycleId: string;
+    readonly contextLabel: string;
+    readonly evidenceSummary: TrainingProgramEvidenceSummary;
+    readonly reasonCodes: readonly TrainingProgramReasonCode[];
+}): readonly TrainingProgramAdaptiveWeek[] {
+    const missions = buildRepairMissions({
+        cycleId: input.cycleId,
+        contextLabel: input.contextLabel,
+        evidenceSummary: input.evidenceSummary,
+        reasonCodes: input.reasonCodes,
+    });
+
+    return [{
+        id: `${input.cycleId}:week:repair`,
+        weekNumber: 1,
+        label: 'Ciclo de Reparo',
+        state: 'reparando',
+        missions,
+        checkpointIds: [],
+        reasonCodes: input.reasonCodes,
+        canIncreaseDifficulty: false,
+        recoveryAction: 'reparar',
+    }];
+}
+
+function buildFullWeekMissions(input: {
+    readonly cycleId: string;
+    readonly weekNumber: 1 | 2 | 3 | 4;
+    readonly contextLabel: string;
+    readonly evidenceSummary: TrainingProgramEvidenceSummary;
+    readonly futureWeek: boolean;
+}): readonly TrainingProgramMission[] {
+    const { cycleId, weekNumber, contextLabel, evidenceSummary, futureWeek } = input;
+    const base = {
+        cycleId,
+        weekNumber,
+        contextLabel,
+        evidenceSummary,
+        status: futureWeek ? 'locked' as const : 'available' as const,
+    };
+
+    return [
+        mission({
+            ...base,
+            slot: 'main_1',
+            category: 'preparation',
+            title: `Abrir Semana ${weekNumber} da linha ativa`,
+            stateAfterCompletion: 'ativo',
+            agora: `Fixe ${contextLabel}, dose e variavel principal antes de executar.`,
+            porQueImporta: 'A semana so compara evidencia quando o contexto fica repetivel.',
+            oQueInvalida: 'Trocar arma, mira, distancia, sensibilidade, DPI, VSM, FOV, postura ou loadout.',
+            evidenciaGerada: 'Contexto semanal confirmado para guiar Spray Lab e validacao.',
+            ctaLabel: 'Continuar no Spray Lab',
+            ctaTarget: 'spray_lab',
+        }),
+        mission({
+            ...base,
+            slot: 'main_2',
+            category: 'execution',
+            title: `Executar Spray Lab ${contextLabel}`,
+            stateAfterCompletion: 'validacao_pendente',
+            agora: 'Execute a lane vinculada a ficha completa, com reps e pausas planejadas.',
+            porQueImporta: 'Spray Lab gera evidencia de execucao, nao substitui clip compativel.',
+            oQueInvalida: 'Pular reps, pausar demais, mudar variavel ou encerrar por captura fraca.',
+            evidenciaGerada: 'Fidelidade de execucao, blockers e proxima acao do coach.',
+            ctaLabel: 'Executar Spray Lab',
+            ctaTarget: 'spray_lab',
+        }),
+        mission({
+            ...base,
+            slot: 'main_3',
+            category: 'repair',
+            title: 'Ajustar ou repetir sem misturar variavel',
+            stateAfterCompletion: 'consolidando',
+            agora: 'Use o resultado do Lab para repetir, reduzir dose ou reparar o blocker dominante.',
+            porQueImporta: 'Consolidacao evita subir dificuldade quando a evidencia ainda nao converge.',
+            oQueInvalida: 'Tratar pratica fraca como progresso tecnico ou trocar mais de uma variavel.',
+            evidenciaGerada: 'Razao de consolidacao, reparo aplicado e variavel preservada.',
+            ctaLabel: 'Repetir bloco no Spray Lab',
+            ctaTarget: 'spray_lab',
+        }),
+        mission({
+            ...base,
+            slot: 'main_4',
+            category: 'validation',
+            title: 'Gravar validacao compativel',
+            stateAfterCompletion: 'validacao_pendente',
+            agora: 'Grave um clip com mesmo contexto e checklist de variaveis preservadas.',
+            porQueImporta: 'Somente o clip compativel pode confirmar progresso tecnico.',
+            oQueInvalida: 'Distancia ambigua, sensibilidade nova, loadout diferente, patch diferente ou captura fraca.',
+            evidenciaGerada: 'Validacao pendente, progresso validado, sem mudanca clara ou regressao validada.',
+            ctaLabel: 'Gravar validacao compativel',
+            ctaTarget: 'analyze_validation',
+        }),
+        mission({
+            ...base,
+            slot: 'main_5',
+            category: 'validation',
+            title: 'Fechar checkpoint semanal',
+            stateAfterCompletion: 'consolidando',
+            agora: 'Feche a semana pelo ritmo, separando execucao, validacao e blockers.',
+            porQueImporta: 'Calendario fecha a semana; dificuldade so sobe com evidencia convergente.',
+            oQueInvalida: 'Chamar semana fechada de progresso sem clip compativel ou Lab coerente.',
+            evidenciaGerada: 'Checkpoint operacional com estado honesto e proxima recomendacao.',
+            ctaLabel: 'Anexar validacao antes do checkpoint',
+            ctaTarget: 'analyze_validation',
+        }),
+        mission({
+            ...base,
+            slot: 'flex_1',
+            category: 'repair',
+            title: 'Flex de reparo ou recuperacao',
+            stateAfterCompletion: 'reparando',
+            agora: 'Use este slot para fadiga, captura fraca, confusao, variavel quebrada ou baixa fidelidade.',
+            porQueImporta: 'Reparo preserva evidencia e impede punicao por atraso ou execucao contaminada.',
+            oQueInvalida: 'Ignorar dor, fadiga forte, blocker de captura ou contexto incompativel.',
+            evidenciaGerada: 'Motivo de reparo e dose rebaixada quando necessario.',
+            ctaLabel: 'Reparar no Spray Lab',
+            ctaTarget: 'spray_lab',
+            reasonCodes: evidenceSummary.blockers.length > 0 ? evidenceSummary.blockers : ['compatible_proof_missing'],
+        }),
+        mission({
+            ...base,
+            slot: 'flex_2',
+            category: 'transfer',
+            title: 'Flex de transferencia pratica',
+            stateAfterCompletion: 'consolidando',
+            agora: 'Leve o mesmo foco para TDM ou situacao real curta sem trocar contexto tecnico.',
+            porQueImporta: 'Transferencia ajuda o coach, mas nao vira prova tecnica do ciclo.',
+            oQueInvalida: 'Usar TDM ou partida como substituto de validacao compativel controlada.',
+            evidenciaGerada: 'Sinal pratico conservador separado da prova tecnica.',
+            ctaLabel: 'Consolidar no Spray Lab',
+            ctaTarget: 'spray_lab',
+        }),
+    ];
+}
+
+function buildRepairMissions(input: {
+    readonly cycleId: string;
+    readonly contextLabel: string;
+    readonly evidenceSummary: TrainingProgramEvidenceSummary;
+    readonly reasonCodes: readonly TrainingProgramReasonCode[];
+}): readonly TrainingProgramMission[] {
+    const base = {
+        cycleId: input.cycleId,
+        weekNumber: 1 as const,
+        contextLabel: input.contextLabel,
+        evidenceSummary: input.evidenceSummary,
+        status: 'available' as const,
+        reasonCodes: input.reasonCodes,
+    };
+
+    return [
+        mission({
+            ...base,
+            slot: 'main_1',
+            category: 'preparation',
+            title: 'Preparar captura e contexto de reparo',
+            stateAfterCompletion: 'preparando',
+            agora: 'Confirme arma, mira, distancia e variaveis antes de qualquer leitura forte.',
+            porQueImporta: 'Ciclo de Reparo cria uma base limpa para o Ciclo Pro.',
+            oQueInvalida: 'Contexto incompleto, reticulo pouco visivel ou mais de uma variavel em teste.',
+            evidenciaGerada: 'Checklist de base minima para nova leitura.',
+            ctaLabel: 'Preparar validacao',
+            ctaTarget: 'analyze_validation',
+        }),
+        mission({
+            ...base,
+            slot: 'main_2',
+            category: 'repair',
+            title: 'Reparar blocker dominante',
+            stateAfterCompletion: 'reparando',
+            agora: 'Ataque apenas o blocker principal: captura, contexto, fidelidade ou variavel quebrada.',
+            porQueImporta: 'Um blocker reparado vale mais que volume sem evidencia comparavel.',
+            oQueInvalida: 'Tentar validar progresso antes de resolver o blocker.',
+            evidenciaGerada: 'Blocker reparado ou razao para manter reparo.',
+            ctaLabel: 'Reparar no Spray Lab',
+            ctaTarget: 'spray_lab',
+        }),
+        mission({
+            ...base,
+            slot: 'main_3',
+            category: 'execution',
+            title: 'Executar bloco curto de estabilizacao',
+            stateAfterCompletion: 'consolidando',
+            agora: 'Execute dose curta, com pausas claras e sem trocar variaveis.',
+            porQueImporta: 'Estabilizacao mostra se a base ja sustenta uma validacao.',
+            oQueInvalida: 'Fadiga forte, confusao, reps puladas ou contexto diferente.',
+            evidenciaGerada: 'Fidelidade fraca, utilizavel ou pronta para validacao.',
+            ctaLabel: 'Executar Spray Lab',
+            ctaTarget: 'spray_lab',
+        }),
+        mission({
+            ...base,
+            slot: 'main_4',
+            category: 'validation',
+            title: 'Gerar primeira validacao compativel',
+            stateAfterCompletion: 'validacao_pendente',
+            agora: 'Grave um clip curto e compativel com a base reparada.',
+            porQueImporta: 'O Ciclo Pro completo so nasce quando a base minima fica verificavel.',
+            oQueInvalida: 'Clip inconclusivo, variavel alterada ou captura abaixo dos minimos.',
+            evidenciaGerada: 'Prova compativel pendente ou blocker restante.',
+            ctaLabel: 'Gravar validacao compativel',
+            ctaTarget: 'analyze_validation',
+        }),
+        mission({
+            ...base,
+            slot: 'main_5',
+            category: 'validation',
+            title: 'Fechar reparo com decisao honesta',
+            stateAfterCompletion: 'inconclusivo',
+            agora: 'Decida entre abrir Ciclo Pro, manter reparo ou reiniciar linha.',
+            porQueImporta: 'A decisao final depende da base, nao de calendario ou volume.',
+            oQueInvalida: 'Promover o ciclo sem contexto salvo e clip compativel suficiente.',
+            evidenciaGerada: 'Recomendacao de continuidade, consolidacao ou nova reparacao.',
+            ctaLabel: 'Validar antes de abrir Ciclo Pro',
+            ctaTarget: 'analyze_validation',
+        }),
+        mission({
+            ...base,
+            slot: 'flex_1',
+            category: 'repair',
+            title: 'Flex de reencaixe sem punicao',
+            stateAfterCompletion: 'reparando',
+            agora: 'Reencaixe atraso, stale context ou quebra de variavel sem apagar a linha.',
+            porQueImporta: 'Uso inconsistente precisa preservar evidencia, nao inventar progresso.',
+            oQueInvalida: 'Tratar ausencia longa como progresso automatico.',
+            evidenciaGerada: 'Razao de reencaixe e proxima acao minima.',
+            ctaLabel: 'Reencaixar no Spray Lab',
+            ctaTarget: 'spray_lab',
+            reasonCodes: ['missed_day_reentry', ...input.reasonCodes],
+        }),
+        mission({
+            ...base,
+            slot: 'flex_2',
+            category: 'preparation',
+            title: 'Flex de clareza de variaveis',
+            stateAfterCompletion: 'preparando',
+            agora: 'Reduza a missao para uma variavel clara quando houver confusao.',
+            porQueImporta: 'Clareza evita misturar sintomas de execucao com decisao tecnica.',
+            oQueInvalida: 'Adicionar objetivos extras antes de reparar a base.',
+            evidenciaGerada: 'Missao simplificada e criterio de proxima validacao.',
+            ctaLabel: 'Preparar novo clip',
+            ctaTarget: 'analyze_validation',
+            reasonCodes: ['confusion_simplified', ...input.reasonCodes],
+        }),
+    ];
+}
+
+function mission(input: {
+    readonly cycleId: string;
+    readonly weekNumber: 1 | 2 | 3 | 4;
+    readonly slot: TrainingProgramMissionSlot;
+    readonly category: TrainingProgramMissionCategory;
+    readonly status: TrainingProgramMission['status'];
+    readonly title: string;
+    readonly stateAfterCompletion: TrainingProgramState;
+    readonly contextLabel: string;
+    readonly evidenceSummary: TrainingProgramEvidenceSummary;
+    readonly agora: string;
+    readonly porQueImporta: string;
+    readonly oQueInvalida: string;
+    readonly evidenciaGerada: string;
+    readonly ctaLabel: string;
+    readonly ctaTarget: 'spray_lab' | 'analyze_validation';
+    readonly reasonCodes?: readonly TrainingProgramReasonCode[];
+}): TrainingProgramMission {
+    const id = `${input.cycleId}:week:${input.weekNumber}:${input.slot}`;
+    const protocolId = input.evidenceSummary.protocolId;
+
+    return {
+        id,
+        weekNumber: input.weekNumber,
+        slot: input.slot,
+        category: input.category,
+        status: input.status,
+        title: input.title,
+        anatomy: {
+            agora: input.agora,
+            porQueImporta: input.porQueImporta,
+            oQueInvalida: input.oQueInvalida,
+            evidenciaGerada: input.evidenciaGerada,
+            proximoCta: {
+                label: input.ctaLabel,
+                href: input.ctaTarget === 'spray_lab'
+                    ? `/spray-lab?programMissionId=${encodeURIComponent(id)}`
+                    : `/analyze?mode=validation&programMissionId=${encodeURIComponent(id)}`,
+                target: input.ctaTarget,
+            },
+        },
+        stateAfterCompletion: input.stateAfterCompletion,
+        reasonCodes: input.reasonCodes ?? [],
+        ...(protocolId ? { protocolId } : {}),
+        evidenceRefs: evidenceRefsForMission(input.evidenceSummary, input.category),
+    };
+}
+
+function evidenceRefsForMission(
+    summary: TrainingProgramEvidenceSummary,
+    category: TrainingProgramMissionCategory,
+): readonly TrainingProgramEvidenceReference[] {
+    const refs: TrainingProgramEvidenceReference[] = [];
+
+    if (summary.savedAnalysisId) {
+        refs.push({
+            kind: 'analysis',
+            id: summary.savedAnalysisId,
+            href: `/history/${summary.savedAnalysisId}`,
+        });
+    }
+
+    if (summary.protocolId) {
+        refs.push({
+            kind: 'protocol',
+            id: summary.protocolId,
+        });
+    }
+
+    if (category === 'validation' && summary.validationLink) {
+        refs.push({
+            kind: 'validation_link',
+            id: summary.validationLink.id,
+        });
+    }
+
+    return refs;
 }
 
 function buildTrainingProgramEvidenceSummary(
