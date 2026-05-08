@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createSprayLabSessionFromProtocol } from '@/core/spray-lab-session';
-import type { CompleteTrainingProtocol, SprayLabSessionSnapshot } from '@/types/engine';
+import type {
+    CompleteTrainingProtocol,
+    PrecisionTrendSummary,
+    SprayLabFidelityReport,
+    SprayLabSessionEvent,
+    SprayLabSessionSnapshot,
+} from '@/types/engine';
 
 const mocks = vi.hoisted(() => {
     const auth = vi.fn();
@@ -50,7 +56,9 @@ vi.mock('next/cache', () => ({
 }));
 
 import {
+    completeSprayLabSessionAction,
     createSprayLabSessionAction,
+    createSprayLabValidationLinkAction,
     recordSprayLabSessionEventAction,
     resolveSprayLabValidationTargetAction,
 } from './spray-lab';
@@ -154,6 +162,77 @@ function labSnapshot(overrides: Partial<SprayLabSessionSnapshot> = {}): SprayLab
     return {
         ...snapshot,
         ...overrides,
+    };
+}
+
+function completeProgress(snapshot: SprayLabSessionSnapshot): SprayLabSessionSnapshot {
+    return {
+        ...snapshot,
+        status: 'active',
+        completedReps: snapshot.totalReps,
+        completedSprays: snapshot.totalSprays,
+        blocks: snapshot.blocks.map((block) => ({
+            ...block,
+            completedReps: block.repCount,
+            completedSprays: block.repCount * block.spraysPerRep,
+        })),
+    };
+}
+
+function practiceOnlyFidelity(sessionId = 'lab-session-1'): SprayLabFidelityReport {
+    return {
+        version: 'spray-lab-v1',
+        sessionId,
+        tier: 'practice_only',
+        score: 62,
+        components: [],
+        reasonCodes: ['variable_changed'],
+        evidenceLevel: 'practice',
+        benchmarkEligible: false,
+        safetyDowngrade: false,
+        coachImpactCopy: 'Sessao fica como pratica.',
+        repairCtas: ['Repita sem trocar variavel.'],
+    };
+}
+
+function precisionTrend(label: PrecisionTrendSummary['label'] = 'validated_progress'): PrecisionTrendSummary {
+    return {
+        label,
+        evidenceLevel: 'strong',
+        compatibleCount: 3,
+        baseline: null as never,
+        current: null as never,
+        recentWindow: null,
+        actionableDelta: null,
+        mechanicalDelta: null,
+        pillarDeltas: [],
+        recurringDiagnoses: [],
+        blockerSummaries: [],
+        blockedClips: [],
+        confidence: 0.9,
+        coverage: 0.9,
+        nextValidationHint: 'Consolidar contexto antes de trocar variavel.',
+    };
+}
+
+function labRow(snapshot: SprayLabSessionSnapshot) {
+    return {
+        id: snapshot.id,
+        userId: 'user-1',
+        baseAnalysisSessionId: snapshot.baseAnalysisId ?? 'analysis-1',
+        protocolRevisionId: null,
+        protocolId: snapshot.protocolId,
+        laneId: snapshot.lane.id,
+        contextKey: snapshot.contextKey,
+        status: snapshot.status,
+        snapshot,
+    };
+}
+
+function eventRow(event: SprayLabSessionEvent) {
+    return {
+        payload: { event },
+        createdAt: new Date(event.occurredAt),
     };
 }
 
@@ -267,5 +346,123 @@ describe('spray lab actions', () => {
             success: false,
             error: 'Alvo de validacao nao encontrado.',
         });
+    });
+
+    it('composes and persists a benchmark snapshot when completing a Lab session', async () => {
+        const snapshot = completeProgress(labSnapshot({
+            eventIds: ['event-start', 'event-ready'],
+        }));
+        mocks.limit.mockResolvedValueOnce([labRow(snapshot)]);
+        mocks.orderBy.mockResolvedValueOnce([
+            eventRow({
+                id: 'event-start',
+                sessionId: snapshot.id,
+                type: 'start',
+                occurredAt: '2026-05-08T05:11:00.000Z',
+            }),
+            eventRow({
+                id: 'event-ready',
+                sessionId: snapshot.id,
+                type: 'ready',
+                occurredAt: '2026-05-08T05:12:00.000Z',
+            }),
+        ]);
+
+        const result = await completeSprayLabSessionAction({
+            labSessionId: snapshot.id,
+            occurredAt: '2026-05-08T05:20:00.000Z',
+        });
+
+        expect(result.success).toBe(true);
+        const benchmarkInsert = mocks.values.mock.calls
+            .map(([value]) => value as Record<string, unknown>)
+            .find((value) => 'eligibleForReleaseBenchmark' in value);
+
+        expect(benchmarkInsert).toEqual(expect.objectContaining({
+            userId: 'user-1',
+            labSessionId: snapshot.id,
+            baseAnalysisSessionId: 'analysis-1',
+            evidenceLevel: 'provisional_benchmark',
+            validationStatus: 'not_requested',
+            eligibleForReleaseBenchmark: false,
+        }));
+    });
+
+    it('keeps practice-only fidelity out of validated benchmark even when validation trend is positive', async () => {
+        const completed = labSnapshot({
+            status: 'completed',
+            act: 'fechar_resultado',
+            stepState: 'resultado',
+            fidelity: practiceOnlyFidelity(),
+        });
+        mocks.limit
+            .mockResolvedValueOnce([labRow(completed)])
+            .mockResolvedValueOnce([{ id: 'analysis-1', fullResult: null }])
+            .mockResolvedValueOnce([{
+                id: 'validation-1',
+                fullResult: {
+                    precisionTrend: precisionTrend('validated_progress'),
+                },
+            }]);
+
+        const result = await createSprayLabValidationLinkAction({
+            labSessionId: completed.id,
+            validationAnalysisSessionId: 'validation-1',
+            confirmedVariables: true,
+        });
+
+        expect(result.success ? result.value.status : null).toBe('validacao_confirmada');
+
+        const updateSet = mocks.set.mock.calls[0]?.[0] as { snapshot?: SprayLabSessionSnapshot } | undefined;
+        expect(updateSet?.snapshot?.index?.evidenceLevel).toBe('practice');
+        expect(updateSet?.snapshot?.index).not.toHaveProperty('validatedScore');
+
+        const benchmarkInsert = mocks.values.mock.calls
+            .map(([value]) => value as Record<string, unknown>)
+            .find((value) => 'eligibleForReleaseBenchmark' in value);
+        expect(benchmarkInsert).toEqual(expect.objectContaining({
+            evidenceLevel: 'practice',
+            validationStatus: 'validacao_confirmada',
+            eligibleForReleaseBenchmark: false,
+        }));
+    });
+
+    it('records changed validation variables as non-compatible and preserves base Lab clip IDs', async () => {
+        const completed = labSnapshot({
+            status: 'completed',
+            act: 'fechar_resultado',
+            stepState: 'resultado',
+            fidelity: practiceOnlyFidelity(),
+        });
+        mocks.limit
+            .mockResolvedValueOnce([labRow(completed)])
+            .mockResolvedValueOnce([{ id: 'analysis-1', fullResult: null }]);
+
+        const result = await createSprayLabValidationLinkAction({
+            labSessionId: completed.id,
+            confirmedVariables: false,
+        });
+
+        expect(result.success).toBe(true);
+        expect(result.success ? result.value : null).toEqual(expect.objectContaining({
+            labSessionId: completed.id,
+            baseAnalysisId: 'analysis-1',
+            status: 'nao_compativel',
+            confirmedVariables: false,
+            blockers: [expect.objectContaining({
+                code: 'evidence_mismatch',
+                field: 'variables',
+            })],
+        }));
+
+        const linkInsert = mocks.values.mock.calls
+            .map(([value]) => value as Record<string, unknown>)
+            .find((value) => value.status === 'nao_compativel');
+        expect(linkInsert).toEqual(expect.objectContaining({
+            labSessionId: completed.id,
+            baseAnalysisSessionId: 'analysis-1',
+            status: 'nao_compativel',
+            confirmedVariables: false,
+        }));
     });
 });

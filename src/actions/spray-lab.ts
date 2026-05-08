@@ -743,13 +743,15 @@ export async function completeSprayLabSessionAction(
     const finalEvents = row.snapshot.status === 'completed'
         ? events
         : [...events, completeEvent];
-    const { snapshot } = applySessionCompletion(reduced, finalEvents, occurredAt);
+    const { snapshot, index } = applySessionCompletion(reduced, finalEvents, occurredAt);
+    const benchmark = buildBenchmarkFromSession(row, snapshot, index, occurredAt);
 
     if (row.snapshot.status !== 'completed') {
         await persistEvent(row, completeEvent, snapshot);
     }
 
     await persistSessionSnapshot(row, snapshot, new Date(occurredAt));
+    await persistBenchmarkSnapshot(row, benchmark);
 
     revalidatePath('/spray-lab');
     revalidatePath('/dashboard');
@@ -870,6 +872,10 @@ export async function createSprayLabValidationLinkAction(
         });
 
     await persistSessionSnapshot(row, updatedSnapshot);
+    if (updatedSnapshot.index) {
+        const benchmark = buildBenchmarkFromSession(row, updatedSnapshot, updatedSnapshot.index, now);
+        await persistBenchmarkSnapshot(row, benchmark);
+    }
 
     revalidatePath('/spray-lab');
     revalidatePath('/dashboard');
