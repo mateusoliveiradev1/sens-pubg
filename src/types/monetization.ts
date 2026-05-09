@@ -373,4 +373,11 @@ export interface PremiumProjectionSummary {
     readonly canSeeFullHistory: boolean;
     readonly canSeeAdvancedMetrics: boolean;
     readonly canCaptureCoachOutcome: boolean;
+    readonly canGenerateSocialProReport: boolean;
+    readonly canUseSocialProLibrary: boolean;
+    readonly canManageSocialProPrivateLinks: boolean;
+    readonly canReadCreatorAnalytics: boolean;
+    readonly canUseAdvancedSocialContext: boolean;
+    readonly canDisplaySocialProBadge: boolean;
+    readonly canControlSocialProBadge: boolean;
 }

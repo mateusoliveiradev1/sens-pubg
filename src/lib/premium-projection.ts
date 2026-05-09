@@ -23,6 +23,12 @@ const PROGRAM_WEEKLY_FEATURE: ProductEntitlementKey = 'programs.guided_weekly';
 const PROGRAM_MONTHLY_FEATURE: ProductEntitlementKey = 'programs.guided_monthly';
 const SPRAY_LAB_SESSION_RUNNER_FEATURE: ProductEntitlementKey = 'spray_lab.session_runner';
 const SPRAY_LAB_BENCHMARKS_FEATURE: ProductEntitlementKey = 'spray_lab.benchmarks';
+const SOCIAL_PRO_REPORT_FEATURE: ProductEntitlementKey = 'community.premium_report_share';
+const SOCIAL_PRO_LIBRARY_FEATURE: ProductEntitlementKey = 'community.pro_library';
+const SOCIAL_PRO_PRIVATE_LINKS_FEATURE: ProductEntitlementKey = 'community.private_report_links';
+const SOCIAL_PRO_CREATOR_ANALYTICS_FEATURE: ProductEntitlementKey = 'community.creator_analytics';
+const SOCIAL_PRO_ADVANCED_CONTEXT_FEATURE: ProductEntitlementKey = 'community.advanced_context';
+const SOCIAL_PRO_BADGE_FEATURE: ProductEntitlementKey = 'community.pro_badge';
 
 const PREMIUM_FEATURES = [
     FULL_COACH_FEATURE,
@@ -38,6 +44,12 @@ const PREMIUM_FEATURES = [
     PROGRAM_MONTHLY_FEATURE,
     SPRAY_LAB_SESSION_RUNNER_FEATURE,
     SPRAY_LAB_BENCHMARKS_FEATURE,
+    SOCIAL_PRO_REPORT_FEATURE,
+    SOCIAL_PRO_LIBRARY_FEATURE,
+    SOCIAL_PRO_PRIVATE_LINKS_FEATURE,
+    SOCIAL_PRO_CREATOR_ANALYTICS_FEATURE,
+    SOCIAL_PRO_ADVANCED_CONTEXT_FEATURE,
+    SOCIAL_PRO_BADGE_FEATURE,
 ] as const satisfies readonly ProductEntitlementKey[];
 
 const FEATURE_TITLES: Record<ProductEntitlementKey, string> = {
@@ -94,6 +106,12 @@ const FREE_VISIBLE_COPY: Partial<Record<ProductEntitlementKey, string>> = {
     'programs.guided_monthly': 'o Free mostra o proximo passo real do ciclo sem dados falsos ou blur enganoso',
     'spray_lab.session_runner': 'sessao guiada basica, checklist, timer simples, score provisorio e CTA de validacao continuam visiveis no Free',
     'spray_lab.benchmarks': 'score provisorio e status de fidelidade continuam visiveis no Free sem vender dado externo exclusivo',
+    'community.premium_report_share': 'Free mantem a leitura publica, confianca, cobertura, bloqueios e disclaimers do relatorio',
+    'community.pro_library': 'Free mantem leitura publica, saves normais e contexto essencial sem fechar a comunidade',
+    'community.private_report_links': 'Free mantem relatorios publicos ou por link legiveis em estado seguro',
+    'community.creator_analytics': 'Free mantem publicacao, leitura, comentarios, curtidas, saves normais e perfis basicos',
+    'community.advanced_context': 'Free mantem a leitura publica e o contexto essencial sem esconder a verdade do clip',
+    'community.pro_badge': 'Free mantem a leitura publica; o badge Pro e apenas sinal de acesso, nao autoridade',
 };
 
 const PRO_VALUE_COPY: Partial<Record<ProductEntitlementKey, string>> = {
@@ -110,6 +128,12 @@ const PRO_VALUE_COPY: Partial<Record<ProductEntitlementKey, string>> = {
     'programs.guided_monthly': 'Pro organiza o Ciclo Pro de 30 dias com quatro semanas, checkpoints, recuperacao, historico e continuidade auditavel',
     'spray_lab.session_runner': 'Pro adiciona runner profundo, lanes avancadas, auditoria, historico de sessoes e continuidade por contexto',
     'spray_lab.benchmarks': 'Pro adiciona indice validado, benchmark por contexto e comparacoes entre suas sessoes e clips compativeis',
+    'community.premium_report_share': 'Pro organiza relatorio auditavel com biblioteca, Spray Lab, Ciclo Pro, historico, coach, protocolos e validacao compativel',
+    'community.pro_library': 'Pro organiza biblioteca privada por contexto com relatorio, auditoria, Spray Lab, Ciclo Pro, historico, coach, protocolos e validacao compativel',
+    'community.private_report_links': 'Pro adiciona links privados revogaveis para relatorio seguro, auditoria, biblioteca e continuidade sem expor leitor privado',
+    'community.creator_analytics': 'Pro mostra analytics agregados de creator ligados a relatorio, biblioteca, auditoria, Spray Lab, Ciclo Pro e validacao compativel',
+    'community.advanced_context': 'Pro adiciona contexto social avancado para conectar relatorio, biblioteca, coach, protocolos, historico e validacao compativel',
+    'community.pro_badge': 'Pro habilita badge discreto de acesso premium com controles de relatorio, sem autoridade tecnica ou certificacao',
 };
 
 function reasonFromAccess(access: ProductAccessResolution): PremiumLockReason {
@@ -227,6 +251,13 @@ export function createPremiumProjectionSummary(
         canSeeFullHistory: hasProductEntitlement(access, HISTORY_FEATURE),
         canSeeAdvancedMetrics: hasProductEntitlement(access, ADVANCED_METRICS_FEATURE),
         canCaptureCoachOutcome: hasProductEntitlement(access, OUTCOME_FEATURE),
+        canGenerateSocialProReport: hasProductEntitlement(access, SOCIAL_PRO_REPORT_FEATURE),
+        canUseSocialProLibrary: hasProductEntitlement(access, SOCIAL_PRO_LIBRARY_FEATURE),
+        canManageSocialProPrivateLinks: hasProductEntitlement(access, SOCIAL_PRO_PRIVATE_LINKS_FEATURE),
+        canReadCreatorAnalytics: hasProductEntitlement(access, SOCIAL_PRO_CREATOR_ANALYTICS_FEATURE),
+        canUseAdvancedSocialContext: hasProductEntitlement(access, SOCIAL_PRO_ADVANCED_CONTEXT_FEATURE),
+        canDisplaySocialProBadge: hasProductEntitlement(access, SOCIAL_PRO_BADGE_FEATURE),
+        canControlSocialProBadge: hasProductEntitlement(access, SOCIAL_PRO_BADGE_FEATURE),
     };
 }
 
