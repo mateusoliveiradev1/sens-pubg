@@ -45,9 +45,12 @@ import {
     type CommunityPublicSquadIdentity,
 } from './community-squads';
 import {
+    buildCommunityProBadge,
     buildProfileTrustSignals,
+    type CommunityProBadge,
     type CommunityTrustSignal,
 } from './community-trust-signals';
+import type { SocialProAccessPolicy } from '@/lib/social-pro-access';
 
 const COMMUNITY_PUBLIC_PROFILE_EVENT_LIMIT = 250;
 const COMMUNITY_PUBLIC_PROFILE_REWARD_LIMIT = 24;
@@ -184,6 +187,7 @@ export interface CommunityPublicProfileViewModel {
             readonly label: string;
             readonly status: CommunityCreatorProgramStatus;
         } | null;
+        readonly proBadge: CommunityProBadge | null;
         readonly profileHref: string;
         readonly canonicalPath: string;
     };
@@ -237,6 +241,7 @@ export interface BuildPublicCommunityProfileViewModelInput {
     readonly publicRewards?: readonly CommunityPublicRewardSummary[];
     readonly streakSummary?: CommunityPublicProfileStreakSummary;
     readonly squadIdentity?: CommunityPublicSquadIdentity | null;
+    readonly socialProAccess?: Pick<SocialProAccessPolicy, 'canDisplayProBadge'> | null;
 }
 
 export function buildPublicCommunityProfileViewModel(
@@ -262,6 +267,7 @@ export function buildPublicCommunityProfileViewModel(
         playerProfile: input.playerProfile ?? null,
     });
     const publicSetup = toPublicSetup(input.playerProfile ?? null);
+    const proBadge = buildCommunityProBadge(input.socialProAccess ?? null);
     const metrics = {
         followerCount: toSafeCommunityCount(input.followState.followerCount),
         publicPostCount: toSafeCommunityCount(input.creatorMetrics.publicPostCount),
@@ -282,6 +288,7 @@ export function buildPublicCommunityProfileViewModel(
             fallbackInitials,
             creatorProgramStatus: input.profile.creatorProgramStatus,
             creatorBadge: formatCommunityCreatorStatusBadge(input.profile.creatorProgramStatus),
+            proBadge,
             profileHref,
             canonicalPath: profileHref,
         },
@@ -292,6 +299,7 @@ export function buildPublicCommunityProfileViewModel(
             publicSetup,
             copyCount: metrics.copyCount,
             saveCount: metrics.saveCount,
+            proBadge,
         }),
         follow: {
             followerCount: toSafeCommunityCount(input.followState.followerCount),
@@ -343,6 +351,7 @@ export async function getPublicCommunityProfileViewModel(
     }
 
     const { db } = await import('@/db');
+    const { resolveSocialProAccessForUser } = await import('@/lib/social-pro-access');
 
     const [storedProfile] = await db
         .select({
@@ -501,6 +510,7 @@ export async function getPublicCommunityProfileViewModel(
             viewerUserId: input.viewerUserId,
         }),
     ]);
+    const socialProAccess = await resolveSocialProAccessForUser(storedProfile.userId);
 
     return buildPublicCommunityProfileViewModel({
         profile: storedProfile,
@@ -510,6 +520,7 @@ export async function getPublicCommunityProfileViewModel(
         creatorMetrics,
         followState,
         viewerUserId: input.viewerUserId,
+        socialProAccess,
         publicRewards: buildCommunityPublicRewardSummaries({
             rewards: storedRewards,
             ownerType: 'user',

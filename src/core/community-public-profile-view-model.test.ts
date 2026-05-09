@@ -168,6 +168,7 @@ describe('buildPublicCommunityProfileViewModel', () => {
             label: 'Pro',
             tooltip: 'Pro: acesso aos recursos premium do Sens PUBG. Nao indica autoridade tecnica, habilidade maior, certificacao, coach, jogador profissional ou rank.',
             ariaLabel: 'Pro: acesso aos recursos premium do Sens PUBG; nao indica autoridade, habilidade, certificacao, coach, jogador profissional ou rank.',
+            count: null,
         });
         expect(activePro.trustSignals).toContainEqual({
             key: 'social-pro-access',
@@ -414,6 +415,7 @@ describe('buildPublicCommunityProfileViewModel', () => {
                 label: 'Creator aprovado',
                 status: 'approved',
             },
+            proBadge: null,
             profileHref: '/community/users/spray-doctor',
             canonicalPath: '/community/users/spray-doctor',
         });

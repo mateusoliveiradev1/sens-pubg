@@ -1,8 +1,10 @@
 import type { CommunityCreatorProgramStatus } from '@/db/schema';
+import type { SocialProAccessPolicy } from '@/lib/social-pro-access';
 import type {
     CommunityPostStatus,
     CommunityPostVisibility,
 } from '@/types/community';
+import type { SocialProBadgeMeaning } from '@/types/social-pro';
 import {
     formatCommunityCount,
     formatCommunityCreatorStatusBadge,
@@ -11,6 +13,7 @@ import {
 } from './community-public-formatting';
 
 export type CommunityTrustSignalKey =
+    | 'social-pro-access'
     | 'creator-approved'
     | 'creator-waitlist'
     | 'setup-public'
@@ -26,6 +29,15 @@ export interface CommunityTrustSignal {
     readonly count: number | null;
 }
 
+export interface CommunityProBadge {
+    readonly key: 'social-pro-access';
+    readonly meaning: SocialProBadgeMeaning;
+    readonly label: 'Pro';
+    readonly tooltip: string;
+    readonly ariaLabel: string;
+    readonly count: null;
+}
+
 export interface CommunityTrustSignalPublicSetup {
     readonly aimSetup: Readonly<Record<string, string | number | null | undefined>>;
     readonly surfaceGrip: Readonly<Record<string, string | number | null | undefined>>;
@@ -37,6 +49,7 @@ export interface BuildProfileTrustSignalsInput {
     readonly publicSetup: CommunityTrustSignalPublicSetup | null;
     readonly copyCount: number;
     readonly saveCount: number;
+    readonly proBadge?: CommunityProBadge | null;
 }
 
 export interface BuildPostTrustSignalsInput {
@@ -62,6 +75,7 @@ export function buildProfileTrustSignals(
     const safeCopyCount = toSafeCommunityCount(input.copyCount);
     const safeSaveCount = toSafeCommunityCount(input.saveCount);
     const signals = [
+        createSocialProAccessSignal(input.proBadge ?? null),
         createCreatorTrustSignal(input.creatorProgramStatus),
         createSetupPublicSignal(setupFieldCount),
         createCopiedPresetSignal(safeCopyCount),
@@ -69,6 +83,29 @@ export function buildProfileTrustSignals(
     ];
 
     return compactTrustSignals(signals);
+}
+
+const SOCIAL_PRO_BADGE_TOOLTIP =
+    'Pro: acesso aos recursos premium do Sens PUBG. Nao indica autoridade tecnica, habilidade maior, certificacao, coach, jogador profissional ou rank.';
+
+const SOCIAL_PRO_BADGE_ARIA_LABEL =
+    'Pro: acesso aos recursos premium do Sens PUBG; nao indica autoridade, habilidade, certificacao, coach, jogador profissional ou rank.';
+
+export function buildCommunityProBadge(
+    policy: Pick<SocialProAccessPolicy, 'canDisplayProBadge'> | null | undefined,
+): CommunityProBadge | null {
+    if (!policy?.canDisplayProBadge) {
+        return null;
+    }
+
+    return {
+        key: 'social-pro-access',
+        meaning: 'active_pro_access',
+        label: 'Pro',
+        tooltip: SOCIAL_PRO_BADGE_TOOLTIP,
+        ariaLabel: SOCIAL_PRO_BADGE_ARIA_LABEL,
+        count: null,
+    };
 }
 
 export function buildPostTrustSignals(
@@ -142,6 +179,21 @@ function createCreatorTrustSignal(
         reason: status === 'approved'
             ? 'Status publico aprovado no programa de creators.'
             : 'Status publico em avaliacao no programa de creators.',
+        count: null,
+    };
+}
+
+function createSocialProAccessSignal(
+    proBadge: CommunityProBadge | null,
+): CommunityTrustSignal | null {
+    if (!proBadge) {
+        return null;
+    }
+
+    return {
+        key: proBadge.key,
+        label: proBadge.label,
+        reason: proBadge.tooltip,
         count: null,
     };
 }

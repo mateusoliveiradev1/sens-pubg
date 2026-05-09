@@ -10,7 +10,7 @@ import {
 import { resolveProductAccess } from '@/lib/product-entitlements';
 import { createSocialProAccessPolicy } from '@/lib/social-pro-access';
 
-const unsupportedAuthorityClaims = /pro player|verified skill|best|melhor|rank|skill/i;
+const unsupportedAuthorityClaims = /pro player|verified skill|skill verified|best player|melhor jogador|rank alto/i;
 
 const publicSetup = {
     aimSetup: {
