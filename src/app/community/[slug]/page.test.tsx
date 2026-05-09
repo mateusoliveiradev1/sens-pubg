@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => {
     const limit = vi.fn();
     const notFound = vi.fn();
     const listVisibleCommunityPostComments = vi.fn();
+    const resolveSocialProAccessForUser = vi.fn();
 
     return {
         auth,
@@ -25,6 +26,7 @@ const mocks = vi.hoisted(() => {
         limit,
         notFound,
         listVisibleCommunityPostComments,
+        resolveSocialProAccessForUser,
     };
 });
 
@@ -40,6 +42,10 @@ vi.mock('@/db', () => ({
 
 vi.mock('@/actions/community-comments', () => ({
     listVisibleCommunityPostComments: mocks.listVisibleCommunityPostComments,
+}));
+
+vi.mock('@/lib/social-pro-access', () => ({
+    resolveSocialProAccessForUser: mocks.resolveSocialProAccessForUser,
 }));
 
 vi.mock('@/ui/components/header', () => ({
@@ -198,6 +204,9 @@ describe('community post detail page', () => {
         });
 
         mocks.auth.mockResolvedValue(null);
+        mocks.resolveSocialProAccessForUser.mockResolvedValue({
+            canDisplayProBadge: false,
+        });
         mocks.listVisibleCommunityPostComments.mockResolvedValue([
             {
                 id: 'comment-1',
