@@ -1,6 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it, vi } from 'vitest';
 
 import { resolveProductAccess } from './product-entitlements';
+
+vi.mock('@/lib/product-access-server', () => ({
+    resolveServerProductAccess: vi.fn(),
+}));
 
 type SocialProCapability =
     | 'read_public_community'
@@ -11,12 +17,18 @@ type SocialProCapability =
     | 'manage_private_links'
     | 'write_pro_library'
     | 'read_creator_analytics'
+    | 'use_advanced_context'
+    | 'display_pro_badge'
     | 'control_pro_badge'
     | 'moderate_reports';
 
 type SocialProAccessPolicy = unknown;
 
 interface SocialProAccessModule {
+    readonly resolveSocialProAccessForUser?: (
+        userId: string | null | undefined,
+        userRole?: 'anonymous' | 'user' | 'admin',
+    ) => Promise<SocialProAccessPolicy>;
     readonly createSocialProAccessPolicy?: (input: {
         readonly productAccess: ReturnType<typeof resolveProductAccess>;
         readonly userRole?: 'anonymous' | 'user' | 'admin';
@@ -49,6 +61,7 @@ async function loadSocialProAccess(): Promise<Required<SocialProAccessModule>> {
 
     expect(typeof socialProModule.createSocialProAccessPolicy).toBe('function');
     expect(typeof socialProModule.hasSocialProCapability).toBe('function');
+    expect(typeof socialProModule.resolveSocialProAccessForUser).toBe('function');
 
     return socialProModule as Required<SocialProAccessModule>;
 }
@@ -126,6 +139,8 @@ describe('Social Pro access matrix', () => {
             'manage_private_links',
             'write_pro_library',
             'read_creator_analytics',
+            'use_advanced_context',
+            'display_pro_badge',
             'control_pro_badge',
         ], false);
     });
@@ -147,6 +162,8 @@ describe('Social Pro access matrix', () => {
             'manage_private_links',
             'write_pro_library',
             'read_creator_analytics',
+            'use_advanced_context',
+            'display_pro_badge',
             'control_pro_badge',
         ], true);
         expectCapabilities(founder, hasSocialProCapability, [
@@ -155,6 +172,8 @@ describe('Social Pro access matrix', () => {
             'manage_private_links',
             'write_pro_library',
             'read_creator_analytics',
+            'use_advanced_context',
+            'display_pro_badge',
             'control_pro_badge',
         ], true);
         expect(hasSocialProCapability(pro, 'moderate_reports')).toBe(false);
@@ -178,6 +197,8 @@ describe('Social Pro access matrix', () => {
             'manage_private_links',
             'write_pro_library',
             'read_creator_analytics',
+            'use_advanced_context',
+            'display_pro_badge',
             'control_pro_badge',
         ], false);
     });
@@ -196,5 +217,27 @@ describe('Social Pro access matrix', () => {
         expect(hasSocialProCapability(proUser, 'moderate_reports')).toBe(false);
         expect(hasSocialProCapability(admin, 'moderate_reports')).toBe(true);
         expect(hasSocialProCapability(admin, 'create_report')).toBe(false);
+    });
+
+    it('resolves user access through the server product resolver instead of UI or community entitlement state', async () => {
+        const { resolveServerProductAccess } = await import('@/lib/product-access-server');
+        vi.mocked(resolveServerProductAccess).mockResolvedValue(activeProAccess());
+        const { resolveSocialProAccessForUser, hasSocialProCapability } = await loadSocialProAccess();
+
+        const policy = await resolveSocialProAccessForUser('user-123', 'user');
+
+        expect(resolveServerProductAccess).toHaveBeenCalledWith('user-123');
+        expect(hasSocialProCapability(policy, 'create_report')).toBe(true);
+        expect(hasSocialProCapability(policy, 'write_pro_library')).toBe(true);
+    });
+
+    it('does not import the inactive community entitlement scaffold for Phase 11 Pro access', async () => {
+        await loadSocialProAccess();
+
+        const source = readFileSync(join(process.cwd(), 'src/lib/social-pro-access.ts'), 'utf8');
+
+        expect(source).toContain('resolveServerProductAccess');
+        expect(source).toContain('hasProductEntitlement');
+        expect(source).not.toContain('community-entitlements');
     });
 });
