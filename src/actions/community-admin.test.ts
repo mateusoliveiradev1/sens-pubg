@@ -493,6 +493,11 @@ describe('community admin moderation queue', () => {
                 reasonKey: 'dados_sensiveis',
                 status: 'open',
             },
+        ]).mockResolvedValueOnce([
+            {
+                id: 'private-link-1',
+                reportId: 'social-report-1',
+            },
         ]);
 
         const result = await applyCommunityModerationAction({
@@ -516,6 +521,7 @@ describe('community admin moderation queue', () => {
             updatedAt: expect.any(Date),
         }));
         expect(mocks.socialProAuditValues).toHaveBeenCalledWith(expect.objectContaining({
+            reportId: 'social-report-1',
             linkId: 'private-link-1',
             eventType: 'social_pro.private_link.revoked',
             reasonKey: 'dados_sensiveis',

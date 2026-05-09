@@ -167,7 +167,12 @@ export type CommunityProfileLink = {
 export type CommunityPostCopySensPreset = CommunityPostAnalysisSnapshot['sensSnapshot'];
 export type CommunityPostCopyTarget = 'clipboard' | 'profile_draft' | 'preset';
 export type CommunityCommentStatus = 'visible' | 'author_deleted' | 'moderator_hidden';
-export type CommunityReportEntityType = 'post' | 'comment' | 'profile';
+export type CommunityReportEntityType =
+    | 'post'
+    | 'comment'
+    | 'profile'
+    | 'social_pro_report'
+    | 'social_pro_report_link';
 export type CommunityReportStatus = 'open' | 'reviewed' | 'dismissed' | 'actioned';
 export type CommunityFeatureEntitlementStatus = 'inactive' | 'active';
 export type CommunityUserEntitlementSource =

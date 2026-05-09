@@ -9,9 +9,15 @@ import {
     communityPosts,
     communityProfiles,
     communityReports,
+    socialProReportLinks,
+    socialProReports,
     type CommunityReportEntityType,
 } from '@/db/schema';
 import { checkCommunityActionRateLimit } from '@/lib/rate-limit';
+import {
+    isSocialProReportModerationReason,
+    type SocialProReportModerationReason,
+} from '@/types/social-pro';
 
 export interface CreateCommunityReportInput {
     readonly entityType: CommunityReportEntityType;
@@ -29,6 +35,28 @@ type CreateCommunityReportResult =
         readonly success: false;
         readonly error: string;
     };
+
+const socialProReportEntityTypes = new Set<CommunityReportEntityType>([
+    'social_pro_report',
+    'social_pro_report_link',
+]);
+
+function isSocialProReportEntityType(
+    entityType: CommunityReportEntityType,
+): entityType is 'social_pro_report' | 'social_pro_report_link' {
+    return socialProReportEntityTypes.has(entityType);
+}
+
+function isAllowedCommunityReportReason(
+    entityType: CommunityReportEntityType,
+    reasonKey: string,
+): reasonKey is string | SocialProReportModerationReason {
+    if (isSocialProReportEntityType(entityType)) {
+        return isSocialProReportModerationReason(reasonKey);
+    }
+
+    return reasonKey.length > 0;
+}
 
 async function resolveCommunityReportTarget(
     entityType: CommunityReportEntityType,
@@ -68,6 +96,28 @@ async function resolveCommunityReportTarget(
 
             return Boolean(storedProfile);
         }
+        case 'social_pro_report': {
+            const [storedReport] = await db
+                .select({
+                    id: socialProReports.id,
+                })
+                .from(socialProReports)
+                .where(eq(socialProReports.id, entityId))
+                .limit(1);
+
+            return Boolean(storedReport);
+        }
+        case 'social_pro_report_link': {
+            const [storedLink] = await db
+                .select({
+                    id: socialProReportLinks.id,
+                })
+                .from(socialProReportLinks)
+                .where(eq(socialProReportLinks.id, entityId))
+                .limit(1);
+
+            return Boolean(storedLink);
+        }
         default:
             return false;
     }
@@ -93,6 +143,13 @@ export async function createCommunityReport(
         return {
             success: false,
             error: 'Report invalido.',
+        };
+    }
+
+    if (!isAllowedCommunityReportReason(input.entityType, normalizedReasonKey)) {
+        return {
+            success: false,
+            error: 'Motivo de report invalido para Relatorio Pro.',
         };
     }
 

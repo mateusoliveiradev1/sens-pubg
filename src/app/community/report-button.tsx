@@ -33,7 +33,47 @@ const reportReasonOptions = [
         value: 'other',
         label: 'Outro motivo',
     },
-] as const;
+] as const satisfies readonly [ReportReasonOption, ...ReportReasonOption[]];
+
+const socialProReportReasonOptions = [
+    {
+        value: 'exposicao_indevida',
+        label: 'Exposicao indevida',
+    },
+    {
+        value: 'dados_sensiveis',
+        label: 'Dados sensiveis',
+    },
+    {
+        value: 'claim_enganosa',
+        label: 'Claim enganosa',
+    },
+    {
+        value: 'falsa_autoridade',
+        label: 'Falsa autoridade',
+    },
+    {
+        value: 'abuso_badge_pro',
+        label: 'Abuso de badge Pro',
+    },
+    {
+        value: 'uso_indevido_contexto_premium',
+        label: 'Uso indevido de contexto premium',
+    },
+] as const satisfies readonly [ReportReasonOption, ...ReportReasonOption[]];
+
+interface ReportReasonOption {
+    readonly value: string;
+    readonly label: string;
+}
+
+function getReportReasonOptions(
+    entityType: CommunityReportEntityType,
+): readonly [ReportReasonOption, ...ReportReasonOption[]] {
+    return entityType === 'social_pro_report' || entityType === 'social_pro_report_link'
+        ? socialProReportReasonOptions
+        : reportReasonOptions;
+}
 
 function resolveReportErrorMessage(error: string, subjectLabel: string): string {
     if (error === 'Nao autenticado.') {
@@ -42,6 +82,10 @@ function resolveReportErrorMessage(error: string, subjectLabel: string): string 
 
     if (error === 'Report invalido.') {
         return 'Selecione um motivo valido antes de enviar o report.';
+    }
+
+    if (error === 'Motivo de report invalido para Relatorio Pro.') {
+        return 'Selecione um motivo especifico de Relatorio Pro antes de enviar.';
     }
 
     return error;
@@ -57,9 +101,10 @@ export function ReportButton({
     disabledActionLabel = 'Entrar para reportar',
 }: ReportButtonProps) {
     const panelId = useId();
+    const reasonOptions = getReportReasonOptions(entityType);
     const [isOpen, setIsOpen] = useState(false);
     const [isPending, startTransition] = useTransition();
-    const [reasonKey, setReasonKey] = useState<string>(reportReasonOptions[0].value);
+    const [reasonKey, setReasonKey] = useState<string>(reasonOptions[0].value);
     const [details, setDetails] = useState('');
     const [statusMessage, setStatusMessage] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -84,7 +129,7 @@ export function ReportButton({
                     return;
                 }
 
-                setReasonKey(reportReasonOptions[0].value);
+                setReasonKey(reasonOptions[0].value);
                 setDetails('');
                 setIsOpen(false);
                 setStatusMessage('Report enviado. O item foi registrado para revisao.');
@@ -166,7 +211,7 @@ export function ReportButton({
                             value={reasonKey}
                             onChange={(event) => setReasonKey(event.target.value)}
                         >
-                            {reportReasonOptions.map((option) => (
+                            {reasonOptions.map((option) => (
                                 <option key={option.value} value={option.value}>
                                     {option.label}
                                 </option>

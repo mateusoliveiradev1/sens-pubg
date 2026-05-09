@@ -10,6 +10,8 @@ const entityToneByType = {
     post: styles.admin,
     comment: styles.mod,
     profile: styles.support,
+    social_pro_report: styles.admin,
+    social_pro_report_link: styles.support,
 } as const;
 
 const actionGroupStyle = {
@@ -74,10 +76,15 @@ export default async function CommunityAdminPage({
         const reportId = String(formData.get('reportId') ?? '');
         const actionKey = String(formData.get('actionKey') ?? '');
         const notes = String(formData.get('notes') ?? '');
+        const normalizedActionKey = actionKey === 'dismiss'
+            ? 'dismiss'
+            : actionKey === 'disable'
+                ? 'disable'
+                : 'hide';
 
         const result = await applyCommunityModerationAction({
             reportId,
-            actionKey: actionKey === 'dismiss' ? 'dismiss' : 'hide',
+            actionKey: normalizedActionKey,
             notes,
         });
 
@@ -201,6 +208,34 @@ export default async function CommunityAdminPage({
                                                         Ocultar
                                                     </button>
                                                 </form>
+
+                                                {report.entityType === 'social_pro_report'
+                                                || report.entityType === 'social_pro_report_link' ? (
+                                                    <form action={submitModerationAction}>
+                                                        <input
+                                                            type="hidden"
+                                                            name="reportId"
+                                                            value={report.id}
+                                                        />
+                                                        <input
+                                                            type="hidden"
+                                                            name="actionKey"
+                                                            value="disable"
+                                                        />
+                                                        <input
+                                                            type="hidden"
+                                                            name="notes"
+                                                            value="Desativado pela fila admin de Relatorio Pro."
+                                                        />
+                                                        <button
+                                                            type="submit"
+                                                            style={primaryActionStyle}
+                                                            data-community-admin-disable={report.id}
+                                                        >
+                                                            Desativar
+                                                        </button>
+                                                    </form>
+                                                ) : null}
 
                                                 <form action={submitModerationAction}>
                                                     <input

@@ -7,7 +7,10 @@ import {
     type SocialProReportViewModel,
 } from '@/core/social-pro-report-view-model';
 
-import { ProReportDetail } from './pro-report-detail';
+import {
+    ProReportDetail,
+    type SocialProReportBadgeViewModel,
+} from './pro-report-detail';
 
 const sourceIds = {
     analysisSessionId: 'analysis-1',
@@ -17,12 +20,12 @@ const sourceIds = {
     validationLinkId: 'validation-1',
 };
 
-const activeProBadge = {
+const activeProBadge: SocialProReportBadgeViewModel = {
     visible: true,
     label: 'Pro',
     tooltip: 'Pro: acesso aos recursos premium do Sens PUBG',
     meaning: 'active_pro_access',
-} as const;
+};
 
 function normalize(copy: string): string {
     return copy

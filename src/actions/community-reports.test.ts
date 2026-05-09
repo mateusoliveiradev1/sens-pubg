@@ -175,6 +175,10 @@ describe('createCommunityReport', () => {
             success: true,
             status: 'open',
         });
+
+        mocks.auth.mockResolvedValue({
+            user: { id: 'user-2' },
+        });
         await expect(createCommunityReport({
             entityType: 'social_pro_report_link' as never,
             entityId: 'private-link-1',
