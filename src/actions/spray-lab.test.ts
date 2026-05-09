@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createSprayLabSessionFromProtocol } from '@/core/spray-lab-session';
@@ -523,5 +526,25 @@ describe('spray lab actions', () => {
             status: 'nao_compativel',
             confirmedVariables: false,
         }));
+    });
+
+    it('keeps Spray Lab Social Pro handoffs source-ID based and delegated to gated server actions', () => {
+        const pageSource = readFileSync(join(process.cwd(), 'src/app/spray-lab/page.tsx'), 'utf8');
+        const viewModelSource = readFileSync(join(process.cwd(), 'src/app/spray-lab/spray-lab-view-model.ts'), 'utf8');
+        const reportActionSource = readFileSync(join(process.cwd(), 'src/actions/social-pro-reports.ts'), 'utf8');
+        const libraryActionSource = readFileSync(join(process.cwd(), 'src/actions/social-pro-library.ts'), 'utf8');
+
+        expect(pageSource).toContain('createSocialProReportAction');
+        expect(pageSource).toContain('saveSocialProLibraryItem');
+        expect(pageSource).toContain('sourceSprayLabSessionId');
+        expect(pageSource).toContain('spray_lab_session');
+        expect(viewModelSource).toContain('sourceSprayLabSessionId');
+        expect(viewModelSource).toContain('Social Pro do Spray Lab');
+        expect(viewModelSource).not.toContain('sessionSnapshot');
+        expect(reportActionSource).toContain("requireSocialProCapability('create_report')");
+        expect(reportActionSource).toContain('eq(sprayLabSessions.userId, userId)');
+        expect(reportActionSource).toContain('eq(sprayLabValidationLinks.userId, userId)');
+        expect(libraryActionSource).toContain("kind === 'spray_lab_session'");
+        expect(libraryActionSource).toContain('eq(sprayLabSessions.userId, ownerUserId)');
     });
 });

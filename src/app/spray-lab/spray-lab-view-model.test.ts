@@ -112,6 +112,21 @@ function projection(currentSession: SprayLabSessionSnapshot | null) {
     });
 }
 
+function proProjection(currentSession: SprayLabSessionSnapshot | null) {
+    return projectSprayLabForAccess({
+        access: resolveProductAccess({
+            now: new Date('2026-05-08T05:30:00.000Z'),
+            subscription: {
+                status: 'active',
+                tier: 'pro',
+                currentPeriodStart: new Date('2026-05-01T00:00:00.000Z'),
+                currentPeriodEnd: new Date('2026-06-01T00:00:00.000Z'),
+            },
+        }),
+        session: currentSession,
+    });
+}
+
 describe('spray lab view model', () => {
     it('builds an empty state when no Lab session is active', () => {
         const model = buildSprayLabViewModel({
@@ -147,6 +162,72 @@ describe('spray lab view model', () => {
         expect(model.session?.step.primaryAction.href).toContain('labSessionId=lab-session-1');
         expect(model.session?.step.primaryAction.href).toContain('baseSessionId=analysis-1');
         expect(model.session?.step.secondaryActions).toEqual([]);
+    });
+
+    it('builds Social Pro handoffs from Lab source IDs while preserving execution and validation limits', () => {
+        const currentSession = session({
+            status: 'completed',
+            act: 'fechar_resultado',
+            stepState: 'resultado',
+            validationStatus: 'not_requested',
+            problemReasonCodes: ['variable_changed'],
+            repairState: {
+                title: 'Reparar variavel',
+                whatHappened: 'A variavel mudou durante a sessao.',
+                whyItMatters: 'Sessao vale como pratica, nao como prova tecnica.',
+                ctas: ['Repetir mantendo o mesmo setup.'],
+            },
+        });
+        const model = buildSprayLabViewModel({
+            projection: proProjection(currentSession),
+            session: currentSession,
+        });
+
+        expect(model.socialPro.title).toBe('Social Pro do Spray Lab');
+        expect(model.socialPro.evidenceHierarchy).toEqual([
+            'Execucao Spray Lab',
+            'Transferencia pratica',
+            'Validacao tecnica compativel',
+        ]);
+        expect(model.socialPro.reportAction).toMatchObject({
+            disabled: false,
+            sourceIds: {
+                sourceSprayLabSessionId: currentSession.id,
+                sourceAnalysisSessionId: 'analysis-1',
+            },
+        });
+        expect(model.socialPro.reportAction.sourceIds).not.toHaveProperty('sessionSnapshot');
+        expect(model.socialPro.libraryActions[0]).toMatchObject({
+            disabled: false,
+            item: {
+                kind: 'spray_lab_session',
+                id: currentSession.id,
+                context: {
+                    sprayLabLaneId: currentSession.lane.id,
+                    weaponId: 'beryl-m762',
+                    opticId: 'red-dot',
+                    distanceMeters: 50,
+                    objectiveKey: currentSession.lane.objective,
+                    validationState: 'not_requested',
+                    blockerKey: 'variable_changed',
+                },
+            },
+        });
+        expect(model.socialPro.blockerLabels.join(' ')).toMatch(/variavel|reparo|pratica/i);
+        expect(JSON.stringify(model.socialPro).toLowerCase()).not.toMatch(/melhora garantida|rank garantido|sensibilidade perfeita|prova tecnica automatica|ranking|payout/);
+    });
+
+    it('locks Spray Lab Social Pro actions for Free while keeping public reading copy useful', () => {
+        const currentSession = session();
+        const model = buildSprayLabViewModel({
+            projection: projection(currentSession),
+            session: currentSession,
+        });
+
+        expect(model.socialPro.reportAction.disabled).toBe(true);
+        expect(model.socialPro.reportAction.lockCopy).toMatch(/free|leitura publica|pro/i);
+        expect(model.socialPro.libraryActions[0]?.disabled).toBe(true);
+        expect(model.socialPro.libraryActions[0]?.lockCopy).toMatch(/saves normais|biblioteca/i);
     });
 
     it('turns load failures into a repair state instead of a blank runner', () => {
