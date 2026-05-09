@@ -452,7 +452,7 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **UI hint:** yes
 
-**Plans:** 6/13 plans executed
+**Plans:** 13/13 plans complete
 
 **Wave 0**
 - [x] `11-00-PLAN.md` — Wave 0 Social Pro validation scaffold for tests, verifier, Playwright matrix, and package script registration.
@@ -469,15 +469,15 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 - [x] `11-05-PLAN.md` — Private Pro library, safe creator analytics, and privacy-minimal Social Pro upgrade intent.
 
 **Wave 4 *(blocked on Wave 3 completion)***
-- [ ] `11-06-PLAN.md` — Public-safe report route, unlisted link reading, and Pro report moderation audit.
-- [ ] `11-07-PLAN.md` — Community Pro cockpit, public surface regressions, and hub copy safety.
-- [ ] `11-08-PLAN.md` — Analyze and dashboard report/library handoffs.
-- [ ] `11-09-PLAN.md` — Ciclo Pro and Spray Lab Social Pro handoffs.
-- [ ] `11-10-PLAN.md` — History list/detail report and Pro library continuity.
-- [ ] `11-11-PLAN.md` — Discreet Pro badge, profile, and post identity surfaces.
+- [x] `11-06-PLAN.md` — Public-safe report route, unlisted link reading, and Pro report moderation audit.
+- [x] `11-07-PLAN.md` — Community Pro cockpit, public surface regressions, and hub copy safety.
+- [x] `11-08-PLAN.md` — Analyze and dashboard report/library handoffs.
+- [x] `11-09-PLAN.md` — Ciclo Pro and Spray Lab Social Pro handoffs.
+- [x] `11-10-PLAN.md` — History list/detail report and Pro library continuity.
+- [x] `11-11-PLAN.md` — Discreet Pro badge, profile, and post identity surfaces.
 
 **Wave 5 *(blocked on Wave 4 completion)***
-- [ ] `11-12-PLAN.md` — No False Premium Playwright matrix, final evidence checklist, and required verification gates.
+- [x] `11-12-PLAN.md` — No False Premium Playwright matrix, final evidence checklist, and required verification gates.
 
 **Cross-cutting constraints:**
 - Public community basics remain open/free where already open: feed, posts, basic profiles, likes, comments, normal saves, follows, and reading.
