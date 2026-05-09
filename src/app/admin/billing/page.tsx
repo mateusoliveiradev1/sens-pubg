@@ -183,6 +183,29 @@ export default async function AdminBillingPage({
                         </div>
                     </div>
 
+                    <section className={`${styles.trustPanel} ${styles.sectionOffsetLarge}`} aria-label="Diagnostico Revenue Ops">
+                        <div>
+                            <span>Diagnostico por dominio</span>
+                            <strong>{snapshot.diagnosis.firstCause.code} / {snapshot.diagnosis.firstCause.status}</strong>
+                        </div>
+                        <p>
+                            Primeira causa: {snapshot.diagnosis.firstCause.impact} Proxima acao segura:
+                            {' '}{snapshot.diagnosis.firstCause.nextSafeAction} Este diagnostico nao substitui
+                            Stripe, subscription, webhook ou resolver servidor como verdade de acesso.
+                        </p>
+                    </section>
+
+                    <div className={`${styles.statsGrid} ${styles.sectionOffsetLarge}`}>
+                        {snapshot.diagnosis.domains.map((domain) => (
+                            <div className={styles.statCard} key={domain.domain}>
+                                <span>{domain.domain}</span>
+                                <strong>{domain.status}</strong>
+                                <p>{domain.firstCause?.code ?? 'sem bloqueio ativo'}</p>
+                                <small>{domain.owner} / {domain.runbook}</small>
+                            </div>
+                        ))}
+                    </div>
+
                     <div className={`${styles.tableWrapper} ${styles.sectionOffsetLarge}`}>
                         <table className={styles.table}>
                             <thead>

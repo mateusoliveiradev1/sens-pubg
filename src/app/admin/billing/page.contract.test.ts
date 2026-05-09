@@ -13,6 +13,9 @@ describe('admin billing page contract', () => {
         expect(source).toMatch(/recordBillingSupportNote/);
         expect(source).toMatch(/forceStripeReconciliation/);
         expect(source).toContain('Resolver compartilhado');
+        expect(source).toContain('Diagnostico por dominio');
+        expect(source).toContain('Primeira causa');
+        expect(source).toContain('Proxima acao segura');
     });
 
     it('frames the page as operational support, not a revenue dashboard', () => {
@@ -25,6 +28,8 @@ describe('admin billing page contract', () => {
         expect(normalized).toContain('admin-only');
         expect(normalized).toContain('sem mudar acesso local diretamente');
         expect(normalized).toContain('nao e dashboard de receita');
+        expect(normalized).toContain('nao substitui');
+        expect(normalized).toContain('webhook');
         expect(normalized).not.toMatch(/mrr|arr|revenue dashboard|receita total/);
     });
 });
