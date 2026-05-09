@@ -157,6 +157,7 @@ function createPublicProfileViewModel(overrides: {
                 label: 'Creator aprovado',
                 status: 'approved',
             },
+            proBadge: null,
             profileHref: '/community/users/spray-doctor',
             canonicalPath: '/community/users/spray-doctor',
             ...overrides.identity,
@@ -307,6 +308,33 @@ describe('/community/users/[slug] page contract', () => {
         expect(source).toMatch(/data-community-section=["']profile-trust-rail["']/);
         expect(source).toMatch(/data-community-layout=["']stable-trust-rail["']/);
         expect(source).toMatch(/data-community-layout=["']stable-metric-plate["']/);
+    });
+
+    it('renders a discreet accessible Social Pro badge on the public profile identity surface', async () => {
+        mocks.getPublicCommunityProfileViewModel.mockResolvedValueOnce(createPublicProfileViewModel({
+            identity: {
+                proBadge: {
+                    key: 'social-pro-access',
+                    meaning: 'active_pro_access',
+                    label: 'Pro',
+                    tooltip: 'Pro: acesso aos recursos premium do Sens PUBG. Nao indica autoridade tecnica, habilidade maior, certificacao, coach, jogador profissional ou rank.',
+                    ariaLabel: 'Pro: acesso aos recursos premium do Sens PUBG; nao indica autoridade, habilidade, certificacao, coach, jogador profissional ou rank.',
+                    count: null,
+                },
+            },
+        }));
+
+        const markup = await renderPage('spray-doctor');
+        const source = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
+
+        expect(markup).toContain('data-social-pro-badge="profile"');
+        expect(markup).toContain('Pro: acesso aos recursos premium do Sens PUBG');
+        expect(markup).toContain('nao indica autoridade');
+        expect(markup).toContain('jogador profissional');
+        expect(markup).toContain('rank');
+        expect(source).toMatch(/viewModel\.identity\.proBadge/);
+        expect(source).toMatch(/aria-label=\{viewModel\.identity\.proBadge\.ariaLabel\}/);
+        expect(source).not.toMatch(/pro player|verified skill|skill verified|rank alto|melhor jogador|certificado pelo pro/i);
     });
 
     it('keeps recent public work and proof surfaces near the top of the profile experience', async () => {

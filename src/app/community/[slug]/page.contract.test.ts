@@ -12,6 +12,23 @@ describe('/community/[slug] page contract', () => {
         expect(source).toMatch(/Autor|Ver perfil/);
     });
 
+    it('renders the server-derived Social Pro badge on post author identity only with anti-authority copy', () => {
+        const pageSource = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
+        const detailSource = readFileSync(new URL('./post-detail.tsx', import.meta.url), 'utf8');
+        const source = `${pageSource}\n${detailSource}`;
+
+        expect(source).toMatch(/resolveSocialProAccessForUser\(\s*storedPost\.authorId/);
+        expect(source).toMatch(/buildCommunityProBadge/);
+        expect(source).toMatch(/authorProfile[\s\S]*proBadge/);
+        expect(detailSource).toMatch(/data-social-pro-badge=["']post-author["']/);
+        expect(detailSource).toMatch(/aria-label=\{post\.authorProfile\.proBadge\.ariaLabel\}/);
+        expect(detailSource).toContain('Pro: acesso aos recursos premium do Sens PUBG');
+        expect(detailSource).toContain('nao indica autoridade');
+        expect(detailSource).toContain('jogador profissional');
+        expect(detailSource).toContain('rank');
+        expect(source).not.toMatch(/pro player|verified skill|skill verified|rank alto|melhor jogador|certificado pelo pro/i);
+    });
+
     it('provides continuity links from post context back to relevant discovery paths', () => {
         const pageSource = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
         const detailSource = readFileSync(new URL('./post-detail.tsx', import.meta.url), 'utf8');
