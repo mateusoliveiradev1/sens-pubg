@@ -78,9 +78,14 @@ describe('Social Pro creator analytics privacy', () => {
             creatorId: 'creator-1',
             publicEvents: [
                 { type: 'public_post', context: { weaponId: 'beryl-m762', opticId: '3x' } },
+                { type: 'public_comment', context: { weaponId: 'beryl-m762', opticId: '3x' } },
+                { type: 'public_save', context: { weaponId: 'beryl-m762', opticId: '3x' } },
+                { type: 'public_follow', context: { source: 'profile' } },
                 { type: 'setup_copy', context: { weaponId: 'beryl-m762', opticId: '3x' } },
+                { type: 'analysis_cta_click', context: { surface: 'community_post' } },
                 { type: 'training_cta_click', context: { program: 'ciclo_pro' } },
                 { type: 'generated_report', context: { validationState: 'pending' } },
+                { type: 'context_interest', context: { objective: 'controle_vertical' } },
             ],
             privateSignals: {
                 privateReaders: [{ id: 'reader-private-1', email: 'private@example.com' }],
@@ -96,14 +101,31 @@ describe('Social Pro creator analytics privacy', () => {
             creatorId: 'creator-1',
             metrics: {
                 public_posts: 1,
+                public_comments: 1,
+                public_saves: 1,
+                public_follows: 1,
                 setup_copies: 1,
                 generated_reports: 1,
+                analysis_cta_clicks: 1,
                 training_cta_clicks: 1,
+                context_interest: 1,
             },
             topContexts: expect.arrayContaining([
-                expect.objectContaining({ weaponId: 'beryl-m762' }),
+                expect.objectContaining({
+                    weaponId: 'beryl-m762',
+                    opticId: '3x',
+                    count: 4,
+                }),
+                expect.objectContaining({
+                    objectiveKey: 'controle_vertical',
+                    count: 1,
+                }),
             ]),
         });
+        expect(result).not.toHaveProperty('privateReaders');
+        expect(result).not.toHaveProperty('paymentState');
+        expect(result).not.toHaveProperty('checkoutFunnel');
+        expect(result).not.toHaveProperty('revenue');
         expectNoPrivateAnalyticsLeak(result);
     });
 
