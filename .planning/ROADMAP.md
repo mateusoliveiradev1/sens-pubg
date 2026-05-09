@@ -452,6 +452,36 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **UI hint:** yes
 
+**Plans:** 10 plans
+
+**Wave 1**
+- [ ] `11-01-PLAN.md` — Social Pro contracts, public-safe redaction, and No False Premium verifier foundation.
+
+**Wave 2 *(blocked on Wave 1 completion)***
+- [ ] `11-02-PLAN.md` — Product entitlement activation and server-owned Social Pro access.
+- [ ] `11-03-PLAN.md` — Social Pro persistence schema, migration, and blocking Drizzle schema push.
+
+**Wave 3 *(blocked on Wave 2 completion)***
+- [ ] `11-04-PLAN.md` — Relatorio Pro Compartilhavel server lifecycle, public-safe snapshots, and private link controls.
+- [ ] `11-05-PLAN.md` — Private Pro library, safe creator analytics, and privacy-minimal Social Pro upgrade intent.
+
+**Wave 4 *(blocked on Wave 3 completion)***
+- [ ] `11-06-PLAN.md` — Public-safe report route, unlisted link reading, and Pro report moderation audit.
+- [ ] `11-07-PLAN.md` — Community Pro cockpit, discreet Pro badge, public surface regressions, and copy safety.
+- [ ] `11-08-PLAN.md` — Analyze, dashboard, and history report/library handoffs.
+- [ ] `11-09-PLAN.md` — Ciclo Pro and Spray Lab Social Pro handoffs.
+
+**Wave 5 *(blocked on Wave 4 completion)***
+- [ ] `11-10-PLAN.md` — No False Premium Playwright matrix, final evidence checklist, and required verification gates.
+
+**Cross-cutting constraints:**
+- Public community basics remain open/free where already open: feed, posts, basic profiles, likes, comments, normal saves, follows, and reading.
+- Pro social value is depth, polish, organization, sharing, audit continuity, private context library, saved drills, advanced context, badge access signal, and safe creator impact.
+- Product Pro access is server-owned through the product access resolver; UI state and inactive community entitlement scaffolding never grant Phase 11 Pro.
+- Public reports and private-link reports are public-safe/redacted and cannot hide confidence, coverage, blockers, inconclusive or limited support, validation state, or no-overclaim disclaimers.
+- No Phase 11 paid value is based only on PUBG API-derived data; copy avoids perfect sensitivity, guaranteed improvement/rank, global grades, official PUBG/KRAFTON affiliation, and paid-user authority.
+- Final Delivered status requires `npm run verify:phase11:social-pro`, focused Phase 11 tests, community/monetization gates, typecheck, full Vitest, benchmark gate, build, and desktop/mobile Playwright evidence.
+
 ## Phase 12: Revenue Operations Hardening
 
 **Goal:** Make the paid system observable, supportable, and ready for real launch decisions.
