@@ -439,5 +439,7 @@ export function recordSocialProPassiveImpression(_input: {
     readonly featureKey: ProductEntitlementKey;
     readonly repository?: ProductAnalyticsRepository;
 }): Promise<false> {
+    void _input;
+
     return Promise.resolve(false);
 }

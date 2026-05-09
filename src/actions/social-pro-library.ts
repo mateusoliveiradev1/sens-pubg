@@ -453,6 +453,8 @@ export async function resolveSocialProLibraryProjection(
     readonly success: true;
     readonly projection: SocialProLibraryProjection;
 }> {
+    void _input;
+
     return {
         success: true,
         projection: await resolveSocialProLibraryProjectionForCurrentUser(),
