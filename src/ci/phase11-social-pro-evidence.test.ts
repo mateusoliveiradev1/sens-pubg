@@ -156,7 +156,7 @@ describe('Phase 11 Social Pro evidence helper', () => {
         ]));
     });
 
-    it('keeps the repository checklist present with every required row and an honest partial status', () => {
+    it('keeps the repository checklist present with every required row and a delivered status', () => {
         const report = verifyPhase11SocialPro();
 
         expect(report.missingDocuments).toEqual([]);
@@ -164,7 +164,7 @@ describe('Phase 11 Social Pro evidence helper', () => {
         expect(report.missingStatusRows).toEqual([]);
         expect(report.rowsMarkedMissing).toEqual([]);
         expect(report.evidenceFileValid).toBe(true);
-        expect(report.finalStatus).toBe('Partially delivered');
+        expect(report.finalStatus).toBe('Delivered');
         expect(report.statusDeclarationValid).toBe(true);
         expect(report.blockersExplicit).toBe(true);
     });
