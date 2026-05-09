@@ -84,4 +84,28 @@ describe('/community page contract', () => {
         expect(source).toMatch(/clearhref|emptystate|filteremptystate|\/community\/users\//);
         expect(source).not.toMatch(/pro required|assinatura obrigatoria|paywall|bloqueado por pro|checkout/);
     });
+
+    it('renders a compact Social Pro cockpit with active-Pro-only badge copy', () => {
+        const source = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/SocialProCockpit/);
+        expect(source).toMatch(/viewModel\.socialProHub/);
+        expect(source).toMatch(/data-community-section=["']social-pro-cockpit["']/);
+        expect(source).toMatch(/Pro: acesso aos recursos premium do Sens PUBG/);
+        expect(source).toMatch(/nao indica autoridade tecnica|sem autoridade tecnica|nao e certificacao/);
+        expect(source).toMatch(/Relatorios recentes|Biblioteca de contexto|Impacto publico seguro|Colecoes inteligentes/);
+        expect(source).toMatch(/Gerar Relatorio Pro|Continuar Ciclo Pro|Abrir Spray Lab/);
+        expect(source).toMatch(/creator\.proBadge|proBadge/);
+    });
+
+    it('keeps Social Pro upgrade cues inside real Pro actions instead of feed banners', () => {
+        const source = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase();
+
+        expect(source).toMatch(/generate_report|continue_ciclo_pro|open_spray_lab/);
+        expect(source).toMatch(/upgradeintentaction|socialproaction/);
+        expect(source).not.toMatch(/feed.*upgrade|banner.*pro|impressao passiva|passive.*impression/);
+    });
 });

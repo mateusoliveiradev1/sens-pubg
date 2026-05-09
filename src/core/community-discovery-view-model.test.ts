@@ -356,6 +356,244 @@ describe('buildCommunityDiscoveryViewModel', () => {
         });
     });
 
+    it('adds a compact Social Pro cockpit without replacing the public feed', () => {
+        const viewModel = buildCommunityDiscoveryViewModel({
+            posts: [
+                createSourcePost({
+                    id: 'post-open-public',
+                    slug: 'open-public',
+                }),
+            ],
+            viewer: {
+                viewerUserId: 'user-pro',
+                hasPublicProfile: true,
+                publicProfileHref: '/community/users/pro-viewer',
+                publishableAnalysisCount: 3,
+            },
+            socialPro: {
+                access: {
+                    isAuthenticated: true,
+                    isActivePro: true,
+                    canGenerateReport: true,
+                    canUseLibrary: true,
+                    canReadCreatorAnalytics: true,
+                    canDisplayBadge: true,
+                },
+                activeProUserIds: ['user-spray-doctor'],
+                recentReports: [
+                    {
+                        id: 'report-1',
+                        title: 'Beryl 3x - caso de evolucao',
+                        href: '/community/reports/report-1',
+                        stateLabel: 'Publicado',
+                    },
+                ],
+                library: {
+                    collectionCount: 2,
+                    itemCount: 7,
+                    topCollections: [
+                        {
+                            label: 'Beryl 3x 50m',
+                            contextLabel: 'controle vertical',
+                            itemCount: 4,
+                        },
+                    ],
+                },
+                analytics: {
+                    publicPostCount: 4,
+                    generatedReportCount: 1,
+                    contextInterestCount: 6,
+                    trainingClickCount: 3,
+                },
+            },
+        } as Parameters<typeof buildCommunityDiscoveryViewModel>[0] & {
+            readonly socialPro: unknown;
+        });
+
+        expect(viewModel.feed.cards.map((card) => card.id)).toEqual(['post-open-public']);
+        expect(viewModel.hubSummary).toEqual({
+            publicPostCount: 1,
+            visiblePostCount: 1,
+        });
+        expect((viewModel as { readonly socialProHub?: unknown }).socialProHub).toMatchObject({
+            accessState: 'pro',
+            proBadge: {
+                label: 'Pro',
+                accessibleLabel: 'Pro: acesso aos recursos premium do Sens PUBG',
+                meaning: 'active_pro_access',
+            },
+            panels: [
+                {
+                    key: 'reports',
+                    title: 'Relatorios recentes',
+                    locked: false,
+                    items: [
+                        {
+                            title: 'Beryl 3x - caso de evolucao',
+                            href: '/community/reports/report-1',
+                        },
+                    ],
+                },
+                {
+                    key: 'library',
+                    title: 'Biblioteca de contexto',
+                    locked: false,
+                },
+                {
+                    key: 'analytics',
+                    title: 'Impacto publico seguro',
+                    locked: false,
+                },
+                {
+                    key: 'collections',
+                    title: 'Colecoes inteligentes',
+                    locked: false,
+                },
+            ],
+            actions: [
+                {
+                    kind: 'generate_report',
+                    href: '/history',
+                    locked: false,
+                },
+                {
+                    kind: 'continue_ciclo_pro',
+                    href: '/ciclo-pro',
+                    locked: false,
+                },
+                {
+                    kind: 'open_spray_lab',
+                    href: '/spray-lab',
+                    locked: false,
+                },
+            ],
+        });
+        expect(JSON.stringify((viewModel as { readonly socialProHub?: unknown }).socialProHub).toLowerCase())
+            .toContain('analise');
+        expect(JSON.stringify((viewModel as { readonly socialProHub?: unknown }).socialProHub).toLowerCase())
+            .toContain('validacao compativel');
+    });
+
+    it('keeps Free community basics open while previewing only real Social Pro actions', () => {
+        const viewModel = buildCommunityDiscoveryViewModel({
+            posts: [createSourcePost()],
+            viewer: {
+                viewerUserId: 'user-free',
+                hasPublicProfile: true,
+                publicProfileHref: '/community/users/free-viewer',
+                publishableAnalysisCount: 1,
+            },
+            socialPro: {
+                access: {
+                    isAuthenticated: true,
+                    isActivePro: false,
+                    canGenerateReport: false,
+                    canUseLibrary: false,
+                    canReadCreatorAnalytics: false,
+                    canDisplayBadge: false,
+                },
+                activeProUserIds: [],
+                recentReports: [],
+                library: {
+                    collectionCount: 0,
+                    itemCount: 0,
+                    topCollections: [],
+                },
+                analytics: {
+                    publicPostCount: 1,
+                    generatedReportCount: 0,
+                    contextInterestCount: 0,
+                    trainingClickCount: 0,
+                },
+            },
+        } as Parameters<typeof buildCommunityDiscoveryViewModel>[0] & {
+            readonly socialPro: unknown;
+        });
+
+        const hub = (viewModel as {
+            readonly socialProHub?: {
+                readonly accessState: string;
+                readonly panels: readonly { readonly locked: boolean; readonly lockCopy?: string }[];
+                readonly actions: readonly { readonly locked: boolean; readonly upgradeIntentAction?: string }[];
+            };
+        }).socialProHub;
+
+        expect(viewModel.feed.cards).toHaveLength(1);
+        expect(JSON.stringify(viewModel.feed).toLowerCase()).not.toMatch(/checkout|paywall|assinatura obrigatoria/);
+        expect(hub).toMatchObject({
+            accessState: 'free',
+        });
+        expect(hub?.panels.every((panel) => panel.locked)).toBe(true);
+        expect(hub?.panels.map((panel) => panel.lockCopy).join(' ')).toContain(
+            'O Free mantem a leitura publica',
+        );
+        expect(hub?.actions.map((action) => action.upgradeIntentAction)).toEqual([
+            'generate_report',
+            'continue_ciclo_pro',
+            'open_spray_lab',
+        ]);
+    });
+
+    it('projects creator-card Pro badges only from server-derived active-Pro user ids', () => {
+        const activeProHub = buildCommunityDiscoveryViewModel({
+            posts: [
+                createSourcePost({
+                    id: 'post-pro-author',
+                    slug: 'pro-author',
+                }),
+            ],
+            socialPro: {
+                access: {
+                    isAuthenticated: false,
+                    isActivePro: false,
+                    canGenerateReport: false,
+                    canUseLibrary: false,
+                    canReadCreatorAnalytics: false,
+                    canDisplayBadge: false,
+                },
+                activeProUserIds: ['user-spray-doctor'],
+            },
+        } as Parameters<typeof buildCommunityDiscoveryViewModel>[0] & {
+            readonly socialPro: unknown;
+        });
+        const freeHub = buildCommunityDiscoveryViewModel({
+            posts: [
+                createSourcePost({
+                    id: 'post-free-author',
+                    slug: 'free-author',
+                }),
+            ],
+            socialPro: {
+                access: {
+                    isAuthenticated: false,
+                    isActivePro: false,
+                    canGenerateReport: false,
+                    canUseLibrary: false,
+                    canReadCreatorAnalytics: false,
+                    canDisplayBadge: false,
+                },
+                activeProUserIds: [],
+            },
+        } as Parameters<typeof buildCommunityDiscoveryViewModel>[0] & {
+            readonly socialPro: unknown;
+        });
+
+        expect(activeProHub.creatorHighlights.items[0]).toMatchObject({
+            displayName: 'Spray Doctor',
+            proBadge: {
+                label: 'Pro',
+                accessibleLabel: 'Pro: acesso aos recursos premium do Sens PUBG',
+                antiAuthorityCopy: expect.stringMatching(/nao indica autoridade tecnica/i),
+            },
+        });
+        expect(JSON.stringify(activeProHub.creatorHighlights.items[0]).toLowerCase())
+            .not.toMatch(/pro player|certificado|rank|habilidade superior|autoridade tecnica comprovada/);
+        expect(freeHub.creatorHighlights.items[0]).toMatchObject({
+            displayName: 'Spray Doctor',
+            proBadge: null,
+        });
+    });
+
     it('builds one prioritized participation prompt for reader, profile and publishable history states', () => {
         const anonymousHub = buildCommunityDiscoveryViewModel({
             posts: [],
