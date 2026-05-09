@@ -452,13 +452,13 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **UI hint:** yes
 
-**Plans:** 1/13 plans executed
+**Plans:** 2/13 plans executed
 
 **Wave 0**
-- [ ] `11-00-PLAN.md` — Wave 0 Social Pro validation scaffold for tests, verifier, Playwright matrix, and package script registration.
+- [x] `11-00-PLAN.md` — Wave 0 Social Pro validation scaffold for tests, verifier, Playwright matrix, and package script registration.
 
 **Wave 1 *(blocked on Wave 0 completion)***
-- [ ] `11-01-PLAN.md` — Social Pro contracts, public-safe redaction, and No False Premium verifier foundation.
+- [x] `11-01-PLAN.md` — Social Pro contracts, public-safe redaction, and No False Premium verifier foundation.
 
 **Wave 2 *(blocked on Wave 1 completion)***
 - [ ] `11-02-PLAN.md` — Product entitlement activation and server-owned Social Pro access.
