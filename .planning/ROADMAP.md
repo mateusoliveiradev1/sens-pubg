@@ -452,9 +452,12 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **UI hint:** yes
 
-**Plans:** 10 plans
+**Plans:** 13 plans
 
-**Wave 1**
+**Wave 0**
+- [ ] `11-00-PLAN.md` — Wave 0 Social Pro validation scaffold for tests, verifier, Playwright matrix, and package script registration.
+
+**Wave 1 *(blocked on Wave 0 completion)***
 - [ ] `11-01-PLAN.md` — Social Pro contracts, public-safe redaction, and No False Premium verifier foundation.
 
 **Wave 2 *(blocked on Wave 1 completion)***
@@ -467,12 +470,14 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **Wave 4 *(blocked on Wave 3 completion)***
 - [ ] `11-06-PLAN.md` — Public-safe report route, unlisted link reading, and Pro report moderation audit.
-- [ ] `11-07-PLAN.md` — Community Pro cockpit, discreet Pro badge, public surface regressions, and copy safety.
-- [ ] `11-08-PLAN.md` — Analyze, dashboard, and history report/library handoffs.
+- [ ] `11-07-PLAN.md` — Community Pro cockpit, public surface regressions, and hub copy safety.
+- [ ] `11-08-PLAN.md` — Analyze and dashboard report/library handoffs.
 - [ ] `11-09-PLAN.md` — Ciclo Pro and Spray Lab Social Pro handoffs.
+- [ ] `11-10-PLAN.md` — History list/detail report and Pro library continuity.
+- [ ] `11-11-PLAN.md` — Discreet Pro badge, profile, and post identity surfaces.
 
 **Wave 5 *(blocked on Wave 4 completion)***
-- [ ] `11-10-PLAN.md` — No False Premium Playwright matrix, final evidence checklist, and required verification gates.
+- [ ] `11-12-PLAN.md` — No False Premium Playwright matrix, final evidence checklist, and required verification gates.
 
 **Cross-cutting constraints:**
 - Public community basics remain open/free where already open: feed, posts, basic profiles, likes, comments, normal saves, follows, and reading.

@@ -590,27 +590,25 @@ Playwright supports screenshot assertions, and the repo already has `test:commun
 |---|-------|---------|---------------|
 | A1 | Store private report link lookup state using opaque high-entropy tokens and a revocable lifecycle; hashing the stored token is recommended but the exact implementation is a planning/security design choice. [ASSUMED] | Recommended Schema Shape / Don't Hand-Roll | If the team chooses a different token storage model, security review must still prove unguessability, revocation, and no reader identity leak. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Exact new product entitlement key names**
-   - What we know: Existing product keys include `community.pro_badge`, `community.premium_report_share`, and `community.creator_attribution`, and Phase 11 may add keys for Pro library, creator analytics, private report links, and advanced social context. [VERIFIED: src/types/monetization.ts; VERIFIED: 11-CONTEXT.md]
-   - What's unclear: Whether to add `community.pro_library`, `community.creator_analytics`, `community.private_report_links`, and `community.advanced_context` or use a smaller key set behind `community.premium_report_share`. [VERIFIED: 11-CONTEXT.md]
-   - Recommendation: Add explicit keys for planner/test clarity, then include them in `productProEntitlementKeys` and `premium-projection` copy. [VERIFIED: src/lib/product-entitlements.ts; VERIFIED: src/lib/premium-projection.ts]
+   - Resolution: Keep and activate/refine existing product keys `community.pro_badge`, `community.premium_report_share`, and `community.creator_attribution`.
+   - Resolution: Add explicit product entitlement keys `community.pro_library`, `community.creator_analytics`, `community.private_report_links`, and `community.advanced_context` for Pro library, creator analytics, private report links, and advanced social context.
+   - Planning implication: Add the explicit keys to `ProductEntitlementKey`, `productProEntitlementKeys`, Social Pro access tests, and premium projection lock/cue copy so Pro access remains server-owned and testable. [VERIFIED: src/lib/product-entitlements.ts; VERIFIED: src/lib/premium-projection.ts; VERIFIED: 11-CONTEXT.md]
 
 2. **Report URL shape**
-   - What we know: Route names are discretionary, and link-private reports must be unlisted/readable by link. [VERIFIED: 11-CONTEXT.md]
-   - What's unclear: Whether public and link-private reports share `/community/reports/[token]` or use separate canonical slug/token routes. [VERIFIED: 11-CONTEXT.md]
-   - Recommendation: Use one report render route with server-side lookup that distinguishes public slug from private token internally, and keep discovery queries separate from token lookup. [VERIFIED: src/app/community/[slug]/page.tsx; VERIFIED: 11-CONTEXT.md]
+   - Resolution: Use one report rendering route, planned as `/community/reports/[token]`, with server-side lookup that distinguishes public slug from private token internally.
+   - Planning implication: Discovery/feed/profile queries must only include public report slug/status lookup. They must not include private-token lookup, private token verifier state, private reader identity, or private link analytics. [VERIFIED: src/app/community/[slug]/page.tsx; VERIFIED: 11-CONTEXT.md]
 
 3. **How much report data is stored vs recomputed**
-   - What we know: Existing community snapshots preserve immutable public post evidence, and prior phases persist protocol/Lab/program evidence. [VERIFIED: src/core/community-post-snapshot.ts; VERIFIED: src/db/schema.ts]
-   - What's unclear: Whether report updates regenerate the entire safe snapshot or append audit deltas. [VERIFIED: 11-CONTEXT.md]
-   - Recommendation: Store the current public-safe report snapshot plus audit events; regenerate on explicit Pro update and keep older lifecycle events for audit. [VERIFIED: 11-CONTEXT.md; VERIFIED: src/actions/community-admin.ts]
+   - Resolution: Store the current public-safe report snapshot plus report audit events.
+   - Resolution: Regenerate the current safe snapshot only on explicit Pro update actions; preserve older lifecycle, link, moderation, and update events for audit.
+   - Planning implication: Public rendering reads the current safe snapshot, while lifecycle disputes and moderation review use audit events rather than silently overwriting history. [VERIFIED: 11-CONTEXT.md; VERIFIED: src/actions/community-admin.ts]
 
 4. **Admin/moderator role granularity**
-   - What we know: Current admin action checks `session.user.role === 'admin'`. [VERIFIED: src/actions/community-admin.ts]
-   - What's unclear: Whether Phase 11 needs a separate moderator role or can use the existing admin-only path. [VERIFIED: src/actions/community-admin.ts]
-   - Recommendation: Reuse existing admin-only moderation unless a future role model is explicitly planned. [VERIFIED: src/actions/community-admin.ts; VERIFIED: 11-CONTEXT.md]
+   - Resolution: Reuse the existing admin-only moderation approach for Phase 11 Pro report moderation.
+   - Planning implication: Phase 11 may add Pro-report-specific reasons and audit events, but it must not introduce a new moderator role model unless a future phase explicitly plans it. [VERIFIED: src/actions/community-admin.ts; VERIFIED: 11-CONTEXT.md]
 
 ## Environment Availability
 
