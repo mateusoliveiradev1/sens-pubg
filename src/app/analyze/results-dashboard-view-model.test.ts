@@ -958,6 +958,9 @@ describe('results dashboard view model', () => {
         const model = buildSocialProResultActions(createAnalysisResultForCoachLoop({
             historySessionId: 'session-free',
             mastery: createMastery(),
+            coachPlan: createCoachPlan({
+                completeProtocol: createCompleteProtocol(),
+            }),
             premiumProjection: {
                 tier: 'free',
                 accessState: 'free',
@@ -1015,7 +1018,7 @@ describe('results dashboard view model', () => {
             lockCtaHref: '/pricing',
         });
         expect(model.freePreviewCopy).toContain('Free mantem');
-        expect(model.visibleTruthCopy).toContain('cobertura 86%');
+        expect(model.visibleTruthCopy).toContain('cobertura 88%');
     });
 
     it('blocks weak or unsaved Social Pro handoffs until users save, repair, or validate first', () => {

@@ -208,6 +208,36 @@ export interface TrainingProgramEntryModel {
     readonly lockCtaHref: '/pricing' | '/billing' | null;
 }
 
+export type SocialProResultActionState = 'unsaved' | 'blocked' | 'free_locked' | 'ready';
+
+export interface SocialProResultSourceIds {
+    readonly sourceAnalysisSessionId?: string;
+}
+
+export type SocialProResultLibraryContext = Readonly<Record<string, string | number>>;
+
+export interface SocialProResultActionModel {
+    readonly state: SocialProResultActionState;
+    readonly title: string;
+    readonly body: string;
+    readonly featureKey: 'community.premium_report_share' | 'community.pro_library';
+    readonly serverActionName: 'createSocialProReportAction' | 'saveSocialProLibraryItem';
+    readonly sourceIds: SocialProResultSourceIds;
+    readonly libraryContext: SocialProResultLibraryContext;
+    readonly disabled: boolean;
+    readonly blockerReasons: readonly string[];
+    readonly lockCtaLabel: 'Ver Pro' | 'Abrir billing' | null;
+    readonly lockCtaHref: '/pricing' | '/billing' | null;
+    readonly primaryLabel: string;
+}
+
+export interface SocialProResultActionsModel {
+    readonly report: SocialProResultActionModel;
+    readonly library: SocialProResultActionModel;
+    readonly visibleTruthCopy: string;
+    readonly freePreviewCopy: string;
+}
+
 interface BuildResultMetricCardsInput {
     readonly metrics: SprayMetrics;
     readonly sensitivity: Pick<SensitivityRecommendation, 'suggestedVSM'>;
@@ -663,6 +693,162 @@ export function buildTrainingProgramEntryModel(result: AnalysisResult): Training
             tone: 'info',
         },
         ...lockCta,
+    };
+}
+
+const SOCIAL_PRO_REPORT_FEATURE = 'community.premium_report_share' as const;
+const SOCIAL_PRO_LIBRARY_FEATURE = 'community.pro_library' as const;
+
+function socialProLockCta(
+    projection: PremiumProjectionSummary | undefined,
+    featureKey: typeof SOCIAL_PRO_REPORT_FEATURE | typeof SOCIAL_PRO_LIBRARY_FEATURE,
+): Pick<SocialProResultActionModel, 'lockCtaLabel' | 'lockCtaHref'> {
+    const lock = projection?.locks.find((item) => item.featureKey === featureKey) ?? null;
+
+    return {
+        lockCtaHref: lock?.ctaHref ?? '/pricing',
+        lockCtaLabel: (lock?.ctaHref ?? '/pricing') === '/billing'
+            ? 'Abrir billing'
+            : 'Ver Pro',
+    };
+}
+
+function buildSocialProResultSourceIds(result: AnalysisResult): SocialProResultSourceIds {
+    return result.historySessionId
+        ? { sourceAnalysisSessionId: result.historySessionId }
+        : {};
+}
+
+function buildSocialProLibraryContext(result: AnalysisResult): SocialProResultLibraryContext {
+    const blockerKey = result.analysisDecision?.blockerReasons[0]
+        ?? result.mastery?.blockedRecommendations[0]
+        ?? undefined;
+
+    return {
+        ...(result.analysisContext?.optic.opticId ? { opticId: result.analysisContext.optic.opticId } : {}),
+        ...(result.analysisContext?.targetDistanceMeters ? { distanceMeters: result.analysisContext.targetDistanceMeters } : {}),
+        ...(result.diagnoses[0]?.type ? { diagnosisKey: result.diagnoses[0].type } : {}),
+        ...(result.precisionTrend?.label ? { validationState: result.precisionTrend.label } : {}),
+        ...(blockerKey ? { blockerKey } : {}),
+    };
+}
+
+function buildSocialProBlockers(result: AnalysisResult): readonly string[] {
+    return Array.from(new Set([
+        ...(result.analysisDecision?.blockerReasons.map((reason) => `Decision ladder blocker: ${reason}.`) ?? []),
+        ...(result.mastery?.blockedRecommendations ?? []),
+        ...(result.videoQualityReport?.usableForAnalysis === false ? ['Repare a captura antes de gerar um relatorio publico seguro.'] : []),
+        ...(result.mastery?.actionState === 'capture_again' || result.mastery?.actionState === 'inconclusive'
+            ? ['Valide ou recapture antes de transformar esta leitura em Relatorio Pro.']
+            : []),
+    ]));
+}
+
+function socialProStateForFeature(input: {
+    readonly result: AnalysisResult;
+    readonly featureGranted: boolean | undefined;
+    readonly blockers: readonly string[];
+}): SocialProResultActionState {
+    if (!input.result.historySessionId) {
+        return 'unsaved';
+    }
+
+    if (input.blockers.length > 0 || hasWeakTrainingProgramBase(input.result)) {
+        return 'blocked';
+    }
+
+    return input.featureGranted ? 'ready' : 'free_locked';
+}
+
+function buildSocialProAction(input: {
+    readonly result: AnalysisResult;
+    readonly featureKey: typeof SOCIAL_PRO_REPORT_FEATURE | typeof SOCIAL_PRO_LIBRARY_FEATURE;
+    readonly state: SocialProResultActionState;
+    readonly sourceIds: SocialProResultSourceIds;
+    readonly libraryContext: SocialProResultLibraryContext;
+    readonly blockers: readonly string[];
+}): SocialProResultActionModel {
+    const lockCta = socialProLockCta(input.result.premiumProjection, input.featureKey);
+    const isReport = input.featureKey === SOCIAL_PRO_REPORT_FEATURE;
+    const label = isReport ? 'Gerar Relatorio Pro' : 'Salvar na biblioteca Pro';
+    const stateCopy: Record<SocialProResultActionState, string> = {
+        unsaved: 'Salve a analise antes. O servidor precisa recarregar a sessao salva, propriedade e evidencia antes de qualquer acao Social Pro.',
+        blocked: 'Resolva reparo, captura fraca, leitura inconclusiva ou validacao pendente antes de publicar contexto premium.',
+        free_locked: 'O Free mantem a leitura publica, confianca, cobertura e blockers. Pro organiza este contexto em relatorio, biblioteca, Spray Lab, Ciclo Pro e validacao compativel.',
+        ready: isReport
+            ? 'Gera um case publico seguro a partir da analise salva. O servidor recarrega propriedade, evidencia e acesso Pro antes de gravar.'
+            : 'Organiza o relatorio gerado em uma biblioteca privada por contexto. O servidor valida o report antes de salvar.',
+    };
+
+    const base = {
+        state: input.state,
+        title: label,
+        body: stateCopy[input.state],
+        featureKey: input.featureKey,
+        sourceIds: input.sourceIds,
+        libraryContext: input.libraryContext,
+        disabled: input.state !== 'ready',
+        blockerReasons: input.state === 'blocked'
+            ? input.blockers.length > 0
+                ? input.blockers
+                : ['Evidencia ainda pede reparo ou validacao antes do Social Pro.']
+            : [],
+        primaryLabel: label,
+        ...lockCta,
+    };
+
+    if (isReport) {
+        return {
+            ...base,
+            serverActionName: 'createSocialProReportAction',
+        };
+    }
+
+    return {
+        ...base,
+        serverActionName: 'saveSocialProLibraryItem',
+    };
+}
+
+export function buildSocialProResultActions(result: AnalysisResult): SocialProResultActionsModel {
+    const sourceIds = buildSocialProResultSourceIds(result);
+    const libraryContext = buildSocialProLibraryContext(result);
+    const blockers = buildSocialProBlockers(result);
+    const reportState = socialProStateForFeature({
+        result,
+        featureGranted: result.premiumProjection?.canGenerateSocialProReport,
+        blockers,
+    });
+    const libraryState = socialProStateForFeature({
+        result,
+        featureGranted: result.premiumProjection?.canUseSocialProLibrary,
+        blockers,
+    });
+    const metricQuality = result.metrics.metricQuality?.sprayScore
+        ?? result.metrics.metricQuality?.verticalControlIndex
+        ?? null;
+    const confidence = result.mastery?.evidence.confidence ?? metricQuality?.confidence ?? 0;
+    const coverage = result.mastery?.evidence.coverage ?? metricQuality?.coverage ?? 0;
+
+    return {
+        report: buildSocialProAction({
+            result,
+            featureKey: SOCIAL_PRO_REPORT_FEATURE,
+            state: reportState,
+            sourceIds,
+            libraryContext,
+            blockers,
+        }),
+        library: buildSocialProAction({
+            result,
+            featureKey: SOCIAL_PRO_LIBRARY_FEATURE,
+            state: libraryState,
+            sourceIds,
+            libraryContext,
+            blockers,
+        }),
+        visibleTruthCopy: `Free e Pro veem a verdade atual: confianca ${formatPercent(confidence)}, cobertura ${formatPercent(coverage)}, ${blockers.length} blocker${blockers.length === 1 ? '' : 's'} e disclaimers sem promessa de melhoria.`,
+        freePreviewCopy: 'Free mantem analise, coach resumido, historico basico, saves normais e leitura publica; Pro aprofunda relatorio, biblioteca privada, Spray Lab, Ciclo Pro e validacao compativel.',
     };
 }
 

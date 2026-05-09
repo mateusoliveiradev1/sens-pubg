@@ -23,6 +23,8 @@ import type {
     VideoQualityTier,
 } from '@/types/engine';
 import { createTrainingProgramCycleAction } from '@/actions/training-programs';
+import { createSocialProReportAction } from '@/actions/social-pro-reports';
+import { saveSocialProLibraryItem } from '@/actions/social-pro-library';
 import { formatDiagnosisTruthLabel } from '@/core/measurement-truth';
 import { formatAnalysisDistancePresentation } from './analysis-distance-presentation';
 import { SprayTrailPanel } from './spray-trail-panel';
@@ -43,6 +45,7 @@ import {
     buildPrecisionTrendBlockModel,
     buildResultMetricCards,
     buildResultVerdictModel,
+    buildSocialProResultActions,
     buildTrainingProgramEntryModel,
     groupCoachFeedbackByDiagnosis,
     splitDiagnosesBySeverity,
@@ -689,6 +692,96 @@ function TrainingProgramEntryPanel({
     );
 }
 
+function SocialProResultActionsPanel({
+    model,
+    reportPending,
+    libraryPending,
+    feedback,
+    onGenerateReport,
+    onSaveLibrary,
+}: {
+    readonly model: ReturnType<typeof buildSocialProResultActions>;
+    readonly reportPending: boolean;
+    readonly libraryPending: boolean;
+    readonly feedback: string | null;
+    readonly onGenerateReport: () => void;
+    readonly onSaveLibrary: () => void;
+}): React.JSX.Element {
+    return (
+        <section
+            className={`${styles.trainingProgramEntry} ${resultToneClass(model.report.state === 'blocked' ? 'warning' : 'info')}`}
+            aria-labelledby="social-pro-result-actions-title"
+        >
+            <div className={styles.trainingProgramEntryHeader}>
+                <div>
+                    <span className={styles.reportEyebrow}>Social Pro</span>
+                    <h3 id="social-pro-result-actions-title" className={styles.trainingProgramEntryTitle}>
+                        Relatorio e biblioteca conectados a esta analise
+                    </h3>
+                    <p className={styles.trainingProgramEntryBody}>{model.visibleTruthCopy}</p>
+                </div>
+                <div className={styles.trainingProgramEntryBadges}>
+                    <span className={model.report.state === 'ready' ? 'badge badge-success' : 'badge badge-info'}>
+                        {model.report.state === 'ready' ? 'Pronto para Pro' : 'Handoff contextual'}
+                    </span>
+                    <span className="badge badge-info">Fonte salva pelo servidor</span>
+                </div>
+            </div>
+
+            <div className={styles.trainingProgramEntryGrid}>
+                <div>
+                    <span className={styles.reportEyebrow}>{model.report.title}</span>
+                    <p>{model.report.body}</p>
+                    {model.report.blockerReasons.length > 0 ? (
+                        <ul>
+                            {model.report.blockerReasons.slice(0, 3).map((reason) => (
+                                <li key={reason}>{reason}</li>
+                            ))}
+                        </ul>
+                    ) : null}
+                </div>
+                <div>
+                    <span className={styles.reportEyebrow}>{model.library.title}</span>
+                    <p>{model.library.body}</p>
+                </div>
+                <div>
+                    <span className={styles.reportEyebrow}>Free / Pro</span>
+                    <p>{model.freePreviewCopy}</p>
+                </div>
+            </div>
+
+            <div className={styles.trainingProgramEntryFooter}>
+                <button
+                    className="btn btn-primary"
+                    disabled={model.report.disabled || reportPending}
+                    onClick={onGenerateReport}
+                    type="button"
+                >
+                    {reportPending ? 'Gerando relatorio...' : model.report.primaryLabel}
+                </button>
+                <button
+                    className="btn btn-ghost"
+                    disabled={model.library.disabled || libraryPending}
+                    onClick={onSaveLibrary}
+                    type="button"
+                >
+                    {libraryPending ? 'Salvando biblioteca...' : model.library.primaryLabel}
+                </button>
+                {model.report.lockCtaHref && model.report.lockCtaLabel && model.report.state === 'free_locked' ? (
+                    <a className="btn btn-ghost" href={model.report.lockCtaHref}>
+                        {model.report.lockCtaLabel}
+                    </a>
+                ) : null}
+                {feedback ? (
+                    <span className={styles.trainingProgramEntryFeedback}>{feedback}</span>
+                ) : (
+                    <span>O servidor recarrega propriedade e evidencia antes de gerar relatorio ou salvar biblioteca.</span>
+                )}
+            </div>
+        </section>
+    );
+}
+
 function formatCoachMode(mode: 'standard' | 'low-confidence' | 'inconclusive'): string {
     if (mode === 'inconclusive') {
         return 'Leitura inconclusiva';
@@ -977,6 +1070,9 @@ export function ResultsDashboard({ result, mode = 'full' }: Props): React.JSX.El
     const [showMinorDiags, setShowMinorDiags] = useState(false);
     const [programActionFeedback, setProgramActionFeedback] = useState<string | null>(null);
     const [programActionPending, startProgramActionTransition] = useTransition();
+    const [socialProFeedback, setSocialProFeedback] = useState<string | null>(null);
+    const [socialProReportPending, startSocialProReportTransition] = useTransition();
+    const [socialProLibraryPending, startSocialProLibraryTransition] = useTransition();
     const isAggregated = activeSession.id === result.id;
     const subSessions = result.subSessions ?? [];
     const hasMultipleSubSessions = subSessions.length > 1;
@@ -1094,6 +1190,7 @@ export function ResultsDashboard({ result, mode = 'full' }: Props): React.JSX.El
     const adaptiveCoachLoop = buildAdaptiveCoachLoopModel(activeSession);
     const precisionTrendBlock = buildPrecisionTrendBlockModel(activeSession.precisionTrend);
     const trainingProgramEntry = buildTrainingProgramEntryModel(activeSession);
+    const socialProActions = buildSocialProResultActions(activeSession);
     const quotaNotice = buildAnalysisQuotaNoticeModel({ quota: activeSession.quota ?? null });
     const premiumLocks = buildPremiumLockCards(activeSession.premiumProjection);
     const completeProtocolLock = premiumLocks.find((lock) => lock.featureKey === 'training.next_block_protocol');
@@ -1140,6 +1237,72 @@ export function ResultsDashboard({ result, mode = 'full' }: Props): React.JSX.El
             }
 
             window.location.assign(`/ciclo-pro?cycleId=${encodeURIComponent(created.value.id)}`);
+        });
+    };
+    const handleSocialProReportGeneration = () => {
+        if (!activeSession.historySessionId || socialProActions.report.disabled) {
+            setSocialProFeedback(socialProActions.report.body);
+            return;
+        }
+
+        setSocialProFeedback(null);
+        startSocialProReportTransition(async () => {
+            const created = await createSocialProReportAction({
+                sourceAnalysisSessionId: activeSession.historySessionId!,
+                visibility: 'link_private',
+                title: 'Relatorio Pro Compartilhavel',
+                requestedSections: ['evidence_timeline', 'next_actions'],
+            });
+
+            if (!created.success) {
+                setSocialProFeedback(created.error);
+                return;
+            }
+
+            setSocialProFeedback('Relatorio Pro gerado a partir da analise salva. O servidor confirmou propriedade, evidencia e acesso ativo.');
+        });
+    };
+    const handleSocialProLibrarySave = () => {
+        if (!activeSession.historySessionId || socialProActions.library.disabled) {
+            setSocialProFeedback(socialProActions.library.body);
+            return;
+        }
+
+        setSocialProFeedback(null);
+        startSocialProLibraryTransition(async () => {
+            const created = await createSocialProReportAction({
+                sourceAnalysisSessionId: activeSession.historySessionId!,
+                visibility: 'link_private',
+                title: 'Relatorio Pro Compartilhavel',
+                requestedSections: ['evidence_timeline', 'next_actions'],
+            });
+
+            if (!created.success) {
+                setSocialProFeedback(created.error);
+                return;
+            }
+
+            const reportId = typeof created.report?.id === 'string' ? created.report.id : null;
+
+            if (!reportId) {
+                setSocialProFeedback('Relatorio Pro nao retornou um ID seguro para salvar na biblioteca.');
+                return;
+            }
+
+            const saved = await saveSocialProLibraryItem({
+                item: {
+                    kind: 'report',
+                    id: reportId,
+                    context: socialProActions.library.libraryContext,
+                },
+            });
+
+            if (!saved.success) {
+                setSocialProFeedback(saved.error);
+                return;
+            }
+
+            setSocialProFeedback('Relatorio salvo na biblioteca Pro privada com contexto de analise, coach, Spray Lab, Ciclo Pro e validacao.');
         });
     };
 
@@ -1424,6 +1587,17 @@ export function ResultsDashboard({ result, mode = 'full' }: Props): React.JSX.El
                     model={trainingProgramEntry}
                     onStart={handleTrainingProgramEntry}
                     pending={programActionPending}
+                />
+            ) : null}
+
+            {showReportChrome ? (
+                <SocialProResultActionsPanel
+                    feedback={socialProFeedback}
+                    libraryPending={socialProLibraryPending}
+                    model={socialProActions}
+                    onGenerateReport={handleSocialProReportGeneration}
+                    onSaveLibrary={handleSocialProLibrarySave}
+                    reportPending={socialProReportPending}
                 />
             ) : null}
 
