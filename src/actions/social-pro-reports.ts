@@ -40,6 +40,8 @@ import type {
     SocialProReportVisibility,
 } from '@/types/social-pro';
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export type SocialProReportActionResult =
     | {
         readonly success: true;
@@ -571,6 +573,12 @@ function safeUnavailableReport(error: string): SocialProPublicReportResult {
 }
 
 async function loadPublicReportBySlugOrId(token: string): Promise<PublicStoredReportRow | null> {
+    const whereClause = UUID_PATTERN.test(token)
+        ? or(
+            eq(socialProReports.publicSlug, token),
+            eq(socialProReports.id, token),
+        )
+        : eq(socialProReports.publicSlug, token);
     const [row] = await db
         .select({
             id: socialProReports.id,
@@ -588,10 +596,7 @@ async function loadPublicReportBySlugOrId(token: string): Promise<PublicStoredRe
             archivedAt: socialProReports.archivedAt,
         })
         .from(socialProReports)
-        .where(or(
-            eq(socialProReports.publicSlug, token),
-            eq(socialProReports.id, token),
-        ))
+        .where(whereClause)
         .limit(1) as PublicStoredReportRow[];
 
     return row ?? null;
