@@ -38,9 +38,13 @@ const SAFE_METADATA_KEYS = new Set([
     'lockReason',
     'loopStage',
     'guidanceReason',
+    'socialProAction',
+    'itemKind',
+    'contextTarget',
+    'controlKind',
 ]);
 
-const PROHIBITED_KEY_PATTERN = /video|frame|trajectory|filename|file_name|analysisPayload|fullResult|full_result|privateNote|note|card|cpf|document|address|bank/i;
+const PROHIBITED_KEY_PATTERN = /video|frame|trajectory|filename|file_name|analysisPayload|fullResult|full_result|privateNote|note|card|cpf|document|address|bank|privateLink|privateReader|reader|collectionContents|rawAnalysis|financial|revenue|payment/i;
 
 export interface ProductAnalyticsRepository {
     readonly recordProductEvent: (input: SanitizedProductAnalyticsEvent) => Promise<void>;
@@ -77,6 +81,16 @@ export interface SanitizedProductAnalyticsEvent {
     readonly eventSource: 'server' | 'webhook' | 'admin';
     readonly metadata: Record<string, string | number | boolean | null>;
 }
+
+export type SocialProUpgradeIntentAction =
+    | 'generate_report'
+    | 'pro_library_save'
+    | 'creator_analytics_open'
+    | 'advanced_context'
+    | 'report_controls'
+    | 'badge_controls'
+    | 'connect_context_ciclo_pro'
+    | 'cta_click';
 
 function isScalar(value: unknown): value is string | number | boolean | null {
     return value === null
@@ -378,4 +392,52 @@ export function recordUploadGuidanceCorrection(input: {
             guidanceReason: input.guidanceReason,
         },
     }, input.repository);
+}
+
+export function recordSocialProUpgradeIntent(input: {
+    readonly userId?: string | null;
+    readonly action: SocialProUpgradeIntentAction;
+    readonly surface:
+        | 'community_hub'
+        | 'report_controls'
+        | 'history_detail'
+        | 'dashboard'
+        | 'analysis_result'
+        | 'ciclo_pro'
+        | 'spray_lab'
+        | 'profile'
+        | 'post_detail';
+    readonly featureKey: ProductEntitlementKey;
+    readonly accessState?: ProductAccessState | null;
+    readonly ctaId?: string | null;
+    readonly itemKind?: string | null;
+    readonly contextTarget?: string | null;
+    readonly controlKind?: string | null;
+    readonly metadata?: Record<string, unknown>;
+    readonly repository?: ProductAnalyticsRepository;
+}): Promise<void> {
+    return recordProductEvent({
+        userId: input.userId ?? null,
+        eventType: 'upgrade_intent.premium_feature_attempted',
+        surface: `social_pro.${input.surface}`,
+        featureKey: input.featureKey,
+        accessState: input.accessState ?? null,
+        metadata: {
+            ...(input.metadata ?? {}),
+            socialProAction: input.action,
+            ...(input.ctaId ? { ctaId: input.ctaId } : {}),
+            ...(input.itemKind ? { itemKind: input.itemKind } : {}),
+            ...(input.contextTarget ? { contextTarget: input.contextTarget } : {}),
+            ...(input.controlKind ? { controlKind: input.controlKind } : {}),
+        },
+    }, input.repository);
+}
+
+export function recordSocialProPassiveImpression(_input: {
+    readonly userId?: string | null;
+    readonly surface: 'feed' | 'community_hub' | 'post_detail' | 'profile';
+    readonly featureKey: ProductEntitlementKey;
+    readonly repository?: ProductAnalyticsRepository;
+}): Promise<false> {
+    return Promise.resolve(false);
 }
