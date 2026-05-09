@@ -1,4 +1,32 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import {
+    createSocialProLinkTokenVerifier,
+    generateSocialProLinkToken,
+} from '@/lib/social-pro-link-token';
+
+vi.mock('@/auth', () => ({
+    auth: vi.fn(),
+}));
+
+vi.mock('@/db', () => ({
+    db: {
+        select: vi.fn(),
+        insert: vi.fn(),
+        update: vi.fn(),
+    },
+}));
+
+vi.mock('@/lib/social-pro-access', () => ({
+    resolveSocialProAccessForUser: vi.fn(),
+    hasSocialProCapability: vi.fn((policy: MockAccessPolicy, capability: string) => (
+        Boolean(policy.capabilities[capability])
+    )),
+}));
+
+vi.mock('next/cache', () => ({
+    revalidatePath: vi.fn(),
+}));
 
 type ReportActionResult = {
     readonly success: boolean;
@@ -9,46 +37,113 @@ type ReportActionResult = {
 };
 
 interface SocialProReportsModule {
-    readonly createSocialProReport?: (input: Record<string, unknown>) => Promise<ReportActionResult>;
-    readonly updateSocialProReportControls?: (input: Record<string, unknown>) => Promise<ReportActionResult>;
-    readonly createSocialProPrivateLink?: (input: Record<string, unknown>) => Promise<ReportActionResult>;
-    readonly regenerateSocialProPrivateLink?: (input: Record<string, unknown>) => Promise<ReportActionResult>;
-    readonly revokeSocialProPrivateLink?: (input: Record<string, unknown>) => Promise<ReportActionResult>;
-    readonly moderateSocialProReport?: (input: Record<string, unknown>) => Promise<ReportActionResult>;
+    readonly createSocialProReportAction?: (input: Record<string, unknown>) => Promise<ReportActionResult>;
+    readonly updateSocialProReportAction?: (input: Record<string, unknown>) => Promise<ReportActionResult>;
+    readonly createSocialProReportLinkAction?: (input: Record<string, unknown>) => Promise<ReportActionResult>;
+    readonly regenerateSocialProReportLinkAction?: (input: Record<string, unknown>) => Promise<ReportActionResult>;
+    readonly revokeSocialProReportLinkAction?: (input: Record<string, unknown>) => Promise<ReportActionResult>;
+    readonly readSocialProReportByPrivateLinkAction?: (input: Record<string, unknown>) => Promise<ReportActionResult>;
 }
 
-const freeActor = {
-    userId: 'free-user',
-    role: 'user',
-    accessState: 'free',
-    capabilities: ['read_public_community', 'read_public_report'],
-};
-const proActor = {
-    userId: 'pro-user',
-    role: 'user',
-    accessState: 'pro_active',
-    capabilities: [
-        'read_public_community',
-        'read_public_report',
-        'create_report',
-        'edit_report',
-        'manage_private_links',
-    ],
-};
-const canceledActor = {
-    userId: 'canceled-user',
-    role: 'user',
-    accessState: 'canceled',
-    capabilities: ['read_public_community', 'read_public_report', 'read_link_private_report'],
-};
-const adminActor = {
-    userId: 'admin-user',
-    role: 'admin',
-    accessState: 'free',
-    capabilities: ['read_public_community', 'read_public_report', 'moderate_reports'],
+interface MockAccessPolicy {
+    readonly userRole: 'anonymous' | 'user' | 'admin';
+    readonly productAccess: {
+        readonly accessState: string;
+    };
+    readonly capabilities: Record<string, boolean>;
+}
+
+interface MockDb {
+    readonly select: ReturnType<typeof vi.fn>;
+    readonly insert: ReturnType<typeof vi.fn>;
+    readonly update: ReturnType<typeof vi.fn>;
+}
+
+type InsertCall = {
+    readonly table: unknown;
+    readonly values: Record<string, unknown> | readonly Record<string, unknown>[];
 };
 
-async function loadSocialProReportsModule(): Promise<Required<SocialProReportsModule>> {
+const proPolicy: MockAccessPolicy = {
+    userRole: 'user',
+    productAccess: { accessState: 'pro_active' },
+    capabilities: {
+        create_report: true,
+        edit_report: true,
+        manage_private_links: true,
+    },
+};
+
+const freePolicy: MockAccessPolicy = {
+    userRole: 'user',
+    productAccess: { accessState: 'free' },
+    capabilities: {
+        read_public_report: true,
+    },
+};
+
+const canceledPolicy: MockAccessPolicy = {
+    userRole: 'user',
+    productAccess: { accessState: 'canceled' },
+    capabilities: {
+        read_public_report: true,
+        read_link_private_report: true,
+    },
+};
+
+const publicSafeSnapshot = {
+    id: 'report-1',
+    visibility: 'link_private',
+    status: 'published',
+    publicSummary: {
+        title: 'Relatorio Pro Compartilhavel',
+        whatChanged: 'Controle vertical estabilizou com evidencia limitada.',
+        nextAction: 'Continuar Ciclo Pro e validar no mesmo contexto.',
+    },
+    honesty: {
+        confidence: 0.8,
+        coverage: 0.76,
+        blockers: ['validacao compativel pendente'],
+        inconclusiveState: false,
+        limitedSupport: ['um contexto publico'],
+        validationState: 'compatible_validation_pending',
+        noOverclaimDisclaimer: 'Nao promete rank, melhora garantida ou sensibilidade perfeita.',
+    },
+    controls: {
+        showConfidence: true,
+        showCoverage: true,
+        showBlockers: true,
+        showInconclusiveState: true,
+        showLimitedSupport: true,
+        showValidationState: true,
+        showDisclaimer: true,
+        showTimeline: true,
+        visibleOptionalSections: ['evidence_timeline'],
+    },
+    sections: {},
+};
+
+const ownedAnalysisRow = {
+    id: 'analysis-1',
+    userId: 'pro-user',
+    fullResult: {
+        metrics: {
+            confidence: 0.8,
+            coverage: 0.76,
+        },
+        analysisDecision: {
+            blockers: ['validacao compativel pendente'],
+        },
+        rawPrivateAnalysis: 'private raw trajectory',
+    },
+};
+
+let selectQueue: unknown[][];
+let insertReturningQueue: unknown[][];
+let insertedValues: InsertCall[];
+let updatedValues: InsertCall[];
+
+async function loadActionModule(): Promise<Required<SocialProReportsModule>> {
     const modulePath = './social-pro-reports';
 
     let socialProModule: SocialProReportsModule;
@@ -58,19 +153,19 @@ async function loadSocialProReportsModule(): Promise<Required<SocialProReportsMo
         throw new Error(
             [
                 'Missing Social Pro report actions module at src/actions/social-pro-reports.ts.',
-                'Expected Pro-only report creation/editing, private-link lifecycle, cancellation, and moderation actions.',
+                'Expected authenticated Pro-only report creation/edit/link lifecycle actions.',
                 error instanceof Error ? error.message : String(error),
             ].join(' '),
         );
     }
 
     for (const exportName of [
-        'createSocialProReport',
-        'updateSocialProReportControls',
-        'createSocialProPrivateLink',
-        'regenerateSocialProPrivateLink',
-        'revokeSocialProPrivateLink',
-        'moderateSocialProReport',
+        'createSocialProReportAction',
+        'updateSocialProReportAction',
+        'createSocialProReportLinkAction',
+        'regenerateSocialProReportLinkAction',
+        'revokeSocialProReportLinkAction',
+        'readSocialProReportByPrivateLinkAction',
     ] as const) {
         expect(typeof socialProModule[exportName], `${exportName} must be exported.`).toBe('function');
     }
@@ -78,52 +173,132 @@ async function loadSocialProReportsModule(): Promise<Required<SocialProReportsMo
     return socialProModule as Required<SocialProReportsModule>;
 }
 
-describe('Social Pro report actions', () => {
-    it('blocks Free users from creating or editing Pro reports while preserving normal public read behavior', async () => {
-        const {
-            createSocialProReport,
-            updateSocialProReportControls,
-            createSocialProPrivateLink,
-        } = await loadSocialProReportsModule();
+function createSelectChain() {
+    return {
+        from: vi.fn(() => ({
+            where: vi.fn(() => ({
+                limit: vi.fn(async () => selectQueue.shift() ?? []),
+                orderBy: vi.fn(() => ({
+                    limit: vi.fn(async () => selectQueue.shift() ?? []),
+                })),
+            })),
+            orderBy: vi.fn(() => ({
+                limit: vi.fn(async () => selectQueue.shift() ?? []),
+            })),
+        })),
+    };
+}
 
-        await expect(createSocialProReport({
-            actor: freeActor,
+function createInsertChain(table: unknown) {
+    return {
+        values: vi.fn((values: Record<string, unknown> | readonly Record<string, unknown>[]) => {
+            insertedValues.push({ table, values });
+
+            return {
+                returning: vi.fn(async () => insertReturningQueue.shift() ?? []),
+            };
+        }),
+    };
+}
+
+function createUpdateChain(table: unknown) {
+    return {
+        set: vi.fn((values: Record<string, unknown>) => {
+            updatedValues.push({ table, values });
+
+            return {
+                where: vi.fn(async () => []),
+            };
+        }),
+    };
+}
+
+async function setSessionAndAccess(policy: MockAccessPolicy | null, userId = 'pro-user') {
+    const { auth } = await import('@/auth');
+    const { resolveSocialProAccessForUser } = await import('@/lib/social-pro-access');
+
+    vi.mocked(auth).mockResolvedValue(policy
+        ? {
+            user: {
+                id: userId,
+                role: policy.userRole,
+            },
+        }
+        : null);
+    vi.mocked(resolveSocialProAccessForUser).mockResolvedValue(policy);
+}
+
+beforeEach(async () => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    selectQueue = [];
+    insertReturningQueue = [];
+    insertedValues = [];
+    updatedValues = [];
+
+    const { db } = await import('@/db') as { db: MockDb };
+
+    vi.mocked(db.select).mockImplementation(() => createSelectChain());
+    vi.mocked(db.insert).mockImplementation((table: unknown) => createInsertChain(table));
+    vi.mocked(db.update).mockImplementation((table: unknown) => createUpdateChain(table));
+});
+
+describe('Social Pro report server actions', () => {
+    it('blocks anonymous, Free, and canceled users from report mutations while preserving read capability', async () => {
+        const { createSocialProReportAction, updateSocialProReportAction } = await loadActionModule();
+
+        await setSessionAndAccess(null);
+        await expect(createSocialProReportAction({
             sourceAnalysisSessionId: 'analysis-1',
-            visibility: 'public',
+        })).resolves.toMatchObject({
+            success: false,
+            error: expect.stringMatching(/autenticado/i),
+        });
+
+        await setSessionAndAccess(freePolicy, 'free-user');
+        await expect(createSocialProReportAction({
+            sourceAnalysisSessionId: 'analysis-1',
         })).resolves.toMatchObject({
             success: false,
             error: expect.stringMatching(/pro|premium|assinatura/i),
         });
-        await expect(updateSocialProReportControls({
-            actor: freeActor,
+
+        await setSessionAndAccess(canceledPolicy, 'canceled-user');
+        await expect(updateSocialProReportAction({
             reportId: 'report-1',
-            controls: { showTimeline: true },
+            controls: { showTimeline: false },
         })).resolves.toMatchObject({
             success: false,
             error: expect.stringMatching(/pro|premium|assinatura/i),
         });
-        await expect(createSocialProPrivateLink({
-            actor: freeActor,
-            reportId: 'report-1',
-        })).resolves.toMatchObject({
-            success: false,
-            error: expect.stringMatching(/pro|premium|assinatura/i),
-        });
+        expect(insertedValues).toHaveLength(0);
     });
 
-    it('lets active Pro users create public and link-private reports with required honesty fields and audit events', async () => {
-        const { createSocialProReport } = await loadSocialProReportsModule();
+    it('reloads owned source records before creating a public-safe report snapshot and audit event', async () => {
+        await setSessionAndAccess(proPolicy);
+        selectQueue.push([ownedAnalysisRow]);
+        insertReturningQueue.push([{
+            id: 'report-1',
+            publicSafeSnapshot,
+            visibility: 'public',
+            status: 'published',
+        }]);
+        const { createSocialProReportAction } = await loadActionModule();
 
-        await expect(createSocialProReport({
-            actor: proActor,
+        const result = await createSocialProReportAction({
             sourceAnalysisSessionId: 'analysis-1',
             visibility: 'public',
-            requestedSections: ['setup_summary', 'timeline', 'spray_lab', 'ciclo_pro'],
-        })).resolves.toMatchObject({
+            title: 'Beryl 3x 50m',
+            controls: { showTimeline: true },
+        });
+
+        expect(result).toMatchObject({
             success: true,
             report: {
+                id: 'report-1',
                 visibility: 'public',
                 status: 'published',
+                discoverableInFeed: true,
                 requiredHonestyFields: expect.arrayContaining([
                     'confidence',
                     'coverage',
@@ -136,119 +311,163 @@ describe('Social Pro report actions', () => {
                 expect.objectContaining({ type: 'social_pro.report.created' }),
             ]),
         });
-
-        await expect(createSocialProReport({
-            actor: proActor,
-            sourceAnalysisSessionId: 'analysis-1',
-            visibility: 'link_private',
-        })).resolves.toMatchObject({
-            success: true,
-            report: {
-                visibility: 'link_private',
-                status: 'published',
-                discoverableInFeed: false,
-            },
-        });
+        expect(JSON.stringify(result).toLowerCase()).not.toContain('private raw trajectory');
+        expect(insertedValues).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                values: expect.objectContaining({
+                    ownerUserId: 'pro-user',
+                    sourceAnalysisSessionId: 'analysis-1',
+                    publicSafeSnapshot: expect.objectContaining({
+                        honesty: expect.objectContaining({
+                            coverage: 0.76,
+                        }),
+                    }),
+                }),
+            }),
+            expect.objectContaining({
+                values: expect.objectContaining({
+                    eventType: 'social_pro.report.created',
+                }),
+            }),
+        ]));
     });
 
-    it('keeps existing safe reports readable after cancellation but blocks new report and advanced-control mutations', async () => {
-        const {
-            createSocialProReport,
-            updateSocialProReportControls,
-        } = await loadSocialProReportsModule();
+    it('rejects unowned source IDs before any report write', async () => {
+        await setSessionAndAccess(proPolicy);
+        selectQueue.push([]);
+        const { createSocialProReportAction } = await loadActionModule();
 
-        await expect(createSocialProReport({
-            actor: canceledActor,
-            sourceAnalysisSessionId: 'analysis-2',
+        await expect(createSocialProReportAction({
+            sourceAnalysisSessionId: 'analysis-other-user',
             visibility: 'public',
         })).resolves.toMatchObject({
             success: false,
-            error: expect.stringMatching(/pro|premium|assinatura/i),
+            error: expect.stringMatching(/fonte|pertence|encontrada/i),
         });
-        await expect(updateSocialProReportControls({
-            actor: canceledActor,
-            reportId: 'existing-safe-report',
-            controls: { showTimeline: false },
-        })).resolves.toMatchObject({
-            success: false,
-            error: expect.stringMatching(/pro|premium|assinatura/i),
-        });
+        expect(insertedValues).toHaveLength(0);
     });
 
-    it('supports revocable, regenerable, optionally expirable private links without recording private readers', async () => {
+    it('creates, regenerates, and revokes private links without storing raw tokens', async () => {
+        await setSessionAndAccess(proPolicy);
+        selectQueue.push([{ id: 'report-1', ownerUserId: 'pro-user', publicSafeSnapshot }]);
+        insertReturningQueue.push([{
+            id: 'link-1',
+            status: 'active',
+            expiresAt: new Date('2026-06-01T00:00:00.000Z'),
+        }]);
         const {
-            createSocialProPrivateLink,
-            regenerateSocialProPrivateLink,
-            revokeSocialProPrivateLink,
-        } = await loadSocialProReportsModule();
+            createSocialProReportLinkAction,
+            regenerateSocialProReportLinkAction,
+            revokeSocialProReportLinkAction,
+        } = await loadActionModule();
 
-        await expect(createSocialProPrivateLink({
-            actor: proActor,
+        const created = await createSocialProReportLinkAction({
             reportId: 'report-1',
             expiresAt: '2026-06-01T00:00:00.000Z',
-        })).resolves.toMatchObject({
+        });
+
+        expect(created).toMatchObject({
             success: true,
             link: {
+                id: 'link-1',
                 status: 'active',
                 discoverableInFeed: false,
                 expiresAt: '2026-06-01T00:00:00.000Z',
+                token: expect.stringMatching(/^[A-Za-z0-9_-]{43,}$/),
             },
             auditEvents: expect.arrayContaining([
                 expect.objectContaining({ type: 'social_pro.private_link.created' }),
             ]),
         });
-        await expect(regenerateSocialProPrivateLink({
-            actor: proActor,
+        const storedLink = insertedValues.find((entry) => (
+            'tokenVerifierHash' in (entry.values as Record<string, unknown>)
+        ))?.values as Record<string, unknown>;
+        expect(storedLink.tokenVerifierHash).not.toBe(created.link?.token);
+        expect(JSON.stringify(storedLink)).not.toContain(String(created.link?.token));
+
+        selectQueue.push(
+            [{ id: 'report-1', ownerUserId: 'pro-user', publicSafeSnapshot }],
+            [{ id: 'link-1', reportId: 'report-1', status: 'active' }],
+        );
+        insertReturningQueue.push([{
+            id: 'link-2',
+            status: 'active',
+            expiresAt: null,
+        }]);
+        await expect(regenerateSocialProReportLinkAction({
             reportId: 'report-1',
             previousLinkId: 'link-1',
         })).resolves.toMatchObject({
             success: true,
-            link: { status: 'active' },
+            link: { id: 'link-2', status: 'active' },
             auditEvents: expect.arrayContaining([
                 expect.objectContaining({ type: 'social_pro.private_link.regenerated' }),
             ]),
         });
-        await expect(revokeSocialProPrivateLink({
-            actor: proActor,
+
+        selectQueue.push(
+            [{ id: 'report-1', ownerUserId: 'pro-user', publicSafeSnapshot }],
+            [{ id: 'link-2', reportId: 'report-1', status: 'active' }],
+        );
+        await expect(revokeSocialProReportLinkAction({
             reportId: 'report-1',
             linkId: 'link-2',
         })).resolves.toMatchObject({
             success: true,
-            link: { status: 'revoked' },
+            link: { id: 'link-2', status: 'revoked' },
             auditEvents: expect.arrayContaining([
                 expect.objectContaining({ type: 'social_pro.private_link.revoked' }),
             ]),
         });
     });
 
-    it('limits hide/disable moderation to admins and preserves Pro-specific reasons in the audit trail', async () => {
-        const { moderateSocialProReport } = await loadSocialProReportsModule();
+    it('keeps last-safe link reads open without auth while rejecting expired tokens', async () => {
+        const token = generateSocialProLinkToken();
+        const verifier = createSocialProLinkTokenVerifier(token);
+        selectQueue.push(
+            [{
+                id: 'link-1',
+                reportId: 'report-1',
+                status: 'active',
+                expiresAt: null,
+                tokenVerifierHash: verifier.tokenVerifierHash,
+            }],
+            [{
+                id: 'report-1',
+                status: 'published',
+                visibility: 'link_private',
+                publicSafeSnapshot,
+            }],
+        );
+        const { readSocialProReportByPrivateLinkAction } = await loadActionModule();
 
-        await expect(moderateSocialProReport({
-            actor: proActor,
-            reportId: 'report-1',
-            action: 'hide',
-            reason: 'abuso_badge_pro',
-        })).resolves.toMatchObject({
-            success: false,
-            error: expect.stringMatching(/admin|moder/i),
-        });
-        await expect(moderateSocialProReport({
-            actor: adminActor,
-            reportId: 'report-1',
-            action: 'disable',
-            reason: 'claim_enganosa',
+        await expect(readSocialProReportByPrivateLinkAction({
+            token,
+            now: '2026-05-09T12:00:00.000Z',
         })).resolves.toMatchObject({
             success: true,
             report: {
-                status: 'disabled',
+                id: 'report-1',
+                visibility: 'link_private',
             },
-            auditEvents: expect.arrayContaining([
-                expect.objectContaining({
-                    type: 'social_pro.report.moderated',
-                    reason: 'claim_enganosa',
-                }),
-            ]),
+        });
+
+        const expiredToken = generateSocialProLinkToken();
+        const expiredVerifier = createSocialProLinkTokenVerifier(expiredToken);
+        selectQueue.push([{
+            id: 'expired-link',
+            reportId: 'report-1',
+            status: 'active',
+            expiresAt: new Date('2026-05-09T11:59:59.000Z'),
+            tokenVerifierHash: expiredVerifier.tokenVerifierHash,
+        }]);
+
+        await expect(readSocialProReportByPrivateLinkAction({
+            token: expiredToken,
+            now: '2026-05-09T12:00:00.000Z',
+        })).resolves.toMatchObject({
+            success: false,
+            error: expect.stringMatching(/expirado|revogado|invalido/i),
         });
     });
 });
