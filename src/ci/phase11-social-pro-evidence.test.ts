@@ -145,6 +145,17 @@ describe('Phase 11 Social Pro evidence helper', () => {
         );
     });
 
+    it('requires explicit Phase 11 profile listing, profile redaction, exclusion, and badge surface evidence rows', () => {
+        const rowIds = requiredPhase11SocialProEvidenceRows.map((row) => row.id);
+
+        expect(rowIds).toEqual(expect.arrayContaining([
+            'visibility.profile_public_report_listing',
+            'visibility.profile_report_exclusion',
+            'redaction.profile_report_card_honesty',
+            'pro.badge_surface_placement',
+        ]));
+    });
+
     it('keeps the repository checklist present with every required row and an honest partial status', () => {
         const report = verifyPhase11SocialPro();
 

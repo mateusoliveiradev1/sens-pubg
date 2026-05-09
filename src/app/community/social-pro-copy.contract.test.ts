@@ -3,7 +3,23 @@ import { describe, expect, it } from 'vitest';
 
 const SOCIAL_PRO_COPY_FILES = [
     'src/app/community/page.tsx',
+    'src/app/community/[slug]/page.tsx',
+    'src/app/community/[slug]/post-detail.tsx',
+    'src/app/community/users/[slug]/page.tsx',
+    'src/app/community/reports/[token]/page.tsx',
+    'src/app/community/reports/[token]/pro-report-detail.tsx',
     'src/core/community-discovery-view-model.ts',
+    'src/core/community-public-profile-view-model.ts',
+    'src/core/social-pro-report-view-model.ts',
+    'src/core/social-pro-creator-analytics.ts',
+    'src/actions/social-pro-library.ts',
+    'src/actions/community-reports.ts',
+    'src/actions/community-admin.ts',
+    'src/app/analyze/results-dashboard.tsx',
+    'src/app/analyze/results-dashboard-view-model.ts',
+    'src/app/ciclo-pro/page.tsx',
+    'src/app/spray-lab/page.tsx',
+    'src/app/history/page.tsx',
     'src/lib/premium-projection.ts',
 ] as const;
 
@@ -53,6 +69,25 @@ function normalize(value: string): string {
 }
 
 describe('Social Pro community copy contract', () => {
+    it('scans report, badge, hub, lock, analytics, library, moderation, profile, post, and handoff surfaces', () => {
+        expect(SOCIAL_PRO_COPY_FILES).toEqual(expect.arrayContaining([
+            'src/app/community/page.tsx',
+            'src/app/community/[slug]/post-detail.tsx',
+            'src/app/community/users/[slug]/page.tsx',
+            'src/app/community/reports/[token]/pro-report-detail.tsx',
+            'src/core/community-public-profile-view-model.ts',
+            'src/core/social-pro-report-view-model.ts',
+            'src/core/social-pro-creator-analytics.ts',
+            'src/actions/social-pro-library.ts',
+            'src/actions/community-reports.ts',
+            'src/actions/community-admin.ts',
+            'src/app/analyze/results-dashboard.tsx',
+            'src/app/ciclo-pro/page.tsx',
+            'src/app/spray-lab/page.tsx',
+            'src/app/history/page.tsx',
+        ]));
+    });
+
     it('sells original Sens PUBG value instead of gated PUBG API data', () => {
         const copy = normalize(SOCIAL_PRO_COPY_FILES.map(readSource).join('\n'));
 
@@ -86,5 +121,22 @@ describe('Social Pro community copy contract', () => {
         expect(copy).toContain('pro_library_save');
         expect(copy).toContain('creator_analytics_open');
         expect(copy).not.toMatch(/feed.*upgrade|banner.*pro|impressao passiva|passive.*impression/);
+    });
+
+    it('keeps public profile report listings and badge surfaces explicit in user-facing routes', () => {
+        const copy = normalize([
+            readSource('src/app/community/users/[slug]/page.tsx'),
+            readSource('src/app/community/[slug]/post-detail.tsx'),
+            readSource('src/app/community/page.tsx'),
+            readSource('src/app/community/reports/[token]/pro-report-detail.tsx'),
+        ].join('\n'));
+
+        expect(copy).toContain('profile-social-pro-reports');
+        expect(copy).toContain('social-pro-report-card');
+        expect(copy).toContain('data-social-pro-badge="profile"');
+        expect(copy).toContain('data-social-pro-badge="post-author"');
+        expect(copy).toContain('data-social-pro-badge={badge.meaning}');
+        expect(copy).toContain('data-badge-copy="pro: acesso aos recursos premium do sens pubg"');
+        expect(copy).toContain('nao indica autoridade tecnica');
     });
 });
