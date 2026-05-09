@@ -2294,6 +2294,216 @@ describe('getHistorySessions', () => {
             archivedLineCount: 1,
         }));
     });
+
+    it('adds owner-scoped Social Pro report and library continuity to history cards', async () => {
+        const proQuota = createQuotaSummary({
+            tier: 'pro',
+            limit: 100,
+            used: 12,
+            remaining: 88,
+            state: 'available',
+        });
+        mocks.resolveAnalysisSaveAccessWithResolution.mockResolvedValueOnce({
+            state: createSaveAccessState({
+                accessState: 'pro_active',
+                billingStatus: 'active',
+                quota: proQuota,
+            }),
+            access: createProductAccessResolution({
+                effectiveTier: 'pro',
+                accessState: 'pro_active',
+                source: 'stripe_subscription',
+                billingStatus: 'active',
+                quota: proQuota,
+                features: {
+                    'community.premium_report_share': {
+                        key: 'community.premium_report_share',
+                        granted: true,
+                    },
+                    'community.pro_library': {
+                        key: 'community.pro_library',
+                        granted: true,
+                    },
+                    'community.private_report_links': {
+                        key: 'community.private_report_links',
+                        granted: true,
+                    },
+                },
+            }),
+        });
+
+        const orderByResponses = [
+            [
+                {
+                    id: 'session-1',
+                    weaponId: 'beryl-m762',
+                    scopeId: 'red-dot',
+                    patchVersion: CURRENT_PUBG_PATCH_VERSION,
+                    stabilityScore: 78,
+                    verticalControl: 1.02,
+                    horizontalNoise: 0.18,
+                    createdAt: new Date('2026-05-08T12:00:00.000Z'),
+                    weaponName: 'Beryl M762',
+                    weaponCategory: 'ar',
+                    fullResult: {
+                        mastery: {
+                            actionState: 'testable',
+                            actionLabel: 'Testavel',
+                            blockedRecommendations: [],
+                            evidence: {
+                                confidence: 0.82,
+                                coverage: 0.8,
+                                sampleSize: 28,
+                                usableForAnalysis: true,
+                            },
+                        },
+                    },
+                },
+            ],
+            [],
+            [],
+            [],
+            [
+                {
+                    id: 'report-1',
+                    sourceAnalysisSessionId: 'session-1',
+                    sourceHistorySessionId: null,
+                    title: 'Relatorio Pro Beryl 3x',
+                    visibility: 'link_private',
+                    status: 'published',
+                    updatedAt: new Date('2026-05-08T12:10:00.000Z'),
+                },
+                {
+                    id: 'report-other',
+                    sourceAnalysisSessionId: 'session-other',
+                    sourceHistorySessionId: null,
+                    title: 'Outro relatorio',
+                    visibility: 'public',
+                    status: 'published',
+                    updatedAt: new Date('2026-05-08T12:20:00.000Z'),
+                },
+            ],
+            [
+                {
+                    reportId: 'report-1',
+                    id: 'link-1',
+                    status: 'active',
+                    expiresAt: null,
+                    updatedAt: new Date('2026-05-08T12:12:00.000Z'),
+                },
+            ],
+            [
+                {
+                    reportId: 'report-1',
+                    collectionId: 'collection-1',
+                    collectionLabel: 'Beryl 3x 50m',
+                    collectionMode: 'automatic',
+                    contextKey: 'weapon:beryl-m762|optic:red-dot|distance:50m',
+                    createdAt: new Date('2026-05-08T12:15:00.000Z'),
+                },
+            ],
+        ];
+        let orderByCall = 0;
+        mocks.orderBy.mockImplementation(() => Promise.resolve(orderByResponses[orderByCall++] ?? []));
+
+        const [session] = await getHistorySessions();
+
+        expect(session.socialPro).toEqual(expect.objectContaining({
+            canGenerateReport: true,
+            canSaveToLibrary: true,
+            report: expect.objectContaining({
+                id: 'report-1',
+                title: 'Relatorio Pro Beryl 3x',
+                visibilityLabel: 'Link privado',
+                statusLabel: 'Publicado',
+                discoverableInFeed: false,
+            }),
+            privateLink: expect.objectContaining({
+                id: 'link-1',
+                statusLabel: 'Ativo',
+            }),
+            library: expect.objectContaining({
+                saved: true,
+                collectionCount: 1,
+                collectionLabels: ['Beryl 3x 50m'],
+                visibilityLabel: 'Privada',
+            }),
+            nextAction: expect.objectContaining({
+                kind: 'manage_report',
+                label: 'Atualizar relatorio Pro',
+            }),
+        }));
+        expect(session.socialPro?.report?.id).not.toBe('report-other');
+    });
+
+    it('keeps Free history readable while locking only Social Pro report and library controls', async () => {
+        const orderByResponses = [
+            [
+                {
+                    id: 'session-free',
+                    weaponId: 'm416',
+                    scopeId: 'red-dot',
+                    patchVersion: CURRENT_PUBG_PATCH_VERSION,
+                    stabilityScore: 70,
+                    verticalControl: 1.08,
+                    horizontalNoise: 0.22,
+                    createdAt: new Date('2026-05-08T13:00:00.000Z'),
+                    weaponName: 'M416',
+                    weaponCategory: 'ar',
+                    fullResult: {
+                        mastery: {
+                            actionState: 'capture_again',
+                            actionLabel: 'Recapturar',
+                            blockedRecommendations: ['Cobertura baixa.'],
+                            evidence: {
+                                confidence: 0.52,
+                                coverage: 0.44,
+                                sampleSize: 12,
+                                usableForAnalysis: false,
+                            },
+                        },
+                    },
+                },
+            ],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+        ];
+        let orderByCall = 0;
+        mocks.orderBy.mockImplementation(() => Promise.resolve(orderByResponses[orderByCall++] ?? []));
+
+        const [session] = await getHistorySessions();
+
+        expect(session.evidenceSummary).toEqual(expect.objectContaining({
+            verdictLabel: 'Recapturar',
+            confidence: 0.52,
+            coverage: 0.44,
+            blockerReasons: ['Cobertura baixa.'],
+            usableForAnalysis: false,
+        }));
+        expect(session.socialPro).toEqual(expect.objectContaining({
+            canGenerateReport: false,
+            canSaveToLibrary: false,
+            report: null,
+            library: expect.objectContaining({
+                saved: false,
+                normalCommunitySaveAllowed: true,
+            }),
+            reportLock: expect.objectContaining({
+                featureKey: 'community.premium_report_share',
+            }),
+            libraryLock: expect.objectContaining({
+                featureKey: 'community.pro_library',
+            }),
+            nextAction: expect.objectContaining({
+                kind: 'upgrade',
+                label: 'Organizar no Pro social',
+            }),
+        }));
+    });
 });
 
 describe('getPrecisionHistoryLines', () => {

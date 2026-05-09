@@ -56,6 +56,22 @@ describe('history page field evolution contract', () => {
         expect(source).toMatch(/Salvar analise util/);
     });
 
+    it('renders Social Pro report and private library continuity without closing Free history truth', () => {
+        const source = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/socialPro/);
+        expect(source).toMatch(/Social Pro no historico/);
+        expect(source).toMatch(/Relatorio Pro/);
+        expect(source).toMatch(/Biblioteca Pro/);
+        expect(source).toMatch(/Link privado/);
+        expect(source).toMatch(/Colecao privada/);
+        expect(source).toMatch(/community\.premium_report_share/);
+        expect(source).toMatch(/community\.pro_library/);
+        expect(source).toMatch(/Free mantem historico legivel/);
+        expect(source).toMatch(/O Pro organiza este contexto em relatorio, biblioteca e Ciclo Pro/);
+        expect(source).toMatch(/normalCommunitySaveAllowed/);
+    });
+
     it('exposes a minimal coach plan summary on the history detail page when hydrated', () => {
         const source = readFileSync(new URL('./[id]/page.tsx', import.meta.url), 'utf8');
 
