@@ -43,6 +43,7 @@ interface SocialProReportsModule {
     readonly regenerateSocialProReportLinkAction?: (input: Record<string, unknown>) => Promise<ReportActionResult>;
     readonly revokeSocialProReportLinkAction?: (input: Record<string, unknown>) => Promise<ReportActionResult>;
     readonly readSocialProReportByPrivateLinkAction?: (input: Record<string, unknown>) => Promise<ReportActionResult>;
+    readonly resolvePublicSocialProReportByToken?: (token: string, input?: Record<string, unknown>) => Promise<ReportActionResult>;
 }
 
 interface MockAccessPolicy {
@@ -71,6 +72,7 @@ const proPolicy: MockAccessPolicy = {
         create_report: true,
         edit_report: true,
         manage_private_links: true,
+        display_pro_badge: true,
     },
 };
 
@@ -88,6 +90,7 @@ const canceledPolicy: MockAccessPolicy = {
     capabilities: {
         read_public_report: true,
         read_link_private_report: true,
+        display_pro_badge: false,
     },
 };
 
@@ -166,6 +169,7 @@ async function loadActionModule(): Promise<Required<SocialProReportsModule>> {
         'regenerateSocialProReportLinkAction',
         'revokeSocialProReportLinkAction',
         'readSocialProReportByPrivateLinkAction',
+        'resolvePublicSocialProReportByToken',
     ] as const) {
         expect(typeof socialProModule[exportName], `${exportName} must be exported.`).toBe('function');
     }
@@ -469,5 +473,189 @@ describe('Social Pro report server actions', () => {
             success: false,
             error: expect.stringMatching(/expirado|revogado|invalido/i),
         });
+    });
+
+    it('resolves public report slugs for anonymous readers with active-author Pro badge truth', async () => {
+        await setSessionAndAccess(proPolicy, 'author-1');
+        selectQueue.push([{
+            id: 'report-public',
+            ownerUserId: 'author-1',
+            publicSlug: 'beryl-3x-50m',
+            status: 'published',
+            visibility: 'public',
+            publicSafeSnapshot: {
+                ...publicSafeSnapshot,
+                id: 'report-public',
+                visibility: 'public',
+            },
+            sourceAnalysisSessionId: 'analysis-1',
+            sourceHistorySessionId: null,
+            sourceProtocolRevisionId: 'protocol-1',
+            sourceSprayLabSessionId: 'lab-1',
+            sourceTrainingProgramCycleId: 'cycle-1',
+            sourceValidationLinkId: 'validation-1',
+            archivedAt: null,
+        }]);
+        const { resolvePublicSocialProReportByToken } = await loadActionModule();
+
+        const result = await resolvePublicSocialProReportByToken(' beryl-3x-50m ');
+
+        expect(result).toMatchObject({
+            success: true,
+            report: {
+                id: 'report-public',
+                visibility: 'public',
+                status: 'published',
+                accessMode: 'public',
+                discoverableInFeed: true,
+                proBadge: {
+                    visible: true,
+                    label: 'Pro',
+                    tooltip: 'Pro: acesso aos recursos premium do Sens PUBG',
+                    meaning: 'active_pro_access',
+                },
+            },
+        });
+        expect(JSON.stringify(result).toLowerCase()).not.toContain('private raw trajectory');
+    });
+
+    it('resolves active link-private tokens while keeping canceled owners readable without a Pro badge', async () => {
+        const token = generateSocialProLinkToken();
+        const verifier = createSocialProLinkTokenVerifier(token);
+        await setSessionAndAccess(canceledPolicy, 'author-1');
+        selectQueue.push(
+            [],
+            [{
+                id: 'link-1',
+                reportId: 'report-link',
+                status: 'active',
+                expiresAt: null,
+                tokenVerifierHash: verifier.tokenVerifierHash,
+            }],
+            [{
+                id: 'report-link',
+                ownerUserId: 'author-1',
+                publicSlug: null,
+                status: 'published',
+                visibility: 'link_private',
+                publicSafeSnapshot: {
+                    ...publicSafeSnapshot,
+                    id: 'report-link',
+                    visibility: 'link_private',
+                },
+                sourceAnalysisSessionId: 'analysis-1',
+                sourceHistorySessionId: null,
+                sourceProtocolRevisionId: null,
+                sourceSprayLabSessionId: null,
+                sourceTrainingProgramCycleId: null,
+                sourceValidationLinkId: null,
+                archivedAt: null,
+            }],
+        );
+        const { resolvePublicSocialProReportByToken } = await loadActionModule();
+
+        await expect(resolvePublicSocialProReportByToken(token, {
+            now: '2026-05-09T12:00:00.000Z',
+        })).resolves.toMatchObject({
+            success: true,
+            report: {
+                id: 'report-link',
+                visibility: 'link_private',
+                accessMode: 'link_private',
+                discoverableInFeed: false,
+                proBadge: {
+                    visible: false,
+                },
+            },
+        });
+    });
+
+    it.each([
+        {
+            label: 'revoked private link',
+            linkStatus: 'revoked',
+            expiresAt: null,
+            reportStatus: 'published',
+            expectedError: /revogado|invalido/i,
+        },
+        {
+            label: 'expired private link',
+            linkStatus: 'active',
+            expiresAt: new Date('2026-05-09T11:59:59.000Z'),
+            reportStatus: 'published',
+            expectedError: /expirado/i,
+        },
+        {
+            label: 'hidden report',
+            linkStatus: 'active',
+            expiresAt: null,
+            reportStatus: 'hidden',
+            expectedError: /indisponivel|disponivel/i,
+        },
+        {
+            label: 'disabled report',
+            linkStatus: 'active',
+            expiresAt: null,
+            reportStatus: 'disabled',
+            expectedError: /indisponivel|disponivel/i,
+        },
+        {
+            label: 'archived report',
+            linkStatus: 'active',
+            expiresAt: null,
+            reportStatus: 'archived',
+            expectedError: /indisponivel|disponivel/i,
+        },
+        {
+            label: 'deleted report',
+            linkStatus: 'active',
+            expiresAt: null,
+            reportStatus: 'deleted',
+            expectedError: /indisponivel|disponivel/i,
+        },
+    ])('returns only a safe unavailable state for $label', async ({
+        linkStatus,
+        expiresAt,
+        reportStatus,
+        expectedError,
+    }) => {
+        const token = generateSocialProLinkToken();
+        const verifier = createSocialProLinkTokenVerifier(token);
+        selectQueue.push(
+            [],
+            [{
+                id: 'link-unsafe',
+                reportId: 'report-unsafe',
+                status: linkStatus,
+                expiresAt,
+                tokenVerifierHash: verifier.tokenVerifierHash,
+            }],
+        );
+
+        if (linkStatus === 'active' && (!expiresAt || expiresAt.getTime() > Date.parse('2026-05-09T12:00:00.000Z'))) {
+            selectQueue.push([{
+                id: 'report-unsafe',
+                ownerUserId: 'author-1',
+                publicSlug: null,
+                status: reportStatus,
+                visibility: 'link_private',
+                publicSafeSnapshot: {
+                    ...publicSafeSnapshot,
+                    rawPrivateAnalysis: 'private raw trajectory',
+                },
+                archivedAt: reportStatus === 'archived' ? new Date('2026-05-09T10:00:00.000Z') : null,
+            }]);
+        }
+
+        const { resolvePublicSocialProReportByToken } = await loadActionModule();
+        const result = await resolvePublicSocialProReportByToken(token, {
+            now: '2026-05-09T12:00:00.000Z',
+        });
+
+        expect(result).toMatchObject({
+            success: false,
+            error: expect.stringMatching(expectedError),
+        });
+        expect(JSON.stringify(result).toLowerCase()).not.toContain('private raw trajectory');
     });
 });
