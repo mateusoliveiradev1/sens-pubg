@@ -21,6 +21,9 @@ type HistorySession = Awaited<ReturnType<typeof getHistorySessions>>[number];
 type PrecisionLine = Awaited<ReturnType<typeof getPrecisionHistoryLines>>[number];
 type FieldTrendState = 'rising' | 'mixed' | 'review';
 
+const SOCIAL_PRO_REPORT_FEATURE = 'community.premium_report_share';
+const SOCIAL_PRO_LIBRARY_FEATURE = 'community.pro_library';
+
 const PROFILE_LABELS: Record<ProfileType, string> = {
     low: 'Baixa',
     balanced: 'Balanceada',
@@ -886,6 +889,7 @@ export default async function HistoryPage({
                                     const protocolContinuity = session.protocolContinuity;
                                     const sprayLabContinuity = session.sprayLabContinuity;
                                     const trainingProgramContinuity = session.trainingProgramContinuity;
+                                    const socialPro = session.socialPro;
                                     const sessionActionLabel = session.coachOutcomeStatus
                                         ? 'Ver auditoria do coach'
                                         : trainingProgramContinuity
@@ -1068,6 +1072,46 @@ export default async function HistoryPage({
                                                                     {trainingProgramContinuity.kindLabel}: {trainingProgramContinuity.stateLabel}
                                                                 </span>
                                                             ) : null}
+
+                                                            {socialPro?.report ? (
+                                                                <span
+                                                                    style={{
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        padding: '6px 10px',
+                                                                        borderRadius: '999px',
+                                                                        border: '1px solid rgba(251, 191, 36, 0.24)',
+                                                                        background: 'rgba(251, 191, 36, 0.1)',
+                                                                        color: '#fbbf24',
+                                                                        fontSize: '11px',
+                                                                        fontWeight: 700,
+                                                                        letterSpacing: '0.04em',
+                                                                        textTransform: 'uppercase',
+                                                                    }}
+                                                                >
+                                                                    Relatorio Pro: {socialPro.report.statusLabel}
+                                                                </span>
+                                                            ) : null}
+
+                                                            {socialPro?.library.saved ? (
+                                                                <span
+                                                                    style={{
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        padding: '6px 10px',
+                                                                        borderRadius: '999px',
+                                                                        border: '1px solid rgba(116, 215, 255, 0.22)',
+                                                                        background: 'rgba(116, 215, 255, 0.1)',
+                                                                        color: '#74d7ff',
+                                                                        fontSize: '11px',
+                                                                        fontWeight: 700,
+                                                                        letterSpacing: '0.04em',
+                                                                        textTransform: 'uppercase',
+                                                                    }}
+                                                                >
+                                                                    Biblioteca Pro: Colecao privada
+                                                                </span>
+                                                            ) : null}
                                                         </div>
 
                                                         <p style={{ margin: 0, color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
@@ -1189,6 +1233,29 @@ export default async function HistoryPage({
                                                                 />
                                                             </>
                                                         ) : null}
+                                                        {socialPro ? (
+                                                            <>
+                                                                <EvidenceChip
+                                                                    label="Relatorio Pro"
+                                                                    tone={socialPro.report ? 'pro' : socialPro.reportLock ? 'warning' : 'info'}
+                                                                    value={socialPro.report?.statusLabel ?? (socialPro.reportLock ? 'Pro bloqueado' : 'Pronto para gerar')}
+                                                                />
+                                                                <EvidenceChip
+                                                                    label="Biblioteca Pro"
+                                                                    tone={socialPro.library.saved ? 'pro' : socialPro.libraryLock ? 'warning' : 'info'}
+                                                                    value={socialPro.library.saved
+                                                                        ? `${socialPro.library.collectionCount} colecao`
+                                                                        : socialPro.library.normalCommunitySaveAllowed
+                                                                            ? 'Saves normais livres'
+                                                                            : 'Pendente'}
+                                                                />
+                                                                <EvidenceChip
+                                                                    label="Link privado"
+                                                                    tone={socialPro.privateLink?.status === 'active' ? 'success' : 'info'}
+                                                                    value={socialPro.privateLink?.statusLabel ?? 'Nao criado'}
+                                                                />
+                                                            </>
+                                                        ) : null}
                                                     </div>
                                                     {evidenceSummary?.blockerReasons.length || sprayLabContinuity?.blockerReasons.length || trainingProgramContinuity?.blockerReasons.length ? (
                                                         <div style={{ display: 'grid', gap: '6px' }} aria-label="Bloqueadores visiveis">
@@ -1208,6 +1275,51 @@ export default async function HistoryPage({
                                                                     {reason}
                                                                 </span>
                                                             ))}
+                                                        </div>
+                                                    ) : null}
+                                                    {socialPro ? (
+                                                        <div
+                                                            aria-label="Social Pro no historico"
+                                                            id={index === 0 ? 'history-social-pro' : undefined}
+                                                            style={{
+                                                                display: 'grid',
+                                                                gap: '8px',
+                                                                padding: '10px 12px',
+                                                                borderRadius: '8px',
+                                                                border: '1px solid rgba(251, 191, 36, 0.18)',
+                                                                background: 'rgba(251, 191, 36, 0.06)',
+                                                            }}
+                                                        >
+                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'space-between' }}>
+                                                                <strong style={{ color: '#fbbf24', fontSize: 'var(--text-sm)' }}>
+                                                                    Social Pro no historico
+                                                                </strong>
+                                                                <span style={{ color: 'var(--color-accent-cyan)', fontSize: 'var(--text-xs)', fontWeight: 700 }}>
+                                                                    {socialPro.nextAction.label}
+                                                                </span>
+                                                            </div>
+                                                            <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', lineHeight: 1.55 }}>
+                                                                {socialPro.continuityCopy}
+                                                            </p>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 150px), 1fr))', gap: '8px' }}>
+                                                                <span style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-xs)', lineHeight: 1.5 }}>
+                                                                    Relatorio Pro: {socialPro.report?.visibilityLabel ?? (socialPro.reportLock?.featureKey === SOCIAL_PRO_REPORT_FEATURE ? 'bloqueado para criar' : 'sem relatorio')}
+                                                                </span>
+                                                                <span style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-xs)', lineHeight: 1.5 }}>
+                                                                    Biblioteca Pro: {socialPro.library.saved ? socialPro.library.collectionLabels.join(', ') : 'Colecao privada pendente'}
+                                                                </span>
+                                                                <span style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-xs)', lineHeight: 1.5 }}>
+                                                                    Link privado: {socialPro.privateLink?.statusLabel ?? 'nao criado'}
+                                                                </span>
+                                                            </div>
+                                                            {socialPro.reportLock || socialPro.libraryLock ? (
+                                                                <p style={{ margin: 0, color: 'var(--color-text-secondary)', fontSize: 'var(--text-xs)', lineHeight: 1.55 }}>
+                                                                    Free mantem historico legivel e saves normais
+                                                                    {socialPro.library.normalCommunitySaveAllowed ? ' da comunidade' : ''}.
+                                                                    {' '}O Pro organiza este contexto em relatorio, biblioteca e Ciclo Pro.
+                                                                    {' '}Locks: {socialPro.reportLock?.featureKey ?? SOCIAL_PRO_REPORT_FEATURE} / {socialPro.libraryLock?.featureKey ?? SOCIAL_PRO_LIBRARY_FEATURE}.
+                                                                </p>
+                                                            ) : null}
                                                         </div>
                                                     ) : null}
                                                 </div>

@@ -1,7 +1,7 @@
 'use server';
 
 import { randomUUID } from 'node:crypto';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 
 import { createAnalysisContext } from '@/app/analyze/analysis-context';
@@ -39,6 +39,10 @@ import {
     sprayLabBenchmarkSnapshots,
     sprayLabSessions,
     sprayLabValidationLinks,
+    socialProCollectionItems,
+    socialProCollections,
+    socialProReportLinks,
+    socialProReports,
     trainingProtocolTransferRecords,
     trainingProgramCycles,
     weaponProfiles,
@@ -64,13 +68,23 @@ import {
     voidAnalysisQuota,
     type AnalysisQuotaReservation,
 } from '@/lib/quota-ledger';
-import { resolveProductAccess, type ProductAccessResolution } from '@/lib/product-entitlements';
+import {
+    hasProductEntitlement,
+    resolveProductAccess,
+    type ProductAccessResolution,
+} from '@/lib/product-entitlements';
 import { projectTrainingProgramForAccess } from '@/lib/training-program-projection';
 import type {
     AnalysisSaveAccessState,
     AnalysisSaveQuotaNotice,
+    PremiumFeatureLock,
     ProductQuotaSummary,
 } from '@/types/monetization';
+import type {
+    SocialProPrivateLinkStatus,
+    SocialProReportStatus,
+    SocialProReportVisibility,
+} from '@/types/social-pro';
 import type {
     TrainingProgramCheckpointLayer,
     TrainingProgramCycleSnapshot,
@@ -155,6 +169,33 @@ interface HistoryTrainingProgramCycleRow {
     readonly completedAt: Date | null;
 }
 
+interface HistorySocialProReportRow {
+    readonly id: string;
+    readonly sourceAnalysisSessionId: string | null;
+    readonly sourceHistorySessionId: string | null;
+    readonly title: string;
+    readonly visibility: SocialProReportVisibility;
+    readonly status: SocialProReportStatus;
+    readonly updatedAt: Date;
+}
+
+interface HistorySocialProPrivateLinkRow {
+    readonly reportId: string;
+    readonly id: string;
+    readonly status: SocialProPrivateLinkStatus;
+    readonly expiresAt: Date | null;
+    readonly updatedAt: Date;
+}
+
+interface HistorySocialProLibraryRow {
+    readonly reportId: string | null;
+    readonly collectionId: string;
+    readonly collectionLabel: string | null;
+    readonly collectionMode: string | null;
+    readonly contextKey: string;
+    readonly createdAt: Date;
+}
+
 export interface PrecisionHistoryCheckpointSummary {
     readonly id: string;
     readonly lineId: string;
@@ -231,6 +272,45 @@ export interface HistoryTrainingProgramContinuitySummary {
     readonly archivedLineCount: number;
     readonly archivedAt: Date | null;
     readonly completedAt: Date | null;
+}
+
+export interface HistorySocialProContinuitySummary {
+    readonly canGenerateReport: boolean;
+    readonly canSaveToLibrary: boolean;
+    readonly canManagePrivateLinks: boolean;
+    readonly report: {
+        readonly id: string;
+        readonly title: string;
+        readonly visibility: SocialProReportVisibility;
+        readonly visibilityLabel: string;
+        readonly status: SocialProReportStatus;
+        readonly statusLabel: string;
+        readonly discoverableInFeed: boolean;
+        readonly href: string;
+        readonly updatedAt: Date;
+    } | null;
+    readonly privateLink: {
+        readonly id: string;
+        readonly status: SocialProPrivateLinkStatus;
+        readonly statusLabel: string;
+        readonly expiresAt: Date | null;
+    } | null;
+    readonly library: {
+        readonly saved: boolean;
+        readonly normalCommunitySaveAllowed: true;
+        readonly collectionCount: number;
+        readonly collectionLabels: readonly string[];
+        readonly visibilityLabel: 'Privada';
+        readonly contextKey: string | null;
+    };
+    readonly reportLock: PremiumFeatureLock | null;
+    readonly libraryLock: PremiumFeatureLock | null;
+    readonly nextAction: {
+        readonly kind: 'generate_report' | 'manage_report' | 'save_to_library' | 'upgrade';
+        readonly label: string;
+        readonly href: string;
+    };
+    readonly continuityCopy: string;
 }
 
 export interface RecordCoachProtocolOutcomeInput {
@@ -2620,6 +2700,184 @@ function toHistoryTrainingProgramContinuity(
     };
 }
 
+function isSocialProReportVisibility(value: unknown): value is SocialProReportVisibility {
+    return value === 'public' || value === 'link_private';
+}
+
+function isSocialProReportStatus(value: unknown): value is SocialProReportStatus {
+    return value === 'draft'
+        || value === 'published'
+        || value === 'hidden'
+        || value === 'disabled'
+        || value === 'archived';
+}
+
+function isSocialProPrivateLinkStatus(value: unknown): value is SocialProPrivateLinkStatus {
+    return value === 'active' || value === 'revoked' || value === 'expired';
+}
+
+function isHistorySocialProReportRow(value: unknown): value is HistorySocialProReportRow {
+    if (!isRecord(value)) {
+        return false;
+    }
+
+    return typeof value.id === 'string'
+        && (typeof value.sourceAnalysisSessionId === 'string' || value.sourceAnalysisSessionId === null)
+        && (typeof value.sourceHistorySessionId === 'string' || value.sourceHistorySessionId === null)
+        && typeof value.title === 'string'
+        && isSocialProReportVisibility(value.visibility)
+        && isSocialProReportStatus(value.status)
+        && value.updatedAt instanceof Date;
+}
+
+function isHistorySocialProPrivateLinkRow(value: unknown): value is HistorySocialProPrivateLinkRow {
+    if (!isRecord(value)) {
+        return false;
+    }
+
+    return typeof value.reportId === 'string'
+        && typeof value.id === 'string'
+        && isSocialProPrivateLinkStatus(value.status)
+        && (value.expiresAt instanceof Date || value.expiresAt === null)
+        && value.updatedAt instanceof Date;
+}
+
+function isHistorySocialProLibraryRow(value: unknown): value is HistorySocialProLibraryRow {
+    if (!isRecord(value)) {
+        return false;
+    }
+
+    return (typeof value.reportId === 'string' || value.reportId === null)
+        && typeof value.collectionId === 'string'
+        && (typeof value.collectionLabel === 'string' || value.collectionLabel === null)
+        && (typeof value.collectionMode === 'string' || value.collectionMode === null)
+        && typeof value.contextKey === 'string'
+        && value.createdAt instanceof Date;
+}
+
+function socialProVisibilityLabel(visibility: SocialProReportVisibility): string {
+    switch (visibility) {
+        case 'public':
+            return 'Publico';
+        case 'link_private':
+            return 'Link privado';
+    }
+}
+
+function socialProReportStatusLabel(status: SocialProReportStatus): string {
+    switch (status) {
+        case 'draft':
+            return 'Rascunho';
+        case 'published':
+            return 'Publicado';
+        case 'hidden':
+            return 'Oculto por moderacao';
+        case 'disabled':
+            return 'Desativado';
+        case 'archived':
+            return 'Arquivado';
+    }
+}
+
+function socialProPrivateLinkStatusLabel(status: SocialProPrivateLinkStatus): string {
+    switch (status) {
+        case 'active':
+            return 'Ativo';
+        case 'revoked':
+            return 'Revogado';
+        case 'expired':
+            return 'Expirado';
+    }
+}
+
+function toHistorySocialProContinuity(input: {
+    readonly sessionId: string;
+    readonly access: ProductAccessResolution;
+    readonly projectionLocks: readonly PremiumFeatureLock[];
+    readonly report?: HistorySocialProReportRow;
+    readonly privateLink?: HistorySocialProPrivateLinkRow;
+    readonly libraryRows: readonly HistorySocialProLibraryRow[];
+}): HistorySocialProContinuitySummary {
+    const canGenerateReport = hasProductEntitlement(input.access, 'community.premium_report_share');
+    const canSaveToLibrary = hasProductEntitlement(input.access, 'community.pro_library');
+    const canManagePrivateLinks = hasProductEntitlement(input.access, 'community.private_report_links');
+    const reportLock = input.projectionLocks.find((lock) => lock.featureKey === 'community.premium_report_share') ?? null;
+    const libraryLock = input.projectionLocks.find((lock) => lock.featureKey === 'community.pro_library') ?? null;
+    const collectionLabels = Array.from(new Set(
+        input.libraryRows
+            .map((row) => row.collectionLabel ?? 'Colecao privada')
+            .filter((label) => label.trim().length > 0),
+    ));
+    const report = input.report
+        ? {
+            id: input.report.id,
+            title: input.report.title,
+            visibility: input.report.visibility,
+            visibilityLabel: socialProVisibilityLabel(input.report.visibility),
+            status: input.report.status,
+            statusLabel: socialProReportStatusLabel(input.report.status),
+            discoverableInFeed: input.report.visibility === 'public' && input.report.status === 'published',
+            href: `/history/${input.sessionId}#history-social-pro`,
+            updatedAt: input.report.updatedAt,
+        }
+        : null;
+    const privateLink = input.privateLink
+        ? {
+            id: input.privateLink.id,
+            status: input.privateLink.status,
+            statusLabel: socialProPrivateLinkStatusLabel(input.privateLink.status),
+            expiresAt: input.privateLink.expiresAt,
+        }
+        : null;
+    const library = {
+        saved: input.libraryRows.length > 0,
+        normalCommunitySaveAllowed: true as const,
+        collectionCount: collectionLabels.length,
+        collectionLabels,
+        visibilityLabel: 'Privada' as const,
+        contextKey: input.libraryRows[0]?.contextKey ?? null,
+    };
+    const nextAction = report
+        ? {
+            kind: 'manage_report' as const,
+            label: 'Atualizar relatorio Pro',
+            href: `/history/${input.sessionId}#history-social-pro`,
+        }
+        : canGenerateReport
+            ? {
+                kind: 'generate_report' as const,
+                label: 'Gerar relatorio Pro',
+                href: `/history/${input.sessionId}#history-social-pro`,
+            }
+            : {
+                kind: 'upgrade' as const,
+                label: 'Organizar no Pro social',
+                href: '/pricing',
+            };
+    const resolvedNextAction = report && canSaveToLibrary && !library.saved
+        ? {
+            kind: 'save_to_library' as const,
+            label: 'Salvar na Biblioteca Pro',
+            href: `/history/${input.sessionId}#history-social-pro`,
+        }
+        : nextAction;
+
+    return {
+        canGenerateReport,
+        canSaveToLibrary,
+        canManagePrivateLinks,
+        report,
+        privateLink,
+        library,
+        reportLock,
+        libraryLock,
+        nextAction: resolvedNextAction,
+        continuityCopy: report
+            ? 'Relatorio Pro conectado ao historico, biblioteca e proximas acoes seguras.'
+            : 'Free mantem historico legivel. O Pro organiza este contexto em relatorio, biblioteca e Ciclo Pro.',
+    };
+}
+
 function isHistoryCoachFocusArea(value: unknown): value is CoachFocusArea {
     return value === 'capture_quality'
         || value === 'vertical_control'
@@ -2788,6 +3046,108 @@ export async function getHistorySessions() {
             }
         }
 
+        const historySessionIds = result.map((row) => row.id);
+        const historySessionIdSet = new Set(historySessionIds);
+        const rawSocialProReportRows = historySessionIds.length === 0
+            ? []
+            : await db
+                .select({
+                    id: socialProReports.id,
+                    sourceAnalysisSessionId: socialProReports.sourceAnalysisSessionId,
+                    sourceHistorySessionId: socialProReports.sourceHistorySessionId,
+                    title: socialProReports.title,
+                    visibility: socialProReports.visibility,
+                    status: socialProReports.status,
+                    updatedAt: socialProReports.updatedAt,
+                })
+                .from(socialProReports)
+                .where(and(
+                    eq(socialProReports.ownerUserId, session.user.id),
+                    or(
+                        inArray(socialProReports.sourceAnalysisSessionId, historySessionIds),
+                        inArray(socialProReports.sourceHistorySessionId, historySessionIds),
+                    ),
+                ))
+                .orderBy(desc(socialProReports.updatedAt));
+        const socialProReportRows = Array.isArray(rawSocialProReportRows)
+            ? rawSocialProReportRows.filter(isHistorySocialProReportRow)
+            : [];
+        const latestSocialProReportBySession = new Map<string, HistorySocialProReportRow>();
+
+        for (const row of socialProReportRows) {
+            for (const sourceId of [row.sourceAnalysisSessionId, row.sourceHistorySessionId]) {
+                if (sourceId && historySessionIdSet.has(sourceId) && !latestSocialProReportBySession.has(sourceId)) {
+                    latestSocialProReportBySession.set(sourceId, row);
+                }
+            }
+        }
+
+        const socialProReportIds = Array.from(new Set(socialProReportRows.map((row) => row.id)));
+        const rawSocialProPrivateLinkRows = socialProReportIds.length === 0
+            ? []
+            : await db
+                .select({
+                    reportId: socialProReportLinks.reportId,
+                    id: socialProReportLinks.id,
+                    status: socialProReportLinks.status,
+                    expiresAt: socialProReportLinks.expiresAt,
+                    updatedAt: socialProReportLinks.updatedAt,
+                })
+                .from(socialProReportLinks)
+                .where(and(
+                    eq(socialProReportLinks.ownerUserId, session.user.id),
+                    inArray(socialProReportLinks.reportId, socialProReportIds),
+                ))
+                .orderBy(desc(socialProReportLinks.updatedAt));
+        const socialProPrivateLinkRows = Array.isArray(rawSocialProPrivateLinkRows)
+            ? rawSocialProPrivateLinkRows.filter(isHistorySocialProPrivateLinkRow)
+            : [];
+        const latestSocialProPrivateLinkByReport = new Map<string, HistorySocialProPrivateLinkRow>();
+
+        for (const row of socialProPrivateLinkRows) {
+            if (!latestSocialProPrivateLinkByReport.has(row.reportId)) {
+                latestSocialProPrivateLinkByReport.set(row.reportId, row);
+            }
+        }
+
+        const rawSocialProLibraryRows = socialProReportIds.length === 0
+            ? []
+            : await db
+                .select({
+                    reportId: socialProCollectionItems.socialProReportId,
+                    collectionId: socialProCollectionItems.collectionId,
+                    collectionLabel: socialProCollections.label,
+                    collectionMode: socialProCollections.mode,
+                    contextKey: socialProCollectionItems.contextKey,
+                    createdAt: socialProCollectionItems.createdAt,
+                })
+                .from(socialProCollectionItems)
+                .leftJoin(
+                    socialProCollections,
+                    eq(socialProCollectionItems.collectionId, socialProCollections.id),
+                )
+                .where(and(
+                    eq(socialProCollectionItems.ownerUserId, session.user.id),
+                    eq(socialProCollectionItems.kind, 'report'),
+                    inArray(socialProCollectionItems.socialProReportId, socialProReportIds),
+                ))
+                .orderBy(desc(socialProCollectionItems.createdAt));
+        const socialProLibraryRows = Array.isArray(rawSocialProLibraryRows)
+            ? rawSocialProLibraryRows.filter(isHistorySocialProLibraryRow)
+            : [];
+        const socialProLibraryRowsByReport = new Map<string, HistorySocialProLibraryRow[]>();
+
+        for (const row of socialProLibraryRows) {
+            if (!row.reportId) {
+                continue;
+            }
+
+            socialProLibraryRowsByReport.set(row.reportId, [
+                ...(socialProLibraryRowsByReport.get(row.reportId) ?? []),
+                row,
+            ]);
+        }
+
         const latestOutcomeBySession = new Map<string, CoachProtocolOutcome>();
         const revisionCountBySession = new Map<string, number>();
 
@@ -2827,6 +3187,20 @@ export async function getHistorySessions() {
             const trainingProgramContinuity = trainingProgramRow
                 ? toHistoryTrainingProgramContinuity(trainingProgramRow, access)
                 : undefined;
+            const socialProReport = latestSocialProReportBySession.get(historySession.id);
+            const socialProPrivateLink = socialProReport
+                ? latestSocialProPrivateLinkByReport.get(socialProReport.id)
+                : undefined;
+            const socialPro = toHistorySocialProContinuity({
+                sessionId: historySession.id,
+                access,
+                projectionLocks: projection.locks,
+                ...(socialProReport ? { report: socialProReport } : {}),
+                ...(socialProPrivateLink ? { privateLink: socialProPrivateLink } : {}),
+                libraryRows: socialProReport
+                    ? socialProLibraryRowsByReport.get(socialProReport.id) ?? []
+                    : [],
+            });
             const hasCoachPlan = typeof coachPlan === 'object' && coachPlan !== null;
             const evidenceSummary = buildHistorySessionEvidenceSummary(fullResultRecord);
             const protocolContinuity = buildHistoryProtocolContinuity(fullResultRecord);
@@ -2858,6 +3232,7 @@ export async function getHistorySessions() {
                 ...(protocolContinuity ? { protocolContinuity } : {}),
                 ...(sprayLabContinuity ? { sprayLabContinuity } : {}),
                 ...(trainingProgramContinuity ? { trainingProgramContinuity } : {}),
+                socialPro,
                 coachOutcomeStatus,
             };
         });
