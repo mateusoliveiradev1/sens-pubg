@@ -22,10 +22,7 @@ describe('/community/[slug] page contract', () => {
         expect(source).toMatch(/authorProfile[\s\S]*proBadge/);
         expect(detailSource).toMatch(/data-social-pro-badge=["']post-author["']/);
         expect(detailSource).toMatch(/aria-label=\{post\.authorProfile\.proBadge\.ariaLabel\}/);
-        expect(detailSource).toContain('Pro: acesso aos recursos premium do Sens PUBG');
-        expect(detailSource).toContain('nao indica autoridade');
-        expect(detailSource).toContain('jogador profissional');
-        expect(detailSource).toContain('rank');
+        expect(detailSource).toMatch(/title=\{post\.authorProfile\.proBadge\.tooltip\}/);
         expect(source).not.toMatch(/pro player|verified skill|skill verified|rank alto|melhor jogador|certificado pelo pro/i);
     });
 

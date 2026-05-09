@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 
 import type { VisibleCommunityPostComment } from '@/actions/community-comments';
+import type { CommunityProBadge } from '@/core/community-trust-signals';
 import type { CommunityCreatorProgramStatus } from '@/db/schema';
 import { formatCommunityCreatorStatusBadge } from '@/core/community-public-formatting';
 import { getScope, getWeapon } from '@/game/pubg';
@@ -27,6 +28,7 @@ export interface CommunityPostDetailData {
         readonly profileSlug: string;
         readonly profileHref: string;
         readonly creatorProgramStatus: CommunityCreatorProgramStatus;
+        readonly proBadge: CommunityProBadge | null;
     } | null;
     readonly communityContinuityLinks: readonly {
         readonly key: 'weapon' | 'patch' | 'diagnosis';
@@ -253,6 +255,16 @@ export function PostDetail({
                             ) : (
                                 <span className={styles.loadoutChipMuted}>Autor sem perfil aberto</span>
                             )}
+                            {post.authorProfile?.proBadge ? (
+                                <span
+                                    aria-label={post.authorProfile.proBadge.ariaLabel}
+                                    className={styles.loadoutChipMuted}
+                                    data-social-pro-badge="post-author"
+                                    title={post.authorProfile.proBadge.tooltip}
+                                >
+                                    {post.authorProfile.proBadge.label}
+                                </span>
+                            ) : null}
                             <span className={styles.authorMeta}>Publicado {publishedLabel}</span>
                         </div>
 
@@ -300,6 +312,16 @@ export function PostDetail({
                                 <strong>{post.authorProfile.displayName}</strong>
                                 {creatorBadge ? (
                                     <span className={styles.loadoutChipMuted}>{creatorBadge.label}</span>
+                                ) : null}
+                                {post.authorProfile.proBadge ? (
+                                    <span
+                                        aria-label={post.authorProfile.proBadge.ariaLabel}
+                                        className={styles.loadoutChipMuted}
+                                        data-social-pro-badge="post-author"
+                                        title={post.authorProfile.proBadge.tooltip}
+                                    >
+                                        {post.authorProfile.proBadge.label}
+                                    </span>
                                 ) : null}
                                 <Link className={styles.cardAction} href={post.authorProfile.profileHref}>
                                     Ver perfil

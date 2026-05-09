@@ -14,12 +14,16 @@ import {
     communityProfiles,
 } from '@/db/schema';
 import {
+    buildCommunityProBadge,
+} from '@/core/community-trust-signals';
+import {
     formatCommunityDiagnosisLabel,
     formatCommunityPatchLabel,
     formatCommunityWeaponLabel,
 } from '@/core/community-public-formatting';
 import { getScope, getWeapon } from '@/game/pubg';
 import { getCommunityPostReadAccess } from '@/lib/community-access';
+import { resolveSocialProAccessForUser } from '@/lib/social-pro-access';
 import { Header } from '@/ui/components/header';
 
 import { PostDetail, type CommunityPostDetailData } from './post-detail';
@@ -307,6 +311,9 @@ async function loadCommunityPostDetail(
     }
 
     const comments = await listVisibleCommunityPostComments(storedPost.id);
+    const authorSocialProAccess = storedPost.authorProfileVisibility === 'public'
+        ? await resolveSocialProAccessForUser(storedPost.authorId)
+        : null;
     const diagnosisOptions = extractDiagnosisOptions(storedPost.snapshotDiagnoses);
     const canComment = Boolean(viewerUserId) && storedPost.status === 'published';
     const commentDisabledReason = storedPost.status !== 'published'
@@ -329,6 +336,7 @@ async function loadCommunityPostDetail(
                 profileSlug: storedPost.authorProfileSlug,
                 profileHref: `/community/users/${storedPost.authorProfileSlug}`,
                 creatorProgramStatus: storedPost.authorCreatorProgramStatus,
+                proBadge: buildCommunityProBadge(authorSocialProAccess),
             }
             : null,
         communityContinuityLinks: buildCommunityContinuityLinks({

@@ -371,6 +371,16 @@ function OperatorProfileBoard({
                             ) : (
                                 <span className={styles.authorMeta}>Jogador da comunidade</span>
                             )}
+                            {viewModel.identity.proBadge ? (
+                                <span
+                                    aria-label={viewModel.identity.proBadge.ariaLabel}
+                                    className={styles.loadoutChipMuted}
+                                    data-social-pro-badge="profile"
+                                    title={viewModel.identity.proBadge.tooltip}
+                                >
+                                    {viewModel.identity.proBadge.label}
+                                </span>
+                            ) : null}
                         </div>
                         {viewModel.identity.headline ? (
                             <p className={styles.profileLead}>{viewModel.identity.headline}</p>
