@@ -11,6 +11,8 @@ import {
     recordProductEvent,
     recordProLifecycleEvent,
     recordQuotaEvent,
+    recordSocialProPassiveImpression,
+    recordSocialProUpgradeIntent,
     recordUpgradeIntent,
     recordUploadGuidanceCorrection,
     sanitizeProductAnalyticsEvent,
@@ -236,6 +238,114 @@ describe('product analytics privacy contract', () => {
         });
         expect(recordProductEventMock.mock.calls[5]?.[0].metadata).toEqual({
             guidanceReason: 'weak_capture',
+        });
+    });
+
+    it('records Social Pro upgrade intent only for real action attempts or CTA clicks', async () => {
+        const { repository, recordProductEventMock } = createRepository();
+
+        await recordSocialProUpgradeIntent({
+            userId: 'user-1',
+            action: 'generate_report',
+            surface: 'community_hub',
+            accessState: 'free',
+            featureKey: 'community.premium_report_share',
+            ctaId: 'generate_report_locked',
+            repository,
+        });
+        await recordSocialProUpgradeIntent({
+            userId: 'user-1',
+            action: 'pro_library_save',
+            surface: 'history_detail',
+            accessState: 'free',
+            featureKey: 'community.pro_library',
+            itemKind: 'report',
+            contextTarget: 'ciclo_pro',
+            repository,
+        });
+        await recordSocialProUpgradeIntent({
+            userId: 'user-1',
+            action: 'creator_analytics_open',
+            surface: 'community_hub',
+            accessState: 'free',
+            featureKey: 'community.creator_analytics',
+            repository,
+        });
+
+        expect(recordProductEventMock).toHaveBeenCalledTimes(3);
+        expect(recordProductEventMock.mock.calls.map(([event]) => event)).toEqual([
+            expect.objectContaining({
+                eventType: 'upgrade_intent.premium_feature_attempted',
+                surface: 'social_pro.community_hub',
+                featureKey: 'community.premium_report_share',
+                metadata: expect.objectContaining({
+                    socialProAction: 'generate_report',
+                    ctaId: 'generate_report_locked',
+                }),
+            }),
+            expect.objectContaining({
+                eventType: 'upgrade_intent.premium_feature_attempted',
+                surface: 'social_pro.history_detail',
+                featureKey: 'community.pro_library',
+                metadata: expect.objectContaining({
+                    socialProAction: 'pro_library_save',
+                    itemKind: 'report',
+                    contextTarget: 'ciclo_pro',
+                }),
+            }),
+            expect.objectContaining({
+                eventType: 'upgrade_intent.premium_feature_attempted',
+                surface: 'social_pro.community_hub',
+                featureKey: 'community.creator_analytics',
+                metadata: expect.objectContaining({
+                    socialProAction: 'creator_analytics_open',
+                }),
+            }),
+        ]);
+    });
+
+    it('does not record passive Social Pro lock or feed impressions as upgrade intent', async () => {
+        const { repository, recordProductEventMock } = createRepository();
+
+        await expect(recordSocialProPassiveImpression({
+            userId: 'user-1',
+            surface: 'feed',
+            featureKey: 'community.pro_library',
+            repository,
+        })).resolves.toBe(false);
+
+        expect(recordProductEventMock).not.toHaveBeenCalled();
+    });
+
+    it('keeps Social Pro event metadata scalar and free of private social/payment payloads', async () => {
+        const { repository, recordProductEventMock } = createRepository();
+
+        await recordSocialProUpgradeIntent({
+            userId: 'user-1',
+            action: 'report_controls',
+            surface: 'report_controls',
+            accessState: 'free',
+            featureKey: 'community.private_report_links',
+            metadata: {
+                socialProAction: 'report_controls',
+                privateLinkToken: 'private-link-token',
+                privateReaderId: 'reader-private-1',
+                privateReaderEmail: 'private@example.com',
+                collectionContents: ['report-1'],
+                rawAnalysisPayload: { trajectory: [] },
+                paymentState: { provider: 'stripe' },
+                financialConversion: 120,
+                ctaId: 'private_link_controls',
+                contextTarget: 'compatible_validation',
+            },
+            repository,
+        });
+
+        expect(recordProductEventMock).toHaveBeenCalledTimes(1);
+        expect(recordProductEventMock.mock.calls[0]?.[0].metadata).toEqual({
+            socialProAction: 'report_controls',
+            ctaId: 'private_link_controls',
+            contextTarget: 'compatible_validation',
         });
     });
 });
