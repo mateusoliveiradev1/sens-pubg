@@ -115,7 +115,7 @@ function mockDbChains() {
 
 describe('Social Pro library actions', () => {
     beforeEach(() => {
-        vi.clearAllMocks();
+        vi.resetAllMocks();
         mockDbChains();
         mocks.auth.mockResolvedValue({ user: { id: 'user-1' } });
         mocks.resolveSocialProAccessForUser.mockResolvedValue(proPolicy());
