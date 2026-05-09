@@ -5,10 +5,15 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
 import { auth } from '@/auth';
+import {
+    buildRevenueOpsSafeSupportSummary,
+    diagnoseRevenueOpsSupport,
+} from '@/core/revenue-ops-support';
 import { db } from '@/db';
 import { recordAuditLog } from '@/db/audit-log';
 import {
     monetizationAnalyticsEvents,
+    processedStripeEvents,
     productBillingEvents,
     productCheckoutAttempts,
     productQuotaLedger,
@@ -153,7 +158,7 @@ export async function getAdminBillingSnapshot(userId: string) {
         return null;
     }
 
-    const [access, subscriptions, grants, attempts, quotaEntries, notes, events] = await Promise.all([
+    const [access, subscriptions, grants, attempts, quotaEntries, notes, events, stripeEvents] = await Promise.all([
         resolveServerProductAccess(user.id),
         db.select().from(productSubscriptions).where(eq(productSubscriptions.userId, user.id)).orderBy(desc(productSubscriptions.updatedAt)).limit(5),
         db.select().from(productUserGrants).where(eq(productUserGrants.userId, user.id)).orderBy(desc(productUserGrants.createdAt)).limit(10),
@@ -161,7 +166,21 @@ export async function getAdminBillingSnapshot(userId: string) {
         db.select().from(productQuotaLedger).where(eq(productQuotaLedger.userId, user.id)).orderBy(desc(productQuotaLedger.createdAt)).limit(10),
         db.select().from(productSupportNotes).where(eq(productSupportNotes.userId, user.id)).orderBy(desc(productSupportNotes.createdAt)).limit(10),
         db.select().from(productBillingEvents).where(eq(productBillingEvents.userId, user.id)).orderBy(desc(productBillingEvents.createdAt)).limit(20),
+        db.select().from(processedStripeEvents).orderBy(desc(processedStripeEvents.receivedAt)).limit(50),
     ]);
+    const diagnosis = diagnoseRevenueOpsSupport({
+        userId: user.id,
+        access,
+        subscriptions,
+        grants,
+        checkoutAttempts: attempts,
+        quotaEntries,
+        billingEvents: events,
+        stripeEvents,
+        auth: {
+            expectedUserId: user.id,
+        },
+    });
 
     return {
         user,
@@ -173,6 +192,8 @@ export async function getAdminBillingSnapshot(userId: string) {
         quotaEntries,
         notes,
         events,
+        diagnosis,
+        supportSummary: buildRevenueOpsSafeSupportSummary(diagnosis.firstCause),
     };
 }
 

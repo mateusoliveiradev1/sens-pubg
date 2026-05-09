@@ -14,6 +14,8 @@ describe('admin billing action contract', () => {
         expect(code).toMatch(/revokeManualProGrant/);
         expect(code).toMatch(/applyBillingSuspension/);
         expect(code).toMatch(/recordBillingSupportNote/);
+        expect(code).toMatch(/diagnoseRevenueOpsSupport/);
+        expect(code).toMatch(/buildRevenueOpsSafeSupportSummary/);
     });
 
     it('writes audit, billing, and analytics evidence for manual operations', () => {
@@ -24,6 +26,15 @@ describe('admin billing action contract', () => {
         expect(code).toMatch(/recordAuditLog\('ENTITLEMENT_SUSPENDED'/);
         expect(code).toMatch(/productBillingEvents/);
         expect(code).toMatch(/monetizationAnalyticsEvents/);
+    });
+
+    it('adds Revenue Ops diagnosis without weakening admin-only paid-state mutations', () => {
+        const code = source();
+
+        expect(code).toMatch(/diagnosis/);
+        expect(code).toMatch(/supportSummary/);
+        expect(code).toMatch(/processedStripeEvents/);
+        expect(code.match(/assertAdmin\(staff\.role\)/g)?.length ?? 0).toBeGreaterThanOrEqual(4);
     });
 
     it('does not introduce affiliate payout or commission logic', () => {
