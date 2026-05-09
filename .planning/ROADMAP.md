@@ -452,7 +452,7 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **UI hint:** yes
 
-**Plans:** 13 plans
+**Plans:** 1/13 plans executed
 
 **Wave 0**
 - [ ] `11-00-PLAN.md` — Wave 0 Social Pro validation scaffold for tests, verifier, Playwright matrix, and package script registration.
