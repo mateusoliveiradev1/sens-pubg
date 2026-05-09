@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { and, desc, eq } from 'drizzle-orm';
 
 import { auth } from '@/auth';
+import { saveSocialProLibraryItem } from '@/actions/social-pro-library';
+import { createSocialProReportAction } from '@/actions/social-pro-reports';
 import {
     createSprayLabSessionAction,
     getActiveSprayLabSessionAction,
@@ -16,7 +18,7 @@ import { LoopRail } from '@/ui/components/loop-rail';
 import { PageCommandHeader } from '@/ui/components/page-command-header';
 import type { SprayLabBenchmarkSnapshot, SprayLabSessionSnapshot } from '@/types/engine';
 import { SprayLabRunner } from './spray-lab-runner';
-import { buildSprayLabViewModel } from './spray-lab-view-model';
+import { buildSprayLabViewModel, type SprayLabSocialProModel } from './spray-lab-view-model';
 import styles from './spray-lab.module.css';
 
 export const metadata: Metadata = {
@@ -33,6 +35,139 @@ function readSearchParam(params: SprayLabSearchParams, key: string): string | un
     }
 
     return value;
+}
+
+function readFormText(formData: FormData, key: string): string | null {
+    const value = formData.get(key);
+
+    return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+}
+
+function readFormNumber(formData: FormData, key: string): number | null {
+    const value = readFormText(formData, key);
+    const numberValue = value ? Number(value) : Number.NaN;
+
+    return Number.isFinite(numberValue) ? numberValue : null;
+}
+
+async function createSprayLabSocialProReport(formData: FormData): Promise<void> {
+    'use server';
+
+    const sourceSprayLabSessionId = readFormText(formData, 'sourceSprayLabSessionId');
+    if (!sourceSprayLabSessionId) {
+        return;
+    }
+
+    const sourceAnalysisSessionId = readFormText(formData, 'sourceAnalysisSessionId');
+    const sourceValidationLinkId = readFormText(formData, 'sourceValidationLinkId');
+
+    await createSocialProReportAction({
+        sourceSprayLabSessionId,
+        ...(sourceAnalysisSessionId ? { sourceAnalysisSessionId } : {}),
+        ...(sourceValidationLinkId ? { sourceValidationLinkId } : {}),
+        visibility: 'link_private',
+        title: readFormText(formData, 'title') ?? 'Spray Lab no Social Pro',
+        requestedSections: ['drill_context', 'evidence_timeline', 'validation', 'next_actions'],
+    });
+}
+
+async function saveSprayLabSocialProLibraryItem(formData: FormData): Promise<void> {
+    'use server';
+
+    const itemKind = readFormText(formData, 'kind');
+    const itemId = readFormText(formData, 'itemId');
+    if ((itemKind !== 'spray_lab_session' && itemKind !== 'compatible_validation') || !itemId) {
+        return;
+    }
+
+    const sprayLabLaneId = readFormText(formData, 'sprayLabLaneId');
+    const weaponId = readFormText(formData, 'weaponId');
+    const opticId = readFormText(formData, 'opticId');
+    const distanceMeters = readFormNumber(formData, 'distanceMeters');
+    const objectiveKey = readFormText(formData, 'objectiveKey');
+    const validationState = readFormText(formData, 'validationState') ?? 'not_requested';
+    const blockerKey = readFormText(formData, 'blockerKey');
+
+    await saveSocialProLibraryItem({
+        item: {
+            kind: itemKind,
+            id: itemId,
+            context: {
+                ...(sprayLabLaneId ? { sprayLabLaneId } : {}),
+                ...(weaponId ? { weaponId } : {}),
+                ...(opticId ? { opticId } : {}),
+                ...(distanceMeters !== null ? { distanceMeters } : {}),
+                ...(objectiveKey ? { objectiveKey } : {}),
+                validationState,
+                ...(blockerKey ? { blockerKey } : {}),
+            },
+        },
+    });
+}
+
+function HiddenInputs({
+    values,
+}: {
+    readonly values: Readonly<Record<string, string | number | null | undefined>>;
+}): React.JSX.Element {
+    return (
+        <>
+            {Object.entries(values).map(([name, value]) => (
+                value !== null && value !== undefined && value !== ''
+                    ? <input key={name} name={name} type="hidden" value={String(value)} />
+                    : null
+            ))}
+        </>
+    );
+}
+
+function SprayLabSocialProPanel({
+    socialPro,
+}: {
+    readonly socialPro: SprayLabSocialProModel;
+}): React.JSX.Element {
+    return (
+        <section className={styles.lockPanel} aria-label="Social Pro do Spray Lab">
+            <strong>{socialPro.title}</strong>
+            <p>{socialPro.body}</p>
+            <p>{socialPro.evidenceHierarchy.join(' / ')}</p>
+            <p>{socialPro.blockerLabels.join(' ')}</p>
+
+            <div className={styles.controls}>
+                <form action={createSprayLabSocialProReport}>
+                    <HiddenInputs values={{ ...socialPro.reportAction.sourceIds }} />
+                    <input name="title" type="hidden" value={socialPro.reportAction.title} />
+                    <button
+                        className={styles.controlPrimary}
+                        disabled={socialPro.reportAction.disabled}
+                        title={socialPro.reportAction.lockCopy ?? socialPro.reportAction.body}
+                        type="submit"
+                    >
+                        {socialPro.reportAction.label}
+                    </button>
+                </form>
+                {socialPro.libraryActions.map((action) => (
+                    <form action={saveSprayLabSocialProLibraryItem} key={`${action.item.kind}:${action.item.id ?? 'missing'}`}>
+                        <HiddenInputs
+                            values={{
+                                kind: action.item.kind,
+                                itemId: action.item.id,
+                                ...action.item.context,
+                            }}
+                        />
+                        <button
+                            className={styles.controlButton}
+                            disabled={action.disabled}
+                            title={action.lockCopy ?? action.body}
+                            type="submit"
+                        >
+                            {action.label}
+                        </button>
+                    </form>
+                ))}
+            </div>
+        </section>
+    );
 }
 
 async function resolveSearchParams(
@@ -161,6 +296,7 @@ export default async function SprayLabPage({
                         </div>
                     )}
                     <SprayLabRunner model={model} />
+                    <SprayLabSocialProPanel socialPro={model.socialPro} />
                 </div>
             </main>
         </div>

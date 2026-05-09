@@ -30,6 +30,57 @@ export interface SprayLabStepModel {
     readonly secondaryActions: readonly SprayLabRunnerActionModel[];
 }
 
+export interface SprayLabSocialProSourceIds {
+    readonly sourceSprayLabSessionId?: string;
+    readonly sourceAnalysisSessionId?: string;
+    readonly sourceValidationLinkId?: string;
+}
+
+export interface SprayLabSocialProLibraryContext {
+    readonly sprayLabLaneId?: string;
+    readonly weaponId?: string;
+    readonly opticId?: string;
+    readonly distanceMeters?: number;
+    readonly objectiveKey?: string;
+    readonly validationState: string;
+    readonly blockerKey?: string;
+}
+
+export interface SprayLabSocialProReportActionModel {
+    readonly label: string;
+    readonly body: string;
+    readonly disabled: boolean;
+    readonly lockCopy: string | null;
+    readonly title: string;
+    readonly visibility: 'link_private';
+    readonly sourceIds: SprayLabSocialProSourceIds;
+}
+
+export interface SprayLabSocialProLibraryActionModel {
+    readonly label: string;
+    readonly body: string;
+    readonly disabled: boolean;
+    readonly lockCopy: string | null;
+    readonly item: {
+        readonly kind: 'spray_lab_session' | 'compatible_validation';
+        readonly id: string | null;
+        readonly context: SprayLabSocialProLibraryContext;
+    };
+}
+
+export interface SprayLabSocialProModel {
+    readonly title: string;
+    readonly body: string;
+    readonly evidenceHierarchy: readonly [
+        'Execucao Spray Lab',
+        'Transferencia pratica',
+        'Validacao tecnica compativel',
+    ];
+    readonly blockerLabels: readonly string[];
+    readonly reportAction: SprayLabSocialProReportActionModel;
+    readonly libraryActions: readonly SprayLabSocialProLibraryActionModel[];
+}
+
 export interface SprayLabViewModel {
     readonly routeState: SprayLabRouteState;
     readonly title: string;
@@ -75,6 +126,7 @@ export interface SprayLabViewModel {
         readonly whyItMatters: string;
         readonly ctas: readonly string[];
     } | null;
+    readonly socialPro: SprayLabSocialProModel;
 }
 
 function formatStepTitle(state: SprayLabStepState): string {
@@ -263,6 +315,154 @@ function formatIndexLabel(session: SprayLabSessionSnapshot): string {
         : `provisorio ${session.index.provisionalScore}/100`;
 }
 
+function formatReasonCode(reason: SprayLabFidelityReasonCode): string {
+    switch (reason) {
+        case 'fatigue_or_pain':
+            return 'Fadiga ou desconforto reduzem o peso da sessao.';
+        case 'variable_changed':
+            return 'Variavel mudou; execucao continua como pratica e pede reparo.';
+        case 'skipped_reps':
+            return 'Reps puladas impedem leitura forte.';
+        case 'excessive_pause':
+            return 'Pausas fora do protocolo reduzem fidelidade.';
+        case 'early_stop':
+            return 'Sessao encerrada cedo; nao vira prova tecnica.';
+        case 'capture_blocker':
+            return 'Blocker de captura exige reparo antes de compartilhar como caso forte.';
+        case 'missing_context':
+            return 'Contexto incompleto limita o relatorio.';
+        case 'user_confused':
+            return 'Confusao marcada; reduzir certeza antes de compartilhar.';
+    }
+}
+
+function socialProBlockerKey(session: SprayLabSessionSnapshot | null): string | null {
+    if (!session) {
+        return null;
+    }
+
+    return session.problemReasonCodes[0]
+        ?? session.fidelity?.reasonCodes[0]
+        ?? session.index?.blockerReasons[0]
+        ?? (session.repairState ? 'repair_state' : null);
+}
+
+function socialProBlockerLabels(session: SprayLabSessionSnapshot | null): readonly string[] {
+    if (!session) {
+        return ['Sem sessao Lab salva para compartilhar.'];
+    }
+
+    const reasons = Array.from(new Set([
+        ...session.problemReasonCodes,
+        ...(session.fidelity?.reasonCodes ?? []),
+        ...(session.index?.blockerReasons ?? []),
+    ]));
+    const labels = [
+        ...(session.repairState ? [
+            session.repairState.title,
+            session.repairState.whyItMatters,
+        ] : []),
+        ...reasons.map(formatReasonCode),
+    ];
+
+    return labels.length > 0
+        ? labels
+        : ['Fidelidade, indice, validacao e blockers seguem visiveis no relatorio.'];
+}
+
+function socialProLibraryContext(session: SprayLabSessionSnapshot | null): SprayLabSocialProLibraryContext {
+    if (!session) {
+        return {
+            validationState: 'locked',
+        };
+    }
+
+    const context = session.protocol.context;
+    const blockerKey = socialProBlockerKey(session);
+
+    return {
+        sprayLabLaneId: session.lane.id,
+        ...(context.weaponId ? { weaponId: context.weaponId } : {}),
+        ...(context.opticId ? { opticId: context.opticId } : {}),
+        ...(typeof context.distanceMeters === 'number' ? { distanceMeters: context.distanceMeters } : {}),
+        objectiveKey: session.lane.objective,
+        validationState: session.validationLink?.status ?? session.validationStatus,
+        ...(blockerKey ? { blockerKey } : {}),
+    };
+}
+
+function socialProSourceIds(session: SprayLabSessionSnapshot | null): SprayLabSocialProSourceIds {
+    if (!session) {
+        return {};
+    }
+
+    return {
+        sourceSprayLabSessionId: session.id,
+        ...(session.baseAnalysisId ? { sourceAnalysisSessionId: session.baseAnalysisId } : {}),
+        ...(session.validationLink?.id ? { sourceValidationLinkId: session.validationLink.id } : {}),
+    };
+}
+
+function socialProModel(input: {
+    readonly projection: SprayLabProjection;
+    readonly session: SprayLabSessionSnapshot | null;
+}): SprayLabSocialProModel {
+    const { projection, session } = input;
+    const canUseSocialPro = projection.canUseFullSessionRunner && Boolean(session);
+    const lockCopy = canUseSocialPro
+        ? null
+        : 'O Free mantem leitura publica, validacao basica e saves normais. O Pro organiza Lab, relatorio, biblioteca e contexto compativel.';
+    const context = socialProLibraryContext(session);
+    const sourceIds = socialProSourceIds(session);
+    const sessionLibraryAction: SprayLabSocialProLibraryActionModel = {
+        label: canUseSocialPro ? 'Salvar sessao na Biblioteca Pro' : 'Biblioteca Pro bloqueada',
+        body: 'Salva a sessao Lab privada por lane, fidelidade, validacao e blocker sem transformar execucao em prova tecnica.',
+        disabled: !canUseSocialPro || !session,
+        lockCopy,
+        item: {
+            kind: 'spray_lab_session',
+            id: session?.id ?? null,
+            context,
+        },
+    };
+    const validationLibraryAction: SprayLabSocialProLibraryActionModel | null = session?.validationLink?.id
+        ? {
+            label: canUseSocialPro ? 'Salvar validacao compativel' : 'Validacao Pro bloqueada',
+            body: 'Organiza a validacao como prova tecnica separada da execucao do Lab e da transferencia pratica.',
+            disabled: !canUseSocialPro,
+            lockCopy,
+            item: {
+                kind: 'compatible_validation',
+                id: session.validationLink.id,
+                context,
+            },
+        }
+        : null;
+
+    return {
+        title: 'Social Pro do Spray Lab',
+        body: 'Use a sessao como contexto para Relatorio Pro e Biblioteca Pro mantendo Lab como cockpit de execucao, nao como dashboard de time.',
+        evidenceHierarchy: [
+            'Execucao Spray Lab',
+            'Transferencia pratica',
+            'Validacao tecnica compativel',
+        ],
+        blockerLabels: socialProBlockerLabels(session),
+        reportAction: {
+            label: canUseSocialPro ? 'Gerar relatorio do Lab' : 'Relatorio Pro bloqueado',
+            body: 'Usa apenas IDs salvos da sessao, analise base e validacao; a acao recarrega ownership no servidor.',
+            disabled: !canUseSocialPro || !session,
+            lockCopy,
+            title: session ? `${session.lane.shortLabel} no Social Pro` : 'Spray Lab no Social Pro',
+            visibility: 'link_private',
+            sourceIds,
+        },
+        libraryActions: validationLibraryAction
+            ? [sessionLibraryAction, validationLibraryAction]
+            : [sessionLibraryAction],
+    };
+}
+
 export function buildSprayLabViewModel(input: {
     readonly projection: SprayLabProjection;
     readonly session?: SprayLabSessionSnapshot | null;
@@ -289,6 +489,10 @@ export function buildSprayLabViewModel(input: {
                 whyItMatters: 'A rota nao deve abrir sessao inexistente ou de outro usuario.',
                 ctas: ['Abra o Lab por uma analise salva ou continue uma sessao ativa.'],
             },
+            socialPro: socialProModel({
+                projection: input.projection,
+                session,
+            }),
         };
     }
 
@@ -307,6 +511,10 @@ export function buildSprayLabViewModel(input: {
             loopEvidenceLabel: 'aguardando protocolo',
             session: null,
             repair: null,
+            socialPro: socialProModel({
+                projection: input.projection,
+                session,
+            }),
         };
     }
 
@@ -367,5 +575,9 @@ export function buildSprayLabViewModel(input: {
                 ctas: session.repairState.ctas,
             }
             : null,
+        socialPro: socialProModel({
+            projection: input.projection,
+            session,
+        }),
     };
 }
