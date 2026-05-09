@@ -84,6 +84,10 @@ function createPrivateReportFixture(): Record<string, unknown> {
             numbness: 'private health note',
             routine: 'private physical preparation routine',
         },
+        futurePrivatePayload: {
+            privateScrimInvite: 'future private field that must not leak',
+            hiddenReaderSegment: 'future reader cohort',
+        },
     };
 }
 
@@ -117,6 +121,8 @@ describe('Social Pro public report redaction', () => {
         expect(serialized).not.toContain('raw trajectory payload');
         expect(serialized).not.toContain('wrist pain');
         expect(serialized).not.toContain('numbness');
+        expect(serialized).not.toContain('future private field');
+        expect(serialized).not.toContain('future reader cohort');
     });
 
     it('forces public controls to keep confidence, coverage, blockers, validation state, and no-overclaim disclaimers visible', async () => {
