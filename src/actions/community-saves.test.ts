@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { communityPostSaves } from '@/db/schema';
 
@@ -223,5 +225,13 @@ describe('setCommunityPostSave', () => {
         expect(mocks.deleteWhere).toHaveBeenCalledTimes(2);
         expect(mocks.insert).not.toHaveBeenCalled();
         expect(mocks.trackCommunityProgressionForAction).not.toHaveBeenCalled();
+    });
+
+    it('does not gate normal public community saves through Social Pro access', () => {
+        const source = readFileSync(join(process.cwd(), 'src/actions/community-saves.ts'), 'utf8');
+
+        expect(source).not.toContain('social-pro-access');
+        expect(source).not.toContain('resolveSocialProAccessForUser');
+        expect(source).not.toContain('community.pro_library');
     });
 });
