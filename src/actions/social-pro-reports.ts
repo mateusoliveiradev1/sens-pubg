@@ -2,7 +2,7 @@
 
 import { randomUUID } from 'node:crypto';
 
-import { and, eq } from 'drizzle-orm';
+import { and, eq, or } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 
 import { auth } from '@/auth';
@@ -51,6 +51,8 @@ export type SocialProReportActionResult =
         readonly success: false;
         readonly error: string;
     };
+
+export type SocialProPublicReportResult = SocialProReportActionResult;
 
 export interface CreateSocialProReportActionInput {
     readonly sourceAnalysisSessionId?: string;
@@ -125,6 +127,17 @@ interface StoredReportRow {
     readonly visibility: SocialProReportVisibility;
     readonly status: SocialProReportStatus;
     readonly publicSafeSnapshot: SocialProPublicReport;
+}
+
+interface PublicStoredReportRow extends StoredReportRow {
+    readonly publicSlug?: string | null;
+    readonly sourceAnalysisSessionId?: string | null;
+    readonly sourceHistorySessionId?: string | null;
+    readonly sourceProtocolRevisionId?: string | null;
+    readonly sourceSprayLabSessionId?: string | null;
+    readonly sourceTrainingProgramCycleId?: string | null;
+    readonly sourceValidationLinkId?: string | null;
+    readonly archivedAt?: Date | string | null;
 }
 
 interface StoredLinkRow {
@@ -496,7 +509,7 @@ function reportPayload(sourceIds: OwnedSourceEvidence['sourceIds'], visibleOptio
 
 function reportResult(row: StoredReportRow | Record<string, unknown>): Record<string, unknown> {
     const snapshot = isRecord(row.publicSafeSnapshot)
-        ? row.publicSafeSnapshot as unknown as SocialProPublicReport
+        ? redactSocialProReportForPublic(row.publicSafeSnapshot)
         : null;
     const visibility = parseVisibility(row.visibility);
     const status = parseStatus(row.status, snapshot?.status ?? 'published');
@@ -509,6 +522,141 @@ function reportResult(row: StoredReportRow | Record<string, unknown>): Record<st
         requiredHonestyFields: REQUIRED_HONESTY_FIELDS,
         discoverableInFeed: visibility === 'public' && status === 'published',
     };
+}
+
+function isReadablePublicReportStatus(status: unknown): boolean {
+    return status === 'published';
+}
+
+function sourceIdsFromReport(row: PublicStoredReportRow): OwnedSourceEvidence['sourceIds'] {
+    return {
+        ...(row.sourceAnalysisSessionId ? { analysisSessionId: row.sourceAnalysisSessionId } : {}),
+        ...(row.sourceHistorySessionId ? { historySessionId: row.sourceHistorySessionId } : {}),
+        ...(row.sourceProtocolRevisionId ? { protocolRevisionId: row.sourceProtocolRevisionId } : {}),
+        ...(row.sourceSprayLabSessionId ? { sprayLabSessionId: row.sourceSprayLabSessionId } : {}),
+        ...(row.sourceTrainingProgramCycleId ? { trainingProgramCycleId: row.sourceTrainingProgramCycleId } : {}),
+        ...(row.sourceValidationLinkId ? { validationLinkId: row.sourceValidationLinkId } : {}),
+    };
+}
+
+async function buildPublicReportResult(
+    row: PublicStoredReportRow,
+    accessMode: SocialProReportVisibility,
+): Promise<SocialProPublicReportResult> {
+    const policy = await resolveSocialProAccessForUser(row.ownerUserId, 'user');
+    const proBadgeVisible = hasSocialProCapability(policy, 'display_pro_badge');
+
+    return {
+        success: true,
+        report: {
+            ...reportResult(row),
+            accessMode,
+            sourceIds: sourceIdsFromReport(row),
+            discoverableInFeed: accessMode === 'public' && row.visibility === 'public' && row.status === 'published',
+            proBadge: {
+                visible: proBadgeVisible,
+                label: proBadgeVisible ? 'Pro' : null,
+                tooltip: 'Pro: acesso aos recursos premium do Sens PUBG',
+                meaning: 'active_pro_access',
+            },
+        },
+    };
+}
+
+function safeUnavailableReport(error: string): SocialProPublicReportResult {
+    return {
+        success: false,
+        error,
+    };
+}
+
+async function loadPublicReportBySlugOrId(token: string): Promise<PublicStoredReportRow | null> {
+    const [row] = await db
+        .select({
+            id: socialProReports.id,
+            ownerUserId: socialProReports.ownerUserId,
+            publicSlug: socialProReports.publicSlug,
+            visibility: socialProReports.visibility,
+            status: socialProReports.status,
+            publicSafeSnapshot: socialProReports.publicSafeSnapshot,
+            sourceAnalysisSessionId: socialProReports.sourceAnalysisSessionId,
+            sourceHistorySessionId: socialProReports.sourceHistorySessionId,
+            sourceProtocolRevisionId: socialProReports.sourceProtocolRevisionId,
+            sourceSprayLabSessionId: socialProReports.sourceSprayLabSessionId,
+            sourceTrainingProgramCycleId: socialProReports.sourceTrainingProgramCycleId,
+            sourceValidationLinkId: socialProReports.sourceValidationLinkId,
+            archivedAt: socialProReports.archivedAt,
+        })
+        .from(socialProReports)
+        .where(or(
+            eq(socialProReports.publicSlug, token),
+            eq(socialProReports.id, token),
+        ))
+        .limit(1) as PublicStoredReportRow[];
+
+    return row ?? null;
+}
+
+async function loadReportByPrivateToken(input: {
+    readonly token: string;
+    readonly now?: string | Date;
+}): Promise<SocialProPublicReportResult> {
+    const verifier = createSocialProLinkTokenVerifier(input.token);
+    const [link] = await db
+        .select({
+            id: socialProReportLinks.id,
+            reportId: socialProReportLinks.reportId,
+            status: socialProReportLinks.status,
+            tokenVerifierHash: socialProReportLinks.tokenVerifierHash,
+            expiresAt: socialProReportLinks.expiresAt,
+        })
+        .from(socialProReportLinks)
+        .where(eq(socialProReportLinks.tokenVerifierPrefix, verifier.tokenVerifierPrefix))
+        .limit(1) as StoredLinkRow[];
+
+    if (!link) {
+        return safeUnavailableReport('Relatorio nao encontrado.');
+    }
+
+    const verification = verifySocialProLinkToken({
+        token: input.token,
+        tokenVerifierHash: link.tokenVerifierHash,
+        status: link.status,
+        ...(link.expiresAt === undefined ? {} : { expiresAt: link.expiresAt }),
+        now: parseNow(input.now),
+    });
+
+    if (!verification.active) {
+        return safeUnavailableReport(verification.reason === 'expired'
+            ? 'Link privado expirado.'
+            : 'Link privado revogado ou invalido.');
+    }
+
+    const [report] = await db
+        .select({
+            id: socialProReports.id,
+            ownerUserId: socialProReports.ownerUserId,
+            publicSlug: socialProReports.publicSlug,
+            visibility: socialProReports.visibility,
+            status: socialProReports.status,
+            publicSafeSnapshot: socialProReports.publicSafeSnapshot,
+            sourceAnalysisSessionId: socialProReports.sourceAnalysisSessionId,
+            sourceHistorySessionId: socialProReports.sourceHistorySessionId,
+            sourceProtocolRevisionId: socialProReports.sourceProtocolRevisionId,
+            sourceSprayLabSessionId: socialProReports.sourceSprayLabSessionId,
+            sourceTrainingProgramCycleId: socialProReports.sourceTrainingProgramCycleId,
+            sourceValidationLinkId: socialProReports.sourceValidationLinkId,
+            archivedAt: socialProReports.archivedAt,
+        })
+        .from(socialProReports)
+        .where(eq(socialProReports.id, link.reportId))
+        .limit(1) as PublicStoredReportRow[];
+
+    if (!report || !isReadablePublicReportStatus(report.status)) {
+        return safeUnavailableReport('Relatorio nao esta disponivel.');
+    }
+
+    return buildPublicReportResult(report, 'link_private');
 }
 
 function auditResult(type: string, extra: Record<string, unknown> = {}): Record<string, unknown> {
@@ -1094,6 +1242,32 @@ export async function readSocialProReportByPrivateLinkAction(
         success: true,
         report: reportResult(report),
     };
+}
+
+export async function resolvePublicSocialProReportByToken(
+    token: string,
+    input: { readonly now?: string | Date } = {},
+): Promise<SocialProPublicReportResult> {
+    const normalizedToken = readString(token);
+
+    if (!normalizedToken) {
+        return safeUnavailableReport('Relatorio nao encontrado.');
+    }
+
+    const publicReport = await loadPublicReportBySlugOrId(normalizedToken);
+
+    if (publicReport) {
+        if (publicReport.visibility !== 'public' || !isReadablePublicReportStatus(publicReport.status)) {
+            return safeUnavailableReport('Relatorio nao esta disponivel.');
+        }
+
+        return buildPublicReportResult(publicReport, 'public');
+    }
+
+    return loadReportByPrivateToken({
+        token: normalizedToken,
+        ...(input.now ? { now: input.now } : {}),
+    });
 }
 
 export const createSocialProReport = createSocialProReportAction;
