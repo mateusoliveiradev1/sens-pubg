@@ -8,9 +8,25 @@ import {
     projectAnalysisForAccess,
 } from './premium-projection';
 import type { AnalysisResult, CoachPlan, CompleteTrainingProtocol, SprayMastery } from '@/types/engine';
-import type { ProductQuotaSummary } from '@/types/monetization';
+import type { ProductEntitlementKey, ProductQuotaSummary } from '@/types/monetization';
 
 const now = new Date('2026-05-06T12:00:00.000Z');
+
+const socialProActionFeatureKeys = [
+    'community.premium_report_share',
+    'community.pro_library',
+    'community.private_report_links',
+    'community.creator_analytics',
+    'community.advanced_context',
+    'community.pro_badge',
+] as const satisfies readonly ProductEntitlementKey[];
+
+function normalizeCopy(copy: string): string {
+    return copy
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+}
 
 function quota(overrides: Partial<ProductQuotaSummary> = {}): ProductQuotaSummary {
     return {
@@ -389,5 +405,66 @@ describe('premium projection policy', () => {
             .toContain('Pro adiciona reps');
         expect(weakEvidenceLock?.body).toContain('confianca, cobertura, bloqueios e estado inconclusivo');
         expect(weakEvidenceLock?.ctaHref).toBeNull();
+    });
+
+    it('adds contextual Social Pro locks without changing public community reading', () => {
+        const projection = createPremiumProjectionSummary(resolveProductAccess({ now }), analysisResult());
+        const socialLocks = socialProActionFeatureKeys.map((featureKey) => {
+            const lock = projection.locks.find((candidate) => candidate.featureKey === featureKey);
+
+            expect(lock, `${featureKey} should have a contextual Social Pro lock`).toBeDefined();
+            expect(lock?.reason).toBe('pro_feature');
+            expect(lock?.ctaHref).toBe('/pricing');
+
+            return lock;
+        });
+        const combinedCopy = normalizeCopy(socialLocks.map((lock) => lock?.body ?? '').join(' '));
+
+        expect(combinedCopy).toContain('free mantem a leitura publica');
+        expect(combinedCopy).toContain('relatorio');
+        expect(combinedCopy).toContain('biblioteca');
+        expect(combinedCopy).toContain('auditoria');
+        expect(combinedCopy).toContain('spray lab');
+        expect(combinedCopy).toContain('ciclo pro');
+        expect(combinedCopy).toContain('historico');
+        expect(combinedCopy).toContain('coach');
+        expect(combinedCopy).toContain('protocolos');
+        expect(combinedCopy).toContain('validacao compativel');
+        expect(combinedCopy).not.toContain('banner generico');
+        expect(combinedCopy).not.toContain('feed passivo');
+        expect(combinedCopy).not.toContain('melhora garantida');
+        expect(combinedCopy).not.toContain('sensibilidade perfeita');
+        expect(combinedCopy).not.toContain('api pubg exclusiva');
+
+        expect(projection.canGenerateSocialProReport).toBe(false);
+        expect(projection.canUseSocialProLibrary).toBe(false);
+        expect(projection.canManageSocialProPrivateLinks).toBe(false);
+        expect(projection.canReadCreatorAnalytics).toBe(false);
+        expect(projection.canUseAdvancedSocialContext).toBe(false);
+        expect(projection.canDisplaySocialProBadge).toBe(false);
+    });
+
+    it('marks Social Pro capabilities visible only for trusted Pro access', () => {
+        const projection = createPremiumProjectionSummary(resolveProductAccess({
+            now,
+            subscription: {
+                status: 'active',
+                tier: 'pro',
+                currentPeriodStart: new Date('2026-05-01T00:00:00.000Z'),
+                currentPeriodEnd: new Date('2026-06-01T00:00:00.000Z'),
+            },
+        }), analysisResult());
+
+        for (const featureKey of socialProActionFeatureKeys) {
+            expect(projection.visibleFeatureKeys).toContain(featureKey);
+            expect(projection.hiddenFeatureKeys).not.toContain(featureKey);
+            expect(projection.locks).not.toContainEqual(expect.objectContaining({ featureKey }));
+        }
+        expect(projection.canGenerateSocialProReport).toBe(true);
+        expect(projection.canUseSocialProLibrary).toBe(true);
+        expect(projection.canManageSocialProPrivateLinks).toBe(true);
+        expect(projection.canReadCreatorAnalytics).toBe(true);
+        expect(projection.canUseAdvancedSocialContext).toBe(true);
+        expect(projection.canDisplaySocialProBadge).toBe(true);
     });
 });
