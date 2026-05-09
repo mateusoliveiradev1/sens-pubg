@@ -10,6 +10,7 @@ import {
 import { Header } from '@/ui/components/header';
 
 import styles from '../../community-hub.module.css';
+import { ProReportDetail, type SocialProReportBadgeViewModel } from './pro-report-detail';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +36,26 @@ function readSourceIds(value: unknown): SocialProReportSourceIds {
         ...(typeof value.sprayLabSessionId === 'string' ? { sprayLabSessionId: value.sprayLabSessionId } : {}),
         ...(typeof value.trainingProgramCycleId === 'string' ? { trainingProgramCycleId: value.trainingProgramCycleId } : {}),
         ...(typeof value.validationLinkId === 'string' ? { validationLinkId: value.validationLinkId } : {}),
+    };
+}
+
+function readProBadge(value: unknown): SocialProReportBadgeViewModel {
+    if (!isRecord(value)) {
+        return {
+            visible: false,
+            label: null,
+            tooltip: 'Pro: acesso aos recursos premium do Sens PUBG',
+            meaning: 'active_pro_access',
+        };
+    }
+
+    return {
+        visible: value.visible === true,
+        label: typeof value.label === 'string' ? value.label : null,
+        tooltip: typeof value.tooltip === 'string'
+            ? value.tooltip
+            : 'Pro: acesso aos recursos premium do Sens PUBG',
+        meaning: 'active_pro_access',
     };
 }
 
@@ -83,42 +104,12 @@ export default async function SocialProReportPage({
         <>
             <Header />
             <main className="page">
-                <article
-                    className={`container ${styles.postDetailStack}`}
-                    data-social-pro-report-state={model.visibility}
-                >
-                    <section className={`glass-card ${styles.postHeroBoard}`}>
-                        <div className={styles.postHeroCopy}>
-                            <div className={styles.profileSlugRail}>
-                                <span className={styles.boardEyebrow}>{model.caseLabel}</span>
-                                <span className={styles.loadoutChipMuted}>{model.status}</span>
-                            </div>
-
-                            <h1 className={styles.profileTitle}>{model.title}</h1>
-                            <p className={styles.profileLead}>{model.publicSummary.whatChanged}</p>
-                            <p className={styles.postHeroSummary}>{model.publicSummary.evidenceSupport}</p>
-                            <p className={styles.profileStatusNote}>{model.publicSummary.nextAction}</p>
-                        </div>
-                    </section>
-
-                    <section className={`glass-card ${styles.postNarrativePanel}`}>
-                        <div className={styles.sectionHeader}>
-                            <div>
-                                <span className={styles.sectionKicker}>Honestidade obrigatoria</span>
-                                <h2 className={styles.sectionTitle}>Confianca, cobertura e limites</h2>
-                            </div>
-                        </div>
-
-                        <div className={styles.postSnapshotGrid}>
-                            {model.requiredHonesty.map((row) => (
-                                <div className={styles.postSnapshotItem} key={row.key}>
-                                    <span className={styles.profileProofLabel}>{row.label}</span>
-                                    <strong className={styles.postSnapshotValue}>{row.value}</strong>
-                                </div>
-                            ))}
-                        </div>
-                    </section>
-                </article>
+                <ProReportDetail
+                    model={{
+                        ...model,
+                        proBadge: readProBadge(reportPayload.proBadge),
+                    }}
+                />
             </main>
         </>
     );
