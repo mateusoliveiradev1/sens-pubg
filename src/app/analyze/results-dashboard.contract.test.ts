@@ -130,6 +130,25 @@ describe('results dashboard visualization contract', () => {
         expect(source).not.toMatch(/localStorage|clientPro|isPro/);
     });
 
+    it('renders Social Pro report and library handoffs through server-owned actions and source IDs', () => {
+        const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
+        const viewModelSource = readFileSync(new URL('./results-dashboard-view-model.ts', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/createSocialProReportAction/);
+        expect(source).toMatch(/saveSocialProLibraryItem/);
+        expect(source).toMatch(/buildSocialProResultActions/);
+        expect(source).toMatch(/SocialProResultActionsPanel/);
+        expect(source).toMatch(/sourceAnalysisSessionId: activeSession\.historySessionId!/);
+        expect(source).toMatch(/created\.report\?\.id/);
+        expect(source).toMatch(/kind: 'report'/);
+        expect(source).toMatch(/O servidor recarrega propriedade e evidencia antes de gerar relatorio ou salvar biblioteca/);
+        expect(viewModelSource).toMatch(/serverActionName: 'createSocialProReportAction'/);
+        expect(viewModelSource).toMatch(/serverActionName: 'saveSocialProLibraryItem'/);
+        expect(viewModelSource).toMatch(/community\.premium_report_share/);
+        expect(viewModelSource).toMatch(/community\.pro_library/);
+        expect(source).not.toMatch(/localStorage|clientPro|isPro|trustedPro|paymentState/);
+    });
+
     it('shows the next block, evidence badges, mastery pillars, and spray proof in the report', () => {
         const source = readFileSync(new URL('./results-dashboard.tsx', import.meta.url), 'utf8');
         const sprayPanelSource = readFileSync(new URL('./spray-trail-panel.tsx', import.meta.url), 'utf8');

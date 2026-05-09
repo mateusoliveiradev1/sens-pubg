@@ -10,6 +10,7 @@ import {
     buildPrecisionTrendBlockModel,
     buildResultMetricCards,
     buildResultVerdictModel,
+    buildSocialProResultActions,
     buildTrainingProgramEntryModel,
     buildTrainingProgramHref,
     groupCoachFeedbackByDiagnosis,
@@ -892,6 +893,174 @@ describe('results dashboard view model', () => {
             },
         });
         expect(`${model.body} ${model.proValueCopy}`.toLowerCase()).not.toMatch(/garant|perfeit|rank/);
+    });
+
+    it('builds Social Pro report and library actions from saved server-owned evidence only', () => {
+        const model = buildSocialProResultActions(createAnalysisResultForCoachLoop({
+            historySessionId: 'session-strong',
+            mastery: createMastery(),
+            coachPlan: createCoachPlan({
+                completeProtocol: createCompleteProtocol(),
+            }),
+            premiumProjection: {
+                tier: 'pro',
+                accessState: 'pro_active',
+                billingStatus: 'active',
+                quota: {
+                    tier: 'pro',
+                    limit: 100,
+                    used: 4,
+                    remaining: 96,
+                    state: 'available',
+                    periodStart: new Date('2026-05-01T00:00:00.000Z'),
+                    periodEnd: new Date('2026-06-01T00:00:00.000Z'),
+                    warningAt: 80,
+                    reason: null,
+                },
+                locks: [],
+                visibleFeatureKeys: ['community.premium_report_share', 'community.pro_library'],
+                hiddenFeatureKeys: [],
+                canSeeFullCoachPlan: true,
+                canSeeFullHistory: true,
+                canSeeAdvancedMetrics: true,
+                canCaptureCoachOutcome: true,
+                canGenerateSocialProReport: true,
+                canUseSocialProLibrary: true,
+                canManageSocialProPrivateLinks: true,
+                canReadCreatorAnalytics: true,
+                canUseAdvancedSocialContext: true,
+                canDisplaySocialProBadge: true,
+                canControlSocialProBadge: true,
+            },
+        }));
+
+        expect(model.report).toMatchObject({
+            state: 'ready',
+            serverActionName: 'createSocialProReportAction',
+            disabled: false,
+            sourceIds: {
+                sourceAnalysisSessionId: 'session-strong',
+            },
+        });
+        expect(model.library).toMatchObject({
+            state: 'ready',
+            serverActionName: 'saveSocialProLibraryItem',
+            disabled: false,
+            sourceIds: {
+                sourceAnalysisSessionId: 'session-strong',
+            },
+        });
+        expect(model.visibleTruthCopy).toContain('confianca 86%');
+        expect(JSON.stringify(model)).not.toMatch(/isPro|clientPro|payment|stripe/i);
+    });
+
+    it('locks Free Social Pro depth without hiding current analysis truth', () => {
+        const model = buildSocialProResultActions(createAnalysisResultForCoachLoop({
+            historySessionId: 'session-free',
+            mastery: createMastery(),
+            premiumProjection: {
+                tier: 'free',
+                accessState: 'free',
+                billingStatus: 'none',
+                quota: {
+                    tier: 'free',
+                    limit: 3,
+                    used: 1,
+                    remaining: 2,
+                    state: 'available',
+                    periodStart: new Date('2026-05-01T00:00:00.000Z'),
+                    periodEnd: new Date('2026-06-01T00:00:00.000Z'),
+                    warningAt: 2,
+                    reason: null,
+                },
+                visibleFeatureKeys: ['coach.summary'],
+                hiddenFeatureKeys: ['community.premium_report_share', 'community.pro_library'],
+                canSeeFullCoachPlan: false,
+                canSeeFullHistory: false,
+                canSeeAdvancedMetrics: false,
+                canCaptureCoachOutcome: false,
+                canGenerateSocialProReport: false,
+                canUseSocialProLibrary: false,
+                canManageSocialProPrivateLinks: false,
+                canReadCreatorAnalytics: false,
+                canUseAdvancedSocialContext: false,
+                canDisplaySocialProBadge: false,
+                canControlSocialProBadge: false,
+                locks: [{
+                    featureKey: 'community.premium_report_share',
+                    reason: 'pro_feature',
+                    title: 'Relatorio premium compartilhavel',
+                    body: 'Visivel agora: Free mantem a leitura publica, confianca, cobertura, bloqueios e disclaimers do relatorio. Com Pro: relatorio auditavel.',
+                    ctaHref: '/pricing',
+                }, {
+                    featureKey: 'community.pro_library',
+                    reason: 'pro_feature',
+                    title: 'Biblioteca Pro social',
+                    body: 'Visivel agora: Free mantem leitura publica, saves normais e contexto essencial. Com Pro: biblioteca privada por contexto.',
+                    ctaHref: '/pricing',
+                }],
+            },
+        }));
+
+        expect(model.report).toMatchObject({
+            state: 'free_locked',
+            disabled: true,
+            lockCtaLabel: 'Ver Pro',
+            lockCtaHref: '/pricing',
+        });
+        expect(model.library).toMatchObject({
+            state: 'free_locked',
+            disabled: true,
+            lockCtaLabel: 'Ver Pro',
+            lockCtaHref: '/pricing',
+        });
+        expect(model.freePreviewCopy).toContain('Free mantem');
+        expect(model.visibleTruthCopy).toContain('cobertura 86%');
+    });
+
+    it('blocks weak or unsaved Social Pro handoffs until users save, repair, or validate first', () => {
+        const unsaved = buildSocialProResultActions(createAnalysisResultForCoachLoop({
+            mastery: createMastery(),
+            coachPlan: createCoachPlan({
+                completeProtocol: createCompleteProtocol(),
+            }),
+        }));
+        const weak = buildSocialProResultActions(createAnalysisResultForCoachLoop({
+            historySessionId: 'session-weak',
+            mastery: createMastery({
+                actionState: 'inconclusive',
+                actionLabel: 'Incerto',
+                evidence: {
+                    ...createMastery().evidence,
+                    confidence: 0.52,
+                    coverage: 0.5,
+                    usableForAnalysis: false,
+                },
+                blockedRecommendations: ['Cobertura abaixo de 60% bloqueia relatorio publico forte.'],
+            }),
+            videoQualityReport: {
+                overallScore: 45,
+                usableForAnalysis: false,
+                blockingReasons: ['low_confidence'],
+            } as AnalysisResult['videoQualityReport'],
+            analysisDecision: resolveAnalysisDecision({
+                confidence: 0.52,
+                coverage: 0.5,
+                blockerReasons: ['low_confidence', 'low_coverage'],
+            }),
+        }));
+
+        expect(unsaved.report).toMatchObject({
+            state: 'unsaved',
+            disabled: true,
+            sourceIds: {},
+        });
+        expect(weak.report).toMatchObject({
+            state: 'blocked',
+            disabled: true,
+        });
+        expect(weak.report.blockerReasons.join(' ')).toMatch(/low_confidence|cobertura|repair|valid/i);
+        expect(weak.library.disabled).toBe(true);
     });
 
     it('routes adaptive coach conflicts to compatible validation instead of stronger action', () => {
