@@ -438,7 +438,7 @@ export function reduceTrainingProgramEvent(
         state: toState,
         updatedAt: event.occurredAt,
         weeks,
-        checkpoints: attachCheckpointId(cycle.checkpoints, event.checkpointId),
+        checkpoints: attachCheckpointId(cycle.checkpoints),
         transitionEvents: [...cycle.transitionEvents, recordedEvent],
         currentMissionId,
         reasonCodes,
@@ -494,7 +494,6 @@ function resolveNextMissionId(
 
 function attachCheckpointId(
     checkpoints: readonly TrainingProgramCheckpoint[],
-    _checkpointId: string | undefined,
 ): readonly TrainingProgramCheckpoint[] {
     return checkpoints;
 }

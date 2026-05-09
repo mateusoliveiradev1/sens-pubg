@@ -44,7 +44,6 @@ import type {
 } from '@/types/engine';
 import type {
     TrainingProgramCheckpoint,
-    TrainingProgramCheckpointLayer,
     TrainingProgramCycleSnapshot,
     TrainingProgramEventType,
     TrainingProgramKind,
@@ -206,17 +205,6 @@ function trainingProgramMissionStatusLabel(status: TrainingProgramMissionStatus)
             return 'bloqueada por evidencia';
         case 'skipped_reentered':
             return 'reencaixada';
-    }
-}
-
-function trainingProgramCheckpointLayerLabel(layer: TrainingProgramCheckpointLayer): string {
-    switch (layer) {
-        case 'weekly_operational':
-            return 'Semanal operacional';
-        case 'technical_validated':
-            return 'Tecnico validado';
-        case 'monthly_program':
-            return 'Mensal do ciclo';
     }
 }
 

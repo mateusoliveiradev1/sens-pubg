@@ -27,7 +27,6 @@ import {
     trainingProgramMissions,
     trainingProgramWeeks,
     type TrainingProgramCycleRow,
-    type TrainingProgramMissionRow,
 } from '@/db/schema';
 import type {
     AnalysisResult,

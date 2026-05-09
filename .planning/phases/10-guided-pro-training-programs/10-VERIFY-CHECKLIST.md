@@ -1,8 +1,8 @@
 # Phase 10 Guided Pro Training Programs - No False Done Checklist
 
-Final status: Partially delivered.
+Final status: Delivered.
 
-No False Done rule: Phase 10 can only be called Delivered when every required evidence row below is PASS, all final commands pass, target DB migration evidence is recorded, and browser evidence covers desktop/mobile for `/ciclo-pro`, dashboard, history audit, Spray Lab handoff, Analyze validation, and key recovery states. This checklist starts honestly as Partially delivered while final browser and command rows are still being recorded.
+No False Done rule: Phase 10 can only be called Delivered when every required evidence row below is PASS, all final commands pass, target DB migration evidence is recorded, and browser evidence covers desktop/mobile for `/ciclo-pro`, dashboard, history audit, Spray Lab handoff, Analyze validation, and key recovery states. This checklist records the completed Delivered evidence.
 
 | Row ID | Evidence | Command/Test | Result | Artifact path | Remaining gap | Status |
 |---|---|---|---|---|---|---|
@@ -21,15 +21,16 @@ No False Done rule: Phase 10 can only be called Delivered when every required ev
 | `recovery.reentry` | Repair, consolidation, missed-day reentry, stale context, line restart, fatigue, discomfort stop, confusion, and repeated failure use non-punitive copy and safe state transitions. | `npx vitest run src/core/training-programs.test.ts src/actions/training-programs.test.ts src/core/coach-golden-scenarios.test.ts` | PASS in 10-01/10-02/10-05 summaries; 10-06 coach goldens explicitly cover fatigue reduced dose, discomfort safety pause, and confusion simplified. | `src/core/training-programs.ts`; `src/actions/training-programs.ts`; `src/core/coach-golden-scenarios.test.ts` | None | PASS |
 | `copy_safety.programs` | Program copy scans route, projection, dashboard, history, result, action, and core files for guarantees, official affiliation, global grades, course/XP language, TDM-as-proof, and unqualified progress validation. | `npx vitest run src/core/copy-safety.test.ts src/core/coach-golden-scenarios.test.ts` | PASS in 10-05 summary; 10-06 focused copy/golden run PASS with 28 tests. | `src/core/copy-safety.test.ts`; `src/core/coach-golden-scenarios.test.ts` | None | PASS |
 | `playwright.program_matrix` | Browser evidence covers Free, Pro, no analysis, active, repair, consolidation, validation pending, progress, no clear change, regression, fatigue, discomfort, variable changed, stale, missed-day, line restart, completed, locked, dashboard, history, history detail, Spray Lab handoff, Analyze validation, and mobile/desktop surfaces. | `npx playwright test e2e/phase10.programs.spec.ts` | PASS, 4 tests across mobile and desktop. | `e2e/phase10.programs.spec.ts`; `test-results/phase10-*.png`; `docs/phase10-guided-programs-verification.md` | None | PASS |
-| `migration.target_db` | Migration `0013_guided_pro_training_programs.sql` must be applied and verified against the configured target database. | `npx drizzle-kit push`; catalog verification | PASS in 10-02 summary; final checklist re-verification pending Task 4. | `drizzle/0013_guided_pro_training_programs.sql`; `10-02-SUMMARY.md` | Final command evidence still pending. | PENDING |
-| `commands.typecheck` | Final strict TypeScript gate for Phase 10. | `npm run typecheck` | Pending Task 4. | This checklist | Final command evidence pending. | PENDING |
-| `commands.vitest` | Final full Vitest gate for Phase 10. | `npx vitest run` | Pending Task 4. | This checklist | Final command evidence pending. | PENDING |
-| `commands.benchmark_gate` | Final benchmark gate for Phase 10. | `npm run benchmark:gate` | Pending Task 4. | This checklist | Final command evidence pending. | PENDING |
-| `commands.verify_phase10` | Dedicated Phase 10 evidence verifier. | `npm run verify:phase10:programs`; `npx vitest run src/ci/phase10-programs-evidence.test.ts` | PASS, verifier reports valid Partially delivered checklist with 21 rows; focused CI test PASS, 6 tests. | `scripts/verify-phase10-programs.ts`; `src/ci/phase10-programs-evidence.test.ts` | None | PASS |
-| `commands.build` | Production build after Phase 10 evidence changes. | `npm run build` | Pending Task 4. | This checklist | Final command evidence pending. | PENDING |
+| `migration.target_db` | Migration `0013_guided_pro_training_programs.sql` must be applied and verified against the configured target database. | `npx drizzle-kit push`; direct catalog verification | PASS. Drizzle reported changes applied; catalog verification found all five training program tables with indexes and foreign keys. | `drizzle/0013_guided_pro_training_programs.sql`; `10-02-SUMMARY.md`; this checklist | None | PASS |
+| `commands.typecheck` | Final strict TypeScript gate for Phase 10. | `npm run typecheck` | PASS. | This checklist | None | PASS |
+| `commands.vitest` | Final full Vitest gate for Phase 10. | `npx vitest run` | PASS. | This checklist | None | PASS |
+| `commands.benchmark_gate` | Final benchmark gate for Phase 10. | `npm run benchmark:gate` | PASS. Synthetic and captured benchmark gates passed; captured coverage starter gate PASS. | This checklist | None | PASS |
+| `commands.verify_phase10` | Dedicated Phase 10 evidence verifier. | `npm run verify:phase10:programs`; `npx vitest run src/ci/phase10-programs-evidence.test.ts` | PASS. Focused CI test PASS, 6 tests; final verifier reports Delivered with 21 rows. | `scripts/verify-phase10-programs.ts`; `src/ci/phase10-programs-evidence.test.ts` | None | PASS |
+| `commands.build` | Production build after Phase 10 evidence changes. | `npm run build` | PASS. Next.js generated 48 static pages and compiled `/ciclo-pro`, dashboard, history, Analyze, and Spray Lab routes. | This checklist | None | PASS |
 
 ## Final Status Logic
 
 - Delivered requires every required row to be PASS, plus final typecheck, full Vitest, benchmark gate, verifier, production build, browser evidence, and target DB migration evidence.
+- This checklist satisfies Delivered: every required row is PASS, target DB migration evidence is recorded, and desktop/mobile browser evidence covers the program route, dashboard, history, Spray Lab handoff, Analyze validation, and recovery states.
 - Partially delivered is the honest status while rows are PENDING or PARTIAL with concrete remaining gaps.
 - Blocked is required if any row is BLOCKED or MISSING, required rows are absent, statuses are invalid, or partial/pending/blocking rows hide their remaining gaps.

@@ -394,7 +394,7 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **Goal:** Organize the Pro loop into weekly and monthly adaptive training programs.
 
-**Status:** In progress as of 2026-05-08. Plans 10-01 and 10-02 are complete; 2/6 plans complete.
+**Status:** Delivered as of 2026-05-08. All six plans are complete with the Ciclo Pro/Ciclo de Reparo contract, persistence/actions, Free/Pro projection, dedicated `/ciclo-pro` route, dashboard cockpit, result handoffs, history audit, bounded coach continuity, copy/golden safety, Playwright state matrix, target DB migration evidence, and final gates passing: focused Phase 10 tests, `npm run typecheck`, `npx vitest run`, `npm run benchmark:gate`, `npm run verify:phase10:programs`, `npm run build`, and `npx playwright test e2e/phase10.programs.spec.ts`.
 
 **Requirements:** PREC-03, COACH-01, COACH-02, COACH-03, COACH-04, COACH-05, MON-01, MON-02
 
@@ -411,20 +411,20 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 **Plans:**
 
 **Wave 1**
-- `10-01` - Program Contracts, Missions, Checkpoints, And Recovery Engine. Defines Ciclo Pro/Ciclo de Reparo truth contracts, eligibility, mission anatomy, checkpoint layers, adaptation reasons, missed-day reentry, and recovery state machine.
+- `10-01` - Program Contracts, Missions, Checkpoints, And Recovery Engine. Complete as of 2026-05-08 with Ciclo Pro/Ciclo de Reparo truth contracts, eligibility, mission anatomy, checkpoint layers, adaptation reasons, missed-day reentry, and recovery state machine.
 
 **Wave 2 *(blocked on Wave 1 completion)***
-- `10-02` - Program Persistence, Actions, Entitlements, And Free/Pro Projection. Adds program cycle/week/mission/checkpoint/event storage, authenticated lifecycle actions, Pro program entitlements, and honest Free/Pro projection.
+- `10-02` - Program Persistence, Actions, Entitlements, And Free/Pro Projection. Complete as of 2026-05-08 with program cycle/week/mission/checkpoint/event storage, authenticated lifecycle actions, Pro program entitlements, honest Free/Pro projection, and target DB migration application.
 
 **Wave 3 *(blocked on Wave 2 completion)***
-- `10-03` - Dedicated Ciclo Pro Program Route. Builds `/ciclo-pro` as the full 30-day map with four adaptive weeks, missions, checkpoints, active line, repair/consolidation, and useful Free/Pro states.
-- `10-04` - Dashboard Cockpit, Result Entry, And Handoffs. Integrates Ciclo Pro into dashboard now-state, post-analysis entry, Spray Lab execution links, Analyze validation links, and evidence-preserving reentry copy.
+- `10-03` - Dedicated Ciclo Pro Program Route. Complete as of 2026-05-08 with `/ciclo-pro` as the full 30-day map with four adaptive weeks, missions, checkpoints, active line, repair/consolidation, and useful Free/Pro states.
+- `10-04` - Dashboard Cockpit, Result Entry, And Handoffs. Complete as of 2026-05-08 with Ciclo Pro dashboard now-state, post-analysis entry, Spray Lab execution links, Analyze validation links, and evidence-preserving reentry copy.
 
 **Wave 4 *(blocked on Wave 3 completion)***
-- `10-05` - History Audit, Coach Continuity, And Copy Safety. Adds history list/detail program audit, bounded coach handoff, goldens, and copy-safety coverage for overclaim/course-language risks.
+- `10-05` - History Audit, Coach Continuity, And Copy Safety. Complete as of 2026-05-08 with history list/detail program audit, bounded coach handoff, goldens, and copy-safety coverage for overclaim/course-language risks.
 
 **Wave 5 *(blocked on all prior plans)***
-- `10-06` - Program Verification And No False Done Evidence. Adds `verify:phase10:programs`, Playwright state matrix, final docs/checklist, migration evidence, and final command recording.
+- `10-06` - Program Verification And No False Done Evidence. Complete as of 2026-05-08 with `verify:phase10:programs`, Playwright state matrix, final docs/checklist, migration evidence, and final command recording.
 
 **Cross-cutting constraints:**
 - Preserve browser-first analysis; Ciclo Pro organizes evidence and action, but Analyze remains clip ingestion/validation.

@@ -30,11 +30,11 @@ Program evidence is intentionally bounded:
 Required final gates:
 
 ```bash
-npm run typecheck
-npx vitest run
-npm run benchmark:gate
-npm run verify:phase10:programs
-npm run build
+npm run typecheck # PASS
+npx vitest run # PASS
+npm run benchmark:gate # PASS
+npm run verify:phase10:programs # PASS
+npm run build # PASS
 ```
 
 Focused Phase 10 checks:
@@ -53,6 +53,19 @@ Browser evidence command:
 
 ```bash
 npx playwright test e2e/phase10.programs.spec.ts # PASS, 4 tests
+```
+
+Focused Phase 10 matrix:
+
+```bash
+npx vitest run src/core/training-programs.test.ts src/actions/training-programs.test.ts src/lib/training-program-projection.test.ts src/app/ciclo-pro/page.contract.test.ts src/app/ciclo-pro/ciclo-pro-view-model.test.ts src/actions/dashboard.test.ts src/app/dashboard/page.contract.test.ts src/actions/history.test.ts src/app/history/page.contract.test.ts src/app/history/[id]/page.contract.test.ts src/core/training-program-coach-handoff.test.ts src/core/coach-golden-scenarios.test.ts src/core/copy-safety.test.ts src/ci/phase10-programs-evidence.test.ts # PASS, 136 tests
+```
+
+Target DB evidence:
+
+```bash
+npx drizzle-kit push # PASS
+direct catalog verification # PASS, 5/5 tables present with indexes and foreign keys
 ```
 
 Browser evidence covers desktop and mobile:
@@ -113,4 +126,4 @@ Screenshot artifacts:
 
 The checklist lives at `.planning/phases/10-guided-pro-training-programs/10-VERIFY-CHECKLIST.md`.
 
-Current status is **Partially delivered** as of 2026-05-08 while final command evidence and target database re-verification are still being recorded.
+Current status is **Delivered** as of 2026-05-08 America/Sao_Paulo. All required evidence rows are PASS, final commands passed, Playwright browser evidence passed, and migration `0013_guided_pro_training_programs.sql` was applied and verified against the configured target database.
