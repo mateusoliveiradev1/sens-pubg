@@ -142,6 +142,63 @@ describe('Ciclo Pro view model', () => {
         ]));
     });
 
+    it('builds Social Pro handoffs from program source IDs without flattening evidence hierarchy', () => {
+        const base = programCycle();
+        const cycle: TrainingProgramCycleSnapshot = {
+            ...base,
+            state: 'validacao_pendente',
+            reasonCodes: ['compatible_proof_missing'],
+            evidenceSummary: {
+                ...base.evidenceSummary,
+                blockers: ['compatible_proof_missing'],
+                validationStatus: 'not_requested',
+            },
+            weeks: base.weeks.map((week, index) => index === 0
+                ? {
+                    ...week,
+                    state: 'validacao_pendente',
+                    reasonCodes: ['compatible_proof_missing'],
+                }
+                : week),
+        };
+        const model = buildCicloProViewModel({
+            projection: projectTrainingProgramForAccess({
+                access: proAccess(),
+                cycle,
+            }),
+        });
+
+        expect(model.socialPro.title).toBe('Social Pro do Ciclo Pro');
+        expect(model.socialPro.evidenceHierarchy).toEqual([
+            'Execucao do Ciclo Pro',
+            'Transferencia pratica',
+            'Validacao tecnica compativel',
+        ]);
+        expect(model.socialPro.blockerLabels.join(' ')).toMatch(/validacao|prova/i);
+        expect(model.socialPro.reportAction).toMatchObject({
+            disabled: false,
+            sourceIds: {
+                sourceTrainingProgramCycleId: cycle.id,
+                sourceAnalysisSessionId: cycle.evidenceSummary.savedAnalysisId,
+            },
+        });
+        expect(model.socialPro.reportAction.sourceIds).not.toHaveProperty('cycleSnapshot');
+        expect(model.socialPro.libraryAction).toMatchObject({
+            disabled: false,
+            item: {
+                kind: 'program_mission',
+                id: cycle.currentMissionId,
+                context: {
+                    programCycleId: cycle.id,
+                    activeLineId: cycle.activeLine?.lineId,
+                    validationState: 'not_requested',
+                    blockerKey: 'compatible_proof_missing',
+                },
+            },
+        });
+        expect(JSON.stringify(model.socialPro).toLowerCase()).not.toMatch(/melhora garantida|rank garantido|sensibilidade perfeita|ranking|payout|coach review/);
+    });
+
     it.each([
         ['reparando', 'Reparo ativo'],
         ['consolidando', 'Consolidacao'],

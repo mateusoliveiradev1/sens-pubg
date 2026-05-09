@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { resolveAnalysisDecision } from '@/core/analysis-decision';
@@ -504,5 +507,24 @@ describe('training program actions', () => {
                 }),
             },
         }));
+    });
+
+    it('keeps Ciclo Pro Social Pro handoffs source-ID based and delegated to gated server actions', () => {
+        const pageSource = readFileSync(join(process.cwd(), 'src/app/ciclo-pro/page.tsx'), 'utf8');
+        const viewModelSource = readFileSync(join(process.cwd(), 'src/app/ciclo-pro/ciclo-pro-view-model.ts'), 'utf8');
+        const reportActionSource = readFileSync(join(process.cwd(), 'src/actions/social-pro-reports.ts'), 'utf8');
+        const libraryActionSource = readFileSync(join(process.cwd(), 'src/actions/social-pro-library.ts'), 'utf8');
+
+        expect(pageSource).toContain('createSocialProReportAction');
+        expect(pageSource).toContain('saveSocialProLibraryItem');
+        expect(pageSource).toContain('sourceTrainingProgramCycleId');
+        expect(pageSource).toContain('program_mission');
+        expect(viewModelSource).toContain('sourceTrainingProgramCycleId');
+        expect(viewModelSource).toContain('Social Pro do Ciclo Pro');
+        expect(viewModelSource).not.toContain('cycleSnapshot');
+        expect(reportActionSource).toContain("requireSocialProCapability('create_report')");
+        expect(reportActionSource).toContain('eq(trainingProgramCycles.userId, userId)');
+        expect(libraryActionSource).toContain("kind === 'program_mission'");
+        expect(libraryActionSource).toContain('eq(trainingProgramMissions.userId, ownerUserId)');
     });
 });
