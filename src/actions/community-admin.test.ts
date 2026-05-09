@@ -7,6 +7,9 @@ import {
     communityPosts,
     communityProfiles,
     communityReports,
+    socialProReportAuditEvents,
+    socialProReportLinks,
+    socialProReports,
 } from '@/db/schema';
 
 const mocks = vi.hoisted(() => {
@@ -21,6 +24,7 @@ const mocks = vi.hoisted(() => {
     const insert = vi.fn();
     const moderationActionValues = vi.fn();
     const auditLogValues = vi.fn();
+    const socialProAuditValues = vi.fn();
 
     const update = vi.fn();
     const postSet = vi.fn();
@@ -31,6 +35,10 @@ const mocks = vi.hoisted(() => {
     const profileWhere = vi.fn();
     const reportSet = vi.fn();
     const reportWhere = vi.fn();
+    const socialProReportSet = vi.fn();
+    const socialProReportWhere = vi.fn();
+    const socialProReportLinkSet = vi.fn();
+    const socialProReportLinkWhere = vi.fn();
 
     const revalidatePath = vi.fn();
 
@@ -45,6 +53,7 @@ const mocks = vi.hoisted(() => {
         insert,
         moderationActionValues,
         auditLogValues,
+        socialProAuditValues,
         update,
         postSet,
         postWhere,
@@ -54,6 +63,10 @@ const mocks = vi.hoisted(() => {
         profileWhere,
         reportSet,
         reportWhere,
+        socialProReportSet,
+        socialProReportWhere,
+        socialProReportLinkSet,
+        socialProReportLinkWhere,
         revalidatePath,
     };
 });
@@ -121,6 +134,12 @@ describe('community admin moderation queue', () => {
                 };
             }
 
+            if (table === socialProReportAuditEvents) {
+                return {
+                    values: mocks.socialProAuditValues,
+                };
+            }
+
             throw new Error(`Unexpected insert table: ${String(table)}`);
         });
 
@@ -149,6 +168,18 @@ describe('community admin moderation queue', () => {
                 };
             }
 
+            if (table === socialProReports) {
+                return {
+                    set: mocks.socialProReportSet,
+                };
+            }
+
+            if (table === socialProReportLinks) {
+                return {
+                    set: mocks.socialProReportLinkSet,
+                };
+            }
+
             throw new Error(`Unexpected update table: ${String(table)}`);
         });
 
@@ -164,13 +195,22 @@ describe('community admin moderation queue', () => {
         mocks.reportSet.mockReturnValue({
             where: mocks.reportWhere,
         });
+        mocks.socialProReportSet.mockReturnValue({
+            where: mocks.socialProReportWhere,
+        });
+        mocks.socialProReportLinkSet.mockReturnValue({
+            where: mocks.socialProReportLinkWhere,
+        });
 
         mocks.postWhere.mockResolvedValue(undefined);
         mocks.commentWhere.mockResolvedValue(undefined);
         mocks.profileWhere.mockResolvedValue(undefined);
         mocks.reportWhere.mockResolvedValue(undefined);
+        mocks.socialProReportWhere.mockResolvedValue(undefined);
+        mocks.socialProReportLinkWhere.mockResolvedValue(undefined);
         mocks.moderationActionValues.mockResolvedValue(undefined);
         mocks.auditLogValues.mockResolvedValue(undefined);
+        mocks.socialProAuditValues.mockResolvedValue(undefined);
     });
 
     it('requires authenticated admin before listing open community reports', async () => {
@@ -395,5 +435,99 @@ describe('community admin moderation queue', () => {
             },
         });
         expect(mocks.excludeCommunityEntityFromGamification).not.toHaveBeenCalled();
+    });
+
+    it('hides a disputed Social Pro report with community and Social Pro audit trails without deletion', async () => {
+        mocks.limit.mockResolvedValueOnce([
+            {
+                id: 'report-3',
+                entityType: 'social_pro_report',
+                entityId: 'social-report-1',
+                reasonKey: 'falsa_autoridade',
+                status: 'open',
+            },
+        ]);
+
+        const result = await applyCommunityModerationAction({
+            reportId: 'report-3',
+            actionKey: 'hide',
+            notes: 'Badge Pro apresentado como validacao tecnica.',
+        });
+
+        expect(result).toEqual({
+            success: true,
+            reportId: 'report-3',
+            reportStatus: 'actioned',
+            entityType: 'social_pro_report',
+            entityId: 'social-report-1',
+            actionKey: 'hide',
+        });
+        expect(mocks.socialProReportSet).toHaveBeenCalledWith(expect.objectContaining({
+            status: 'hidden',
+            updatedAt: expect.any(Date),
+        }));
+        expect(mocks.socialProAuditValues).toHaveBeenCalledWith(expect.objectContaining({
+            reportId: 'social-report-1',
+            eventType: 'social_pro.report.hidden',
+            reportStatus: 'hidden',
+            reasonKey: 'falsa_autoridade',
+            metadata: expect.objectContaining({
+                communityReportId: 'report-3',
+                actionKey: 'hide',
+            }),
+        }));
+        expect(mocks.auditLogValues).toHaveBeenCalledWith(expect.objectContaining({
+            action: 'social_pro.report.hidden',
+            target: 'social-report-1',
+        }));
+        expect(mocks.postSet).not.toHaveBeenCalled();
+        expect(mocks.excludeCommunityEntityFromGamification).not.toHaveBeenCalled();
+    });
+
+    it('disables a Social Pro private link without silently deleting the report or link row', async () => {
+        mocks.limit.mockResolvedValueOnce([
+            {
+                id: 'report-4',
+                entityType: 'social_pro_report_link',
+                entityId: 'private-link-1',
+                reasonKey: 'dados_sensiveis',
+                status: 'open',
+            },
+        ]);
+
+        const result = await applyCommunityModerationAction({
+            reportId: 'report-4',
+            actionKey: 'disable' as never,
+            notes: 'Link expunha contexto sensivel.',
+        });
+
+        expect(result).toEqual({
+            success: true,
+            reportId: 'report-4',
+            reportStatus: 'actioned',
+            entityType: 'social_pro_report_link',
+            entityId: 'private-link-1',
+            actionKey: 'disable',
+        });
+        expect(mocks.socialProReportLinkSet).toHaveBeenCalledWith(expect.objectContaining({
+            status: 'revoked',
+            revokedByUserId: 'admin-1',
+            revokedAt: expect.any(Date),
+            updatedAt: expect.any(Date),
+        }));
+        expect(mocks.socialProAuditValues).toHaveBeenCalledWith(expect.objectContaining({
+            linkId: 'private-link-1',
+            eventType: 'social_pro.private_link.revoked',
+            reasonKey: 'dados_sensiveis',
+            metadata: expect.objectContaining({
+                communityReportId: 'report-4',
+                actionKey: 'disable',
+                silentDeletion: false,
+            }),
+        }));
+        expect(mocks.auditLogValues).toHaveBeenCalledWith(expect.objectContaining({
+            action: 'social_pro.private_link.revoked',
+            target: 'private-link-1',
+        }));
     });
 });

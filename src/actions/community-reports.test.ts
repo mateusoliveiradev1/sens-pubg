@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
 
 import { communityReports } from '@/db/schema';
 
@@ -158,5 +159,70 @@ describe('createCommunityReport', () => {
             error: 'Entidade nao encontrada.',
         });
         expect(mocks.insert).not.toHaveBeenCalled();
+    });
+
+    it('accepts Social Pro report-specific reasons after resolving report and link targets', async () => {
+        mocks.limit
+            .mockResolvedValueOnce([{ id: 'social-report-1' }])
+            .mockResolvedValueOnce([{ id: 'private-link-1' }]);
+
+        await expect(createCommunityReport({
+            entityType: 'social_pro_report' as never,
+            entityId: 'social-report-1',
+            reasonKey: 'falsa_autoridade',
+            details: 'Badge Pro usado como se fosse certificacao.',
+        })).resolves.toEqual({
+            success: true,
+            status: 'open',
+        });
+        await expect(createCommunityReport({
+            entityType: 'social_pro_report_link' as never,
+            entityId: 'private-link-1',
+            reasonKey: 'uso_indevido_contexto_premium',
+            details: null,
+        })).resolves.toEqual({
+            success: true,
+            status: 'open',
+        });
+        expect(mocks.reportValues).toHaveBeenCalledWith(expect.objectContaining({
+            entityType: 'social_pro_report',
+            reasonKey: 'falsa_autoridade',
+        }));
+        expect(mocks.reportValues).toHaveBeenCalledWith(expect.objectContaining({
+            entityType: 'social_pro_report_link',
+            reasonKey: 'uso_indevido_contexto_premium',
+        }));
+    });
+
+    it('rejects generic reasons for Social Pro report targets server-side', async () => {
+        const result = await createCommunityReport({
+            entityType: 'social_pro_report' as never,
+            entityId: 'social-report-1',
+            reasonKey: 'spam',
+            details: 'Reason must be Social Pro-specific.',
+        });
+
+        expect(result).toEqual({
+            success: false,
+            error: 'Motivo de report invalido para Relatorio Pro.',
+        });
+        expect(mocks.select).not.toHaveBeenCalled();
+        expect(mocks.insert).not.toHaveBeenCalled();
+    });
+
+    it('exposes Pro-report-specific labels in the shared ReportButton UI', () => {
+        const source = readFileSync(new URL('../app/community/report-button.tsx', import.meta.url), 'utf8');
+
+        for (const label of [
+            'Exposicao indevida',
+            'Dados sensiveis',
+            'Claim enganosa',
+            'Falsa autoridade',
+            'Abuso de badge Pro',
+            'Uso indevido de contexto premium',
+        ]) {
+            expect(source).toContain(label);
+        }
+        expect(source).toMatch(/social_pro_report|social_pro_report_link/);
     });
 });
