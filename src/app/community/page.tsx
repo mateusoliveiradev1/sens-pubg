@@ -1099,8 +1099,8 @@ function SocialProCockpit({ hub }: {
             aria-labelledby="social-pro-cockpit-title"
             className={styles.socialProCockpit}
             data-community-section="social-pro-cockpit"
-            data-social-pro-actions="generate_report continue_ciclo_pro open_spray_lab"
-            data-social-pro-action-labels="Gerar Relatorio Pro Continuar Ciclo Pro Abrir Spray Lab"
+            data-social-pro-actions="generate_report pro_library_save creator_analytics_open continue_ciclo_pro open_spray_lab"
+            data-social-pro-action-labels="Gerar Relatorio Pro Salvar na Biblioteca Pro Ver analytics seguros Continuar Ciclo Pro Abrir Spray Lab"
             data-social-pro-panels="Relatorios recentes Biblioteca de contexto Impacto publico seguro Colecoes inteligentes"
         >
             <div className={styles.socialProTopline}>
@@ -1110,7 +1110,7 @@ function SocialProCockpit({ hub }: {
                         <h2 id="social-pro-cockpit-title">{hub.title}</h2>
                         {hub.proBadge ? <ProAccessBadge badge={hub.proBadge} /> : null}
                     </div>
-                    <p>{hub.summary}</p>
+                    <p>{hub.summary} Organizacao privada do contexto fica no Pro sem fechar a comunidade publica.</p>
                     <p className={styles.socialProPublicCopy}>{hub.publicCommunityCopy}</p>
                     {hub.proBadge ? (
                         <p className={styles.socialProBadgeMeaning}>

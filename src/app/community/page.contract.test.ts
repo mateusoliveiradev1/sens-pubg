@@ -82,6 +82,7 @@ describe('/community page contract', () => {
 
         expect(source).toMatch(/community-feed|featuredposts|posthighlights/);
         expect(source).toMatch(/clearhref|emptystate|filteremptystate|\/community\/users\//);
+        expect(source).toMatch(/curtidas|comentarios|saves|seguir|follows|posts abertos/);
         expect(source).not.toMatch(/pro required|assinatura obrigatoria|paywall|bloqueado por pro|checkout/);
     });
 
