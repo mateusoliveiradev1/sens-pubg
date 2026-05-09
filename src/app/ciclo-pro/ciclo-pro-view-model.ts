@@ -99,6 +99,54 @@ export interface CicloProLockModel {
     readonly cta: CicloProActionModel;
 }
 
+export interface CicloProSocialProSourceIds {
+    readonly sourceTrainingProgramCycleId?: string;
+    readonly sourceAnalysisSessionId?: string;
+    readonly sourceValidationLinkId?: string;
+}
+
+export interface CicloProSocialProLibraryContext {
+    readonly programCycleId?: string;
+    readonly activeLineId?: string;
+    readonly validationState: string;
+    readonly blockerKey?: string;
+}
+
+export interface CicloProSocialProReportActionModel {
+    readonly label: string;
+    readonly body: string;
+    readonly disabled: boolean;
+    readonly lockCopy: string | null;
+    readonly title: string;
+    readonly visibility: 'link_private';
+    readonly sourceIds: CicloProSocialProSourceIds;
+}
+
+export interface CicloProSocialProLibraryActionModel {
+    readonly label: string;
+    readonly body: string;
+    readonly disabled: boolean;
+    readonly lockCopy: string | null;
+    readonly item: {
+        readonly kind: 'program_mission';
+        readonly id: string | null;
+        readonly context: CicloProSocialProLibraryContext;
+    };
+}
+
+export interface CicloProSocialProModel {
+    readonly title: string;
+    readonly body: string;
+    readonly evidenceHierarchy: readonly [
+        'Execucao do Ciclo Pro',
+        'Transferencia pratica',
+        'Validacao tecnica compativel',
+    ];
+    readonly blockerLabels: readonly string[];
+    readonly reportAction: CicloProSocialProReportActionModel;
+    readonly libraryAction: CicloProSocialProLibraryActionModel;
+}
+
 export interface CicloProViewModel {
     readonly routeState: CicloProRouteState;
     readonly title: string;
@@ -114,6 +162,7 @@ export interface CicloProViewModel {
     readonly programMap: CicloProProgramMapModel | null;
     readonly freeMission: CicloProMissionModel | null;
     readonly lock: CicloProLockModel | null;
+    readonly socialPro: CicloProSocialProModel;
     readonly emptySteps: readonly CicloProActionModel[];
 }
 
@@ -510,6 +559,176 @@ function lockModel(projection: TrainingProgramProjection): CicloProLockModel | n
     };
 }
 
+function firstEvidenceRefId(
+    projection: TrainingProgramProjection,
+    kind: 'analysis' | 'validation_link',
+): string | null {
+    return projection.evidence?.evidenceRefs.find((ref) => ref.kind === kind)?.id ?? null;
+}
+
+function socialProMission(cycle: TrainingProgramProjectedCycle | null, freeMission: CicloProMissionModel | null): {
+    readonly id: string | null;
+    readonly title: string;
+} {
+    if (!cycle) {
+        return {
+            id: freeMission?.id ?? null,
+            title: freeMission?.title ?? 'Missao Ciclo Pro',
+        };
+    }
+
+    const missions = cycle.weeks.flatMap((week) => week.missions);
+    const current = cycle.currentMissionId
+        ? missions.find((mission) => mission.id === cycle.currentMissionId)
+        : null;
+    const fallback = current
+        ?? missions.find((mission) => mission.status !== 'completed')
+        ?? missions.at(-1)
+        ?? null;
+
+    return {
+        id: fallback?.id ?? null,
+        title: fallback?.title ?? 'Missao Ciclo Pro',
+    };
+}
+
+function socialProValidationLinkId(cycle: TrainingProgramProjectedCycle | null): string | null {
+    if (!cycle) {
+        return null;
+    }
+
+    return cycle.checkpoints.find((checkpoint) => checkpoint.evidenceSummary.validationLink?.id)
+        ?.evidenceSummary.validationLink?.id
+        ?? cycle.weeks
+            .flatMap((week) => week.missions)
+            .flatMap((mission) => mission.evidenceRefs)
+            .find((ref) => ref.kind === 'validation_link')
+            ?.id
+        ?? null;
+}
+
+function socialProValidationState(cycle: TrainingProgramProjectedCycle | null): string {
+    if (!cycle) {
+        return 'locked';
+    }
+
+    return cycle.checkpoints.find((checkpoint) => checkpoint.evidenceSummary.validationStatus)
+        ?.evidenceSummary.validationStatus
+        ?? (cycle.state === 'validacao_pendente' ? 'not_requested' : 'compatible_validation_pending');
+}
+
+function socialProBlockerKey(
+    projection: TrainingProgramProjection,
+    cycle: TrainingProgramProjectedCycle | null,
+): string | null {
+    const explicit = projection.evidence?.blockers[0] ?? projection.evidence?.reasonCodes[0];
+    if (explicit) {
+        return explicit;
+    }
+
+    if (!cycle) {
+        return null;
+    }
+
+    switch (cycle.state) {
+        case 'reparando':
+        case 'consolidando':
+            return 'fidelity_dropped';
+        case 'validacao_pendente':
+            return 'compatible_proof_missing';
+        case 'linha_reiniciada':
+            return 'line_restart';
+        case 'contexto_desatualizado':
+            return 'stale_context';
+        case 'preparando':
+        case 'ativo':
+        case 'progresso_validado':
+        case 'sem_mudanca_clara':
+        case 'regressao_validada':
+        case 'inconclusivo':
+        case 'concluido':
+        case 'pausado':
+            return null;
+    }
+}
+
+function socialProBlockerLabels(
+    projection: TrainingProgramProjection,
+    cycle: TrainingProgramProjectedCycle | null,
+): readonly string[] {
+    const reasonCodes = [
+        ...(projection.evidence?.blockers ?? []),
+        ...(projection.evidence?.reasonCodes ?? []),
+        ...(cycle?.weeks.flatMap((week) => week.reasonCodes) ?? []),
+        ...(cycle?.checkpoints.flatMap((checkpoint) => checkpoint.reasonCodes) ?? []),
+    ];
+    const uniqueReasons = Array.from(new Set(reasonCodes));
+
+    if (uniqueReasons.length === 0) {
+        return ['Confianca, cobertura, blockers e validacao seguem visiveis no relatorio.'];
+    }
+
+    return uniqueReasons.map(trainingProgramReasonCopy);
+}
+
+function socialProModel(input: {
+    readonly projection: TrainingProgramProjection;
+    readonly cycle: TrainingProgramProjectedCycle | null;
+    readonly freeMission: CicloProMissionModel | null;
+}): CicloProSocialProModel {
+    const { projection, cycle, freeMission } = input;
+    const mission = socialProMission(cycle, freeMission);
+    const sourceAnalysisSessionId = firstEvidenceRefId(projection, 'analysis');
+    const sourceValidationLinkId = socialProValidationLinkId(cycle) ?? firstEvidenceRefId(projection, 'validation_link');
+    const canUseSocialPro = projection.canSeeFullThirtyDayCycle && Boolean(cycle);
+    const lockCopy = canUseSocialPro
+        ? null
+        : 'O Free mantem leitura publica e saves normais. O Pro organiza este contexto em relatorio, biblioteca, Ciclo Pro e validacao compativel.';
+    const blockerKey = socialProBlockerKey(projection, cycle);
+    const sourceIds: CicloProSocialProSourceIds = {
+        ...(cycle ? { sourceTrainingProgramCycleId: cycle.id } : {}),
+        ...(sourceAnalysisSessionId ? { sourceAnalysisSessionId } : {}),
+        ...(sourceValidationLinkId ? { sourceValidationLinkId } : {}),
+    };
+    const libraryContext: CicloProSocialProLibraryContext = {
+        ...(cycle ? { programCycleId: cycle.id } : {}),
+        ...(cycle?.activeLine?.lineId ? { activeLineId: cycle.activeLine.lineId } : {}),
+        validationState: socialProValidationState(cycle),
+        ...(blockerKey ? { blockerKey } : {}),
+    };
+
+    return {
+        title: 'Social Pro do Ciclo Pro',
+        body: 'Gere um Relatorio Pro Compartilhavel ou salve a missao na Biblioteca Pro mantendo execucao, transferencia pratica e validacao compativel separadas.',
+        evidenceHierarchy: [
+            'Execucao do Ciclo Pro',
+            'Transferencia pratica',
+            'Validacao tecnica compativel',
+        ],
+        blockerLabels: socialProBlockerLabels(projection, cycle),
+        reportAction: {
+            label: canUseSocialPro ? 'Gerar relatorio do ciclo' : 'Relatorio Pro bloqueado',
+            body: 'Usa apenas IDs salvos do ciclo, analise e validacao; a acao recarrega ownership no servidor.',
+            disabled: !canUseSocialPro || !cycle,
+            lockCopy,
+            title: cycle ? `${cycle.label} no Social Pro` : 'Ciclo Pro no Social Pro',
+            visibility: 'link_private',
+            sourceIds,
+        },
+        libraryAction: {
+            label: canUseSocialPro ? 'Salvar missao na Biblioteca Pro' : 'Biblioteca Pro bloqueada',
+            body: 'Organiza esta missao por ciclo, linha ativa, blocker e validacao sem criar placar ou workflow de time.',
+            disabled: !canUseSocialPro || !mission.id,
+            lockCopy,
+            item: {
+                kind: 'program_mission',
+                id: mission.id,
+                context: libraryContext,
+            },
+        },
+    };
+}
+
 function titleFor(input: {
     readonly routeState: CicloProRouteState;
     readonly projection: TrainingProgramProjection;
@@ -601,6 +820,11 @@ export function buildCicloProViewModel(input: BuildCicloProViewModelInput): Cicl
         programMap,
         freeMission,
         lock: lockModel(input.projection),
+        socialPro: socialProModel({
+            projection: input.projection,
+            cycle,
+            freeMission,
+        }),
         emptySteps: [
             { label: 'Abrir Analyze', href: '/analyze' },
             { label: 'Ver historico', href: '/history' },

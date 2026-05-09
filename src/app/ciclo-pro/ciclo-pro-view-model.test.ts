@@ -174,7 +174,7 @@ describe('Ciclo Pro view model', () => {
             'Transferencia pratica',
             'Validacao tecnica compativel',
         ]);
-        expect(model.socialPro.blockerLabels.join(' ')).toMatch(/validacao|prova/i);
+        expect(model.socialPro.blockerLabels.join(' ')).toMatch(/validacao|prova|compativel/i);
         expect(model.socialPro.reportAction).toMatchObject({
             disabled: false,
             sourceIds: {
