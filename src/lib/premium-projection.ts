@@ -72,6 +72,10 @@ const FEATURE_TITLES: Record<ProductEntitlementKey, string> = {
     'community.pro_badge': 'Badge Pro',
     'community.premium_report_share': 'Relatorio premium compartilhavel',
     'community.creator_attribution': 'Atribuicao de creator',
+    'community.pro_library': 'Biblioteca Pro social',
+    'community.creator_analytics': 'Analytics de creator',
+    'community.private_report_links': 'Links privados de relatorio',
+    'community.advanced_context': 'Contexto social avancado',
     'team.player_review': 'Review de jogadores',
     'team.seats': 'Assentos de equipe',
 };

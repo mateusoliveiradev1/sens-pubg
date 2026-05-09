@@ -111,6 +111,16 @@ export const productDefaultFreeEntitlementKeys = [
     'metrics.basic',
 ] as const satisfies readonly ProductEntitlementKey[];
 
+export const productSocialProEntitlementKeys = [
+    'community.pro_badge',
+    'community.premium_report_share',
+    'community.creator_attribution',
+    'community.pro_library',
+    'community.creator_analytics',
+    'community.private_report_links',
+    'community.advanced_context',
+] as const satisfies readonly ProductEntitlementKey[];
+
 export const productProEntitlementKeys = [
     'analysis.save.pro_limit',
     'coach.full_plan',
@@ -127,6 +137,7 @@ export const productProEntitlementKeys = [
     'spray_lab.session_runner',
     'spray_lab.benchmarks',
     'billing.portal_access',
+    ...productSocialProEntitlementKeys,
 ] as const satisfies readonly ProductEntitlementKey[];
 
 const operationalEntitlementKeys = [
@@ -141,6 +152,7 @@ const operationalEntitlementKeys = [
 
 const defaultFreeKeySet = new Set<ProductEntitlementKey>(productDefaultFreeEntitlementKeys);
 const proKeySet = new Set<ProductEntitlementKey>(productProEntitlementKeys);
+const socialProKeySet = new Set<ProductEntitlementKey>(productSocialProEntitlementKeys);
 const operationalKeySet = new Set<ProductEntitlementKey>(operationalEntitlementKeys);
 
 export const productDefaultEntitlementCatalog = productEntitlementKeyValues.map(
@@ -160,14 +172,16 @@ export const productDefaultEntitlementCatalog = productEntitlementKeyValues.map(
         }
 
         if (proKeySet.has(key)) {
+            const isSocialProKey = socialProKeySet.has(key);
+
             return {
                 key,
                 status: 'active',
                 tier: 'pro',
                 surface: key.split('.')[0] ?? 'product',
                 labelKey: `monetization.entitlement.${key}`,
-                internalDescription: `Phase 5 Pro entitlement: ${key}`,
-                introducedPhase: '05',
+                internalDescription: `${isSocialProKey ? 'Phase 11 Social Pro' : 'Phase 5 Pro'} entitlement: ${key}`,
+                introducedPhase: isSocialProKey ? '11' : '05',
                 ownerDomain: 'product',
                 gatingMode: 'requires_pro',
             };

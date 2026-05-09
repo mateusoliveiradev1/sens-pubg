@@ -78,6 +78,10 @@ const productEntitlementKeyContract = createMonetizationEnumContract([
     'community.pro_badge',
     'community.premium_report_share',
     'community.creator_attribution',
+    'community.pro_library',
+    'community.creator_analytics',
+    'community.private_report_links',
+    'community.advanced_context',
     'team.player_review',
     'team.seats',
 ]);
@@ -289,7 +293,7 @@ export interface ProductEntitlementDefinition {
     readonly surface: string;
     readonly labelKey: string;
     readonly internalDescription: string;
-    readonly introducedPhase: '05';
+    readonly introducedPhase: '05' | '11';
     readonly ownerDomain: string;
     readonly gatingMode: ProductEntitlementGatingMode;
 }
