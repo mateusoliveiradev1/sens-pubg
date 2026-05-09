@@ -99,6 +99,15 @@ import type {
     ProductTier,
     QuotaReasonCode,
 } from '@/types/monetization';
+import type {
+    SocialProCollectionMode,
+    SocialProLibraryItemKind,
+    SocialProPrivateLinkStatus,
+    SocialProPublicReport,
+    SocialProReportModerationReason,
+    SocialProReportStatus,
+    SocialProReportVisibility,
+} from '@/types/social-pro';
 
 export type WeaponProfileAttachmentSlot = 'muzzle' | 'grip' | 'stock';
 
@@ -271,6 +280,54 @@ export interface TrainingProgramEventPayload {
 // ═══════════════════════════════════════════
 // Auth.js Tables (NextAuth adapter)
 // ═══════════════════════════════════════════
+
+export type SocialProCollectionVisibility = 'private';
+
+export interface SocialProReportPayload {
+    readonly publicSafeSnapshotVersion: 1;
+    readonly sourceIds?: {
+        readonly analysisSessionId?: string;
+        readonly historySessionId?: string;
+        readonly protocolRevisionId?: string;
+        readonly sprayLabSessionId?: string;
+        readonly trainingProgramCycleId?: string;
+        readonly validationLinkId?: string;
+    };
+    readonly visibleOptionalSections?: readonly string[];
+    readonly evidenceLabels?: Record<string, string>;
+}
+
+export interface SocialProReportLinkPayload {
+    readonly createdReason?: string;
+    readonly regeneratedReason?: string;
+    readonly revokedReason?: string;
+}
+
+export interface SocialProReportAuditMetadata {
+    readonly actionSource?: string;
+    readonly requestId?: string;
+    readonly [key: string]: unknown;
+}
+
+export interface SocialProCollectionPayload {
+    readonly automaticRuleId?: string;
+    readonly sourceSurface?: string;
+    readonly [key: string]: unknown;
+}
+
+export interface SocialProCollectionContextFacets {
+    readonly weaponId?: string;
+    readonly opticId?: string;
+    readonly distanceMeters?: number;
+    readonly diagnosisKey?: string;
+    readonly activeLineId?: string;
+    readonly programCycleId?: string;
+    readonly sprayLabLaneId?: string;
+    readonly objectiveKey?: string;
+    readonly validationState?: string;
+    readonly blockerKey?: string;
+    readonly [key: string]: unknown;
+}
 
 export const users = pgTable('users', {
     id: uuid('id').defaultRandom().primaryKey(),
@@ -1863,6 +1920,314 @@ export const communityModerationActionsRelations = relations(
     }),
 );
 
+export const socialProReports = pgTable('social_pro_reports', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    ownerUserId: uuid('owner_user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    communityProfileId: uuid('community_profile_id').references(() => communityProfiles.id, {
+        onDelete: 'set null',
+    }),
+    publicSlug: text('public_slug'),
+    visibility: text('visibility')
+        .$type<SocialProReportVisibility>()
+        .notNull()
+        .default('link_private'),
+    status: text('status')
+        .$type<SocialProReportStatus>()
+        .notNull()
+        .default('draft'),
+    title: text('title').notNull(),
+    publicSafeSnapshot: jsonb('public_safe_snapshot')
+        .notNull()
+        .$type<SocialProPublicReport>(),
+    sourceAnalysisSessionId: uuid('source_analysis_session_id').references(() => analysisSessions.id, {
+        onDelete: 'set null',
+    }),
+    sourceHistorySessionId: uuid('source_history_session_id').references(() => analysisSessions.id, {
+        onDelete: 'set null',
+    }),
+    sourceProtocolRevisionId: uuid('source_protocol_revision_id').references(
+        () => completeTrainingProtocolRevisions.id,
+        { onDelete: 'set null' },
+    ),
+    sourceSprayLabSessionId: uuid('source_spray_lab_session_id').references(() => sprayLabSessions.id, {
+        onDelete: 'set null',
+    }),
+    sourceTrainingProgramCycleId: text('source_training_program_cycle_id').references(() => trainingProgramCycles.id, {
+        onDelete: 'set null',
+    }),
+    sourceValidationLinkId: uuid('source_validation_link_id').references(() => sprayLabValidationLinks.id, {
+        onDelete: 'set null',
+    }),
+    payload: jsonb('payload').notNull().default('{}').$type<SocialProReportPayload>(),
+    publishedAt: timestamp('published_at', { mode: 'date' }),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+    archivedAt: timestamp('archived_at', { mode: 'date' }),
+}, (table) => [
+    uniqueIndex('social_pro_reports_public_slug_uidx').on(table.publicSlug),
+    index('social_pro_reports_owner_status_updated_idx').on(table.ownerUserId, table.status, table.updatedAt),
+    index('social_pro_reports_visibility_status_idx').on(table.visibility, table.status),
+    index('social_pro_reports_source_analysis_idx').on(table.sourceAnalysisSessionId),
+    index('social_pro_reports_source_program_idx').on(table.sourceTrainingProgramCycleId),
+]);
+
+export const socialProReportLinks = pgTable('social_pro_report_links', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    reportId: uuid('report_id')
+        .notNull()
+        .references(() => socialProReports.id, { onDelete: 'cascade' }),
+    ownerUserId: uuid('owner_user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    tokenVerifierHash: text('token_verifier_hash').notNull(),
+    tokenVerifierPrefix: text('token_verifier_prefix').notNull(),
+    status: text('status')
+        .$type<SocialProPrivateLinkStatus>()
+        .notNull()
+        .default('active'),
+    regeneratedFromLinkId: uuid('regenerated_from_link_id').references(
+        (): AnyPgColumn => socialProReportLinks.id,
+        { onDelete: 'set null' },
+    ),
+    revokedByUserId: uuid('revoked_by_user_id').references(() => users.id, {
+        onDelete: 'set null',
+    }),
+    revokedAt: timestamp('revoked_at', { mode: 'date' }),
+    expiresAt: timestamp('expires_at', { mode: 'date' }),
+    lastRegeneratedAt: timestamp('last_regenerated_at', { mode: 'date' }),
+    payload: jsonb('payload').notNull().default('{}').$type<SocialProReportLinkPayload>(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => [
+    uniqueIndex('social_pro_report_links_token_hash_uidx').on(table.tokenVerifierHash),
+    index('social_pro_report_links_report_status_idx').on(table.reportId, table.status),
+    index('social_pro_report_links_owner_status_idx').on(table.ownerUserId, table.status),
+    index('social_pro_report_links_expiration_idx').on(table.expiresAt),
+]);
+
+export const socialProReportAuditEvents = pgTable('social_pro_report_audit_events', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    reportId: uuid('report_id')
+        .notNull()
+        .references(() => socialProReports.id, { onDelete: 'cascade' }),
+    actorUserId: uuid('actor_user_id').references(() => users.id, {
+        onDelete: 'set null',
+    }),
+    linkId: uuid('link_id').references(() => socialProReportLinks.id, {
+        onDelete: 'set null',
+    }),
+    eventType: text('event_type').notNull(),
+    reportStatus: text('report_status').$type<SocialProReportStatus>(),
+    reasonKey: text('reason_key').$type<SocialProReportModerationReason>(),
+    publicSafeSnapshot: jsonb('public_safe_snapshot').$type<SocialProPublicReport>(),
+    metadata: jsonb('metadata').notNull().default('{}').$type<SocialProReportAuditMetadata>(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => [
+    index('social_pro_report_audit_events_report_created_idx').on(table.reportId, table.createdAt),
+    index('social_pro_report_audit_events_link_created_idx').on(table.linkId, table.createdAt),
+    index('social_pro_report_audit_events_actor_created_idx').on(table.actorUserId, table.createdAt),
+    index('social_pro_report_audit_events_type_created_idx').on(table.eventType, table.createdAt),
+]);
+
+export const socialProCollections = pgTable('social_pro_collections', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    ownerUserId: uuid('owner_user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    mode: text('mode')
+        .$type<SocialProCollectionMode>()
+        .notNull()
+        .default('manual'),
+    visibility: text('visibility')
+        .$type<SocialProCollectionVisibility>()
+        .notNull()
+        .default('private'),
+    shareable: boolean('shareable').notNull().default(false),
+    label: text('label').notNull(),
+    description: text('description'),
+    contextKey: text('context_key').notNull(),
+    weaponId: text('weapon_id'),
+    opticId: text('optic_id'),
+    distanceMeters: integer('distance_meters'),
+    diagnosisKey: text('diagnosis_key'),
+    activeLineId: text('active_line_id'),
+    programCycleId: text('program_cycle_id').references(() => trainingProgramCycles.id, {
+        onDelete: 'set null',
+    }),
+    sprayLabLaneId: text('spray_lab_lane_id'),
+    objectiveKey: text('objective_key'),
+    validationState: text('validation_state'),
+    blockerKey: text('blocker_key'),
+    payload: jsonb('payload').notNull().default('{}').$type<SocialProCollectionPayload>(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => [
+    index('social_pro_collections_owner_updated_idx').on(table.ownerUserId, table.updatedAt),
+    index('social_pro_collections_owner_mode_idx').on(table.ownerUserId, table.mode),
+    index('social_pro_collections_owner_context_idx').on(table.ownerUserId, table.contextKey),
+]);
+
+export const socialProCollectionItems = pgTable('social_pro_collection_items', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    collectionId: uuid('collection_id')
+        .notNull()
+        .references(() => socialProCollections.id, { onDelete: 'cascade' }),
+    ownerUserId: uuid('owner_user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    kind: text('kind').$type<SocialProLibraryItemKind>().notNull(),
+    itemId: text('item_id').notNull(),
+    socialProReportId: uuid('social_pro_report_id').references(() => socialProReports.id, {
+        onDelete: 'set null',
+    }),
+    communityPostId: uuid('community_post_id').references(() => communityPosts.id, {
+        onDelete: 'set null',
+    }),
+    sprayLabSessionId: uuid('spray_lab_session_id').references(() => sprayLabSessions.id, {
+        onDelete: 'set null',
+    }),
+    trainingProgramMissionId: text('training_program_mission_id').references(() => trainingProgramMissions.id, {
+        onDelete: 'set null',
+    }),
+    validationLinkId: uuid('validation_link_id').references(() => sprayLabValidationLinks.id, {
+        onDelete: 'set null',
+    }),
+    contextKey: text('context_key').notNull(),
+    contextFacets: jsonb('context_facets')
+        .notNull()
+        .default('{}')
+        .$type<SocialProCollectionContextFacets>(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => [
+    uniqueIndex('social_pro_collection_items_collection_item_uidx').on(table.collectionId, table.kind, table.itemId),
+    index('social_pro_collection_items_collection_kind_idx').on(table.collectionId, table.kind),
+    index('social_pro_collection_items_owner_kind_created_idx').on(table.ownerUserId, table.kind, table.createdAt),
+]);
+
+export const socialProReportsRelations = relations(socialProReports, ({ one, many }) => ({
+    owner: one(users, {
+        fields: [socialProReports.ownerUserId],
+        references: [users.id],
+    }),
+    communityProfile: one(communityProfiles, {
+        fields: [socialProReports.communityProfileId],
+        references: [communityProfiles.id],
+    }),
+    sourceAnalysisSession: one(analysisSessions, {
+        relationName: 'social_pro_reports_source_analysis',
+        fields: [socialProReports.sourceAnalysisSessionId],
+        references: [analysisSessions.id],
+    }),
+    sourceHistorySession: one(analysisSessions, {
+        relationName: 'social_pro_reports_source_history',
+        fields: [socialProReports.sourceHistorySessionId],
+        references: [analysisSessions.id],
+    }),
+    sourceProtocolRevision: one(completeTrainingProtocolRevisions, {
+        fields: [socialProReports.sourceProtocolRevisionId],
+        references: [completeTrainingProtocolRevisions.id],
+    }),
+    sourceSprayLabSession: one(sprayLabSessions, {
+        fields: [socialProReports.sourceSprayLabSessionId],
+        references: [sprayLabSessions.id],
+    }),
+    sourceTrainingProgramCycle: one(trainingProgramCycles, {
+        fields: [socialProReports.sourceTrainingProgramCycleId],
+        references: [trainingProgramCycles.id],
+    }),
+    sourceValidationLink: one(sprayLabValidationLinks, {
+        fields: [socialProReports.sourceValidationLinkId],
+        references: [sprayLabValidationLinks.id],
+    }),
+    links: many(socialProReportLinks),
+    auditEvents: many(socialProReportAuditEvents),
+    collectionItems: many(socialProCollectionItems),
+}));
+
+export const socialProReportLinksRelations = relations(socialProReportLinks, ({ one, many }) => ({
+    report: one(socialProReports, {
+        fields: [socialProReportLinks.reportId],
+        references: [socialProReports.id],
+    }),
+    owner: one(users, {
+        fields: [socialProReportLinks.ownerUserId],
+        references: [users.id],
+    }),
+    regeneratedFromLink: one(socialProReportLinks, {
+        relationName: 'social_pro_report_links_regeneration',
+        fields: [socialProReportLinks.regeneratedFromLinkId],
+        references: [socialProReportLinks.id],
+    }),
+    regeneratedLinks: many(socialProReportLinks, {
+        relationName: 'social_pro_report_links_regeneration',
+    }),
+    revokedBy: one(users, {
+        fields: [socialProReportLinks.revokedByUserId],
+        references: [users.id],
+    }),
+    auditEvents: many(socialProReportAuditEvents),
+}));
+
+export const socialProReportAuditEventsRelations = relations(socialProReportAuditEvents, ({ one }) => ({
+    report: one(socialProReports, {
+        fields: [socialProReportAuditEvents.reportId],
+        references: [socialProReports.id],
+    }),
+    actor: one(users, {
+        fields: [socialProReportAuditEvents.actorUserId],
+        references: [users.id],
+    }),
+    link: one(socialProReportLinks, {
+        fields: [socialProReportAuditEvents.linkId],
+        references: [socialProReportLinks.id],
+    }),
+}));
+
+export const socialProCollectionsRelations = relations(socialProCollections, ({ one, many }) => ({
+    owner: one(users, {
+        fields: [socialProCollections.ownerUserId],
+        references: [users.id],
+    }),
+    programCycle: one(trainingProgramCycles, {
+        fields: [socialProCollections.programCycleId],
+        references: [trainingProgramCycles.id],
+    }),
+    items: many(socialProCollectionItems),
+}));
+
+export const socialProCollectionItemsRelations = relations(socialProCollectionItems, ({ one }) => ({
+    collection: one(socialProCollections, {
+        fields: [socialProCollectionItems.collectionId],
+        references: [socialProCollections.id],
+    }),
+    owner: one(users, {
+        fields: [socialProCollectionItems.ownerUserId],
+        references: [users.id],
+    }),
+    socialProReport: one(socialProReports, {
+        fields: [socialProCollectionItems.socialProReportId],
+        references: [socialProReports.id],
+    }),
+    communityPost: one(communityPosts, {
+        fields: [socialProCollectionItems.communityPostId],
+        references: [communityPosts.id],
+    }),
+    sprayLabSession: one(sprayLabSessions, {
+        fields: [socialProCollectionItems.sprayLabSessionId],
+        references: [sprayLabSessions.id],
+    }),
+    trainingProgramMission: one(trainingProgramMissions, {
+        fields: [socialProCollectionItems.trainingProgramMissionId],
+        references: [trainingProgramMissions.id],
+    }),
+    validationLink: one(sprayLabValidationLinks, {
+        fields: [socialProCollectionItems.validationLinkId],
+        references: [sprayLabValidationLinks.id],
+    }),
+}));
+
 export const featureEntitlements = pgTable('feature_entitlements', {
     key: text('key').$type<CommunityEntitlementKey>().primaryKey(),
     description: text('description').notNull(),
@@ -2599,6 +2964,16 @@ export type CommunityReportRow = typeof communityReports.$inferSelect;
 export type NewCommunityReport = typeof communityReports.$inferInsert;
 export type CommunityModerationActionRow = typeof communityModerationActions.$inferSelect;
 export type NewCommunityModerationAction = typeof communityModerationActions.$inferInsert;
+export type SocialProReportRow = typeof socialProReports.$inferSelect;
+export type NewSocialProReport = typeof socialProReports.$inferInsert;
+export type SocialProReportLinkRow = typeof socialProReportLinks.$inferSelect;
+export type NewSocialProReportLink = typeof socialProReportLinks.$inferInsert;
+export type SocialProReportAuditEventRow = typeof socialProReportAuditEvents.$inferSelect;
+export type NewSocialProReportAuditEvent = typeof socialProReportAuditEvents.$inferInsert;
+export type SocialProCollectionRow = typeof socialProCollections.$inferSelect;
+export type NewSocialProCollection = typeof socialProCollections.$inferInsert;
+export type SocialProCollectionItemRow = typeof socialProCollectionItems.$inferSelect;
+export type NewSocialProCollectionItem = typeof socialProCollectionItems.$inferInsert;
 export type FeatureEntitlementRow = typeof featureEntitlements.$inferSelect;
 export type NewFeatureEntitlement = typeof featureEntitlements.$inferInsert;
 export type UserEntitlementRow = typeof userEntitlements.$inferSelect;

@@ -2,6 +2,30 @@ import { db } from './index';
 import { auditLogs } from './schema';
 import { auth } from '@/auth';
 
+export const socialProAuditActionKeys = [
+    'social_pro.report.created',
+    'social_pro.report.updated',
+    'social_pro.private_link.created',
+    'social_pro.private_link.revoked',
+    'social_pro.private_link.regenerated',
+    'social_pro.report.hidden',
+    'social_pro.report.disabled',
+    'social_pro.library_item.saved',
+] as const;
+
+export type SocialProAuditAction = (typeof socialProAuditActionKeys)[number];
+
+export const socialProAuditActions = {
+    reportCreated: 'social_pro.report.created',
+    reportUpdated: 'social_pro.report.updated',
+    privateLinkCreated: 'social_pro.private_link.created',
+    privateLinkRevoked: 'social_pro.private_link.revoked',
+    privateLinkRegenerated: 'social_pro.private_link.regenerated',
+    reportHidden: 'social_pro.report.hidden',
+    reportDisabled: 'social_pro.report.disabled',
+    libraryItemSaved: 'social_pro.library_item.saved',
+} as const satisfies Record<string, SocialProAuditAction>;
+
 export type AuditAction =
     | 'CHANGE_ROLE'
     | 'TOGGLE_MAINTENANCE'
@@ -17,7 +41,8 @@ export type AuditAction =
     | 'GRANT_CHANGED'
     | 'MONETIZATION_FLAG_CHANGED'
     | 'REFUND_DISPUTE_HANDLED'
-    | 'QUOTA_ADJUSTMENT';
+    | 'QUOTA_ADJUSTMENT'
+    | SocialProAuditAction;
 
 /**
  * Records an administrative action in the audit_logs table.
