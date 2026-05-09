@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ProductQuotaSummary } from '@/types/monetization';
+import {
+    productEntitlementKeyValues,
+    type ProductQuotaSummary,
+} from '@/types/monetization';
 
 async function loadProductEntitlementsModule() {
     return import('./product-entitlements');
@@ -11,6 +14,16 @@ const yesterday = new Date('2026-05-05T12:00:00.000Z');
 const tomorrow = new Date('2026-05-07T12:00:00.000Z');
 const nextWeek = new Date('2026-05-13T12:00:00.000Z');
 const lastWeek = new Date('2026-04-29T12:00:00.000Z');
+
+const socialProEntitlementKeys = [
+    'community.pro_badge',
+    'community.premium_report_share',
+    'community.creator_attribution',
+    'community.pro_library',
+    'community.creator_analytics',
+    'community.private_report_links',
+    'community.advanced_context',
+] as const;
 
 function quota(overrides: Partial<ProductQuotaSummary> = {}): ProductQuotaSummary {
     return {
@@ -48,6 +61,9 @@ describe('product entitlement resolver', () => {
         expect(hasProductEntitlement(result, 'history.full')).toBe(false);
         expect(hasProductEntitlement(result, 'programs.guided_weekly')).toBe(false);
         expect(hasProductEntitlement(result, 'programs.guided_monthly')).toBe(false);
+        for (const entitlementKey of socialProEntitlementKeys) {
+            expect(hasProductEntitlement(result, entitlementKey), `${entitlementKey} should fail closed for Free`).toBe(false);
+        }
     });
 
     it('keeps free access but marks save quota as blocked when the free limit is reached', async () => {
@@ -129,9 +145,71 @@ describe('product entitlement resolver', () => {
         expect(hasProductEntitlement(pro, 'coach.full_plan')).toBe(true);
         expect(hasProductEntitlement(pro, 'programs.guided_weekly')).toBe(true);
         expect(hasProductEntitlement(pro, 'programs.guided_monthly')).toBe(true);
+        for (const entitlementKey of socialProEntitlementKeys) {
+            expect(hasProductEntitlement(pro, entitlementKey), `${entitlementKey} should be active for Pro`).toBe(true);
+            expect(hasProductEntitlement(founder, entitlementKey), `${entitlementKey} should be active for founder`).toBe(true);
+            expect(hasProductEntitlement(canceling, entitlementKey), `${entitlementKey} should remain active through period end`).toBe(true);
+        }
         expect(founder.accessState).toBe('founder_active');
         expect(canceling.accessState).toBe('canceling');
         expect(hasProductEntitlement(canceling, 'billing.portal_access')).toBe(true);
+    });
+
+    it('activates Social Pro keys as original product value instead of PUBG API exclusives', async () => {
+        const {
+            productDefaultEntitlementCatalog,
+            productProEntitlementKeys,
+        } = await loadProductEntitlementsModule();
+
+        for (const entitlementKey of socialProEntitlementKeys) {
+            expect(productEntitlementKeyValues).toContain(entitlementKey);
+            expect(productProEntitlementKeys).toContain(entitlementKey);
+            expect(entitlementKey).not.toMatch(/pubg|api|exclusive/i);
+
+            expect(productDefaultEntitlementCatalog).toContainEqual(expect.objectContaining({
+                key: entitlementKey,
+                status: 'active',
+                tier: 'pro',
+                surface: 'community',
+                ownerDomain: 'product',
+                gatingMode: 'requires_pro',
+                introducedPhase: '11',
+            }));
+        }
+    });
+
+    it('denies Social Pro keys for checkout-pending, canceled, suspended, and anonymous default states', async () => {
+        const { resolveProductAccess, hasProductEntitlement } = await loadProductEntitlementsModule();
+        const states = [
+            resolveProductAccess({ now }),
+            resolveProductAccess({ now, checkoutPending: true }),
+            resolveProductAccess({
+                now,
+                subscription: {
+                    status: 'canceled',
+                    tier: 'pro',
+                },
+            }),
+            resolveProductAccess({
+                now,
+                subscription: {
+                    status: 'active',
+                    tier: 'pro',
+                    currentPeriodStart: yesterday,
+                    currentPeriodEnd: tomorrow,
+                },
+                suspension: {
+                    active: true,
+                    reason: 'abuse',
+                },
+            }),
+        ];
+
+        for (const state of states) {
+            for (const entitlementKey of socialProEntitlementKeys) {
+                expect(hasProductEntitlement(state, entitlementKey), `${state.accessState} must not grant ${entitlementKey}`).toBe(false);
+            }
+        }
     });
 
     it('allows past-due access only during grace and blocks it after grace expires', async () => {
