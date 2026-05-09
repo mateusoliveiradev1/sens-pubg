@@ -140,6 +140,7 @@ function createPublicProfileViewModel(overrides: {
         readonly description: string | null;
     } | null;
     readonly posts?: readonly unknown[];
+    readonly socialProReports?: readonly unknown[];
     readonly emptyState?: unknown;
     readonly follow?: Record<string, unknown>;
 } = {}) {
@@ -238,6 +239,7 @@ function createPublicProfileViewModel(overrides: {
         },
         relatedLinks: overrides.relatedLinks ?? [],
         posts: overrides.posts ?? [],
+        socialProReports: overrides.socialProReports ?? [],
         emptyState: overrides.emptyState ?? null,
         publicSetup: Object.prototype.hasOwnProperty.call(overrides, 'publicSetup') ? overrides.publicSetup : {
             aimSetup: {
@@ -379,6 +381,54 @@ describe('/community/users/[slug] page contract', () => {
         expect(source).toMatch(/data-community-section=["']profile-spotlight["']/);
         expect(source).toMatch(/data-community-section=["']profile-recent-work["']/);
         expect(source).toMatch(/data-community-layout=["']profile-proof-grid["']/);
+    });
+
+    it('renders public-safe Social Pro report cards without gating public profile reading', async () => {
+        mocks.getPublicCommunityProfileViewModel.mockResolvedValueOnce(createPublicProfileViewModel({
+            socialProReports: [
+                {
+                    id: 'social-pro-report-public-1',
+                    href: '/community/reports/relatorio-beryl-publico',
+                    caseLabel: 'Relatorio Pro Compartilhavel',
+                    title: 'Relatorio Beryl publico',
+                    summary: 'Controle vertical ficou mais estavel em treino compativel.',
+                    nextAction: 'Gravar validacao compativel antes de aumentar a conclusao.',
+                    publishedAt: new Date('2026-05-08T14:00:00.000Z'),
+                    publishedAtIso: '2026-05-08T14:00:00.000Z',
+                    honesty: {
+                        confidenceLabel: '82%',
+                        coverageLabel: '74%',
+                        blockers: ['validacao compativel pendente'],
+                        inconclusiveStateLabel: 'Nao inconclusivo',
+                        limitedSupport: ['TDM e transferencia pratica nao substituem validacao tecnica.'],
+                        validationState: 'compatible_validation_pending',
+                        noOverclaimDisclaimer: 'Relatorio publico nao promete sensibilidade perfeita, rank ou melhora garantida.',
+                    },
+                    primaryAction: {
+                        label: 'Abrir relatorio',
+                        href: '/community/reports/relatorio-beryl-publico',
+                    },
+                },
+            ],
+        }));
+
+        const markup = await renderPage('spray-doctor');
+        const source = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8');
+
+        expect(markup).toContain('Relatorios Pro publicos');
+        expect(markup).toContain('Relatorio Pro Compartilhavel');
+        expect(markup).toContain('Relatorio Beryl publico');
+        expect(markup).toContain('Confianca');
+        expect(markup).toContain('82%');
+        expect(markup).toContain('Cobertura');
+        expect(markup).toContain('74%');
+        expect(markup).toContain('validacao compativel pendente');
+        expect(markup).toContain('compatible_validation_pending');
+        expect(markup).toContain('Relatorio publico nao promete sensibilidade perfeita, rank ou melhora garantida.');
+        expect(markup).toContain('href="/community/reports/relatorio-beryl-publico"');
+        expect(source).toMatch(/data-community-section=["']profile-social-pro-reports["']/);
+        expect(source).toMatch(/viewModel\.socialProReports/);
+        expect(source).not.toMatch(/auth\(\)[\s\S]*socialProReports|requiredEntitlementKey/);
     });
 
     it('renders public-safe recognition surfaces for rewards, streaks and squad identity', async () => {

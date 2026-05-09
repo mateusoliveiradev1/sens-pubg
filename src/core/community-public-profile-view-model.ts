@@ -12,6 +12,7 @@ import {
     communityRewardRecords,
     communitySquadMemberships,
     communitySquads,
+    socialProReports,
     playerProfiles,
     users,
 } from '@/db/schema';
@@ -51,6 +52,7 @@ import {
     type CommunityTrustSignal,
 } from './community-trust-signals';
 import type { SocialProAccessPolicy } from '@/lib/social-pro-access';
+import type { SocialProPublicReport } from '@/types/social-pro';
 
 const COMMUNITY_PUBLIC_PROFILE_EVENT_LIMIT = 250;
 const COMMUNITY_PUBLIC_PROFILE_REWARD_LIMIT = 24;
@@ -104,6 +106,16 @@ export interface CommunityPublicProfileSourcePost {
     readonly primaryDiagnosisKey: string | null;
 }
 
+export interface CommunityPublicProfileSourceSocialProReport {
+    readonly id: string;
+    readonly publicSlug: string | null;
+    readonly title: string;
+    readonly visibility: string;
+    readonly status: string;
+    readonly publishedAt: Date | null;
+    readonly publicSafeSnapshot: SocialProPublicReport;
+}
+
 export interface CommunityPublicProfileCreatorMetrics {
     readonly publicPostCount: number;
     readonly likeCount: number;
@@ -132,6 +144,30 @@ export interface CommunityPublicProfilePostCard {
     readonly publishedAtIso: string;
     readonly primaryAction: {
         readonly label: string;
+        readonly href: string;
+    };
+}
+
+export interface CommunityPublicProfileSocialProReportCard {
+    readonly id: string;
+    readonly href: string;
+    readonly caseLabel: 'Relatorio Pro Compartilhavel';
+    readonly title: string;
+    readonly summary: string;
+    readonly nextAction: string;
+    readonly publishedAt: Date;
+    readonly publishedAtIso: string;
+    readonly honesty: {
+        readonly confidenceLabel: string;
+        readonly coverageLabel: string;
+        readonly blockers: readonly string[];
+        readonly inconclusiveStateLabel: string;
+        readonly limitedSupport: readonly string[];
+        readonly validationState: string;
+        readonly noOverclaimDisclaimer: string;
+    };
+    readonly primaryAction: {
+        readonly label: 'Abrir relatorio';
         readonly href: string;
     };
 }
@@ -220,6 +256,7 @@ export interface CommunityPublicProfileViewModel {
     readonly publicSetup: CommunityPublicProfilePublicSetup | null;
     readonly relatedLinks: readonly CommunityPublicProfileRelatedLink[];
     readonly posts: readonly CommunityPublicProfilePostCard[];
+    readonly socialProReports: readonly CommunityPublicProfileSocialProReportCard[];
     readonly emptyState: {
         readonly title: string;
         readonly body: string;
@@ -235,6 +272,7 @@ export interface BuildPublicCommunityProfileViewModelInput {
     readonly user?: CommunityPublicProfileSourceUser | null;
     readonly playerProfile?: CommunityPublicProfileSourcePlayerProfile | null;
     readonly posts: readonly CommunityPublicProfileSourcePost[];
+    readonly socialProReports?: readonly CommunityPublicProfileSourceSocialProReport[];
     readonly creatorMetrics: CommunityPublicProfileCreatorMetrics;
     readonly followState: CommunityPublicProfileFollowState;
     readonly viewerUserId: string | null;
@@ -252,6 +290,10 @@ export function buildPublicCommunityProfileViewModel(
         .filter(isPublicProfilePost)
         .sort(compareProfilePostsByRecency);
     const publicPosts = publicSourcePosts.map(toProfilePostCard);
+    const publicSocialProReports = (input.socialProReports ?? [])
+        .filter(isPublicProfileSocialProReport)
+        .sort(compareProfileSocialProReportsByRecency)
+        .map(toProfileSocialProReportCard);
     const isSelfProfile = input.viewerUserId === input.profile.userId;
     const canFollow = Boolean(input.viewerUserId) && !isSelfProfile;
     const displayName = firstPublicText(input.profile.displayName, input.user?.name) ?? 'Jogador da comunidade';
@@ -333,6 +375,7 @@ export function buildPublicCommunityProfileViewModel(
             },
         publicSetup,
         relatedLinks: buildPublicProfileRelatedLinks(publicSourcePosts),
+        socialProReports: publicSocialProReports,
     };
 }
 
@@ -379,7 +422,7 @@ export async function getPublicCommunityProfileViewModel(
         return null;
     }
 
-    const [storedPosts, storedUsers, storedPlayerProfiles] = await Promise.all([
+    const [storedPosts, storedUsers, storedPlayerProfiles, storedSocialProReports] = await Promise.all([
         db
             .select({
                 id: communityPosts.id,
@@ -432,6 +475,29 @@ export async function getPublicCommunityProfileViewModel(
             .from(playerProfiles)
             .where(eq(playerProfiles.userId, storedProfile.userId))
             .limit(1),
+        db
+            .select({
+                id: socialProReports.id,
+                publicSlug: socialProReports.publicSlug,
+                title: socialProReports.title,
+                visibility: socialProReports.visibility,
+                status: socialProReports.status,
+                publishedAt: socialProReports.publishedAt,
+                publicSafeSnapshot: socialProReports.publicSafeSnapshot,
+            })
+            .from(socialProReports)
+            .where(
+                and(
+                    eq(socialProReports.ownerUserId, storedProfile.userId),
+                    eq(socialProReports.communityProfileId, storedProfile.profileId),
+                    eq(socialProReports.status, 'published'),
+                    eq(socialProReports.visibility, 'public'),
+                    isNotNull(socialProReports.publicSlug),
+                    isNotNull(socialProReports.publishedAt),
+                ),
+            )
+            .orderBy(desc(socialProReports.publishedAt))
+            .limit(6),
     ]);
     const [storedProgressionEvents, storedRewards, storedSquadRows] = await withCommunityGamificationFallback(
         () => Promise.all([
@@ -517,6 +583,7 @@ export async function getPublicCommunityProfileViewModel(
         user: storedUsers[0] ?? null,
         playerProfile: storedPlayerProfiles[0] ?? null,
         posts: storedPosts,
+        socialProReports: storedSocialProReports,
         creatorMetrics,
         followState,
         viewerUserId: input.viewerUserId,
@@ -732,6 +799,27 @@ function compareProfilePostsByRecency(
     return (right.publishedAt?.getTime() ?? 0) - (left.publishedAt?.getTime() ?? 0);
 }
 
+function isPublicProfileSocialProReport(report: CommunityPublicProfileSourceSocialProReport): boolean {
+    return report.status === 'published'
+        && report.visibility === 'public'
+        && report.publishedAt instanceof Date
+        && typeof report.publicSlug === 'string'
+        && report.publicSlug.trim().length > 0;
+}
+
+function compareProfileSocialProReportsByRecency(
+    left: CommunityPublicProfileSourceSocialProReport,
+    right: CommunityPublicProfileSourceSocialProReport,
+): number {
+    return (right.publishedAt?.getTime() ?? 0) - (left.publishedAt?.getTime() ?? 0);
+}
+
+function formatSocialProPercent(value: number | null): string {
+    return typeof value === 'number' && Number.isFinite(value)
+        ? `${Math.round(Math.min(Math.max(value, 0), 1) * 100)}%`
+        : 'Nao informado';
+}
+
 function toProfilePostCard(post: CommunityPublicProfileSourcePost): CommunityPublicProfilePostCard {
     const href = `/community/${post.slug}`;
 
@@ -750,6 +838,38 @@ function toProfilePostCard(post: CommunityPublicProfileSourcePost): CommunityPub
         publishedAtIso: (post.publishedAt as Date).toISOString(),
         primaryAction: {
             label: 'Ver post',
+            href,
+        },
+    };
+}
+
+function toProfileSocialProReportCard(
+    report: CommunityPublicProfileSourceSocialProReport,
+): CommunityPublicProfileSocialProReportCard {
+    const href = `/community/reports/${report.publicSlug}`;
+
+    return {
+        id: report.id,
+        href,
+        caseLabel: 'Relatorio Pro Compartilhavel',
+        title: report.publicSafeSnapshot.publicSummary.title || report.title,
+        summary: report.publicSafeSnapshot.publicSummary.whatChanged,
+        nextAction: report.publicSafeSnapshot.publicSummary.nextAction,
+        publishedAt: report.publishedAt as Date,
+        publishedAtIso: (report.publishedAt as Date).toISOString(),
+        honesty: {
+            confidenceLabel: formatSocialProPercent(report.publicSafeSnapshot.honesty.confidence),
+            coverageLabel: formatSocialProPercent(report.publicSafeSnapshot.honesty.coverage),
+            blockers: report.publicSafeSnapshot.honesty.blockers,
+            inconclusiveStateLabel: report.publicSafeSnapshot.honesty.inconclusiveState
+                ? 'Inconclusivo'
+                : 'Nao inconclusivo',
+            limitedSupport: report.publicSafeSnapshot.honesty.limitedSupport,
+            validationState: report.publicSafeSnapshot.honesty.validationState,
+            noOverclaimDisclaimer: report.publicSafeSnapshot.honesty.noOverclaimDisclaimer,
+        },
+        primaryAction: {
+            label: 'Abrir relatorio',
             href,
         },
     };

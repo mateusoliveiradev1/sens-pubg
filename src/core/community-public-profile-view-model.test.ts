@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import {
     buildPublicCommunityProfileViewModel,
     type BuildPublicCommunityProfileViewModelInput,
+    type CommunityPublicProfileSourceSocialProReport,
     type CommunityPublicProfileSourcePost,
     type CommunityPublicProfileSourceProfile,
 } from './community-public-profile-view-model';
@@ -117,6 +118,55 @@ function createSourcePost(
     };
 }
 
+function createSourceSocialProReport(
+    overrides: Partial<CommunityPublicProfileSourceSocialProReport> = {},
+): CommunityPublicProfileSourceSocialProReport {
+    return {
+        id: 'social-pro-report-public-1',
+        publicSlug: 'relatorio-beryl-publico',
+        title: 'Relatorio Beryl publico',
+        visibility: 'public',
+        status: 'published',
+        publishedAt: new Date('2026-05-08T14:00:00.000Z'),
+        publicSafeSnapshot: {
+            id: 'social-pro-report-public-1',
+            visibility: 'public',
+            status: 'published',
+            publicSummary: {
+                title: 'Relatorio Beryl publico',
+                whatChanged: 'Controle vertical ficou mais estavel em treino compativel.',
+                nextAction: 'Gravar validacao compativel antes de aumentar a conclusao.',
+            },
+            honesty: {
+                confidence: 0.82,
+                coverage: 0.74,
+                blockers: ['validacao compativel pendente'],
+                inconclusiveState: false,
+                limitedSupport: ['TDM e transferencia pratica nao substituem validacao tecnica.'],
+                validationState: 'compatible_validation_pending',
+                noOverclaimDisclaimer: 'Relatorio publico nao promete sensibilidade perfeita, rank ou melhora garantida.',
+            },
+            controls: {
+                showConfidence: true,
+                showCoverage: true,
+                showBlockers: true,
+                showInconclusiveState: true,
+                showLimitedSupport: true,
+                showValidationState: true,
+                showDisclaimer: true,
+                showTimeline: true,
+                visibleOptionalSections: ['public_summary', 'validation'],
+            },
+            sections: {
+                public_summary: {
+                    safe: true,
+                },
+            },
+        },
+        ...overrides,
+    };
+}
+
 function createViewModelInput(
     overrides: {
         readonly profile?: Partial<CommunityPublicProfileSourceProfile>;
@@ -132,6 +182,7 @@ function createViewModelInput(
         user: overrides.user ?? null,
         playerProfile: overrides.playerProfile ?? null,
         posts: [createSourcePost()],
+        socialProReports: [],
         creatorMetrics: {
             publicPostCount: 1,
             likeCount: 12,
@@ -525,6 +576,100 @@ describe('buildPublicCommunityProfileViewModel', () => {
         expect(JSON.stringify(viewModel)).not.toContain('unlisted-lab');
         expect(JSON.stringify(viewModel)).not.toContain('followers-only-lab');
         expect(JSON.stringify(viewModel)).not.toContain('missing-published-at');
+    });
+
+    it('includes only published public Social Pro reports with required honesty fields preserved', () => {
+        const viewModel = buildPublicCommunityProfileViewModel({
+            profile: publicProfile,
+            posts: [],
+            socialProReports: [
+                createSourceSocialProReport({
+                    id: 'social-pro-report-public-latest',
+                    publicSlug: 'relatorio-beryl-publico',
+                    publishedAt: new Date('2026-05-08T14:00:00.000Z'),
+                }),
+                createSourceSocialProReport({
+                    id: 'social-pro-report-link-private',
+                    publicSlug: 'relatorio-link-private',
+                    visibility: 'link_private',
+                }),
+                createSourceSocialProReport({
+                    id: 'social-pro-report-hidden',
+                    publicSlug: 'relatorio-hidden',
+                    status: 'hidden',
+                }),
+                createSourceSocialProReport({
+                    id: 'social-pro-report-disabled',
+                    publicSlug: 'relatorio-disabled',
+                    status: 'disabled',
+                }),
+                createSourceSocialProReport({
+                    id: 'social-pro-report-archived',
+                    publicSlug: 'relatorio-archived',
+                    status: 'archived',
+                }),
+                createSourceSocialProReport({
+                    id: 'social-pro-report-deleted',
+                    publicSlug: 'relatorio-deleted',
+                    status: 'deleted',
+                }),
+                createSourceSocialProReport({
+                    id: 'social-pro-report-restricted',
+                    publicSlug: 'relatorio-restricted',
+                    status: 'restricted',
+                }),
+                createSourceSocialProReport({
+                    id: 'social-pro-report-missing-date',
+                    publicSlug: 'relatorio-missing-date',
+                    publishedAt: null,
+                }),
+            ],
+            creatorMetrics: {
+                publicPostCount: 0,
+                likeCount: 0,
+                commentCount: 0,
+                copyCount: 0,
+                saveCount: 0,
+            },
+            followState: {
+                followerCount: 0,
+                viewerIsFollowing: false,
+            },
+            viewerUserId: null,
+        });
+
+        expect(viewModel.socialProReports.map((report) => report.id)).toEqual([
+            'social-pro-report-public-latest',
+        ]);
+        expect(viewModel.socialProReports[0]).toMatchObject({
+            id: 'social-pro-report-public-latest',
+            href: '/community/reports/relatorio-beryl-publico',
+            caseLabel: 'Relatorio Pro Compartilhavel',
+            title: 'Relatorio Beryl publico',
+            summary: 'Controle vertical ficou mais estavel em treino compativel.',
+            nextAction: 'Gravar validacao compativel antes de aumentar a conclusao.',
+            honesty: {
+                confidenceLabel: '82%',
+                coverageLabel: '74%',
+                blockers: ['validacao compativel pendente'],
+                inconclusiveStateLabel: 'Nao inconclusivo',
+                limitedSupport: ['TDM e transferencia pratica nao substituem validacao tecnica.'],
+                validationState: 'compatible_validation_pending',
+                noOverclaimDisclaimer: 'Relatorio publico nao promete sensibilidade perfeita, rank ou melhora garantida.',
+            },
+            primaryAction: {
+                label: 'Abrir relatorio',
+                href: '/community/reports/relatorio-beryl-publico',
+            },
+        });
+        const serializedReports = JSON.stringify(viewModel.socialProReports);
+        expect(serializedReports).not.toContain('relatorio-link-private');
+        expect(serializedReports).not.toContain('relatorio-hidden');
+        expect(serializedReports).not.toContain('relatorio-disabled');
+        expect(serializedReports).not.toContain('relatorio-archived');
+        expect(serializedReports).not.toContain('relatorio-deleted');
+        expect(serializedReports).not.toContain('relatorio-restricted');
+        expect(serializedReports).not.toContain('relatorio-missing-date');
     });
 
     it('builds related discovery links from public profile post tags only', () => {

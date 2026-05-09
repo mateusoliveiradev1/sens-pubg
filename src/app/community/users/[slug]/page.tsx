@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { JSX } from 'react';
 
-import { auth } from '@/auth';
+import { auth as getAuthSession } from '@/auth';
 import {
     getPublicCommunityProfileViewModel,
     type CommunityPublicProfilePostCard,
@@ -33,6 +33,7 @@ type CommunityProfileTrustSignal = CommunityPublicProfileViewModel['trustSignals
 type CommunityProfileReward = CommunityPublicProfileViewModel['publicRewards'][number];
 type CommunityProfileStreak = CommunityPublicProfileViewModel['streak'];
 type CommunityProfileSquadIdentity = NonNullable<CommunityPublicProfileViewModel['squadIdentity']>;
+type CommunityProfileSocialProReport = CommunityPublicProfileViewModel['socialProReports'][number];
 
 const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
     dateStyle: 'medium',
@@ -1064,10 +1065,109 @@ function ProfilePostShowcase({
     );
 }
 
+function ProfileSocialProReportCard({
+    report,
+}: {
+    readonly report: CommunityProfileSocialProReport;
+}): JSX.Element {
+    return (
+        <article
+            className={`${styles.snapshotPlate} ${styles.profileSnapshotPlate}`}
+            data-community-card="social-pro-report-card"
+        >
+            <div className={styles.snapshotHeader}>
+                <div>
+                    <span className={styles.sectionKicker}>{report.caseLabel}</span>
+                    <h3 className={styles.snapshotTitle}>
+                        <Link href={report.href}>{report.title}</Link>
+                    </h3>
+                </div>
+                <time className={styles.snapshotDate} dateTime={report.publishedAtIso}>
+                    {dateFormatter.format(report.publishedAt)}
+                </time>
+            </div>
+
+            <div className={styles.snapshotBody}>
+                <p className={styles.snapshotExcerpt}>{report.summary}</p>
+                <p className={styles.profileProofSummary}>{report.nextAction}</p>
+            </div>
+
+            <dl className={styles.profileProofGrid} data-community-layout="profile-proof-grid">
+                <div className={styles.profileProofPlate}>
+                    <dt className={styles.profileProofLabel}>Confianca</dt>
+                    <dd className={styles.profileProofValue}>{report.honesty.confidenceLabel}</dd>
+                </div>
+                <div className={styles.profileProofPlate}>
+                    <dt className={styles.profileProofLabel}>Cobertura</dt>
+                    <dd className={styles.profileProofValue}>{report.honesty.coverageLabel}</dd>
+                </div>
+                <div className={styles.profileProofPlate}>
+                    <dt className={styles.profileProofLabel}>Validacao</dt>
+                    <dd className={styles.profileProofSummary}>{report.honesty.validationState}</dd>
+                </div>
+            </dl>
+
+            {report.honesty.blockers.length > 0 ? (
+                <ul className={styles.loadoutChips} aria-label="Bloqueadores do relatorio">
+                    {report.honesty.blockers.map((blocker) => (
+                        <li key={blocker} className={styles.loadoutChipMuted}>{blocker}</li>
+                    ))}
+                </ul>
+            ) : null}
+
+            <p className={styles.profileProofSummary}>{report.honesty.inconclusiveStateLabel}</p>
+            {report.honesty.limitedSupport.map((support) => (
+                <p key={support} className={styles.profileProofSummary}>{support}</p>
+            ))}
+            <p className={styles.profileProofSummary}>{report.honesty.noOverclaimDisclaimer}</p>
+
+            <div className={styles.snapshotFooter}>
+                <Link className={styles.cardAction} href={report.primaryAction.href}>
+                    {report.primaryAction.label}
+                </Link>
+            </div>
+        </article>
+    );
+}
+
+function ProfileSocialProReports({
+    reports,
+}: {
+    readonly reports: readonly CommunityProfileSocialProReport[];
+}): JSX.Element | null {
+    if (reports.length === 0) {
+        return null;
+    }
+
+    return (
+        <section
+            aria-label="Relatorios Pro publicos"
+            className={styles.sectionShell}
+            data-community-section="profile-social-pro-reports"
+        >
+            <div className={styles.sectionHeader}>
+                <div>
+                    <span className={styles.sectionKicker}>Social Pro</span>
+                    <h2 className={styles.sectionTitle}>Relatorios Pro publicos</h2>
+                </div>
+                <p className={styles.sectionSummary}>
+                    Relatorios publicados pelo jogador com redacao publica segura, confianca, cobertura e limites visiveis.
+                </p>
+            </div>
+
+            <div className={styles.profilePostGrid}>
+                {reports.map((report) => (
+                    <ProfileSocialProReportCard key={report.id} report={report} />
+                ))}
+            </div>
+        </section>
+    );
+}
+
 export default async function CommunityUserProfilePage({
     params,
 }: CommunityUserProfilePageProps): Promise<JSX.Element> {
-    const session = await auth();
+    const session = await getAuthSession();
     const { slug } = await params;
     const viewModel = await getPublicCommunityProfileViewModel({
         slug,
@@ -1102,6 +1202,7 @@ export default async function CommunityUserProfilePage({
                         streak={viewModel.streak}
                     />
                     <ProfileMetricStrip metrics={viewModel.metrics} />
+                    <ProfileSocialProReports reports={viewModel.socialProReports} />
                     <ProfilePostShowcase
                         emptyState={viewModel.emptyState}
                         posts={viewModel.posts}
