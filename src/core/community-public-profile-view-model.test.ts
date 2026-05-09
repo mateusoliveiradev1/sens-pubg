@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 
 import {
     buildPublicCommunityProfileViewModel,
@@ -6,6 +7,8 @@ import {
     type CommunityPublicProfileSourcePost,
     type CommunityPublicProfileSourceProfile,
 } from './community-public-profile-view-model';
+import { resolveProductAccess } from '@/lib/product-entitlements';
+import { createSocialProAccessPolicy } from '@/lib/social-pro-access';
 
 type PublicProfileFallbackBuildInput = BuildPublicCommunityProfileViewModelInput & {
     readonly user?: {
@@ -56,6 +59,45 @@ const publicProfile: CommunityPublicProfileSourceProfile = {
     visibility: 'public',
     creatorProgramStatus: 'approved',
 };
+const now = new Date('2026-05-09T06:50:00.000Z');
+const yesterday = new Date('2026-05-08T06:50:00.000Z');
+const tomorrow = new Date('2026-05-10T06:50:00.000Z');
+
+function createSocialProPolicy(status: 'free' | 'active' | 'canceled') {
+    if (status === 'active') {
+        return createSocialProAccessPolicy({
+            productAccess: resolveProductAccess({
+                now,
+                userId: 'pro-user',
+                subscription: {
+                    status: 'active',
+                    tier: 'pro',
+                    currentPeriodStart: yesterday,
+                    currentPeriodEnd: tomorrow,
+                },
+            }),
+        });
+    }
+
+    if (status === 'canceled') {
+        return createSocialProAccessPolicy({
+            productAccess: resolveProductAccess({
+                now,
+                userId: 'canceled-user',
+                subscription: {
+                    status: 'canceled',
+                    tier: 'pro',
+                    currentPeriodStart: yesterday,
+                    currentPeriodEnd: yesterday,
+                },
+            }),
+        });
+    }
+
+    return createSocialProAccessPolicy({
+        productAccess: resolveProductAccess({ now, userId: 'free-user' }),
+    });
+}
 
 function createSourcePost(
     overrides: Partial<CommunityPublicProfileSourcePost> = {},
@@ -106,6 +148,46 @@ function createViewModelInput(
 }
 
 describe('buildPublicCommunityProfileViewModel', () => {
+    it('adds a public Pro badge only when the server Social Pro access policy allows it', () => {
+        const activePro = buildPublicCommunityProfileViewModel({
+            ...createViewModelInput(),
+            socialProAccess: createSocialProPolicy('active'),
+        });
+        const free = buildPublicCommunityProfileViewModel({
+            ...createViewModelInput(),
+            socialProAccess: createSocialProPolicy('free'),
+        });
+        const canceled = buildPublicCommunityProfileViewModel({
+            ...createViewModelInput(),
+            socialProAccess: createSocialProPolicy('canceled'),
+        });
+
+        expect(activePro.identity.proBadge).toEqual({
+            key: 'social-pro-access',
+            meaning: 'active_pro_access',
+            label: 'Pro',
+            tooltip: 'Pro: acesso aos recursos premium do Sens PUBG. Nao indica autoridade tecnica, habilidade maior, certificacao, coach, jogador profissional ou rank.',
+            ariaLabel: 'Pro: acesso aos recursos premium do Sens PUBG; nao indica autoridade, habilidade, certificacao, coach, jogador profissional ou rank.',
+        });
+        expect(activePro.trustSignals).toContainEqual({
+            key: 'social-pro-access',
+            label: 'Pro',
+            reason: 'Pro: acesso aos recursos premium do Sens PUBG. Nao indica autoridade tecnica, habilidade maior, certificacao, coach, jogador profissional ou rank.',
+            count: null,
+        });
+        expect(free.identity.proBadge).toBeNull();
+        expect(canceled.identity.proBadge).toBeNull();
+        expect(JSON.stringify(activePro.identity.proBadge)).not.toMatch(/pro player|verified skill|skill verified|rank alto|melhor jogador|certificado pelo pro/i);
+    });
+
+    it('keeps public profile badge truth derived from the server Social Pro resolver instead of client props', () => {
+        const source = readFileSync(new URL('./community-public-profile-view-model.ts', import.meta.url), 'utf8');
+
+        expect(source).toMatch(/resolveSocialProAccessForUser\(\s*storedProfile\.userId/);
+        expect(source).toMatch(/socialProAccess/);
+        expect(source).not.toMatch(/clientProBadge|requestedProBadge|profile\.proBadge|queryProBadge/i);
+    });
+
     it('falls back to player profile bio and auth user avatar when community identity fields are empty', () => {
         const viewModel = buildPublicCommunityProfileViewModel(createViewModelInput({
             profile: {

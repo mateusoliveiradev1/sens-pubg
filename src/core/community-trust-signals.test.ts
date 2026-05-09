@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    buildCommunityProBadge,
     buildCreatorTrustSignals,
     buildPostTrustSignals,
     buildProfileTrustSignals,
     countPublicSetupFields,
 } from './community-trust-signals';
+import { resolveProductAccess } from '@/lib/product-entitlements';
+import { createSocialProAccessPolicy } from '@/lib/social-pro-access';
 
 const unsupportedAuthorityClaims = /pro player|verified skill|best|melhor|rank|skill/i;
 
@@ -30,16 +33,104 @@ const publicSetup = {
     },
 };
 
+const now = new Date('2026-05-09T06:50:00.000Z');
+const yesterday = new Date('2026-05-08T06:50:00.000Z');
+const tomorrow = new Date('2026-05-10T06:50:00.000Z');
+
 describe('community trust signals', () => {
+    it('projects the Pro badge only from active server-owned Social Pro access', () => {
+        const proPolicy = createSocialProAccessPolicy({
+            productAccess: resolveProductAccess({
+                now,
+                userId: 'pro-user',
+                subscription: {
+                    status: 'active',
+                    tier: 'pro',
+                    currentPeriodStart: yesterday,
+                    currentPeriodEnd: tomorrow,
+                },
+            }),
+        });
+        const freePolicy = createSocialProAccessPolicy({
+            productAccess: resolveProductAccess({ now, userId: 'free-user' }),
+        });
+        const canceledPolicy = createSocialProAccessPolicy({
+            productAccess: resolveProductAccess({
+                now,
+                userId: 'canceled-user',
+                subscription: {
+                    status: 'canceled',
+                    tier: 'pro',
+                    currentPeriodStart: yesterday,
+                    currentPeriodEnd: yesterday,
+                },
+            }),
+        });
+
+        expect(buildCommunityProBadge(proPolicy)).toMatchObject({
+            key: 'social-pro-access',
+            meaning: 'active_pro_access',
+            label: 'Pro',
+            tooltip: 'Pro: acesso aos recursos premium do Sens PUBG. Nao indica autoridade tecnica, habilidade maior, certificacao, coach, jogador profissional ou rank.',
+            count: null,
+        });
+        expect(buildCommunityProBadge(freePolicy)).toBeNull();
+        expect(buildCommunityProBadge(canceledPolicy)).toBeNull();
+    });
+
+    it('keeps Pro badge copy explicitly anti-authority and non-ranking', () => {
+        const proPolicy = createSocialProAccessPolicy({
+            productAccess: resolveProductAccess({
+                now,
+                userId: 'pro-user',
+                subscription: {
+                    status: 'active',
+                    tier: 'pro',
+                    currentPeriodStart: yesterday,
+                    currentPeriodEnd: tomorrow,
+                },
+            }),
+        });
+        const badge = buildCommunityProBadge(proPolicy);
+        const tooltip = badge?.tooltip ?? '';
+
+        expect(tooltip).toContain('acesso aos recursos premium do Sens PUBG');
+        expect(tooltip).toContain('Nao indica autoridade tecnica');
+        expect(tooltip).toContain('habilidade maior');
+        expect(tooltip).toContain('certificacao');
+        expect(tooltip).toContain('coach');
+        expect(tooltip).toContain('jogador profissional');
+        expect(tooltip).toContain('rank');
+        expect(JSON.stringify(badge)).not.toMatch(/pro player|verified skill|skill verified|rank alto|melhor jogador|certificado pelo pro/i);
+    });
+
     it('builds factual profile signals for creator status and public setup', () => {
         const signals = buildProfileTrustSignals({
             creatorProgramStatus: 'approved',
             publicSetup,
             copyCount: 4,
             saveCount: 3,
+            proBadge: buildCommunityProBadge(createSocialProAccessPolicy({
+                productAccess: resolveProductAccess({
+                    now,
+                    userId: 'pro-user',
+                    subscription: {
+                        status: 'active',
+                        tier: 'pro',
+                        currentPeriodStart: yesterday,
+                        currentPeriodEnd: tomorrow,
+                    },
+                }),
+            })),
         });
 
         expect(signals).toEqual([
+            {
+                key: 'social-pro-access',
+                label: 'Pro',
+                reason: 'Pro: acesso aos recursos premium do Sens PUBG. Nao indica autoridade tecnica, habilidade maior, certificacao, coach, jogador profissional ou rank.',
+                count: null,
+            },
             {
                 key: 'creator-approved',
                 label: 'Creator aprovado',
