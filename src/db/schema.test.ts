@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { getTableConfig } from 'drizzle-orm/pg-core';
 import { describe, expect, it } from 'vitest';
 import * as dbSchema from './schema';
@@ -54,6 +56,12 @@ function getPrimaryKey(table: Parameters<typeof getTableConfig>[0], name: string
     expect(primaryKey, `expected primary key ${name} to exist on ${getTableConfig(table).name}`).toBeDefined();
 
     return primaryKey!;
+}
+
+function expectColumnMissing(table: Parameters<typeof getTableConfig>[0], name: string) {
+    const column = getTableConfig(table).columns.find((candidate) => candidate.name === name);
+
+    expect(column, `expected column ${name} to stay absent from ${getTableConfig(table).name}`).toBeUndefined();
 }
 
 describe('analysisSessions schema', () => {
@@ -1043,5 +1051,321 @@ describe('product monetization schema', () => {
         expect(getColumn(billingEvents, 'event_type').notNull).toBe(true);
         expect(getColumn(billingEvents, 'target_type').notNull).toBe(true);
         expect(getColumn(billingEvents, 'metadata').default).toBe('{}');
+    });
+});
+
+describe('social pro persistence schema', () => {
+    it('defines public-safe report rows with owned source evidence references', () => {
+        const reports = getExportedTable('socialProReports');
+
+        const id = getColumn(reports, 'id');
+        const ownerUserId = getColumn(reports, 'owner_user_id');
+        const communityProfileId = getColumn(reports, 'community_profile_id');
+        const publicSlug = getColumn(reports, 'public_slug');
+        const visibility = getColumn(reports, 'visibility');
+        const status = getColumn(reports, 'status');
+        const title = getColumn(reports, 'title');
+        const publicSafeSnapshot = getColumn(reports, 'public_safe_snapshot');
+        const sourceAnalysisSessionId = getColumn(reports, 'source_analysis_session_id');
+        const sourceHistorySessionId = getColumn(reports, 'source_history_session_id');
+        const sourceProtocolRevisionId = getColumn(reports, 'source_protocol_revision_id');
+        const sourceSprayLabSessionId = getColumn(reports, 'source_spray_lab_session_id');
+        const sourceTrainingProgramCycleId = getColumn(reports, 'source_training_program_cycle_id');
+        const sourceValidationLinkId = getColumn(reports, 'source_validation_link_id');
+        const payload = getColumn(reports, 'payload');
+        const createdAt = getColumn(reports, 'created_at');
+        const updatedAt = getColumn(reports, 'updated_at');
+
+        expect(id.primary).toBe(true);
+        expect(ownerUserId.notNull).toBe(true);
+        expect(communityProfileId.notNull).toBe(false);
+        expect(publicSlug.notNull).toBe(false);
+        expect(visibility.notNull).toBe(true);
+        expect(visibility.default).toBe('link_private');
+        expect(status.notNull).toBe(true);
+        expect(status.default).toBe('draft');
+        expect(title.notNull).toBe(true);
+        expect(publicSafeSnapshot.notNull).toBe(true);
+        expect(sourceAnalysisSessionId.notNull).toBe(false);
+        expect(sourceHistorySessionId.notNull).toBe(false);
+        expect(sourceProtocolRevisionId.notNull).toBe(false);
+        expect(sourceSprayLabSessionId.notNull).toBe(false);
+        expect(sourceTrainingProgramCycleId.notNull).toBe(false);
+        expect(sourceValidationLinkId.notNull).toBe(false);
+        expect(payload.notNull).toBe(true);
+        expect(payload.default).toBe('{}');
+        expect(createdAt.notNull).toBe(true);
+        expect(updatedAt.notNull).toBe(true);
+
+        expect(getForeignKey(
+            reports,
+            'social_pro_reports_owner_user_id_users_id_fk',
+        ).onDelete).toBe('cascade');
+        expect(getForeignKey(
+            reports,
+            'social_pro_reports_community_profile_id_community_profiles_id_fk',
+        ).onDelete).toBe('set null');
+        expect(getForeignKey(
+            reports,
+            'social_pro_reports_source_analysis_session_id_analysis_sessions_id_fk',
+        ).onDelete).toBe('set null');
+        expect(getForeignKey(
+            reports,
+            'social_pro_reports_source_history_session_id_analysis_sessions_id_fk',
+        ).onDelete).toBe('set null');
+        expect(getForeignKey(
+            reports,
+            'social_pro_reports_source_protocol_revision_id_complete_training_protocol_revisions_id_fk',
+        ).onDelete).toBe('set null');
+        expect(getForeignKey(
+            reports,
+            'social_pro_reports_source_spray_lab_session_id_spray_lab_sessions_id_fk',
+        ).onDelete).toBe('set null');
+        expect(getForeignKey(
+            reports,
+            'social_pro_reports_source_training_program_cycle_id_training_program_cycles_id_fk',
+        ).onDelete).toBe('set null');
+        expect(getForeignKey(
+            reports,
+            'social_pro_reports_source_validation_link_id_spray_lab_validation_links_id_fk',
+        ).onDelete).toBe('set null');
+
+        expect(getIndex(reports, 'social_pro_reports_public_slug_uidx').config.unique).toBe(true);
+        expect(getIndex(reports, 'social_pro_reports_owner_status_updated_idx').config.columns.map((column) => column.name)).toEqual([
+            'owner_user_id',
+            'status',
+            'updated_at',
+        ]);
+        expect(getIndex(reports, 'social_pro_reports_visibility_status_idx').config.columns.map((column) => column.name)).toEqual([
+            'visibility',
+            'status',
+        ]);
+        expect(getIndex(reports, 'social_pro_reports_source_analysis_idx').config.columns.map((column) => column.name)).toEqual([
+            'source_analysis_session_id',
+        ]);
+
+        for (const unsafeColumn of [
+            'raw_private_video',
+            'payment_state',
+            'private_readers',
+            'internal_notes',
+            'private_collection_contents',
+        ]) {
+            expectColumnMissing(reports, unsafeColumn);
+        }
+    });
+
+    it('defines revocable private report links without private reader logging', () => {
+        const links = getExportedTable('socialProReportLinks');
+
+        const reportId = getColumn(links, 'report_id');
+        const ownerUserId = getColumn(links, 'owner_user_id');
+        const tokenVerifierHash = getColumn(links, 'token_verifier_hash');
+        const tokenVerifierPrefix = getColumn(links, 'token_verifier_prefix');
+        const status = getColumn(links, 'status');
+        const regeneratedFromLinkId = getColumn(links, 'regenerated_from_link_id');
+        const revokedByUserId = getColumn(links, 'revoked_by_user_id');
+        const revokedAt = getColumn(links, 'revoked_at');
+        const expiresAt = getColumn(links, 'expires_at');
+        const lastRegeneratedAt = getColumn(links, 'last_regenerated_at');
+
+        expect(reportId.notNull).toBe(true);
+        expect(ownerUserId.notNull).toBe(true);
+        expect(tokenVerifierHash.notNull).toBe(true);
+        expect(tokenVerifierPrefix.notNull).toBe(true);
+        expect(status.notNull).toBe(true);
+        expect(status.default).toBe('active');
+        expect(regeneratedFromLinkId.notNull).toBe(false);
+        expect(revokedByUserId.notNull).toBe(false);
+        expect(revokedAt.notNull).toBe(false);
+        expect(expiresAt.notNull).toBe(false);
+        expect(lastRegeneratedAt.notNull).toBe(false);
+
+        expect(getForeignKey(links, 'social_pro_report_links_report_id_social_pro_reports_id_fk').onDelete).toBe('cascade');
+        expect(getForeignKey(links, 'social_pro_report_links_owner_user_id_users_id_fk').onDelete).toBe('cascade');
+        expect(getForeignKey(
+            links,
+            'social_pro_report_links_regenerated_from_link_id_social_pro_report_links_id_fk',
+        ).onDelete).toBe('set null');
+        expect(getForeignKey(links, 'social_pro_report_links_revoked_by_user_id_users_id_fk').onDelete).toBe('set null');
+
+        expect(getIndex(links, 'social_pro_report_links_token_hash_uidx').config.unique).toBe(true);
+        expect(getIndex(links, 'social_pro_report_links_report_status_idx').config.columns.map((column) => column.name)).toEqual([
+            'report_id',
+            'status',
+        ]);
+        expect(getIndex(links, 'social_pro_report_links_owner_status_idx').config.columns.map((column) => column.name)).toEqual([
+            'owner_user_id',
+            'status',
+        ]);
+        expect(getIndex(links, 'social_pro_report_links_expiration_idx').config.columns.map((column) => column.name)).toEqual([
+            'expires_at',
+        ]);
+
+        for (const unsafeColumn of [
+            'raw_token',
+            'reader_user_id',
+            'reader_ip',
+            'reader_email',
+            'reader_session_id',
+        ]) {
+            expectColumnMissing(links, unsafeColumn);
+        }
+    });
+
+    it('defines report audit events for lifecycle, link, and moderation continuity', () => {
+        const auditEvents = getExportedTable('socialProReportAuditEvents');
+
+        const reportId = getColumn(auditEvents, 'report_id');
+        const actorUserId = getColumn(auditEvents, 'actor_user_id');
+        const linkId = getColumn(auditEvents, 'link_id');
+        const eventType = getColumn(auditEvents, 'event_type');
+        const reportStatus = getColumn(auditEvents, 'report_status');
+        const reasonKey = getColumn(auditEvents, 'reason_key');
+        const publicSafeSnapshot = getColumn(auditEvents, 'public_safe_snapshot');
+        const metadata = getColumn(auditEvents, 'metadata');
+        const createdAt = getColumn(auditEvents, 'created_at');
+
+        expect(reportId.notNull).toBe(true);
+        expect(actorUserId.notNull).toBe(false);
+        expect(linkId.notNull).toBe(false);
+        expect(eventType.notNull).toBe(true);
+        expect(reportStatus.notNull).toBe(false);
+        expect(reasonKey.notNull).toBe(false);
+        expect(publicSafeSnapshot.notNull).toBe(false);
+        expect(metadata.notNull).toBe(true);
+        expect(metadata.default).toBe('{}');
+        expect(createdAt.notNull).toBe(true);
+
+        expect(getForeignKey(auditEvents, 'social_pro_report_audit_events_report_id_social_pro_reports_id_fk').onDelete).toBe('cascade');
+        expect(getForeignKey(auditEvents, 'social_pro_report_audit_events_actor_user_id_users_id_fk').onDelete).toBe('set null');
+        expect(getForeignKey(auditEvents, 'social_pro_report_audit_events_link_id_social_pro_report_links_id_fk').onDelete).toBe('set null');
+
+        expect(getIndex(auditEvents, 'social_pro_report_audit_events_report_created_idx').config.columns.map((column) => column.name)).toEqual([
+            'report_id',
+            'created_at',
+        ]);
+        expect(getIndex(auditEvents, 'social_pro_report_audit_events_link_created_idx').config.columns.map((column) => column.name)).toEqual([
+            'link_id',
+            'created_at',
+        ]);
+        expect(getIndex(auditEvents, 'social_pro_report_audit_events_actor_created_idx').config.columns.map((column) => column.name)).toEqual([
+            'actor_user_id',
+            'created_at',
+        ]);
+        expect(getIndex(auditEvents, 'social_pro_report_audit_events_type_created_idx').config.columns.map((column) => column.name)).toEqual([
+            'event_type',
+            'created_at',
+        ]);
+
+        expectColumnMissing(auditEvents, 'raw_private_analysis');
+        expectColumnMissing(auditEvents, 'private_reader_id');
+        expectColumnMissing(auditEvents, 'payment_payload');
+    });
+
+    it('defines private-by-default collections and context-aware library items', () => {
+        const collections = getExportedTable('socialProCollections');
+        const items = getExportedTable('socialProCollectionItems');
+
+        const collectionOwner = getColumn(collections, 'owner_user_id');
+        const collectionMode = getColumn(collections, 'mode');
+        const collectionVisibility = getColumn(collections, 'visibility');
+        const collectionShareable = getColumn(collections, 'shareable');
+        const collectionContextKey = getColumn(collections, 'context_key');
+        const collectionPayload = getColumn(collections, 'payload');
+
+        expect(collectionOwner.notNull).toBe(true);
+        expect(collectionMode.notNull).toBe(true);
+        expect(collectionMode.default).toBe('manual');
+        expect(collectionVisibility.notNull).toBe(true);
+        expect(collectionVisibility.default).toBe('private');
+        expect(collectionShareable.notNull).toBe(true);
+        expect(collectionShareable.default).toBe(false);
+        expect(collectionContextKey.notNull).toBe(true);
+        expect(collectionPayload.default).toBe('{}');
+
+        expect(getColumn(collections, 'weapon_id').notNull).toBe(false);
+        expect(getColumn(collections, 'optic_id').notNull).toBe(false);
+        expect(getColumn(collections, 'distance_meters').notNull).toBe(false);
+        expect(getColumn(collections, 'diagnosis_key').notNull).toBe(false);
+        expect(getColumn(collections, 'active_line_id').notNull).toBe(false);
+        expect(getColumn(collections, 'program_cycle_id').notNull).toBe(false);
+        expect(getColumn(collections, 'spray_lab_lane_id').notNull).toBe(false);
+        expect(getColumn(collections, 'objective_key').notNull).toBe(false);
+        expect(getColumn(collections, 'validation_state').notNull).toBe(false);
+        expect(getColumn(collections, 'blocker_key').notNull).toBe(false);
+
+        expect(getForeignKey(collections, 'social_pro_collections_owner_user_id_users_id_fk').onDelete).toBe('cascade');
+        expect(getForeignKey(collections, 'social_pro_collections_program_cycle_id_training_program_cycles_id_fk').onDelete).toBe('set null');
+        expect(getIndex(collections, 'social_pro_collections_owner_updated_idx').config.columns.map((column) => column.name)).toEqual([
+            'owner_user_id',
+            'updated_at',
+        ]);
+        expect(getIndex(collections, 'social_pro_collections_owner_mode_idx').config.columns.map((column) => column.name)).toEqual([
+            'owner_user_id',
+            'mode',
+        ]);
+        expect(getIndex(collections, 'social_pro_collections_owner_context_idx').config.columns.map((column) => column.name)).toEqual([
+            'owner_user_id',
+            'context_key',
+        ]);
+
+        const itemCollectionId = getColumn(items, 'collection_id');
+        const itemOwnerUserId = getColumn(items, 'owner_user_id');
+        const itemKind = getColumn(items, 'kind');
+        const itemId = getColumn(items, 'item_id');
+        const contextKey = getColumn(items, 'context_key');
+        const contextFacets = getColumn(items, 'context_facets');
+
+        expect(itemCollectionId.notNull).toBe(true);
+        expect(itemOwnerUserId.notNull).toBe(true);
+        expect(itemKind.notNull).toBe(true);
+        expect(itemId.notNull).toBe(true);
+        expect(contextKey.notNull).toBe(true);
+        expect(contextFacets.notNull).toBe(true);
+        expect(contextFacets.default).toBe('{}');
+
+        expect(getForeignKey(items, 'social_pro_collection_items_collection_id_social_pro_collections_id_fk').onDelete).toBe('cascade');
+        expect(getForeignKey(items, 'social_pro_collection_items_owner_user_id_users_id_fk').onDelete).toBe('cascade');
+        expect(getForeignKey(items, 'social_pro_collection_items_social_pro_report_id_social_pro_reports_id_fk').onDelete).toBe('set null');
+        expect(getForeignKey(items, 'social_pro_collection_items_community_post_id_community_posts_id_fk').onDelete).toBe('set null');
+        expect(getForeignKey(items, 'social_pro_collection_items_spray_lab_session_id_spray_lab_sessions_id_fk').onDelete).toBe('set null');
+        expect(getForeignKey(items, 'social_pro_collection_items_training_program_mission_id_training_program_missions_id_fk').onDelete).toBe('set null');
+        expect(getForeignKey(items, 'social_pro_collection_items_validation_link_id_spray_lab_validation_links_id_fk').onDelete).toBe('set null');
+
+        expect(getIndex(items, 'social_pro_collection_items_collection_kind_idx').config.columns.map((column) => column.name)).toEqual([
+            'collection_id',
+            'kind',
+        ]);
+        expect(getIndex(items, 'social_pro_collection_items_owner_kind_created_idx').config.columns.map((column) => column.name)).toEqual([
+            'owner_user_id',
+            'kind',
+            'created_at',
+        ]);
+        expect(getIndex(items, 'social_pro_collection_items_collection_item_uidx').config.unique).toBe(true);
+
+        expectColumnMissing(collections, 'public_slug');
+        expectColumnMissing(collections, 'discoverable_in_feed');
+        expectColumnMissing(items, 'public_visibility');
+    });
+
+    it('exports Social Pro audit action keys using the social_pro namespace', () => {
+        const auditLogSource = readFileSync(new URL('./audit-log.ts', import.meta.url), 'utf8');
+        const actions = Array.from(
+            auditLogSource.matchAll(/'social_pro\.[^']+'/g),
+            ([match]) => match.slice(1, -1),
+        );
+
+        expect(auditLogSource).toContain('socialProAuditActionKeys');
+        expect(actions).toEqual(expect.arrayContaining([
+            'social_pro.report.created',
+            'social_pro.report.updated',
+            'social_pro.private_link.revoked',
+            'social_pro.private_link.regenerated',
+            'social_pro.report.hidden',
+            'social_pro.report.disabled',
+            'social_pro.library_item.saved',
+        ]));
+        expect(actions.every((action) => action.startsWith('social_pro.'))).toBe(true);
     });
 });
