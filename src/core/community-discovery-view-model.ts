@@ -15,11 +15,15 @@ import {
     communitySeasons,
     communitySquadMemberships,
     communitySquads,
+    socialProCollectionItems,
+    socialProCollections,
+    socialProReports,
 } from '@/db/schema';
 import type {
     CommunityCreatorProgramStatus,
     CommunityProfileVisibility,
 } from '@/db/schema';
+import type { SocialProAccessPolicy } from '@/lib/social-pro-access';
 import type {
     CommunityPostStatus,
     CommunityPostVisibility,
@@ -75,6 +79,11 @@ const communityDiscoveryWindowDateFormatter = new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit',
     month: 'short',
 });
+const SOCIAL_PRO_BADGE_ACCESSIBLE_LABEL = 'Pro: acesso aos recursos premium do Sens PUBG';
+const SOCIAL_PRO_BADGE_ANTI_AUTHORITY_COPY =
+    'Badge Pro indica acesso ativo aos recursos premium do Sens PUBG; nao indica autoridade tecnica nem certificacao de creator por pagamento.';
+const SOCIAL_PRO_FREE_LOCK_COPY =
+    'O Free mantem a leitura publica, posts, perfis, comentarios, curtidas, saves normais e follows. O Pro organiza este contexto em relatorio, biblioteca, auditoria e Ciclo Pro.';
 
 export interface CommunityDiscoveryFilters {
     readonly weaponId?: string;
@@ -183,6 +192,100 @@ export interface CommunityDiscoveryPostCard {
     };
     readonly publishedAt: Date;
     readonly publishedAtIso: string;
+}
+
+export interface CommunityDiscoveryProBadge {
+    readonly label: 'Pro';
+    readonly accessibleLabel: 'Pro: acesso aos recursos premium do Sens PUBG';
+    readonly tooltip: 'Pro: acesso aos recursos premium do Sens PUBG';
+    readonly meaning: 'active_pro_access';
+    readonly antiAuthorityCopy: string;
+}
+
+export type CommunityDiscoverySocialProAccessState = 'anonymous' | 'free' | 'pro';
+
+export type CommunityDiscoverySocialProPanelKey =
+    | 'reports'
+    | 'library'
+    | 'analytics'
+    | 'collections';
+
+export type CommunityDiscoverySocialProActionKind =
+    | 'generate_report'
+    | 'continue_ciclo_pro'
+    | 'open_spray_lab';
+
+export interface CommunityDiscoverySocialProPanelItem {
+    readonly title: string;
+    readonly href: string;
+    readonly meta: string;
+}
+
+export interface CommunityDiscoverySocialProPanel {
+    readonly key: CommunityDiscoverySocialProPanelKey;
+    readonly title: string;
+    readonly summary: string;
+    readonly metricLabel: string;
+    readonly locked: boolean;
+    readonly lockCopy: string | null;
+    readonly primaryAction: {
+        readonly label: string;
+        readonly href: string;
+        readonly upgradeIntentAction: string | null;
+    };
+    readonly items: readonly CommunityDiscoverySocialProPanelItem[];
+}
+
+export interface CommunityDiscoverySocialProAction {
+    readonly kind: CommunityDiscoverySocialProActionKind;
+    readonly label: string;
+    readonly href: string;
+    readonly locked: boolean;
+    readonly requiresActivePro: boolean;
+    readonly upgradeIntentAction: CommunityDiscoverySocialProActionKind;
+}
+
+export interface CommunityDiscoverySocialProHub {
+    readonly accessState: CommunityDiscoverySocialProAccessState;
+    readonly title: 'Cockpit Social Pro';
+    readonly summary: string;
+    readonly proBadge: CommunityDiscoveryProBadge | null;
+    readonly panels: readonly CommunityDiscoverySocialProPanel[];
+    readonly actions: readonly CommunityDiscoverySocialProAction[];
+    readonly publicCommunityCopy: string;
+}
+
+export interface CommunityDiscoverySocialProSource {
+    readonly access: {
+        readonly isAuthenticated: boolean;
+        readonly isActivePro: boolean;
+        readonly canGenerateReport: boolean;
+        readonly canUseLibrary: boolean;
+        readonly canReadCreatorAnalytics: boolean;
+        readonly canDisplayBadge: boolean;
+    };
+    readonly activeProUserIds?: readonly string[];
+    readonly recentReports?: readonly {
+        readonly id: string;
+        readonly title: string;
+        readonly href: string;
+        readonly stateLabel: string;
+    }[];
+    readonly library?: {
+        readonly collectionCount: number;
+        readonly itemCount: number;
+        readonly topCollections?: readonly {
+            readonly label: string;
+            readonly contextLabel: string;
+            readonly itemCount: number;
+        }[];
+    };
+    readonly analytics?: {
+        readonly publicPostCount: number;
+        readonly generatedReportCount: number;
+        readonly contextInterestCount: number;
+        readonly trainingClickCount: number;
+    };
 }
 
 export type CommunityDiscoveryTrendKind = 'weapon' | 'patch' | 'diagnosis';
@@ -324,6 +427,16 @@ export interface CommunityDiscoveryPublicDensity {
     readonly supportingSurfaceCount: number;
 }
 
+export type CommunityDiscoveryCreatorHighlight =
+    CommunityCreatorHighlightsViewModel['items'][number] & {
+        readonly proBadge: CommunityDiscoveryProBadge | null;
+    };
+
+export interface CommunityDiscoveryCreatorHighlightsViewModel {
+    readonly items: readonly CommunityDiscoveryCreatorHighlight[];
+    readonly emptyState: CommunityCreatorHighlightsViewModel['emptyState'];
+}
+
 export interface CommunityDiscoveryViewModel {
     readonly hubSummary: {
         readonly publicPostCount: number;
@@ -358,7 +471,8 @@ export interface CommunityDiscoveryViewModel {
     readonly personalRecap: CommunityDiscoveryRecapPanel | null;
     readonly squadSpotlight: CommunityDiscoverySquadSpotlight | null;
     readonly featuredPosts: CommunityPostHighlightsViewModel;
-    readonly creatorHighlights: CommunityCreatorHighlightsViewModel;
+    readonly creatorHighlights: CommunityDiscoveryCreatorHighlightsViewModel;
+    readonly socialProHub: CommunityDiscoverySocialProHub;
     readonly participationPrompts: readonly CommunityDiscoveryParticipationPrompt[];
 }
 
@@ -375,6 +489,7 @@ export interface BuildCommunityDiscoveryViewModelInput {
     readonly missionBoard?: CommunityDiscoveryMissionBoard | null;
     readonly personalRecap?: CommunityDiscoveryRecapPanel | null;
     readonly squadSpotlight?: CommunityDiscoverySquadSpotlight | null;
+    readonly socialPro?: CommunityDiscoverySocialProSource;
 }
 
 export function buildCommunityDiscoveryViewModel(
@@ -421,9 +536,15 @@ export function buildCommunityDiscoveryViewModel(
             engagement: post.engagement,
         })),
     });
-    const creatorHighlights = buildCommunityCreatorHighlights({
+    const baseCreatorHighlights = buildCommunityCreatorHighlights({
         now,
         creators: input.creators ?? buildCreatorHighlightSources(publicPosts),
+    });
+    const socialProSource = input.socialPro ?? createDefaultCommunitySocialProSource(viewer);
+    const creatorHighlights = attachSocialProBadgesToCreatorHighlights({
+        activeProUserIds: socialProSource.activeProUserIds ?? [],
+        creatorHighlights: baseCreatorHighlights,
+        posts: publicPosts,
     });
     const publicDensity = buildCommunityDiscoveryPublicDensity({
         visiblePosts,
@@ -485,7 +606,239 @@ export function buildCommunityDiscoveryViewModel(
         squadSpotlight: input.squadSpotlight ?? null,
         featuredPosts,
         creatorHighlights,
+        socialProHub: buildCommunityDiscoverySocialProHub({
+            source: socialProSource,
+            viewer,
+        }),
         participationPrompts: buildParticipationPrompts(viewer),
+    };
+}
+
+function createSocialProBadge(): CommunityDiscoveryProBadge {
+    return {
+        label: 'Pro',
+        accessibleLabel: SOCIAL_PRO_BADGE_ACCESSIBLE_LABEL,
+        tooltip: SOCIAL_PRO_BADGE_ACCESSIBLE_LABEL,
+        meaning: 'active_pro_access',
+        antiAuthorityCopy: SOCIAL_PRO_BADGE_ANTI_AUTHORITY_COPY,
+    };
+}
+
+function createDefaultCommunitySocialProSource(
+    viewer: CommunityDiscoveryViewerContext,
+): CommunityDiscoverySocialProSource {
+    return {
+        access: {
+            isAuthenticated: Boolean(viewer.viewerUserId),
+            isActivePro: false,
+            canGenerateReport: false,
+            canUseLibrary: false,
+            canReadCreatorAnalytics: false,
+            canDisplayBadge: false,
+        },
+        activeProUserIds: [],
+        recentReports: [],
+        library: {
+            collectionCount: 0,
+            itemCount: 0,
+            topCollections: [],
+        },
+        analytics: {
+            publicPostCount: 0,
+            generatedReportCount: 0,
+            contextInterestCount: 0,
+            trainingClickCount: 0,
+        },
+    };
+}
+
+function resolveCommunitySocialProAccessState(
+    source: CommunityDiscoverySocialProSource,
+): CommunityDiscoverySocialProAccessState {
+    if (!source.access.isAuthenticated) {
+        return 'anonymous';
+    }
+
+    return source.access.isActivePro ? 'pro' : 'free';
+}
+
+function buildCommunityDiscoverySocialProHub(input: {
+    readonly source: CommunityDiscoverySocialProSource;
+    readonly viewer: CommunityDiscoveryViewerContext;
+}): CommunityDiscoverySocialProHub {
+    const source = input.source;
+    const accessState = resolveCommunitySocialProAccessState(source);
+    const isLocked = !source.access.isActivePro;
+    const reports = source.recentReports ?? [];
+    const library = source.library ?? {
+        collectionCount: 0,
+        itemCount: 0,
+        topCollections: [],
+    };
+    const topCollections = library.topCollections ?? [];
+    const analytics = source.analytics ?? {
+        publicPostCount: 0,
+        generatedReportCount: reports.length,
+        contextInterestCount: library.itemCount,
+        trainingClickCount: 0,
+    };
+    const lockCopy = isLocked ? SOCIAL_PRO_FREE_LOCK_COPY : null;
+
+    return {
+        accessState,
+        title: 'Cockpit Social Pro',
+        summary: 'Relatorios, biblioteca, analytics seguros e continuidade com analise, coach, historico, protocolos completos, Spray Lab, Ciclo Pro, auditoria e validacao compativel.',
+        proBadge: source.access.canDisplayBadge && source.access.isActivePro
+            ? createSocialProBadge()
+            : null,
+        publicCommunityCopy: 'Feed, posts, perfis basicos, leitura, curtidas, comentarios, saves normais e follows continuam abertos onde ja eram abertos.',
+        panels: [
+            {
+                key: 'reports',
+                title: 'Relatorios recentes',
+                summary: reports.length > 0
+                    ? 'Casos de evolucao publicos ou por link com confianca, cobertura, blockers, auditoria e validacao compativel visiveis.'
+                    : 'Gere um Relatorio Pro Compartilhavel a partir de uma analise salva quando houver evidencia suficiente.',
+                metricLabel: `${reports.length} relatorio(s)`,
+                locked: !source.access.canGenerateReport,
+                lockCopy,
+                primaryAction: {
+                    label: 'Gerar Relatorio Pro',
+                    href: '/history',
+                    upgradeIntentAction: source.access.canGenerateReport ? null : 'generate_report',
+                },
+                items: reports.map((report) => ({
+                    title: report.title,
+                    href: report.href,
+                    meta: report.stateLabel,
+                })),
+            },
+            {
+                key: 'library',
+                title: 'Biblioteca de contexto',
+                summary: 'Organize relatorios, posts, setups, drills, Spray Lab, Ciclo Pro e validacoes por arma, diagnostico, blocker e objetivo.',
+                metricLabel: `${library.itemCount} item(ns) em ${library.collectionCount} colecao(oes)`,
+                locked: !source.access.canUseLibrary,
+                lockCopy,
+                primaryAction: {
+                    label: 'Abrir biblioteca Pro',
+                    href: '/community',
+                    upgradeIntentAction: source.access.canUseLibrary ? null : 'pro_library_save',
+                },
+                items: topCollections.map((collection) => ({
+                    title: collection.label,
+                    href: '/community',
+                    meta: `${collection.contextLabel} - ${collection.itemCount} item(ns)`,
+                })),
+            },
+            {
+                key: 'analytics',
+                title: 'Impacto publico seguro',
+                summary: 'Analytics agregados mostram posts, relatorios, interesse por contexto e cliques para treino sem leitores privados, links privados, pagamento ou funil financeiro.',
+                metricLabel: `${analytics.publicPostCount} posts | ${analytics.generatedReportCount} relatorio(s)`,
+                locked: !source.access.canReadCreatorAnalytics,
+                lockCopy,
+                primaryAction: {
+                    label: 'Ver analytics seguros',
+                    href: '/community',
+                    upgradeIntentAction: source.access.canReadCreatorAnalytics ? null : 'creator_analytics_open',
+                },
+                items: [
+                    {
+                        title: 'Interesse por contexto',
+                        href: '/community',
+                        meta: `${analytics.contextInterestCount} sinal(is) agregado(s)`,
+                    },
+                    {
+                        title: 'Treino a partir da comunidade',
+                        href: '/community',
+                        meta: `${analytics.trainingClickCount} clique(s) para analise ou treino`,
+                    },
+                ],
+            },
+            {
+                key: 'collections',
+                title: 'Colecoes inteligentes',
+                summary: 'Colecoes automaticas destacam Beryl 3x 50m, controle vertical, Ciclo Pro ativo, validacoes pendentes e Spray Lab sem virar feed pago.',
+                metricLabel: `${topCollections.length} colecao(oes) em destaque`,
+                locked: !source.access.canUseLibrary,
+                lockCopy,
+                primaryAction: {
+                    label: 'Organizar contexto',
+                    href: '/community',
+                    upgradeIntentAction: source.access.canUseLibrary ? null : 'pro_library_save',
+                },
+                items: topCollections.length > 0
+                    ? topCollections.map((collection) => ({
+                        title: collection.label,
+                        href: '/community',
+                        meta: collection.contextLabel,
+                    }))
+                    : [
+                        {
+                            title: 'Validacoes pendentes',
+                            href: '/analyze',
+                            meta: 'Conecte uma validacao compativel quando o contexto pedir prova tecnica.',
+                        },
+                    ],
+            },
+        ],
+        actions: [
+            {
+                kind: 'generate_report',
+                label: 'Gerar Relatorio Pro',
+                href: input.viewer.viewerUserId ? '/history' : '/login',
+                locked: !source.access.canGenerateReport,
+                requiresActivePro: true,
+                upgradeIntentAction: 'generate_report',
+            },
+            {
+                kind: 'continue_ciclo_pro',
+                label: 'Continuar Ciclo Pro',
+                href: input.viewer.viewerUserId ? '/ciclo-pro' : '/login',
+                locked: !source.access.isActivePro,
+                requiresActivePro: true,
+                upgradeIntentAction: 'continue_ciclo_pro',
+            },
+            {
+                kind: 'open_spray_lab',
+                label: 'Abrir Spray Lab',
+                href: input.viewer.viewerUserId ? '/spray-lab' : '/login',
+                locked: !source.access.isActivePro,
+                requiresActivePro: true,
+                upgradeIntentAction: 'open_spray_lab',
+            },
+        ],
+    };
+}
+
+function attachSocialProBadgesToCreatorHighlights(input: {
+    readonly creatorHighlights: CommunityCreatorHighlightsViewModel;
+    readonly posts: readonly CommunityDiscoverySourcePost[];
+    readonly activeProUserIds: readonly string[];
+}): CommunityDiscoveryCreatorHighlightsViewModel {
+    const userIdByProfileId = new Map<string, string>();
+
+    for (const post of input.posts) {
+        if (post.author) {
+            userIdByProfileId.set(post.author.profileId, post.author.userId);
+        }
+    }
+
+    const activeProUserIds = new Set(input.activeProUserIds);
+
+    return {
+        emptyState: input.creatorHighlights.emptyState,
+        items: input.creatorHighlights.items.map((creator) => {
+            const userId = userIdByProfileId.get(creator.profileId);
+
+            return {
+                ...creator,
+                proBadge: userId && activeProUserIds.has(userId)
+                    ? createSocialProBadge()
+                    : null,
+            };
+        }),
     };
 }
 
@@ -564,16 +917,23 @@ export async function getCommunityDiscoveryViewModel(
         engagement: engagementByPostId.get(row.id) ?? createEmptyEngagement(),
     }));
     const trendBoard = buildCommunityTrendBoard({ posts });
-    const ritualContext = await getCommunityDiscoveryRitualContext({
-        now: new Date(),
-        trendBoard,
-        viewer,
-    });
+    const [ritualContext, socialPro] = await Promise.all([
+        getCommunityDiscoveryRitualContext({
+            now: new Date(),
+            trendBoard,
+            viewer,
+        }),
+        getCommunityDiscoverySocialProSource({
+            publicAuthorUserIds: posts.flatMap((post) => post.author ? [post.author.userId] : []),
+            viewer,
+        }),
+    ]);
 
     return buildCommunityDiscoveryViewModel({
         ...(input.filters ? { filters: input.filters } : {}),
         viewer,
         trendBoard,
+        socialPro,
         ...ritualContext,
         posts,
     });
@@ -1290,6 +1650,175 @@ async function getCommunityDiscoveryViewerContext(
         publicProfileHref: hasPublicProfile ? `/community/users/${profile.slug}` : null,
         publishableAnalysisCount: toSafeCommunityCount(analysisCountRow?.count),
         followedUserIds: followRows.map((row) => row.followedUserId),
+    };
+}
+
+function isMissingSocialProRelation(error: unknown): boolean {
+    const candidates = [error];
+
+    if (typeof error === 'object' && error !== null && 'cause' in error) {
+        candidates.push((error as { readonly cause?: unknown }).cause);
+    }
+
+    return candidates.some((candidate) => {
+        if (!candidate || typeof candidate !== 'object') {
+            return false;
+        }
+
+        const code = 'code' in candidate && typeof candidate.code === 'string'
+            ? candidate.code
+            : null;
+        const message = 'message' in candidate && typeof candidate.message === 'string'
+            ? candidate.message
+            : '';
+
+        return code === '42P01'
+            || /relation "social_pro_[^"]+" does not exist/i.test(message);
+    });
+}
+
+async function withSocialProStorageFallback<T>(
+    query: () => Promise<T>,
+    fallback: T,
+): Promise<T> {
+    try {
+        return await query();
+    } catch (error) {
+        if (isMissingSocialProRelation(error)) {
+            return fallback;
+        }
+
+        throw error;
+    }
+}
+
+function toCommunityDiscoverySocialProAccess(
+    policy: SocialProAccessPolicy,
+    viewerUserId: string | null,
+): CommunityDiscoverySocialProSource['access'] {
+    const isAuthenticated = Boolean(viewerUserId);
+    const isActivePro = policy.canDisplayProBadge
+        && (policy.productAccess.accessState === 'pro_active'
+            || policy.productAccess.accessState === 'founder_active'
+            || policy.productAccess.accessState === 'manual_grant_active'
+            || policy.productAccess.accessState === 'canceling');
+
+    return {
+        isAuthenticated,
+        isActivePro,
+        canGenerateReport: policy.canCreateReport,
+        canUseLibrary: policy.canWriteProLibrary,
+        canReadCreatorAnalytics: policy.canReadCreatorAnalytics,
+        canDisplayBadge: policy.canDisplayProBadge && isActivePro,
+    };
+}
+
+async function getCommunityDiscoverySocialProSource(input: {
+    readonly viewer: CommunityDiscoveryViewerContext;
+    readonly publicAuthorUserIds: readonly string[];
+}): Promise<CommunityDiscoverySocialProSource> {
+    const { resolveSocialProAccessForUser } = await import('@/lib/social-pro-access');
+    const viewerUserId = input.viewer.viewerUserId;
+    const distinctAuthorUserIds = [...new Set(input.publicAuthorUserIds.filter((userId) => userId.trim().length > 0))];
+    const [viewerPolicy, authorPolicies] = await Promise.all([
+        resolveSocialProAccessForUser(viewerUserId),
+        Promise.all(
+            distinctAuthorUserIds.map(async (userId) => ({
+                userId,
+                policy: await resolveSocialProAccessForUser(userId),
+            })),
+        ),
+    ]);
+    const activeProUserIds = authorPolicies
+        .filter(({ policy }) => toCommunityDiscoverySocialProAccess(policy, policy.productAccess.userId).isActivePro)
+        .map(({ userId }) => userId);
+
+    if (!viewerUserId) {
+        return {
+            ...createDefaultCommunitySocialProSource(input.viewer),
+            access: toCommunityDiscoverySocialProAccess(viewerPolicy, null),
+            activeProUserIds,
+        };
+    }
+
+    const { db } = await import('@/db');
+    const [reportRows, collectionRows, [itemCountRow], publicPostCount] = await withSocialProStorageFallback(
+        () => Promise.all([
+            db
+                .select({
+                    id: socialProReports.id,
+                    title: socialProReports.title,
+                    publicSlug: socialProReports.publicSlug,
+                    status: socialProReports.status,
+                    visibility: socialProReports.visibility,
+                    updatedAt: socialProReports.updatedAt,
+                })
+                .from(socialProReports)
+                .where(eq(socialProReports.ownerUserId, viewerUserId))
+                .orderBy(desc(socialProReports.updatedAt))
+                .limit(3),
+            db
+                .select({
+                    id: socialProCollections.id,
+                    label: socialProCollections.label,
+                    contextKey: socialProCollections.contextKey,
+                    mode: socialProCollections.mode,
+                    weaponId: socialProCollections.weaponId,
+                    diagnosisKey: socialProCollections.diagnosisKey,
+                    updatedAt: socialProCollections.updatedAt,
+                })
+                .from(socialProCollections)
+                .where(eq(socialProCollections.ownerUserId, viewerUserId))
+                .orderBy(desc(socialProCollections.updatedAt))
+                .limit(4),
+            db
+                .select({ count: count() })
+                .from(socialProCollectionItems)
+                .where(eq(socialProCollectionItems.ownerUserId, viewerUserId))
+                .limit(1),
+            Promise.resolve(
+                input.publicAuthorUserIds.filter((userId) => userId === viewerUserId).length,
+            ),
+        ]),
+        [[], [], [], 0] as const,
+    );
+    const itemCount = toSafeCommunityCount(itemCountRow?.count);
+
+    return {
+        access: toCommunityDiscoverySocialProAccess(viewerPolicy, viewerUserId),
+        activeProUserIds,
+        recentReports: reportRows.map((report) => ({
+            id: report.id,
+            title: report.title,
+            href: `/community/reports/${report.publicSlug ?? report.id}`,
+            stateLabel: report.status === 'published'
+                ? 'Publicado'
+                : report.visibility === 'link_private'
+                    ? 'Link privado'
+                    : 'Rascunho seguro',
+        })),
+        library: {
+            collectionCount: collectionRows.length,
+            itemCount,
+            topCollections: collectionRows.map((collection) => ({
+                label: collection.label,
+                contextLabel: collection.weaponId
+                    ?? collection.diagnosisKey
+                    ?? collection.contextKey
+                    ?? collection.mode,
+                itemCount,
+            })),
+        },
+        analytics: {
+            publicPostCount,
+            generatedReportCount: reportRows.length,
+            contextInterestCount: itemCount,
+            trainingClickCount: collectionRows.filter((collection) =>
+                collection.contextKey.includes('ciclo')
+                || collection.contextKey.includes('spray_lab')
+                || collection.contextKey.includes('validacao'),
+            ).length,
+        },
     };
 }
 

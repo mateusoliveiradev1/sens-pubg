@@ -56,6 +56,10 @@ type MissionBoardItem = MissionBoard['items'][number];
 type PersonalRecap = NonNullable<CommunityDiscoveryViewModel['personalRecap']>;
 type SquadSpotlight = NonNullable<CommunityDiscoveryViewModel['squadSpotlight']>;
 type TrustSignal = FeaturedPost['trustSignals'][number];
+type SocialProHub = CommunityDiscoveryViewModel['socialProHub'];
+type SocialProPanel = SocialProHub['panels'][number];
+type SocialProAction = SocialProHub['actions'][number];
+type ProBadge = NonNullable<SocialProHub['proBadge']>;
 
 interface CommunityHubFocus {
     readonly kicker: string;
@@ -426,6 +430,22 @@ function AvatarPlate({
             imageClassName={styles.avatarImage}
             size={44}
         />
+    );
+}
+
+function ProAccessBadge({ badge }: {
+    readonly badge: ProBadge;
+}): React.JSX.Element {
+    return (
+        <span
+            aria-label={badge.accessibleLabel}
+            className={styles.proBadge}
+            data-authority-copy="nao indica autoridade tecnica"
+            data-badge-copy="Pro: acesso aos recursos premium do Sens PUBG"
+            title={badge.tooltip}
+        >
+            {badge.label}
+        </span>
     );
 }
 
@@ -995,6 +1015,14 @@ function CreatorPlate({ creator }: {
                     ) : (
                         <span className={styles.authorMeta}>Jogador em atividade</span>
                     )}
+                    {creator.proBadge ? (
+                        <span className={styles.creatorProBadgeLine}>
+                            <ProAccessBadge badge={creator.proBadge} />
+                            <span className={styles.creatorProBadgeCopy}>
+                                {creator.proBadge.antiAuthorityCopy}
+                            </span>
+                        </span>
+                    ) : null}
                 </div>
             </div>
             <div className={styles.creatorReasons}>
@@ -1009,6 +1037,99 @@ function CreatorPlate({ creator }: {
                 Ver perfil
             </Link>
         </article>
+    );
+}
+
+function SocialProPanelCard({ panel }: {
+    readonly panel: SocialProPanel;
+}): React.JSX.Element {
+    return (
+        <article className={styles.socialProPanel} data-social-pro-panel={panel.key}>
+            <div className={styles.socialProPanelHeader}>
+                <span className={styles.sectionKicker}>{panel.title}</span>
+                <span className={panel.locked ? styles.socialProLockPill : styles.socialProOpenPill}>
+                    {panel.locked ? 'Preview Free' : 'Pro ativo'}
+                </span>
+            </div>
+            <strong className={styles.socialProMetric}>{panel.metricLabel}</strong>
+            <p>{panel.summary}</p>
+            {panel.lockCopy ? (
+                <p className={styles.socialProLockCopy}>{panel.lockCopy}</p>
+            ) : null}
+            {panel.items.length > 0 ? (
+                <ul className={styles.socialProItemList}>
+                    {panel.items.map((item) => (
+                        <li key={`${panel.key}-${item.title}-${item.href}`}>
+                            <Link href={item.href}>{item.title}</Link>
+                            <span>{item.meta}</span>
+                        </li>
+                    ))}
+                </ul>
+            ) : null}
+            <Link
+                className={styles.cardAction}
+                data-socialproaction={panel.primaryAction.upgradeIntentAction ?? panel.key}
+                href={panel.primaryAction.href}
+            >
+                {panel.primaryAction.label}
+            </Link>
+        </article>
+    );
+}
+
+function SocialProActionLink({ action }: {
+    readonly action: SocialProAction;
+}): React.JSX.Element {
+    return (
+        <Link
+            className={action.locked ? styles.socialProSecondaryAction : styles.socialProPrimaryAction}
+            data-socialproaction={action.upgradeIntentAction}
+            href={action.href}
+        >
+            {action.label}
+        </Link>
+    );
+}
+
+function SocialProCockpit({ hub }: {
+    readonly hub: SocialProHub;
+}): React.JSX.Element {
+    return (
+        <section
+            aria-labelledby="social-pro-cockpit-title"
+            className={styles.socialProCockpit}
+            data-community-section="social-pro-cockpit"
+            data-social-pro-actions="generate_report continue_ciclo_pro open_spray_lab"
+            data-social-pro-action-labels="Gerar Relatorio Pro Continuar Ciclo Pro Abrir Spray Lab"
+            data-social-pro-panels="Relatorios recentes Biblioteca de contexto Impacto publico seguro Colecoes inteligentes"
+        >
+            <div className={styles.socialProTopline}>
+                <div className={styles.socialProTitleGroup}>
+                    <span className={styles.sectionKicker}>Social Pro</span>
+                    <div className={styles.socialProTitleRow}>
+                        <h2 id="social-pro-cockpit-title">{hub.title}</h2>
+                        {hub.proBadge ? <ProAccessBadge badge={hub.proBadge} /> : null}
+                    </div>
+                    <p>{hub.summary}</p>
+                    <p className={styles.socialProPublicCopy}>{hub.publicCommunityCopy}</p>
+                    {hub.proBadge ? (
+                        <p className={styles.socialProBadgeMeaning}>
+                            {hub.proBadge.antiAuthorityCopy}
+                        </p>
+                    ) : null}
+                </div>
+                <div className={styles.socialProActionRail}>
+                    {hub.actions.map((action) => (
+                        <SocialProActionLink key={action.kind} action={action} />
+                    ))}
+                </div>
+            </div>
+            <div className={styles.socialProGrid}>
+                {hub.panels.map((panel) => (
+                    <SocialProPanelCard key={panel.key} panel={panel} />
+                ))}
+            </div>
+        </section>
     );
 }
 
@@ -1140,6 +1261,8 @@ export default async function CommunityPage({
                         clearHref={clearHref}
                         filters={viewModel.filters}
                     />
+
+                    <SocialProCockpit hub={viewModel.socialProHub} />
 
                     {isSparsePublicMode ? (
                         <>
