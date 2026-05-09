@@ -144,4 +144,17 @@ describe('Phase 11 Social Pro evidence helper', () => {
             'tsx scripts/verify-phase11-social-pro.ts',
         );
     });
+
+    it('keeps the repository checklist present with every required row and an honest partial status', () => {
+        const report = verifyPhase11SocialPro();
+
+        expect(report.missingDocuments).toEqual([]);
+        expect(report.missingEvidenceRows).toEqual([]);
+        expect(report.missingStatusRows).toEqual([]);
+        expect(report.rowsMarkedMissing).toEqual([]);
+        expect(report.evidenceFileValid).toBe(true);
+        expect(report.finalStatus).toBe('Partially delivered');
+        expect(report.statusDeclarationValid).toBe(true);
+        expect(report.blockersExplicit).toBe(true);
+    });
 });
