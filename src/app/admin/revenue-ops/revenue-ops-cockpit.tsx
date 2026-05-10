@@ -361,7 +361,7 @@ export function RevenueOpsCockpit({
                     <p>
                         {supportCause
                             ? supportCause.nextSafeAction
-                            : 'Abra detalhe somente com support_case, webhook_failure, quota_issue, entitlement_mismatch, payment_issue, auth_issue, analysis_save_issue, admin_grant_review ou reconciliation_request.'}
+                            : 'First cause / por que nao tem Pro fica fechado por padrao. Support can read snapshots, notes and safe summaries; admin-only mutations stay in billing truth.'}
                     </p>
                 </div>
                 {supportDetail?.user?.id ? (
@@ -399,6 +399,8 @@ export function RevenueOpsCockpit({
                     <p className={styles.panelNote}>
                         PASS em test-mode e prerequisito, nao substitui production. Linhas ausentes:
                         {' '}{launchReadiness.missingMandatoryRows.length}.
+                        {' '}Manual paid-flow, readiness deploy e evidence rows precisam de evidencia datada.
+                        {' '}Safe degradation fecha risky paid actions e preserve confirmed Pro access quando paid-flow blocker aparece.
                     </p>
                     {missingRowsPreview.length > 0 ? (
                         <ul className={styles.compactList} aria-label="Missing mandatory evidence">
