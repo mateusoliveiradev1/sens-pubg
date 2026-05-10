@@ -14,6 +14,8 @@ Each row needs:
 - Result: PASS, FAIL, or BLOCKED.
 - Notes and rollback owner.
 
+Phase 12 reflects this checklist into `docs/revenue-ops-launch-readiness.md` as `stripe_test` evidence. Test-mode PASS is required for Founder/Beta launch, but production launch needs separate `stripe_production` rows and cannot inherit these results.
+
 ## Checklist
 
 | Step | Expected State | Evidence | Result | Notes |

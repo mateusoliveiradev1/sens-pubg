@@ -11,6 +11,7 @@ export interface ReleaseReadinessGates {
     readonly localBrowserReady: boolean;
     readonly deploymentReady: boolean;
     readonly backendPipelineReady: boolean;
+    readonly paidLaunchReady: boolean | null;
 }
 
 export interface ReleaseReadinessReport {
@@ -22,6 +23,10 @@ export interface EvaluateReleaseReadinessInput {
     readonly env: Partial<Record<string, string | undefined>>;
     readonly vercelProjectLinked: boolean;
     readonly ffmpegInstalled: boolean;
+    readonly paidLaunch?: {
+        readonly publicPaidReady: boolean;
+        readonly detail: string;
+    };
 }
 
 const REQUIRED_RUNTIME_ENV_KEYS = [
@@ -81,6 +86,7 @@ export function evaluateReleaseReadiness({
     env,
     vercelProjectLinked,
     ffmpegInstalled,
+    paidLaunch,
 }: EvaluateReleaseReadinessInput): ReleaseReadinessReport {
     const missingRuntimeEnv = REQUIRED_RUNTIME_ENV_KEYS.filter((key) => !hasConcreteValue(env[key]));
 
@@ -209,12 +215,22 @@ export function evaluateReleaseReadiness({
             'ffmpeg ausente. O caminho browser-first segue pronto, mas o backend real de extracao ainda fica bloqueado.',
         );
 
+    const paidLaunchCheck = paidLaunch
+        ? renderCheck(
+            paidLaunch.publicPaidReady ? 'pass' : 'fail',
+            'paid-launch',
+            'Paid public launch',
+            paidLaunch.detail,
+        )
+        : null;
+
     const checks = [
         runtimeEnvCheck,
         publicAppUrlCheck,
         authUrlCheck,
         vercelCheck,
         ffmpegCheck,
+        ...(paidLaunchCheck ? [paidLaunchCheck] : []),
     ] as const;
 
     const localBrowserReady = runtimeEnvCheck.status !== 'fail';
@@ -223,12 +239,14 @@ export function evaluateReleaseReadiness({
         && authUrlCheck.status === 'pass'
         && vercelCheck.status === 'pass';
     const backendPipelineReady = deploymentReady && ffmpegCheck.status === 'pass';
+    const paidLaunchReady = paidLaunch?.publicPaidReady ?? null;
 
     return {
         gates: {
             localBrowserReady,
             deploymentReady,
             backendPipelineReady,
+            paidLaunchReady,
         },
         checks,
     };
@@ -255,6 +273,9 @@ export function formatReleaseReadinessReport(report: ReleaseReadinessReport): st
         `- Local browser release: ${formatGateStatus(report.gates.localBrowserReady)}`,
         `- Deploy final: ${formatGateStatus(report.gates.deploymentReady)}`,
         `- Backend ffmpeg pipeline: ${formatGateStatus(report.gates.backendPipelineReady)}`,
+        ...(report.gates.paidLaunchReady === null
+            ? []
+            : [`- Paid public launch: ${formatGateStatus(report.gates.paidLaunchReady)}`]),
         '',
         'Checks:',
         ...report.checks.map((check) => `- [${formatCheckStatus(check.status)}] ${check.label}: ${check.detail}`),

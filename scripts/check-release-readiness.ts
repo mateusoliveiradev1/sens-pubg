@@ -7,9 +7,13 @@ import {
     formatReleaseReadinessReport,
 } from '../src/core/release-readiness';
 
-type ReadinessMode = 'local' | 'deploy' | 'backend';
+type ReadinessMode = 'local' | 'deploy' | 'backend' | 'paid-launch';
 
 function resolveMode(argv: readonly string[]): ReadinessMode {
+    if (argv.includes('--paid-launch')) {
+        return 'paid-launch';
+    }
+
     if (argv.includes('--backend')) {
         return 'backend';
     }
@@ -49,19 +53,32 @@ function shouldExitWithFailure(mode: ReadinessMode, report: ReturnType<typeof ev
             return !report.gates.deploymentReady;
         case 'backend':
             return !report.gates.backendPipelineReady;
+        case 'paid-launch':
+            return report.gates.paidLaunchReady !== true;
     }
 }
 
 const cwd = process.cwd();
 loadWorkspaceEnv(cwd);
+const mode = resolveMode(process.argv.slice(2));
 
 const report = evaluateReleaseReadiness({
     env: process.env,
     vercelProjectLinked: existsSync(path.join(cwd, '.vercel', 'project.json')),
     ffmpegInstalled: isBinaryAvailable('ffmpeg', ['-version']),
+    ...(mode === 'paid-launch'
+        ? {
+            paidLaunch: {
+                publicPaidReady: false,
+                detail: [
+                    'Paid launch is controlled by the Revenue Ops evidence matrix.',
+                    'Run npm run verify:phase12:revenue-ops and record Stripe production/deploy evidence before real charging.',
+                ].join(' '),
+            },
+        }
+        : {}),
 });
 
 console.log(formatReleaseReadinessReport(report));
 
-const mode = resolveMode(process.argv.slice(2));
 process.exit(shouldExitWithFailure(mode, report) ? 1 : 0);

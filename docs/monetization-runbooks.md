@@ -65,3 +65,51 @@ Phase 5 founder beta uses grant-first rollout and Stripe test-mode evidence befo
 - Rollback: disable safe mode after resolver and billing tests pass.
 - Owner: engineering.
 - Evidence: flag audit, resolver test, affected surface notes.
+
+## Entitlement Reconciliation
+
+- Detection: resolver truth, Stripe/subscription rows, or manual grant rows disagree.
+- Mitigation: support records a note and requests admin reconciliation; support does not mutate paid state.
+- Rollback: admin reverts only the audited entitlement/grant event that caused the mismatch.
+- Owner: admin.
+- Evidence: resolver output, subscription id, grant id, billing event id, audit row.
+
+## Auth And Account Match
+
+- Detection: support case account does not match the authenticated session or requested user id.
+- Mitigation: stop user-level detail access until identity is confirmed.
+- Rollback: resume support diagnosis only after account identity is verified.
+- Owner: support.
+- Evidence: support case id, expected user id, session user id.
+
+## Quota Incident
+
+- Detection: quota warning, limit reached, entitlement blocked, or safe-mode paused evidence.
+- Mitigation: keep analysis useful where possible, avoid silent paid-state mutation, and route approved adjustments through admin.
+- Rollback: backfill or correct quota ledger rows, then rerun quota tests.
+- Owner: engineering.
+- Evidence: quota ledger ids, affected period, before/after resolver output.
+
+## Analysis Save Incident
+
+- Detection: save/quota writes fail while paid entitlement truth is otherwise valid.
+- Mitigation: keep paid access unchanged and preserve the user-facing analysis result when possible.
+- Rollback: replay or correct save/quota evidence after the write path is fixed.
+- Owner: engineering.
+- Evidence: save attempt id, quota ledger id, billing event id.
+
+## Manual Grants
+
+- Detection: grant request, grant expiration, abusive grant volume, or support attempt to mutate paid state.
+- Mitigation: support can note/request; admin owns grant, revoke, suspend, and reconcile operations.
+- Rollback: revoke or restore only through audited admin actions.
+- Owner: admin.
+- Evidence: actor id, grant id, reason code, audit row.
+
+## Paid Launch Safe Degradation
+
+- Detection: paid-flow evidence is missing, production Stripe evidence is blocked, webhook safety is uncertain, or a paid incident is active.
+- Mitigation: close risky new checkout, preserve confirmed Pro access, keep Free useful, keep history, keep billing/support routes visible, and create a launch blocker.
+- Rollback: reopen checkout only after the blocker has dated evidence, owner approval, and a passing Revenue Ops gate.
+- Owner: ops/engineering.
+- Evidence: flag audit, Revenue Ops evidence row, resolver output for a paid test user, support-route smoke.

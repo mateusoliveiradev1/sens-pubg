@@ -138,6 +138,21 @@ export type RevenueOpsEvidenceStatus = z.infer<typeof revenueOpsEvidenceStatusSc
 export const isRevenueOpsEvidenceStatus = evidenceStatusContract.isValue;
 export const parseRevenueOpsEvidenceStatus = evidenceStatusContract.parse;
 
+const evidenceEnvironmentContract = createRevenueOpsEnumContract([
+    'stripe_test',
+    'stripe_production',
+    'deploy',
+    'local',
+    'manual',
+    'internal',
+]);
+
+export const revenueOpsEvidenceEnvironmentValues = evidenceEnvironmentContract.values;
+export const revenueOpsEvidenceEnvironmentSchema = evidenceEnvironmentContract.schema;
+export type RevenueOpsEvidenceEnvironment = z.infer<typeof revenueOpsEvidenceEnvironmentSchema>;
+export const isRevenueOpsEvidenceEnvironment = evidenceEnvironmentContract.isValue;
+export const parseRevenueOpsEvidenceEnvironment = evidenceEnvironmentContract.parse;
+
 const finalStatusContract = createRevenueOpsEnumContract([
     'Delivered',
     'Partially delivered',
@@ -207,6 +222,19 @@ export interface RevenueOpsLaunchGateSummary {
     readonly gate: RevenueOpsLaunchGate;
     readonly status: RevenueOpsOperationalStatus;
     readonly blockers: readonly RevenueOpsLaunchBlocker[];
+}
+
+export interface RevenueOpsEvidenceRow {
+    readonly id: string;
+    readonly environment: RevenueOpsEvidenceEnvironment;
+    readonly expectedState: string;
+    readonly observedEvidence: string;
+    readonly actor: string;
+    readonly checkedAt: string;
+    readonly owner: RevenueOpsLaunchBlocker['owner'];
+    readonly rollback: string;
+    readonly status: RevenueOpsEvidenceStatus;
+    readonly remainingGap: string;
 }
 
 export function isRevenueOpsSafeScalar(value: unknown): value is string | number | boolean | null {
