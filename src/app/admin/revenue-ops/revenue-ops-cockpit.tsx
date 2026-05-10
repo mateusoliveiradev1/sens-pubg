@@ -106,6 +106,40 @@ const keyMetrics: readonly RevenueOpsFunnelMetricKey[] = [
     'quota_limit_hit',
 ];
 
+const proDepthMetrics: readonly RevenueOpsFunnelMetricKey[] = [
+    'pro_active',
+    'churn_cancellation',
+    'quota_limit_hit',
+    'pro_value_usage',
+];
+
+const defaultSupportDomains: readonly SupportDomain[] = [
+    {
+        domain: 'pagamento',
+        status: 'WARN',
+        impact: 'Detalhe fechado ate existir motivo operacional.',
+        owner: 'support',
+        runbook: 'docs/monetization-runbooks.md#payment-failure',
+        nextSafeAction: 'Abrir detalhe somente para support_case ou payment_issue.',
+    },
+    {
+        domain: 'entitlement',
+        status: 'WARN',
+        impact: 'Resolver server continua sendo a fonte de verdade.',
+        owner: 'admin',
+        runbook: 'docs/monetization-runbooks.md#entitlement-reconciliation',
+        nextSafeAction: 'Pedir reconciliacao admin apenas com evidencia Stripe/webhook.',
+    },
+    {
+        domain: 'webhook',
+        status: 'WARN',
+        impact: 'Falha de webhook bloqueia conclusao de acesso pago.',
+        owner: 'engineering',
+        runbook: 'docs/monetization-runbooks.md#webhook-failure',
+        nextSafeAction: 'Validar endpoint, assinatura e evento processado.',
+    },
+];
+
 const fallbackMetric: MetricCard = {
     key: 'first_usable_analysis',
     label: 'Sem dados',
@@ -209,8 +243,10 @@ export function RevenueOpsCockpit({
     ].slice(0, 3);
     const supportDetail = supportSnapshot?.detail ?? null;
     const supportCause = supportDetail?.diagnosis?.firstCause ?? null;
+    const supportDomains = supportDetail?.diagnosis?.domains ?? defaultSupportDomains;
     const generatedAt = formatGeneratedAt(snapshot.funnel?.generatedAt);
     const rangeDays = snapshot.rangeDays ?? 30;
+    const missingRowsPreview = launchReadiness.missingMandatoryRows.slice(0, 5);
 
     return (
         <div className={styles.cockpit} data-server-truth={contractCopy.serverTruth}>
@@ -337,6 +373,90 @@ export function RevenueOpsCockpit({
                         Abrir suporte de billing
                     </Link>
                 )}
+            </section>
+
+            <section className={styles.detailGrid} aria-label="Detalhes operacionais Revenue Ops">
+                <div className={styles.panel}>
+                    <div className={styles.panelHeader}>
+                        <div>
+                            <span className={styles.sectionKicker}>Evidence matrix</span>
+                            <h2>Stripe test e production separados</h2>
+                        </div>
+                        <StatusBadge status={launchReadiness.finalStatus === 'Delivered' ? 'PASS' : 'NO-GO'} />
+                    </div>
+                    <div className={styles.evidenceRows}>
+                        <div className={styles.evidenceRow}>
+                            <span>Stripe test</span>
+                            <StatusBadge status={launchReadiness.stripe.test.status} />
+                            <p>{launchReadiness.stripe.test.rowIds.length} linhas carregadas</p>
+                        </div>
+                        <div className={styles.evidenceRow}>
+                            <span>Stripe production</span>
+                            <StatusBadge status={launchReadiness.stripe.production.status} />
+                            <p>{launchReadiness.stripe.production.rowIds.length} linhas carregadas</p>
+                        </div>
+                    </div>
+                    <p className={styles.panelNote}>
+                        PASS em test-mode e prerequisito, nao substitui production. Linhas ausentes:
+                        {' '}{launchReadiness.missingMandatoryRows.length}.
+                    </p>
+                    {missingRowsPreview.length > 0 ? (
+                        <ul className={styles.compactList} aria-label="Missing mandatory evidence">
+                            {missingRowsPreview.map((rowId) => (
+                                <li key={rowId}>{rowId}</li>
+                            ))}
+                        </ul>
+                    ) : null}
+                </div>
+
+                <div className={styles.panel}>
+                    <div className={styles.panelHeader}>
+                        <div>
+                            <span className={styles.sectionKicker}>Support domains</span>
+                            <h2>{supportDetail?.user?.email ?? supportDetail?.user?.name ?? 'Sem usuario aberto'}</h2>
+                        </div>
+                        <StatusBadge status={supportCause?.status ?? 'WARN'} />
+                    </div>
+                    <div className={styles.domainGrid}>
+                        {supportDomains.map((domain) => (
+                            <div className={styles.domainRow} key={domain.domain}>
+                                <div>
+                                    <span>{domain.domain}</span>
+                                    <strong>{domain.firstCause?.code ?? domain.status}</strong>
+                                </div>
+                                <p>{domain.impact}</p>
+                                <small>{domain.owner} / {domain.runbook}</small>
+                                <small>Next: {domain.nextSafeAction}</small>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className={styles.panel}>
+                    <div className={styles.panelHeader}>
+                        <div>
+                            <span className={styles.sectionKicker}>Pro usage depth</span>
+                            <h2>Uso Pro abaixo do launch summary</h2>
+                        </div>
+                    </div>
+                    <div className={styles.usageGrid}>
+                        {proDepthMetrics.map((key) => {
+                            const metric = metricFor(snapshot, key);
+
+                            return (
+                                <div className={styles.usageRow} key={key}>
+                                    <span>{metric.label}</span>
+                                    <strong>{metric.count}</strong>
+                                    <p>{metric.detail}</p>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <p className={styles.panelNote}>
+                        Confirmed checkout rate: {formatPercent(snapshot.funnel?.conversion?.checkoutStartedToConfirmedRate)}.
+                        Passive lock/feed impressions ignoradas: {snapshot.funnel?.breakdowns?.ignoredPassiveImpressions ?? 0}.
+                    </p>
+                </div>
             </section>
         </div>
     );

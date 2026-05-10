@@ -261,9 +261,116 @@
     padding: var(--space-lg);
 }
 
+.detailGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-md);
+    align-items: start;
+}
+
+.panel {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--space-md);
+    padding: var(--space-lg);
+    border: 1px solid var(--color-divider);
+    border-radius: 8px;
+    background: var(--color-surface);
+}
+
+.panelHeader {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    align-items: flex-start;
+}
+
+.panelHeader h2 {
+    margin: var(--space-xs) 0 0;
+    font-size: var(--text-xl);
+    line-height: 1.2;
+    letter-spacing: 0;
+}
+
+.evidenceRows,
+.domainGrid,
+.usageGrid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.evidenceRow,
+.domainRow,
+.usageRow {
+    min-width: 0;
+    padding-top: var(--space-sm);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.evidenceRow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--space-xs);
+    align-items: center;
+}
+
+.evidenceRow p,
+.domainRow p,
+.domainRow small,
+.usageRow p,
+.panelNote,
+.compactList {
+    margin: 0;
+    color: var(--color-text-secondary);
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.evidenceRow span,
+.domainRow span,
+.usageRow span {
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.domainRow {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+.domainRow strong,
+.usageRow strong {
+    color: var(--color-text-primary);
+    font-family: var(--font-mono);
+    font-size: var(--text-lg);
+}
+
+.usageRow {
+    display: grid;
+    grid-template-columns: minmax(0, 0.7fr) auto;
+    gap: var(--space-xs);
+}
+
+.usageRow p {
+    grid-column: 1 / -1;
+}
+
+.compactList {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding-left: 1rem;
+}
+
 @media (max-width: 1120px) {
     .firstFold,
-    .infoBand {
+    .infoBand,
+    .detailGrid {
         grid-template-columns: 1fr;
     }
 

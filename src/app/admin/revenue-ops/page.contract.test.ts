@@ -76,4 +76,17 @@ describe('Revenue Ops cockpit page contract', () => {
         expect(code).toMatch(/metricRail/);
         expect(code).not.toMatch(/Chart|canvas|revenue leaderboard/i);
     });
+
+    it('adds secondary evidence, support, and Pro usage sections without exposing private detail', () => {
+        const code = source();
+
+        expect(code).toMatch(/stripe\.test/);
+        expect(code).toMatch(/stripe\.production/);
+        expect(code).toMatch(/missingMandatoryRows/);
+        expect(code).toMatch(/supportDomains/);
+        expect(code).toMatch(/\/admin\/billing\?userId=/);
+        expect(code).toMatch(/proDepthMetrics/);
+        expect(code).toMatch(/ignoredPassiveImpressions/);
+        expect(code).not.toMatch(/rawVideo|privateReader|paymentMethod|stripePayload|webhookPayload/);
+    });
 });
