@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: ready_to_execute
-last_updated: "2026-05-09T20:00:11.602Z"
+last_updated: "2026-05-10T00:34:29.807Z"
 progress:
   total_phases: 13
   completed_phases: 11
   total_plans: 72
-  completed_plans: 66
-  percent: 92
+  completed_plans: 69
+  percent: 96
 ---
 
 # State: Sens PUBG
@@ -95,18 +95,21 @@ Phase 12: Revenue Operations Hardening
 - Phase 11 plans 11-06 through 11-12 are complete with public-safe report routes, Pro report moderation, community Social Pro hub, Analyze/dashboard/Ciclo Pro/Spray Lab/history handoffs, public profile report listings, active-Pro-only badge surfaces, final browser evidence, and the No False Premium checklist.
 - Phase 11 final status is Delivered: all 13 plans are complete, every Social Pro verifier row is PASS, schema drift is clear, and final gates pass: `npm run typecheck`, `npx vitest run`, `npm run test:community:unit`, `npm run test:community:e2e`, `npm run test:community:visual`, `npm run test:monetization`, `npm run benchmark:gate`, `npm run build`, `npx playwright test e2e/phase11-social-pro.spec.ts`, and `npm run verify:phase11:social-pro`.
 - Phase 12 planning is complete with 6 executable Revenue Operations Hardening plans across 5 waves, backed by `12-RESEARCH.md` and full 54/54 decision coverage from `12-CONTEXT.md`.
+- Phase 12 plan 12-00 is complete with the Revenue Ops validation scaffold, No False Launch verifier registration, and RED browser/page-contract matrix for the later cockpit UI.
+- Phase 12 plan 12-01 is complete with Revenue Ops type contracts, privacy-safe funnel aggregation, and a staff-only aggregate cockpit snapshot action.
+- Phase 12 plan 12-02 is complete with support-domain diagnosis, explicit Pro no-access first-cause tree, safe support summaries, admin-only mutation boundaries, and admin billing detail diagnosis.
 
 ## Next Recommended Command
 
-`$gsd-execute-phase 12`
+`$gsd-execute-phase 12 --wave 2`
 
-Execute Phase 12 Revenue Operations Hardening.
+Execute Phase 12 Wave 2: paid launch readiness gates, versioned evidence matrix, Stripe test/production separation, and safe degradation.
 
 ## Session
 
 - Last session: 2026-05-09T16:44:10.5897364-03:00
-- Stopped At: Phase 12 planned
-- Resume File: .planning/phases/12-revenue-operations-hardening/12-00-PLAN.md
+- Stopped At: Phase 12 Wave 1 complete
+- Resume File: .planning/phases/12-revenue-operations-hardening/12-03-PLAN.md
 
 ## Performance Metrics
 

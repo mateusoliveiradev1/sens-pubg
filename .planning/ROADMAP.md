@@ -502,23 +502,23 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **UI hint:** yes
 
-**Plans:** 6 executable plans across 5 waves
+**Plans:** 3/6 plans complete
 
 **Wave 0**
-- `12-00-PLAN.md` - Revenue Ops validation scaffold for tests, verifier, Playwright matrix, and package script registration.
+- [x] `12-00-PLAN.md` - Revenue Ops validation scaffold for tests, verifier, Playwright matrix, and package script registration.
 
 **Wave 1 *(blocked on Wave 0 completion)***
-- `12-01-PLAN.md` - Privacy-safe funnel aggregation, Revenue Ops metric contracts, and staff-only cockpit snapshot.
-- `12-02-PLAN.md` - Support-domain diagnosis, explicit Pro no-access cause tree, and conservative admin/support operations.
+- [x] `12-01-PLAN.md` - Privacy-safe funnel aggregation, Revenue Ops metric contracts, and staff-only cockpit snapshot.
+- [x] `12-02-PLAN.md` - Support-domain diagnosis, explicit Pro no-access cause tree, and conservative admin/support operations.
 
 **Wave 2 *(blocked on Wave 1 completion)***
-- `12-03-PLAN.md` - Paid launch readiness gates, versioned evidence matrix, Stripe test/production separation, and safe degradation.
+- [ ] `12-03-PLAN.md` - Paid launch readiness gates, versioned evidence matrix, Stripe test/production separation, and safe degradation.
 
 **Wave 3 *(blocked on Wave 2 completion)***
-- `12-04-PLAN.md` - Staff-only Revenue Ops launch-control cockpit UI and admin navigation.
+- [ ] `12-04-PLAN.md` - Staff-only Revenue Ops launch-control cockpit UI and admin navigation.
 
 **Wave 4 *(blocked on Wave 3 completion)***
-- `12-05-PLAN.md` - No False Launch Playwright matrix, copy safety, final checklist, and dedicated Phase 12 verifier.
+- [ ] `12-05-PLAN.md` - No False Launch Playwright matrix, copy safety, final checklist, and dedicated Phase 12 verifier.
 
 **Cross-cutting constraints:**
 - Preserve the browser-first analysis path; Phase 12 observes and supports the paid system without adding backend video processing.
