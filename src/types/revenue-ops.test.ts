@@ -4,6 +4,7 @@ import {
     assertRevenueOpsPayloadSafe,
     findUnsafeRevenueOpsFields,
     parseRevenueOpsDetailReason,
+    parseRevenueOpsEvidenceEnvironment,
     parseRevenueOpsEvidenceStatus,
     parseRevenueOpsFunnelMetricKey,
     parseRevenueOpsLaunchGate,
@@ -11,6 +12,7 @@ import {
     parseRevenueOpsProAccessCauseCode,
     parseRevenueOpsSupportDomain,
     revenueOpsDetailReasonValues,
+    revenueOpsEvidenceEnvironmentValues,
     revenueOpsEvidenceStatusValues,
     revenueOpsFunnelMetricKeyValues,
     revenueOpsLaunchGateValues,
@@ -41,6 +43,14 @@ describe('Revenue Ops type contracts', () => {
             'PENDING',
             'MISSING',
         ]);
+        expect(revenueOpsEvidenceEnvironmentValues).toEqual([
+            'stripe_test',
+            'stripe_production',
+            'deploy',
+            'local',
+            'manual',
+            'internal',
+        ]);
         expect(revenueOpsFunnelMetricKeyValues).toEqual([
             'first_usable_analysis',
             'upgrade_intent',
@@ -55,8 +65,10 @@ describe('Revenue Ops type contracts', () => {
         expect(parseRevenueOpsOperationalStatus('NO-GO')).toBe('NO-GO');
         expect(parseRevenueOpsLaunchGate('public_paid_launch')).toBe('public_paid_launch');
         expect(parseRevenueOpsEvidenceStatus('BLOCKED')).toBe('BLOCKED');
+        expect(parseRevenueOpsEvidenceEnvironment('stripe_production')).toBe('stripe_production');
         expect(parseRevenueOpsFunnelMetricKey('upgrade_intent')).toBe('upgrade_intent');
         expect(() => parseRevenueOpsOperationalStatus('READY')).toThrow();
+        expect(() => parseRevenueOpsEvidenceEnvironment('test')).toThrow();
     });
 
     it('limits user-detail reasons, support domains, and Pro no-access causes to explicit operational codes', () => {

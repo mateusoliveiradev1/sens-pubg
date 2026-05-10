@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import { revenueOpsEvidenceRowIds } from '../core/revenue-ops-readiness';
 import {
     requiredPhase12RevenueOpsEvidenceRows,
     verifyPhase12RevenueOps,
@@ -166,5 +167,6 @@ describe('Phase 12 Revenue Ops evidence helper', () => {
             'playwright.mobile_matrix',
             'commands.verify_phase12',
         ]));
+        expect(revenueOpsEvidenceRowIds).toEqual(expect.arrayContaining(rowIds));
     });
 });

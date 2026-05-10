@@ -26,6 +26,7 @@ describe('evaluateReleaseReadiness', () => {
             localBrowserReady: true,
             deploymentReady: true,
             backendPipelineReady: true,
+            paidLaunchReady: null,
         });
         expect(report.checks.every((check) => check.status === 'pass')).toBe(true);
     });
@@ -45,6 +46,7 @@ describe('evaluateReleaseReadiness', () => {
             localBrowserReady: true,
             deploymentReady: false,
             backendPipelineReady: false,
+            paidLaunchReady: null,
         });
         expect(report.checks.find((check) => check.key === 'public-app-url')?.status).toBe('warn');
         expect(report.checks.find((check) => check.key === 'auth-url')?.status).toBe('warn');
@@ -66,6 +68,29 @@ describe('evaluateReleaseReadiness', () => {
             status: 'fail',
         });
     });
+
+    it('exposes paid-launch blockers without making backend ffmpeg a browser-first blocker', () => {
+        const report = evaluateReleaseReadiness({
+            env: {
+                ...requiredEnv,
+                AUTH_URL: 'https://sens.example.com',
+            },
+            vercelProjectLinked: true,
+            ffmpegInstalled: false,
+            paidLaunch: {
+                publicPaidReady: false,
+                detail: 'Production Stripe webhook evidence and deployed paid smoke are still missing.',
+            },
+        });
+
+        expect(report.gates).toMatchObject({
+            localBrowserReady: true,
+            deploymentReady: true,
+            backendPipelineReady: false,
+            paidLaunchReady: false,
+        });
+        expect(report.checks.find((check) => check.key === 'paid-launch')?.status).toBe('fail');
+    });
 });
 
 describe('formatReleaseReadinessReport', () => {
@@ -85,5 +110,26 @@ describe('formatReleaseReadinessReport', () => {
         expect(formatted).toContain('Deploy final: PASS');
         expect(formatted).toContain('Backend ffmpeg pipeline: NO-GO');
         expect(formatted).toContain('[WARN] ffmpeg runtime');
+    });
+
+    it('renders paid-launch status when the caller provides it', () => {
+        const report = evaluateReleaseReadiness({
+            env: {
+                ...requiredEnv,
+                AUTH_URL: 'https://sens.example.com',
+            },
+            vercelProjectLinked: true,
+            ffmpegInstalled: true,
+            paidLaunch: {
+                publicPaidReady: false,
+                detail: 'Revenue Ops evidence matrix is blocked.',
+            },
+        });
+
+        const formatted = formatReleaseReadinessReport(report);
+
+        expect(formatted).toContain('Paid public launch: NO-GO');
+        expect(formatted).toContain('[FAIL] Paid public launch');
+        expect(formatted).toContain('Revenue Ops evidence matrix is blocked.');
     });
 });
