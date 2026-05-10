@@ -113,6 +113,7 @@ Capabilities visible in code:
 - Community moderation via `src/actions/community-admin.ts`.
 - Bot health/status through API routes and admin pages.
 - Audit logging through `src/db/audit-log.ts`.
+- Revenue Ops launch-control cockpit via `src/app/admin/revenue-ops/page.tsx`, backed by staff-only server actions in `src/actions/revenue-ops.ts`.
 
 ## Security Layer
 

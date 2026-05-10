@@ -30,7 +30,7 @@
 
 - [x] **ANALYT-01**: System records activation when a user completes a first usable analysis.
 - [x] **ANALYT-02**: System records upgrade-intent events when users hit analysis limits or attempt premium history/coach features.
-- [ ] **ANALYT-03**: Admin can inspect high-level funnel metrics without exposing local secrets.
+- [x] **ANALYT-03**: Admin can inspect high-level funnel metrics without exposing local secrets.
 
 ### Monetization
 
@@ -87,7 +87,7 @@
 | COACH-05 | Phase 4 | Complete |
 | ANALYT-01 | Phase 5 | Complete |
 | ANALYT-02 | Phase 5 | Complete |
-| ANALYT-03 | Phase 7 | Pending |
+| ANALYT-03 | Phase 12 | Complete |
 | MON-01 | Phase 5 | Complete |
 | MON-02 | Phase 5 | Complete; paid founder beta launch manually blocked until Stripe test-mode checklist passes |
 | MON-03 | Phase 5 | Complete; live Stripe verification manually blocked |

@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: ready_to_execute
-last_updated: "2026-05-10T00:49:23.508Z"
+last_updated: "2026-05-10T01:18:41.318Z"
 progress:
   total_phases: 13
   completed_phases: 11
   total_plans: 72
-  completed_plans: 70
-  percent: 97
+  completed_plans: 71
+  percent: 99
 ---
 
 # State: Sens PUBG
@@ -99,18 +99,19 @@ Phase 12: Revenue Operations Hardening
 - Phase 12 plan 12-01 is complete with Revenue Ops type contracts, privacy-safe funnel aggregation, and a staff-only aggregate cockpit snapshot action.
 - Phase 12 plan 12-02 is complete with support-domain diagnosis, explicit Pro no-access first-cause tree, safe support summaries, admin-only mutation boundaries, and admin billing detail diagnosis.
 - Phase 12 plan 12-03 is complete with the versioned paid launch evidence matrix, beta/public launch gate derivation, Stripe test/production separation, safe degradation rules, launch readiness docs, and paid-launch release readiness output.
+- Phase 12 plan 12-04 is complete with the staff-only `/admin/revenue-ops` launch-control cockpit, admin navigation entry, launch no-go first fold, evidence matrix summary, support-domain summaries, Pro usage depth, focused tests, monetization tests, typecheck, and production build passing.
 
 ## Next Recommended Command
 
-`$gsd-execute-phase 12 --wave 3`
+`$gsd-execute-phase 12 --wave 4`
 
-Execute Phase 12 Wave 3: staff-only Revenue Ops launch-control cockpit UI and admin navigation.
+Execute Phase 12 Wave 4: No False Launch Playwright matrix, copy safety, final checklist, and dedicated Phase 12 verifier.
 
 ## Session
 
-- Last session: 2026-05-09T16:44:10.5897364-03:00
-- Stopped At: Completed 12-03-PLAN.md
-- Resume File: .planning/phases/12-revenue-operations-hardening/12-04-PLAN.md
+- Last session: 2026-05-09T22:17:56.4864647-03:00
+- Stopped At: Completed 12-04-PLAN.md
+- Resume File: .planning/phases/12-revenue-operations-hardening/12-05-PLAN.md
 
 ## Performance Metrics
 
@@ -133,6 +134,7 @@ Execute Phase 12 Wave 3: staff-only Revenue Ops launch-control cockpit UI and ad
 | Phase 11 P04 | 14 min | 3 tasks | 6 files |
 | Phase 11 P05 | 14 min | 3 tasks | 7 files |
 | Phase 12 P03 | 12 min | 3 tasks | 12 files |
+| Phase 12 P04 | 9 min | 3 tasks | 5 files |
 
 ## Decisions
 
@@ -182,6 +184,9 @@ Execute Phase 12 Wave 3: staff-only Revenue Ops launch-control cockpit UI and ad
 - [Phase 12 Plan 12-03]: Public paid launch requires independent `stripe_production` evidence; test-mode PASS never inherits into production readiness.
 - [Phase 12 Plan 12-03]: Delivered, Partially delivered, and Blocked are derived from mandatory evidence row status and explicit remaining gaps, not percentages.
 - [Phase 12 Plan 12-03]: Safe degradation closes risky new checkout while preserving confirmed Pro access, Free usefulness, history, and billing/support routes.
+- [Phase 12 Plan 12-04]: Revenue Ops opens with launch go/no-go and blockers before metrics, so counts and percentages cannot override missing evidence.
+- [Phase 12 Plan 12-04]: User-level support detail stays reason-gated; the default cockpit is aggregate and privacy-minimal.
+- [Phase 12 Plan 12-04]: Stripe test and production evidence are visible as separate launch surfaces in the cockpit.
 
 ## Open Questions
 
@@ -243,3 +248,4 @@ Execute Phase 12 Wave 3: staff-only Revenue Ops launch-control cockpit UI and ad
 - Phase 10 10-05 executed: Added history list/detail program continuity and audit, compatible-validation-bound coach handoff/signals, copy-safety scan across program surfaces, and eight-state coach golden coverage.
 - Phase 10 10-06 executed: Added final No False Done verifier/checklist, CI evidence tests, desktop/mobile Playwright state matrix, final verification docs, target DB migration re-verification, and Delivered status after focused tests, full repo gates, benchmark gate, build, and browser evidence passed.
 - Phase 12 12-03 executed: Added the versioned Revenue Ops launch readiness matrix, beta/public hard gates, Stripe test/production evidence separation, safe degradation rules, paid-launch release readiness output, and launch/runbook docs; focused Phase 12 tests, typecheck, local readiness, and monetization tests passed.
+- Phase 12 12-04 executed: Added `/admin/revenue-ops`, Revenue Ops admin navigation, server-loaded launch-control cockpit UI, actionable no-go blockers, evidence matrix summary, support-domain summaries, Pro usage depth, and route contracts; focused Revenue Ops tests, typecheck, monetization tests, and build passed.
