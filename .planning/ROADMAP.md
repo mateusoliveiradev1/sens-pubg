@@ -20,7 +20,7 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 | 9 | PUBG Spray Lab Session Runner And Benchmark | Build the PUBG-focused lab layer for guided drills, sessions, and benchmarks | PREC-03, BENCH-01, BENCH-02, BENCH-03, COACH-01, COACH-02, COACH-03 |
 | 10 | Guided Pro Training Programs | Organize the Pro loop into weekly and monthly adaptive training programs | PREC-03, COACH-01, COACH-02, COACH-03, COACH-04, COACH-05, MON-01, MON-02 |
 | 11 | Social Pro Community Premium | Add Pro social value while keeping public community as a trust funnel | MON-01, MON-02, MON-03, MON-04, MON-05 |
-| 12 | 5/6 | In Progress|  |
+| 12 | 6/6 | Complete    | 2026-05-10 |
 | 13 | Team And Coach Expansion | Extend paid value to teams/coaches after solo Pro proof | TEAM-01, TEAM-02 |
 
 ## Phase 1: Measurement Truth Contract
@@ -502,7 +502,7 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **UI hint:** yes
 
-**Plans:** 5/6 plans executed
+**Plans:** 6/6 plans complete
 
 **Wave 0**
 - [x] `12-00-PLAN.md` - Revenue Ops validation scaffold for tests, verifier, Playwright matrix, and package script registration.
@@ -518,7 +518,7 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 - [x] `12-04-PLAN.md` - Staff-only Revenue Ops launch-control cockpit UI and admin navigation.
 
 **Wave 4 *(blocked on Wave 3 completion)***
-- [ ] `12-05-PLAN.md` - No False Launch Playwright matrix, copy safety, final checklist, and dedicated Phase 12 verifier.
+- [x] `12-05-PLAN.md` - No False Launch Playwright matrix, copy safety, final checklist, and dedicated Phase 12 verifier. (completed 2026-05-10)
 
 **Cross-cutting constraints:**
 - Preserve the browser-first analysis path; Phase 12 observes and supports the paid system without adding backend video processing.
