@@ -80,3 +80,37 @@ Safe degradation must not globally upgrade Free users, delete history, revoke co
 ## Current Posture
 
 The founder beta Stripe checklist remains the canonical manual test-mode checklist. This document reflects it into the Phase 12 evidence matrix and adds the public paid launch rule: production evidence must be separate and explicit before real public charging.
+
+## Phase 12 Verification Snapshot
+
+Updated: 2026-05-10T01:29:35Z.
+
+Current status: **Partially delivered**.
+
+Automated and local evidence now passes:
+
+- Focused Phase 12 Vitest and Playwright checks.
+- `npm run test:monetization`.
+- `npm run typecheck`.
+- `npx vitest run`.
+- `npm run benchmark:gate`.
+- `npm run build`.
+- `npm run readiness:local`.
+- `npx playwright test e2e/phase12-revenue-ops.spec.ts`.
+- `npm run verify:phase12:revenue-ops`.
+
+Browser evidence is recorded at:
+
+- `test-results/phase12-launch-control-mobile.png`
+- `test-results/phase12-launch-control-desktop.png`
+- `test-results/phase12-evidence-matrix-mobile.png`
+- `test-results/phase12-evidence-matrix-desktop.png`
+
+External launch evidence is still pending:
+
+- Stripe test-mode checklist evidence.
+- Independent Stripe production evidence.
+- Deployed smoke and deploy readiness evidence.
+- OAuth/final-domain evidence.
+
+`npm run readiness:deploy` was executed locally and returned deploy/backend NO-GO because this workspace still points to localhost and lacks final deploy evidence. That is launch posture, not a code failure. Public paid launch remains NO-GO until the pending external rows pass.
