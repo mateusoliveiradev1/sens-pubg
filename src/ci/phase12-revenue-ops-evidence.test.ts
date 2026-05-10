@@ -120,6 +120,33 @@ describe('Phase 12 Revenue Ops evidence helper', () => {
         expect(report.pendingRows).toEqual(['commands.readiness_deploy']);
     });
 
+    it('allows only Partially delivered when external Revenue Ops evidence is pending with explicit gaps', () => {
+        const root = createWorkspace();
+        writeChecklist(root, requiredPhase12RevenueOpsEvidenceRows, {
+            'paid_flow.test_mode_matrix': 'PENDING',
+            'paid_flow.production_matrix': 'PENDING',
+            'launch.founder_beta_gate': 'PENDING',
+            'launch.public_paid_gate': 'PENDING',
+            'commands.readiness_deploy': 'PENDING',
+        }, {
+            'paid_flow.test_mode_matrix': 'Stripe test-mode checklist still needs dated Dashboard/webhook evidence.',
+            'paid_flow.production_matrix': 'Production Stripe evidence must be collected independently.',
+            'launch.founder_beta_gate': 'Founder/Beta launch waits for manual paid-flow evidence.',
+            'launch.public_paid_gate': 'Public launch waits for production Stripe, deploy smoke, and compliance evidence.',
+            'commands.readiness_deploy': 'Deploy readiness needs external environment evidence.',
+        }, 'Partially delivered');
+
+        const report = verifyPhase12RevenueOps({
+            rootDir: root,
+            checklistPath,
+        });
+
+        expect(report.evidenceFileValid).toBe(true);
+        expect(report.blockersExplicit).toBe(true);
+        expect(report.finalStatus).toBe('Partially delivered');
+        expect(report.statusDeclarationValid).toBe(true);
+    });
+
     it('keeps FAIL and BLOCKED rows hard-blocking and requires explicit remaining gaps', () => {
         const root = createWorkspace();
         writeChecklist(root, requiredPhase12RevenueOpsEvidenceRows, {

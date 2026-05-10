@@ -88,6 +88,31 @@ const DISALLOWED_PHASE_10_PROGRAM_CLAIMS = [
     /\bprogress validated without compatible clip\b/,
 ] as const;
 
+const PHASE_12_REVENUE_OPS_COPY_FILES = [
+    'src/app/admin/revenue-ops/page.tsx',
+    'src/app/admin/revenue-ops/revenue-ops-cockpit.tsx',
+    'src/app/admin/billing/page.tsx',
+    'docs/revenue-ops-launch-readiness.md',
+    'docs/founder-beta-stripe-test-checklist.md',
+    'docs/monetization-runbooks.md',
+] as const;
+
+const DISALLOWED_PHASE_12_REVENUE_OPS_CLAIMS = [
+    /\b(garante|garantimos|promete|prometemos)\b.{0,60}\b(sensibilidade|melhora|rank|resultado)\b/,
+    /\b(guarantees|promises)\b.{0,60}\b(sensitivity|improvement|rank|result)\b/,
+    /\bpubg oficial\b.{0,40}\b(sens pubg|produto|assinatura|pro)\b/,
+    /\bofficial pubg\b.{0,40}\b(sens pubg|product|subscription|pro)\b/,
+    /\bkrafton partner\b.{0,40}\b(sens pubg|product|subscription|pro)\b/,
+    /\bparceiro krafton\b.{0,40}\b(sens pubg|produto|assinatura|pro)\b/,
+    /\bsuccess url grants pro\b/,
+    /\bsuccess url concede pro\b/,
+    /\burl de sucesso concede pro\b/,
+    /\blocalstorage grants pro\b/,
+    /\bclient state grants pro\b/,
+    /\bpublic paid launch\b.{0,80}\bready\b.{0,80}\bwithout evidence\b/,
+    /\blancamento publico\b.{0,80}\bpronto\b.{0,80}\bsem evidencia\b/,
+] as const;
+
 function readCopy(filePath: string): string {
     return readFileSync(join(process.cwd(), filePath), 'utf8');
 }
@@ -188,5 +213,41 @@ describe('Phase 10 Ciclo Pro copy safety', () => {
         expect(combinedCopy).toContain('validacao');
         expect(combinedCopy).toContain('continuidade');
         expect(combinedCopy).toContain('adaptativo');
+    });
+});
+
+describe('Phase 12 Revenue Ops copy safety', () => {
+    it('scans the launch-control admin, billing, readiness, checklist, and runbook copy surfaces', () => {
+        expect(PHASE_12_REVENUE_OPS_COPY_FILES).toEqual(expect.arrayContaining([
+            'src/app/admin/revenue-ops/page.tsx',
+            'src/app/admin/revenue-ops/revenue-ops-cockpit.tsx',
+            'docs/revenue-ops-launch-readiness.md',
+            'docs/founder-beta-stripe-test-checklist.md',
+            'docs/monetization-runbooks.md',
+        ]));
+    });
+
+    it('blocks false launch-ready, client-granted Pro, guarantee, and affiliation claims', () => {
+        for (const filePath of PHASE_12_REVENUE_OPS_COPY_FILES) {
+            const copy = normalize(readCopy(filePath));
+
+            for (const claimPattern of DISALLOWED_PHASE_12_REVENUE_OPS_CLAIMS) {
+                expect(copy, `${filePath} should not match ${claimPattern}`).not.toMatch(claimPattern);
+            }
+        }
+    });
+
+    it('keeps launch decisions tied to evidence, blockers, server truth, and safe degradation', () => {
+        const combinedCopy = normalize(PHASE_12_REVENUE_OPS_COPY_FILES.map(readCopy).join('\n'));
+
+        expect(combinedCopy).toContain('blocker');
+        expect(combinedCopy).toContain('missing evidence');
+        expect(combinedCopy).toContain('smallest next');
+        expect(combinedCopy).toContain('stripe');
+        expect(combinedCopy).toContain('webhook');
+        expect(combinedCopy).toContain('server');
+        expect(combinedCopy).toContain('safe degradation');
+        expect(combinedCopy).toContain('preserve confirmed pro access');
+        expect(combinedCopy).toContain('production evidence');
     });
 });
