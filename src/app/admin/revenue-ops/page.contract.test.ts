@@ -3,14 +3,22 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const pagePath = join(process.cwd(), 'src/app/admin/revenue-ops/page.tsx');
+const cockpitPath = join(process.cwd(), 'src/app/admin/revenue-ops/revenue-ops-cockpit.tsx');
 
 function source() {
     expect(
         existsSync(pagePath),
         'Phase 12 expects a staff-only Revenue Ops launch-control cockpit page at src/app/admin/revenue-ops/page.tsx.',
     ).toBe(true);
+    expect(
+        existsSync(cockpitPath),
+        'Phase 12 expects a dedicated Revenue Ops cockpit component.',
+    ).toBe(true);
 
-    return readFileSync(pagePath, 'utf8');
+    return [
+        readFileSync(pagePath, 'utf8'),
+        readFileSync(cockpitPath, 'utf8'),
+    ].join('\n');
 }
 
 describe('Revenue Ops cockpit page contract', () => {
@@ -42,7 +50,7 @@ describe('Revenue Ops cockpit page contract', () => {
             expect(normalized).toContain(requiredCopy);
         }
 
-        expect(normalized).not.toMatch(/mrr|arr|receita total|vanity dashboard|leaderboard de receita/);
+        expect(normalized).not.toMatch(/\bmrr\b|\barr\b|receita total|vanity dashboard|leaderboard de receita/);
     });
 
     it('reinforces server-owned Pro truth and avoids raw private/payment rendering', () => {
@@ -54,5 +62,18 @@ describe('Revenue Ops cockpit page contract', () => {
         expect(normalized).toMatch(/stripe|webhook|resolver|server/);
         expect(normalized).not.toMatch(/localstorage.*pro|success url.*pro|client state.*grant/);
         expect(normalized).not.toMatch(/rawvideo|frametrajectory|private link token|payment card|bank account|cpf/);
+    });
+
+    it('keeps the first fold centered on launch gates, blockers, and essential funnel signals', () => {
+        const code = source();
+
+        expect(code).toMatch(/overallStatus/);
+        expect(code).toMatch(/founderBetaLaunch/);
+        expect(code).toMatch(/publicPaidLaunch/);
+        expect(code).toMatch(/highestBlockers/);
+        expect(code).toMatch(/smallestNextStep/);
+        expect(code).toMatch(/missingEvidence/);
+        expect(code).toMatch(/metricRail/);
+        expect(code).not.toMatch(/Chart|canvas|revenue leaderboard/i);
     });
 });

@@ -170,6 +170,26 @@ function primaryBlocker(readiness: RevenueOpsLaunchGateEvaluation): RevenueOpsLa
         };
 }
 
+function overallStatus(readiness: RevenueOpsLaunchGateEvaluation): RevenueOpsOperationalStatus {
+    if (readiness.publicPaidLaunch.status === 'PASS' && readiness.founderBetaLaunch.status === 'PASS') {
+        return 'PASS';
+    }
+
+    if (readiness.publicPaidLaunch.status === 'FAIL' || readiness.founderBetaLaunch.status === 'FAIL') {
+        return 'FAIL';
+    }
+
+    if (readiness.publicPaidLaunch.status === 'NO-GO' || readiness.founderBetaLaunch.status === 'NO-GO') {
+        return 'NO-GO';
+    }
+
+    if (readiness.publicPaidLaunch.status === 'BLOCKED' || readiness.founderBetaLaunch.status === 'BLOCKED') {
+        return 'BLOCKED';
+    }
+
+    return 'WARN';
+}
+
 function StatusBadge({ status }: { readonly status: RevenueOpsOperationalStatus }): React.JSX.Element {
     return <span className={`${styles.statusBadge} ${statusClass(status)}`}>{status}</span>;
 }
@@ -181,6 +201,12 @@ export function RevenueOpsCockpit({
     supportSnapshot,
 }: RevenueOpsCockpitProps): React.JSX.Element {
     const blocker = primaryBlocker(launchReadiness);
+    const status = overallStatus(launchReadiness);
+    const highestBlockers = [
+        ...launchReadiness.publicPaidLaunch.blockers,
+        ...launchReadiness.founderBetaLaunch.blockers,
+        ...(launchReadiness.safeDegradation.blocker ? [launchReadiness.safeDegradation.blocker] : []),
+    ].slice(0, 3);
     const supportDetail = supportSnapshot?.detail ?? null;
     const supportCause = supportDetail?.diagnosis?.firstCause ?? null;
     const generatedAt = formatGeneratedAt(snapshot.funnel?.generatedAt);
@@ -192,13 +218,17 @@ export function RevenueOpsCockpit({
                 <div className={styles.launchDecision}>
                     <div>
                         <span className={styles.sectionKicker}>Launch decision</span>
-                        <h2>Public paid launch permanece {launchReadiness.publicPaidLaunch.status}</h2>
+                        <h2>Launch state: {status}</h2>
                         <p>
                             A tela abre com a decisao operacional antes de qualquer grafico. Stripe,
                             webhook, subscription e resolver server continuam sendo a verdade de acesso Pro.
                         </p>
                     </div>
                     <div className={styles.gateGrid}>
+                        <div className={styles.gateTile}>
+                            <span>Overall</span>
+                            <StatusBadge status={status} />
+                        </div>
                         <div className={styles.gateTile}>
                             <span>Founder/Beta</span>
                             <StatusBadge status={launchReadiness.founderBetaLaunch.status} />
@@ -208,6 +238,18 @@ export function RevenueOpsCockpit({
                             <StatusBadge status={launchReadiness.publicPaidLaunch.status} />
                         </div>
                     </div>
+                    {highestBlockers.length > 0 ? (
+                        <div className={styles.blockerList} aria-label="Highest blockers">
+                            <span>Highest blockers</span>
+                            {highestBlockers.map((item) => (
+                                <div className={styles.blockerListItem} key={item.id}>
+                                    <StatusBadge status={item.status} />
+                                    <p>{item.blocker}</p>
+                                    <small>{item.owner} / {item.smallestNextStep}</small>
+                                </div>
+                            ))}
+                        </div>
+                    ) : null}
                 </div>
 
                 <div className={styles.blockerPanel}>

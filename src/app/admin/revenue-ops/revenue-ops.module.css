@@ -107,12 +107,13 @@
 
 .gateGrid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-sm);
 }
 
 .gateTile,
-.metricTile {
+.metricTile,
+.blockerListItem {
     display: flex;
     flex-direction: column;
     gap: var(--space-xs);
@@ -125,11 +126,31 @@
 
 .gateTile span,
 .metricTile span,
-.infoBand span {
+.infoBand span,
+.blockerList > span {
     color: var(--color-text-muted);
     font-size: var(--text-xs);
     font-weight: 800;
     text-transform: uppercase;
+}
+
+.blockerList {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.blockerListItem {
+    border-color: rgba(239, 68, 68, 0.18);
+    background: rgba(239, 68, 68, 0.06);
+}
+
+.blockerListItem p,
+.blockerListItem small {
+    margin: 0;
+    color: var(--color-text-secondary);
+    line-height: 1.45;
+    overflow-wrap: anywhere;
 }
 
 .blockerPanel {
