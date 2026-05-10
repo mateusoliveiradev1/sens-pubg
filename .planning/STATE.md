@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: ready_to_execute
-last_updated: "2026-05-10T00:34:29.807Z"
+last_updated: "2026-05-10T00:49:23.508Z"
 progress:
   total_phases: 13
   completed_phases: 11
   total_plans: 72
-  completed_plans: 69
-  percent: 96
+  completed_plans: 70
+  percent: 97
 ---
 
 # State: Sens PUBG
@@ -98,18 +98,19 @@ Phase 12: Revenue Operations Hardening
 - Phase 12 plan 12-00 is complete with the Revenue Ops validation scaffold, No False Launch verifier registration, and RED browser/page-contract matrix for the later cockpit UI.
 - Phase 12 plan 12-01 is complete with Revenue Ops type contracts, privacy-safe funnel aggregation, and a staff-only aggregate cockpit snapshot action.
 - Phase 12 plan 12-02 is complete with support-domain diagnosis, explicit Pro no-access first-cause tree, safe support summaries, admin-only mutation boundaries, and admin billing detail diagnosis.
+- Phase 12 plan 12-03 is complete with the versioned paid launch evidence matrix, beta/public launch gate derivation, Stripe test/production separation, safe degradation rules, launch readiness docs, and paid-launch release readiness output.
 
 ## Next Recommended Command
 
-`$gsd-execute-phase 12 --wave 2`
+`$gsd-execute-phase 12 --wave 3`
 
-Execute Phase 12 Wave 2: paid launch readiness gates, versioned evidence matrix, Stripe test/production separation, and safe degradation.
+Execute Phase 12 Wave 3: staff-only Revenue Ops launch-control cockpit UI and admin navigation.
 
 ## Session
 
 - Last session: 2026-05-09T16:44:10.5897364-03:00
-- Stopped At: Phase 12 Wave 1 complete
-- Resume File: .planning/phases/12-revenue-operations-hardening/12-03-PLAN.md
+- Stopped At: Completed 12-03-PLAN.md
+- Resume File: .planning/phases/12-revenue-operations-hardening/12-04-PLAN.md
 
 ## Performance Metrics
 
@@ -131,6 +132,7 @@ Execute Phase 12 Wave 2: paid launch readiness gates, versioned evidence matrix,
 | Phase 11 P03 | 15min | 3 tasks | 4 files |
 | Phase 11 P04 | 14 min | 3 tasks | 6 files |
 | Phase 11 P05 | 14 min | 3 tasks | 7 files |
+| Phase 12 P03 | 12 min | 3 tasks | 12 files |
 
 ## Decisions
 
@@ -177,6 +179,9 @@ Execute Phase 12 Wave 2: paid launch readiness gates, versioned evidence matrix,
 - [Phase 11 Plan 11-05]: Pro library writes require active Social Pro access and owner/public source reloads before private collection persistence.
 - [Phase 11 Plan 11-05]: Creator analytics remain aggregate social impact only; revenue, checkout, payment, private readers, private links, and raw analysis stay out of the output.
 - [Phase 11 Plan 11-05]: Social Pro upgrade intent is recorded only for real action attempts or CTA clicks, never passive feed or lock impressions.
+- [Phase 12 Plan 12-03]: Public paid launch requires independent `stripe_production` evidence; test-mode PASS never inherits into production readiness.
+- [Phase 12 Plan 12-03]: Delivered, Partially delivered, and Blocked are derived from mandatory evidence row status and explicit remaining gaps, not percentages.
+- [Phase 12 Plan 12-03]: Safe degradation closes risky new checkout while preserving confirmed Pro access, Free usefulness, history, and billing/support routes.
 
 ## Open Questions
 
@@ -237,3 +242,4 @@ Execute Phase 12 Wave 2: paid launch readiness gates, versioned evidence matrix,
 - Phase 10 10-04 executed: Added active program dashboard projection, now-cockpit UI, post-analysis cycle entry models, result server action handoffs, and Spray Lab/Analyze routing from program missions.
 - Phase 10 10-05 executed: Added history list/detail program continuity and audit, compatible-validation-bound coach handoff/signals, copy-safety scan across program surfaces, and eight-state coach golden coverage.
 - Phase 10 10-06 executed: Added final No False Done verifier/checklist, CI evidence tests, desktop/mobile Playwright state matrix, final verification docs, target DB migration re-verification, and Delivered status after focused tests, full repo gates, benchmark gate, build, and browser evidence passed.
+- Phase 12 12-03 executed: Added the versioned Revenue Ops launch readiness matrix, beta/public hard gates, Stripe test/production evidence separation, safe degradation rules, paid-launch release readiness output, and launch/runbook docs; focused Phase 12 tests, typecheck, local readiness, and monetization tests passed.

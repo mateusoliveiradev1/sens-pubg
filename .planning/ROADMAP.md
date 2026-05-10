@@ -20,7 +20,7 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 | 9 | PUBG Spray Lab Session Runner And Benchmark | Build the PUBG-focused lab layer for guided drills, sessions, and benchmarks | PREC-03, BENCH-01, BENCH-02, BENCH-03, COACH-01, COACH-02, COACH-03 |
 | 10 | Guided Pro Training Programs | Organize the Pro loop into weekly and monthly adaptive training programs | PREC-03, COACH-01, COACH-02, COACH-03, COACH-04, COACH-05, MON-01, MON-02 |
 | 11 | Social Pro Community Premium | Add Pro social value while keeping public community as a trust funnel | MON-01, MON-02, MON-03, MON-04, MON-05 |
-| 12 | Revenue Operations Hardening | Make the paid system measurable, supportable, and launch-ready | ANALYT-03 |
+| 12 | 4/6 | In Progress|  |
 | 13 | Team And Coach Expansion | Extend paid value to teams/coaches after solo Pro proof | TEAM-01, TEAM-02 |
 
 ## Phase 1: Measurement Truth Contract
@@ -502,7 +502,7 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **UI hint:** yes
 
-**Plans:** 3/6 plans complete
+**Plans:** 4/6 plans executed
 
 **Wave 0**
 - [x] `12-00-PLAN.md` - Revenue Ops validation scaffold for tests, verifier, Playwright matrix, and package script registration.
@@ -512,7 +512,7 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 - [x] `12-02-PLAN.md` - Support-domain diagnosis, explicit Pro no-access cause tree, and conservative admin/support operations.
 
 **Wave 2 *(blocked on Wave 1 completion)***
-- [ ] `12-03-PLAN.md` - Paid launch readiness gates, versioned evidence matrix, Stripe test/production separation, and safe degradation.
+- [x] `12-03-PLAN.md` - Paid launch readiness gates, versioned evidence matrix, Stripe test/production separation, and safe degradation.
 
 **Wave 3 *(blocked on Wave 2 completion)***
 - [ ] `12-04-PLAN.md` - Staff-only Revenue Ops launch-control cockpit UI and admin navigation.
