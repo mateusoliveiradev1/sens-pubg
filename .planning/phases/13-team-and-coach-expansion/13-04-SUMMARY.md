@@ -36,6 +36,7 @@ key-files:
     - src/actions/team-coach-review.test.ts
     - src/actions/team-coach-cockpit.ts
     - src/actions/team-coach-cockpit.test.ts
+    - src/actions/team-coach.ts
   modified:
     - src/core/team-coach-cockpit.test.ts
 key-decisions:
@@ -116,10 +117,17 @@ completed: 2026-05-11
 - **Verification:** `npm run typecheck`; `npx vitest run src/actions/team-coach-review.test.ts src/actions/team-coach-cockpit.test.ts src/lib/team-coach-access.test.ts`
 - **Committed in:** `af1b4eb`
 
+**3. [Rule 2 - Missing critical functionality] Exposed aggregate Team Coach action surface**
+- **Found during:** Orchestrator full-suite verification after Wave 3.
+- **Issue:** The Phase 13 RED scaffold expected `src/actions/team-coach.ts` to export the server-owned lifecycle action surface now that workspace, invite, share, review, packet, and link actions exist.
+- **Fix:** Added a lazy `use server` aggregate module that exposes the implemented actions under the contract names without importing auth-bound modules at test module load time.
+- **Files modified:** `src/actions/team-coach.ts`
+- **Verification:** `npx vitest run src/actions/team-coach.test.ts`; `npm run typecheck`
+
 ---
 
-**Total deviations:** 2 auto-fixed (1 bug, 1 blocking)
-**Impact on plan:** Both fixes were required for correctness and strict project typing. No scope beyond the declared write set was added.
+**Total deviations:** 3 auto-fixed (1 bug, 1 blocking, 1 missing critical functionality)
+**Impact on plan:** All fixes were required for correctness, strict project typing, and the Phase 13 action contract. The aggregate action file only exposes already implemented Wave 1-3 actions.
 
 ## Issues Encountered
 
@@ -129,6 +137,7 @@ completed: 2026-05-11
 ## Verification
 
 - `npx vitest run src/core/team-coach-cockpit.test.ts src/core/team-coach-player-dossier.test.ts src/actions/team-coach-review.test.ts src/actions/team-coach-cockpit.test.ts` - PASS, 4 files / 10 tests.
+- `npx vitest run src/actions/team-coach.test.ts` - PASS, 1 file / 1 test.
 - `npm run typecheck` - PASS.
 - `npm run benchmark:gate` - PASS; synthetic and captured benchmark gates passed, benchmark coverage validation starter gate passed.
 
