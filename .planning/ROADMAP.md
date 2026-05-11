@@ -21,7 +21,7 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 | 10 | Guided Pro Training Programs | Organize the Pro loop into weekly and monthly adaptive training programs | PREC-03, COACH-01, COACH-02, COACH-03, COACH-04, COACH-05, MON-01, MON-02 |
 | 11 | Social Pro Community Premium | Add Pro social value while keeping public community as a trust funnel | MON-01, MON-02, MON-03, MON-04, MON-05 |
 | 12 | 6/6 | Complete    | 2026-05-10 |
-| 13 | 2/8 | In Progress|  |
+| 13 | 3/8 | In Progress|  |
 
 ## Phase 1: Measurement Truth Contract
 
@@ -545,7 +545,7 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **UI hint:** yes
 
-**Plans:** 2/8 plans complete
+**Plans:** 3/8 plans executed
 
 **Wave 0**
 - [x] `13-00-PLAN.md` - Team Coach Validation Scaffold. Complete as of 2026-05-11 with RED validation coverage, dedicated No False Team verifier, package script registration, and desktop/mobile browser matrix scaffold before implementation.
@@ -554,7 +554,7 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 - [x] `13-01-PLAN.md` - Team Coach Contracts, Access, And Projection. Complete as of 2026-05-11 with Mesa do Coach contracts, separate Team capability policy, `team.player_review`/`team.seats` access, denial reasons, and Team locks.
 
 **Wave 2 *(blocked on Wave 1 completion)***
-- [ ] `13-02-PLAN.md` - Workspace Persistence, Invites, Seats, And Audit. Adds private Team workspace persistence, memberships, invites, seat accounting, and audited workspace/member actions.
+- [x] `13-02-PLAN.md` - Workspace Persistence, Invites, Seats, And Audit. Complete as of 2026-05-11 with private Team workspace persistence, memberships, invites, seat accounting, seat ledger, and audited workspace/member actions.
 
 **Wave 3 *(blocked on Wave 2 completion)***
 - [ ] `13-03-PLAN.md` - Team Safe Reports, Consent, Review Packets, And Links. Builds scoped player sharing, revocation, team-safe redaction, Team Review Packet models, and revocable packet links.

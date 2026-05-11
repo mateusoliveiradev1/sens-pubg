@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: ready_to_execute
-last_updated: "2026-05-11T02:00:17.625Z"
+last_updated: "2026-05-11T02:30:53.027Z"
 progress:
   total_phases: 13
   completed_phases: 12
   total_plans: 80
-  completed_plans: 74
-  percent: 93
+  completed_plans: 75
+  percent: 94
 ---
 
 # State: Sens PUBG
@@ -105,19 +105,21 @@ Phase 13: Team And Coach Expansion
 - Phase 13 planning is complete with 8 executable Team And Coach Expansion plans across 6 waves, backed by `13-RESEARCH.md` and full TEAM-01/TEAM-02 plus D-01..D-70 decision coverage from `13-CONTEXT.md`.
 - Phase 13 plan 13-00 is complete with the No False Team verifier scaffold, RED validation tests for Team access/privacy/actions/cockpit/routes, package script registration, and desktop/mobile Playwright matrix scaffold.
 - Phase 13 plan 13-01 is complete with Team/Coach contracts, `requires_team` entitlement grouping, server-owned Team capability policy, denial reasons, and Team lock/projection copy separate from solo Pro and Social Pro.
+- Phase 13 plan 13-02 is complete with private Team Coach workspace persistence, memberships, invites, consent/share/review/packet foundations, seat ledger, audit events, seat accounting helpers, and workspace/invite actions that reload Team entitlement, membership, invite, and seat state server-side.
 - Phase 13 Wave 1 focused gates pass: focused Team/monetization Vitest, `npm run typecheck`, `npm run test:monetization`, and `npm run benchmark:gate`. Full Phase 13 verification remains in progress because RED scaffold tests intentionally target future waves.
+- Phase 13 Wave 2 focused gates pass: Team Coach schema/seat/action Vitest, `npm run test:monetization`, and `npm run typecheck`.
 
 ## Next Recommended Command
 
-`$gsd-execute-phase 13 --wave 2`
+`$gsd-execute-phase 13 --wave 3`
 
-Execute Phase 13 Wave 2 plan 13-02 Workspace Persistence, Invites, Seats, And Audit.
+Execute Phase 13 Wave 3 plans 13-03 Team Safe Reports and 13-04 Coach Cockpit.
 
 ## Session
 
-- Last session: 2026-05-11T01:58:42Z
-- Stopped At: Completed Phase 13 Wave 1 (13-00 and 13-01).
-- Resume File: .planning/phases/13-team-and-coach-expansion/13-02-PLAN.md
+- Last session: 2026-05-11T02:28:14Z
+- Stopped At: Completed Phase 13 Wave 2 plan 13-02.
+- Resume File: .planning/phases/13-team-and-coach-expansion/13-03-PLAN.md
 
 ## Performance Metrics
 
@@ -144,6 +146,7 @@ Execute Phase 13 Wave 2 plan 13-02 Workspace Persistence, Invites, Seats, And Au
 | Phase 12 P05 | 10 min | 3 tasks | 5 files |
 | Phase 13 P00 | 10 min | 3 tasks | 11 files |
 | Phase 13 P01 | 10 min | 3 tasks | 8 files |
+| Phase 13 P02 | 17 min | 3 tasks | 10 files |
 
 ## Decisions
 
@@ -151,6 +154,9 @@ Execute Phase 13 Wave 2 plan 13-02 Workspace Persistence, Invites, Seats, And Au
 - [Phase 13 Plan 13-00]: RED Team/Coach scaffold tests intentionally fail for future-owned redaction, cockpit, actions, Mesa do Coach, dossier, and packet routes until their implementation waves land.
 - [Phase 13 Plan 13-01]: Team access uses `requires_team` entitlements and a `team` catalog tier so solo Pro and Social Pro do not grant Mesa do Coach authority.
 - [Phase 13 Plan 13-01]: Team locks use "Com Team" copy and state that Team authority requires server-owned entitlement, membership, and player consent, not client state or checkout success.
+- [Phase 13 Plan 13-02]: Pending player invites reserve Team Coach seats so workspace owners cannot over-invite beyond the configured seat limit.
+- [Phase 13 Plan 13-02]: Team Coach workspace access remains private and is derived from Team entitlement plus persisted workspace membership, not public community squad membership.
+- [Phase 13 Plan 13-02]: Invite, role, archive, membership, and seat lifecycle writes emit Team Coach audit events instead of deleting operational evidence.
 - [Phase 09]: Spray Lab protocol payloads are never trusted from the client; actions load owned analysis/protocol revision rows before creating sessions.
 - [Phase 09]: Validation status is derived server-side from owned validation analysis trend evidence and variable confirmation, with changed variables mapped to `nao_compativel`.
 - [Phase 09]: Free receives a useful basic Lab projection, while Pro entitlements unlock audit drawers, session history, validated index, benchmarks, and comparisons.
