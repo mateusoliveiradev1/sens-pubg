@@ -1,10 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-import {
-    teamCoachAuditEvents,
-    teamCoachWorkspaceMemberships,
-    teamCoachWorkspaces,
-} from '@/db/schema';
+import { getTableConfig } from 'drizzle-orm/pg-core';
 
 const mocks = vi.hoisted(() => {
     const auth = vi.fn();
@@ -42,12 +37,12 @@ vi.mock('@/lib/team-coach-access', () => ({
 }));
 
 type InsertCall = {
-    readonly table: unknown;
+    readonly tableName: string;
     readonly values: Record<string, unknown>;
 };
 
 type UpdateCall = {
-    readonly table: unknown;
+    readonly tableName: string;
     readonly values: Record<string, unknown>;
 };
 
@@ -81,7 +76,7 @@ function createSelectChain() {
 function createInsertChain(table: unknown) {
     return {
         values: vi.fn((values: Record<string, unknown>) => {
-            insertedValues.push({ table, values });
+            insertedValues.push({ tableName: getTableConfig(table as Parameters<typeof getTableConfig>[0]).name, values });
 
             return {
                 returning: vi.fn(async () => insertReturningQueue.shift() ?? []),
@@ -93,7 +88,7 @@ function createInsertChain(table: unknown) {
 function createUpdateChain(table: unknown) {
     return {
         set: vi.fn((values: Record<string, unknown>) => {
-            updatedValues.push({ table, values });
+            updatedValues.push({ tableName: getTableConfig(table as Parameters<typeof getTableConfig>[0]).name, values });
 
             return {
                 where: vi.fn(async () => []),
@@ -197,7 +192,7 @@ describe('Team Coach workspace actions', () => {
         });
         expect(insertedValues).toEqual(expect.arrayContaining([
             expect.objectContaining({
-                table: teamCoachWorkspaces,
+                tableName: 'team_coach_workspaces',
                 values: expect.objectContaining({
                     ownerUserId: 'owner-1',
                     name: 'Mesa Alpha',
@@ -207,7 +202,7 @@ describe('Team Coach workspace actions', () => {
                 }),
             }),
             expect.objectContaining({
-                table: teamCoachWorkspaceMemberships,
+                tableName: 'team_coach_workspace_memberships',
                 values: expect.objectContaining({
                     workspaceId: 'workspace-1',
                     userId: 'owner-1',
@@ -217,7 +212,7 @@ describe('Team Coach workspace actions', () => {
                 }),
             }),
             expect.objectContaining({
-                table: teamCoachAuditEvents,
+                tableName: 'team_coach_audit_events',
                 values: expect.objectContaining({
                     workspaceId: 'workspace-1',
                     actorUserId: 'owner-1',
@@ -253,7 +248,7 @@ describe('Team Coach workspace actions', () => {
         }));
         expect(updatedValues).toEqual(expect.arrayContaining([
             expect.objectContaining({
-                table: teamCoachWorkspaces,
+                tableName: 'team_coach_workspaces',
                 values: expect.objectContaining({
                     status: 'archived',
                     archivedAt: expect.any(Date),
@@ -262,7 +257,7 @@ describe('Team Coach workspace actions', () => {
         ]));
         expect(insertedValues).toEqual(expect.arrayContaining([
             expect.objectContaining({
-                table: teamCoachAuditEvents,
+                tableName: 'team_coach_audit_events',
                 values: expect.objectContaining({
                     workspaceId: 'workspace-1',
                     actorUserId: 'owner-1',
@@ -308,11 +303,11 @@ describe('Team Coach workspace actions', () => {
         });
         expect(updatedValues).toEqual(expect.arrayContaining([
             expect.objectContaining({
-                table: teamCoachWorkspaceMemberships,
+                tableName: 'team_coach_workspace_memberships',
                 values: expect.objectContaining({ role: 'analyst' }),
             }),
             expect.objectContaining({
-                table: teamCoachWorkspaceMemberships,
+                tableName: 'team_coach_workspace_memberships',
                 values: expect.objectContaining({
                     status: 'suspended',
                     seatState: 'blocked',

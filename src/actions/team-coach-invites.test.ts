@@ -1,11 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-import {
-    teamCoachAuditEvents,
-    teamCoachSeatLedger,
-    teamCoachWorkspaceInvites,
-    teamCoachWorkspaceMemberships,
-} from '@/db/schema';
+import { getTableConfig } from 'drizzle-orm/pg-core';
 
 const mocks = vi.hoisted(() => {
     const auth = vi.fn();
@@ -43,12 +37,12 @@ vi.mock('@/lib/team-coach-access', () => ({
 }));
 
 type InsertCall = {
-    readonly table: unknown;
+    readonly tableName: string;
     readonly values: Record<string, unknown>;
 };
 
 type UpdateCall = {
-    readonly table: unknown;
+    readonly tableName: string;
     readonly values: Record<string, unknown>;
 };
 
@@ -84,7 +78,7 @@ function createSelectChain() {
 function createInsertChain(table: unknown) {
     return {
         values: vi.fn((values: Record<string, unknown>) => {
-            insertedValues.push({ table, values });
+            insertedValues.push({ tableName: getTableConfig(table as Parameters<typeof getTableConfig>[0]).name, values });
 
             return {
                 returning: vi.fn(async () => insertReturningQueue.shift() ?? []),
@@ -96,7 +90,7 @@ function createInsertChain(table: unknown) {
 function createUpdateChain(table: unknown) {
     return {
         set: vi.fn((values: Record<string, unknown>) => {
-            updatedValues.push({ table, values });
+            updatedValues.push({ tableName: getTableConfig(table as Parameters<typeof getTableConfig>[0]).name, values });
 
             return {
                 where: vi.fn(async () => []),
@@ -191,7 +185,7 @@ describe('Team Coach invite actions', () => {
         }));
         expect(insertedValues).toEqual(expect.arrayContaining([
             expect.objectContaining({
-                table: teamCoachWorkspaceInvites,
+                tableName: 'team_coach_workspace_invites',
                 values: expect.objectContaining({
                     workspaceId: 'workspace-1',
                     createdByUserId: 'owner-1',
@@ -202,7 +196,7 @@ describe('Team Coach invite actions', () => {
                 }),
             }),
             expect.objectContaining({
-                table: teamCoachSeatLedger,
+                tableName: 'team_coach_seat_ledger',
                 values: expect.objectContaining({
                     workspaceId: 'workspace-1',
                     eventType: 'seat_reserved',
@@ -212,7 +206,7 @@ describe('Team Coach invite actions', () => {
                 }),
             }),
             expect.objectContaining({
-                table: teamCoachAuditEvents,
+                tableName: 'team_coach_audit_events',
                 values: expect.objectContaining({
                     workspaceId: 'workspace-1',
                     eventType: 'invite_created',
@@ -304,7 +298,7 @@ describe('Team Coach invite actions', () => {
         });
         expect(insertedValues).toEqual(expect.arrayContaining([
             expect.objectContaining({
-                table: teamCoachWorkspaceMemberships,
+                tableName: 'team_coach_workspace_memberships',
                 values: expect.objectContaining({
                     workspaceId: 'workspace-1',
                     userId: 'player-3',
@@ -314,7 +308,7 @@ describe('Team Coach invite actions', () => {
                 }),
             }),
             expect.objectContaining({
-                table: teamCoachSeatLedger,
+                tableName: 'team_coach_seat_ledger',
                 values: expect.objectContaining({
                     eventType: 'seat_occupied',
                     occupiedSeats: 2,
@@ -323,7 +317,7 @@ describe('Team Coach invite actions', () => {
         ]));
         expect(updatedValues).toEqual(expect.arrayContaining([
             expect.objectContaining({
-                table: teamCoachWorkspaceInvites,
+                tableName: 'team_coach_workspace_invites',
                 values: expect.objectContaining({
                     status: 'accepted',
                     acceptedByUserId: 'player-3',
@@ -364,11 +358,11 @@ describe('Team Coach invite actions', () => {
 
         expect(updatedValues).toEqual(expect.arrayContaining([
             expect.objectContaining({
-                table: teamCoachWorkspaceInvites,
+                tableName: 'team_coach_workspace_invites',
                 values: expect.objectContaining({ status: 'revoked' }),
             }),
             expect.objectContaining({
-                table: teamCoachWorkspaceInvites,
+                tableName: 'team_coach_workspace_invites',
                 values: expect.objectContaining({ status: 'expired' }),
             }),
         ]));
