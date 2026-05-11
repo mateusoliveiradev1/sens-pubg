@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { resolveProductAccess } from './product-entitlements';
+import {
+    resolveProductAccess,
+    type ProductAccessResolution,
+    type ProductFeatureAccess,
+} from './product-entitlements';
 import {
     createPremiumProjectionSummary,
     isPremiumFeatureGranted,
@@ -19,6 +23,11 @@ const socialProActionFeatureKeys = [
     'community.creator_analytics',
     'community.advanced_context',
     'community.pro_badge',
+] as const satisfies readonly ProductEntitlementKey[];
+
+const teamCoachFeatureKeys = [
+    'team.player_review',
+    'team.seats',
 ] as const satisfies readonly ProductEntitlementKey[];
 
 function normalizeCopy(copy: string): string {
@@ -232,6 +241,29 @@ function analysisResult(overrides: Partial<AnalysisResult> = {}): AnalysisResult
         coachPlan: coachPlan(),
         mastery: mastery(),
         ...overrides,
+    };
+}
+
+function grantTeamEntitlements(
+    access: ProductAccessResolution,
+    keys: readonly ProductEntitlementKey[],
+): ProductAccessResolution {
+    const features = { ...access.features };
+
+    for (const key of keys) {
+        const existing = features[key];
+        features[key] = {
+            key,
+            granted: true,
+            source: 'manual_grant',
+            tier: 'team',
+            gatingMode: existing?.gatingMode ?? 'requires_team',
+        } satisfies ProductFeatureAccess;
+    }
+
+    return {
+        ...access,
+        features,
     };
 }
 
@@ -466,5 +498,58 @@ describe('premium projection policy', () => {
         expect(projection.canReadCreatorAnalytics).toBe(true);
         expect(projection.canUseAdvancedSocialContext).toBe(true);
         expect(projection.canDisplaySocialProBadge).toBe(true);
+    });
+
+    it('shows Team Coach locks without implying solo Pro or Social Pro grants coach authority', () => {
+        const projection = createPremiumProjectionSummary(resolveProductAccess({ now }), analysisResult());
+        const proProjection = createPremiumProjectionSummary(resolveProductAccess({
+            now,
+            subscription: {
+                status: 'active',
+                tier: 'pro',
+                currentPeriodStart: new Date('2026-05-01T00:00:00.000Z'),
+                currentPeriodEnd: new Date('2026-06-01T00:00:00.000Z'),
+            },
+        }), analysisResult());
+
+        for (const featureKey of teamCoachFeatureKeys) {
+            const lock = projection.locks.find((candidate) => candidate.featureKey === featureKey);
+            const proLock = proProjection.locks.find((candidate) => candidate.featureKey === featureKey);
+
+            expect(lock, `${featureKey} should have a Team lock`).toBeDefined();
+            expect(proLock, `${featureKey} should stay locked for solo Pro`).toBeDefined();
+            expect(lock?.body).toContain('Com Team');
+            expect(lock?.body).toContain('acesso Team separado');
+            expect(lock?.body).toContain('solo Pro e Social Pro nao concedem autoridade de coach');
+            expect(normalizeCopy(lock?.body ?? '')).not.toContain('rank garantido');
+            expect(normalizeCopy(lock?.body ?? '')).not.toContain('certificacao');
+        }
+        expect(projection.canUseTeamPlayerReview).toBe(false);
+        expect(projection.canManageTeamSeats).toBe(false);
+        expect(proProjection.canUseTeamPlayerReview).toBe(false);
+        expect(proProjection.canManageTeamSeats).toBe(false);
+    });
+
+    it('marks Team Coach capabilities visible only when server-owned Team entitlements are present', () => {
+        const projection = createPremiumProjectionSummary(
+            grantTeamEntitlements(resolveProductAccess({
+                now,
+                subscription: {
+                    status: 'active',
+                    tier: 'pro',
+                    currentPeriodStart: new Date('2026-05-01T00:00:00.000Z'),
+                    currentPeriodEnd: new Date('2026-06-01T00:00:00.000Z'),
+                },
+            }), teamCoachFeatureKeys),
+            analysisResult(),
+        );
+
+        for (const featureKey of teamCoachFeatureKeys) {
+            expect(projection.visibleFeatureKeys).toContain(featureKey);
+            expect(projection.hiddenFeatureKeys).not.toContain(featureKey);
+            expect(projection.locks).not.toContainEqual(expect.objectContaining({ featureKey }));
+        }
+        expect(projection.canUseTeamPlayerReview).toBe(true);
+        expect(projection.canManageTeamSeats).toBe(true);
     });
 });

@@ -278,11 +278,12 @@ export type NoFalseDoneEvidenceType = z.infer<typeof noFalseDoneEvidenceTypeSche
 export const isNoFalseDoneEvidenceType = noFalseDoneEvidenceTypeContract.isValue;
 export const parseNoFalseDoneEvidenceType = noFalseDoneEvidenceTypeContract.parse;
 
-export type ProductFeatureTier = 'free' | 'pro' | 'operational' | 'future';
+export type ProductFeatureTier = 'free' | 'pro' | 'team' | 'operational' | 'future';
 export type ProductEntitlementStatus = 'active' | 'operational' | 'planned' | 'inactive';
 export type ProductEntitlementGatingMode =
     | 'default_free'
     | 'requires_pro'
+    | 'requires_team'
     | 'admin_only'
     | 'planned_future';
 
@@ -293,7 +294,7 @@ export interface ProductEntitlementDefinition {
     readonly surface: string;
     readonly labelKey: string;
     readonly internalDescription: string;
-    readonly introducedPhase: '05' | '11';
+    readonly introducedPhase: '05' | '11' | '13';
     readonly ownerDomain: string;
     readonly gatingMode: ProductEntitlementGatingMode;
 }
@@ -380,4 +381,6 @@ export interface PremiumProjectionSummary {
     readonly canUseAdvancedSocialContext: boolean;
     readonly canDisplaySocialProBadge: boolean;
     readonly canControlSocialProBadge: boolean;
+    readonly canUseTeamPlayerReview: boolean;
+    readonly canManageTeamSeats: boolean;
 }

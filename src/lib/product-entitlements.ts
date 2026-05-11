@@ -121,6 +121,11 @@ export const productSocialProEntitlementKeys = [
     'community.advanced_context',
 ] as const satisfies readonly ProductEntitlementKey[];
 
+export const productTeamCoachEntitlementKeys = [
+    'team.player_review',
+    'team.seats',
+] as const satisfies readonly ProductEntitlementKey[];
+
 export const productProEntitlementKeys = [
     'analysis.save.pro_limit',
     'coach.full_plan',
@@ -153,6 +158,7 @@ const operationalEntitlementKeys = [
 const defaultFreeKeySet = new Set<ProductEntitlementKey>(productDefaultFreeEntitlementKeys);
 const proKeySet = new Set<ProductEntitlementKey>(productProEntitlementKeys);
 const socialProKeySet = new Set<ProductEntitlementKey>(productSocialProEntitlementKeys);
+const teamCoachKeySet = new Set<ProductEntitlementKey>(productTeamCoachEntitlementKeys);
 const operationalKeySet = new Set<ProductEntitlementKey>(operationalEntitlementKeys);
 
 export const productDefaultEntitlementCatalog = productEntitlementKeyValues.map(
@@ -184,6 +190,20 @@ export const productDefaultEntitlementCatalog = productEntitlementKeyValues.map(
                 introducedPhase: isSocialProKey ? '11' : '05',
                 ownerDomain: 'product',
                 gatingMode: 'requires_pro',
+            };
+        }
+
+        if (teamCoachKeySet.has(key)) {
+            return {
+                key,
+                status: 'active',
+                tier: 'team',
+                surface: 'team',
+                labelKey: `monetization.entitlement.${key}`,
+                internalDescription: `Phase 13 Team/Coach entitlement: ${key}`,
+                introducedPhase: '13',
+                ownerDomain: 'team',
+                gatingMode: 'requires_team',
             };
         }
 

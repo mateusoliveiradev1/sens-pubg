@@ -25,6 +25,11 @@ const socialProEntitlementKeys = [
     'community.advanced_context',
 ] as const;
 
+const teamCoachEntitlementKeys = [
+    'team.player_review',
+    'team.seats',
+] as const;
+
 function quota(overrides: Partial<ProductQuotaSummary> = {}): ProductQuotaSummary {
     return {
         tier: 'free',
@@ -62,6 +67,9 @@ describe('product entitlement resolver', () => {
         expect(hasProductEntitlement(result, 'programs.guided_weekly')).toBe(false);
         expect(hasProductEntitlement(result, 'programs.guided_monthly')).toBe(false);
         for (const entitlementKey of socialProEntitlementKeys) {
+            expect(hasProductEntitlement(result, entitlementKey), `${entitlementKey} should fail closed for Free`).toBe(false);
+        }
+        for (const entitlementKey of teamCoachEntitlementKeys) {
             expect(hasProductEntitlement(result, entitlementKey), `${entitlementKey} should fail closed for Free`).toBe(false);
         }
     });
@@ -174,6 +182,43 @@ describe('product entitlement resolver', () => {
                 ownerDomain: 'product',
                 gatingMode: 'requires_pro',
                 introducedPhase: '11',
+            }));
+        }
+    });
+
+    it('keeps Team Coach entitlements active but separate from solo Pro and Social Pro grants', async () => {
+        const {
+            productDefaultEntitlementCatalog,
+            productProEntitlementKeys,
+            productSocialProEntitlementKeys,
+            productTeamCoachEntitlementKeys,
+            resolveProductAccess,
+            hasProductEntitlement,
+        } = await loadProductEntitlementsModule();
+        const pro = resolveProductAccess({
+            now,
+            subscription: {
+                status: 'active',
+                tier: 'pro',
+                currentPeriodStart: yesterday,
+                currentPeriodEnd: tomorrow,
+            },
+        });
+
+        for (const entitlementKey of teamCoachEntitlementKeys) {
+            expect(productEntitlementKeyValues).toContain(entitlementKey);
+            expect(productTeamCoachEntitlementKeys).toContain(entitlementKey);
+            expect(productProEntitlementKeys).not.toContain(entitlementKey);
+            expect(productSocialProEntitlementKeys).not.toContain(entitlementKey);
+            expect(hasProductEntitlement(pro, entitlementKey), `${entitlementKey} must not be granted by solo Pro`).toBe(false);
+            expect(productDefaultEntitlementCatalog).toContainEqual(expect.objectContaining({
+                key: entitlementKey,
+                status: 'active',
+                tier: 'team',
+                surface: 'team',
+                ownerDomain: 'team',
+                gatingMode: 'requires_team',
+                introducedPhase: '13',
             }));
         }
     });

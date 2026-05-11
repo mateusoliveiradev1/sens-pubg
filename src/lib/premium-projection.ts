@@ -29,6 +29,8 @@ const SOCIAL_PRO_PRIVATE_LINKS_FEATURE: ProductEntitlementKey = 'community.priva
 const SOCIAL_PRO_CREATOR_ANALYTICS_FEATURE: ProductEntitlementKey = 'community.creator_analytics';
 const SOCIAL_PRO_ADVANCED_CONTEXT_FEATURE: ProductEntitlementKey = 'community.advanced_context';
 const SOCIAL_PRO_BADGE_FEATURE: ProductEntitlementKey = 'community.pro_badge';
+const TEAM_PLAYER_REVIEW_FEATURE: ProductEntitlementKey = 'team.player_review';
+const TEAM_SEATS_FEATURE: ProductEntitlementKey = 'team.seats';
 
 const PREMIUM_FEATURES = [
     FULL_COACH_FEATURE,
@@ -50,6 +52,13 @@ const PREMIUM_FEATURES = [
     SOCIAL_PRO_CREATOR_ANALYTICS_FEATURE,
     SOCIAL_PRO_ADVANCED_CONTEXT_FEATURE,
     SOCIAL_PRO_BADGE_FEATURE,
+    TEAM_PLAYER_REVIEW_FEATURE,
+    TEAM_SEATS_FEATURE,
+] as const satisfies readonly ProductEntitlementKey[];
+
+const TEAM_FEATURES = [
+    TEAM_PLAYER_REVIEW_FEATURE,
+    TEAM_SEATS_FEATURE,
 ] as const satisfies readonly ProductEntitlementKey[];
 
 const FEATURE_TITLES: Record<ProductEntitlementKey, string> = {
@@ -112,6 +121,8 @@ const FREE_VISIBLE_COPY: Partial<Record<ProductEntitlementKey, string>> = {
     'community.creator_analytics': 'Free mantem publicacao, leitura, comentarios, curtidas, saves normais e perfis basicos',
     'community.advanced_context': 'Free mantem a leitura publica e o contexto essencial sem esconder a verdade do clip',
     'community.pro_badge': 'Free mantem a leitura publica; o badge Pro e apenas sinal de acesso, nao autoridade',
+    'team.player_review': 'solo Pro, Social Pro e comunidade publica continuam separados da Mesa do Coach',
+    'team.seats': 'o produto continua sem billing de assentos ativo e sem autoridade Team por estado de cliente',
 };
 
 const PRO_VALUE_COPY: Partial<Record<ProductEntitlementKey, string>> = {
@@ -134,6 +145,8 @@ const PRO_VALUE_COPY: Partial<Record<ProductEntitlementKey, string>> = {
     'community.creator_analytics': 'Pro mostra analytics agregados de creator ligados a relatorio, biblioteca, auditoria, Spray Lab, Ciclo Pro e validacao compativel',
     'community.advanced_context': 'Pro adiciona contexto social avancado para conectar relatorio, biblioteca, coach, protocolos, historico e validacao compativel',
     'community.pro_badge': 'Pro habilita badge discreto de acesso premium com controles de relatorio, sem autoridade tecnica ou certificacao',
+    'team.player_review': 'Team adiciona review de elenco, dossie privado, pacotes seguros e coordenacao de proximas acoes com consentimento',
+    'team.seats': 'Team adiciona a base de assentos para equipe, auditoria e limites server-owned sem vender proration ou billing de assentos agora',
 };
 
 function reasonFromAccess(access: ProductAccessResolution): PremiumLockReason {
@@ -173,6 +186,15 @@ function buildLockBody(
 ): string {
     const visibleNow = FREE_VISIBLE_COPY[featureKey] ?? 'a evidencia essencial continua visivel no Free';
     const proValue = PRO_VALUE_COPY[featureKey] ?? 'Pro adiciona continuidade e profundidade quando a evidencia sustenta';
+    const isTeamFeature = (TEAM_FEATURES as readonly ProductEntitlementKey[]).includes(featureKey);
+
+    if (isTeamFeature) {
+        return [
+            `Visivel agora: ${visibleNow}.`,
+            `Com Team: ${proValue}.`,
+            `Motivo: ${title} exige acesso Team separado, membership server-owned e consentimento do jogador; solo Pro e Social Pro nao concedem autoridade de coach.`,
+        ].join(' ');
+    }
 
     switch (reason) {
         case 'limit_reached':
@@ -258,6 +280,8 @@ export function createPremiumProjectionSummary(
         canUseAdvancedSocialContext: hasProductEntitlement(access, SOCIAL_PRO_ADVANCED_CONTEXT_FEATURE),
         canDisplaySocialProBadge: hasProductEntitlement(access, SOCIAL_PRO_BADGE_FEATURE),
         canControlSocialProBadge: hasProductEntitlement(access, SOCIAL_PRO_BADGE_FEATURE),
+        canUseTeamPlayerReview: hasProductEntitlement(access, TEAM_PLAYER_REVIEW_FEATURE),
+        canManageTeamSeats: hasProductEntitlement(access, TEAM_SEATS_FEATURE),
     };
 }
 
