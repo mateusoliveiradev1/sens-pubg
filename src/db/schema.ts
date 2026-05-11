@@ -108,6 +108,23 @@ import type {
     SocialProReportStatus,
     SocialProReportVisibility,
 } from '@/types/social-pro';
+import type {
+    TeamCoachAuditEventType,
+    TeamCoachConsentScope,
+    TeamCoachConsentStatus,
+    TeamCoachHonestyFields,
+    TeamCoachInviteStatus,
+    TeamCoachMembershipStatus,
+    TeamCoachNextActionKind,
+    TeamCoachPacketStatus,
+    TeamCoachPacketVisibility,
+    TeamCoachPrivateLinkStatus,
+    TeamCoachReviewStatus,
+    TeamCoachSeatState,
+    TeamCoachShareStatus,
+    TeamCoachWorkspaceRole,
+    TeamCoachWorkspaceStatus,
+} from '@/types/team-coach';
 
 export type WeaponProfileAttachmentSlot = 'muzzle' | 'grip' | 'stock';
 
@@ -331,6 +348,77 @@ export interface SocialProCollectionContextFacets {
     readonly objectiveKey?: string;
     readonly validationState?: string;
     readonly blockerKey?: string;
+    readonly [key: string]: unknown;
+}
+
+export interface TeamCoachWorkspacePayload {
+    readonly source?: 'manual_beta' | 'admin_grant' | 'system';
+    readonly [key: string]: unknown;
+}
+
+export interface TeamCoachMembershipPayload {
+    readonly invitedByUserId?: string;
+    readonly statusReason?: string;
+    readonly [key: string]: unknown;
+}
+
+export interface TeamCoachInvitePayload {
+    readonly createdReason?: string;
+    readonly revokedReason?: string;
+    readonly acceptedReason?: string;
+    readonly [key: string]: unknown;
+}
+
+export interface TeamCoachSafeReportSnapshot {
+    readonly honesty: TeamCoachHonestyFields;
+    readonly sourceSummary?: Record<string, unknown>;
+    readonly sections?: Record<string, unknown>;
+    readonly [key: string]: unknown;
+}
+
+export interface TeamCoachSharePayload {
+    readonly sourceIds?: {
+        readonly analysisSessionId?: string;
+        readonly historySessionId?: string;
+        readonly protocolRevisionId?: string;
+        readonly sprayLabSessionId?: string;
+        readonly trainingProgramCycleId?: string;
+        readonly validationLinkId?: string;
+    };
+    readonly [key: string]: unknown;
+}
+
+export interface TeamCoachReviewNotePayload {
+    readonly visibility?: 'workspace_private';
+    readonly [key: string]: unknown;
+}
+
+export interface TeamCoachReviewStatusPayload {
+    readonly requestedNextAction?: TeamCoachNextActionKind;
+    readonly [key: string]: unknown;
+}
+
+export interface TeamCoachReviewPacketPayload {
+    readonly printExportEnabled?: boolean;
+    readonly sourceList?: readonly string[];
+    readonly [key: string]: unknown;
+}
+
+export interface TeamCoachPacketLinkPayload {
+    readonly createdReason?: string;
+    readonly revokedReason?: string;
+    readonly [key: string]: unknown;
+}
+
+export interface TeamCoachSeatLedgerMetadata {
+    readonly reason?: string;
+    readonly source?: 'invite' | 'membership' | 'workspace';
+    readonly [key: string]: unknown;
+}
+
+export interface TeamCoachAuditMetadata {
+    readonly requestId?: string;
+    readonly actionSource?: string;
     readonly [key: string]: unknown;
 }
 
@@ -2233,6 +2321,614 @@ export const socialProCollectionItemsRelations = relations(socialProCollectionIt
     }),
 }));
 
+export const teamCoachWorkspaces = pgTable('team_coach_workspaces', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    ownerUserId: uuid('owner_user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    description: text('description'),
+    status: text('status')
+        .$type<TeamCoachWorkspaceStatus>()
+        .notNull()
+        .default('active'),
+    seatLimit: integer('seat_limit').notNull().default(8),
+    payload: jsonb('payload').notNull().default('{}').$type<TeamCoachWorkspacePayload>(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+    archivedAt: timestamp('archived_at', { mode: 'date' }),
+}, (table) => [
+    index('team_coach_workspaces_owner_status_idx').on(table.ownerUserId, table.status),
+    index('team_coach_workspaces_status_updated_idx').on(table.status, table.updatedAt),
+]);
+
+export const teamCoachWorkspaceMemberships = pgTable('team_coach_workspace_memberships', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    workspaceId: uuid('workspace_id')
+        .notNull()
+        .references(() => teamCoachWorkspaces.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    role: text('role')
+        .$type<TeamCoachWorkspaceRole>()
+        .notNull()
+        .default('player'),
+    status: text('status')
+        .$type<TeamCoachMembershipStatus>()
+        .notNull()
+        .default('active'),
+    seatState: text('seat_state')
+        .$type<TeamCoachSeatState>()
+        .notNull()
+        .default('occupied'),
+    joinedAt: timestamp('joined_at', { mode: 'date' }).defaultNow().notNull(),
+    leftAt: timestamp('left_at', { mode: 'date' }),
+    suspendedAt: timestamp('suspended_at', { mode: 'date' }),
+    revokedAt: timestamp('revoked_at', { mode: 'date' }),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+    payload: jsonb('payload').notNull().default('{}').$type<TeamCoachMembershipPayload>(),
+}, (table) => [
+    uniqueIndex('team_coach_workspace_memberships_workspace_user_uidx').on(table.workspaceId, table.userId),
+    index('team_coach_workspace_memberships_workspace_status_idx').on(table.workspaceId, table.status),
+    index('team_coach_workspace_memberships_user_status_idx').on(table.userId, table.status),
+    index('team_coach_workspace_memberships_role_status_idx').on(table.role, table.status),
+]);
+
+export const teamCoachWorkspaceInvites = pgTable('team_coach_workspace_invites', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    workspaceId: uuid('workspace_id')
+        .notNull()
+        .references(() => teamCoachWorkspaces.id, { onDelete: 'cascade' }),
+    createdByUserId: uuid('created_by_user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    invitedUserId: uuid('invited_user_id').references(() => users.id, {
+        onDelete: 'set null',
+    }),
+    invitedEmail: text('invited_email'),
+    intendedRole: text('intended_role')
+        .$type<TeamCoachWorkspaceRole>()
+        .notNull()
+        .default('player'),
+    inviteCode: text('invite_code').notNull(),
+    status: text('status')
+        .$type<TeamCoachInviteStatus>()
+        .notNull()
+        .default('pending'),
+    expiresAt: timestamp('expires_at', { mode: 'date' }).notNull(),
+    acceptedByUserId: uuid('accepted_by_user_id').references(() => users.id, {
+        onDelete: 'set null',
+    }),
+    acceptedAt: timestamp('accepted_at', { mode: 'date' }),
+    revokedByUserId: uuid('revoked_by_user_id').references(() => users.id, {
+        onDelete: 'set null',
+    }),
+    revokedAt: timestamp('revoked_at', { mode: 'date' }),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+    payload: jsonb('payload').notNull().default('{}').$type<TeamCoachInvitePayload>(),
+}, (table) => [
+    uniqueIndex('team_coach_workspace_invites_code_uidx').on(table.inviteCode),
+    index('team_coach_workspace_invites_workspace_status_idx').on(table.workspaceId, table.status),
+    index('team_coach_workspace_invites_invited_user_status_idx').on(table.invitedUserId, table.status),
+    index('team_coach_workspace_invites_email_status_idx').on(table.invitedEmail, table.status),
+    index('team_coach_workspace_invites_expires_idx').on(table.expiresAt),
+]);
+
+export const teamCoachReportShares = pgTable('team_coach_report_shares', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    workspaceId: uuid('workspace_id')
+        .notNull()
+        .references(() => teamCoachWorkspaces.id, { onDelete: 'cascade' }),
+    playerUserId: uuid('player_user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    sharedByUserId: uuid('shared_by_user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    revokedByUserId: uuid('revoked_by_user_id').references(() => users.id, {
+        onDelete: 'set null',
+    }),
+    consentStatus: text('consent_status')
+        .$type<TeamCoachConsentStatus>()
+        .notNull()
+        .default('granted'),
+    consentScopes: jsonb('consent_scopes')
+        .notNull()
+        .default('[]')
+        .$type<readonly TeamCoachConsentScope[]>(),
+    shareStatus: text('share_status')
+        .$type<TeamCoachShareStatus>()
+        .notNull()
+        .default('active'),
+    teamSafeSnapshot: jsonb('team_safe_snapshot')
+        .notNull()
+        .$type<TeamCoachSafeReportSnapshot>(),
+    sourceAnalysisSessionId: uuid('source_analysis_session_id').references(() => analysisSessions.id, {
+        onDelete: 'set null',
+    }),
+    sourceHistorySessionId: uuid('source_history_session_id').references(() => analysisSessions.id, {
+        onDelete: 'set null',
+    }),
+    sourceProtocolRevisionId: uuid('source_protocol_revision_id').references(
+        () => completeTrainingProtocolRevisions.id,
+        { onDelete: 'set null' },
+    ),
+    sourceSprayLabSessionId: uuid('source_spray_lab_session_id').references(() => sprayLabSessions.id, {
+        onDelete: 'set null',
+    }),
+    sourceTrainingProgramCycleId: text('source_training_program_cycle_id').references(() => trainingProgramCycles.id, {
+        onDelete: 'set null',
+    }),
+    sourceValidationLinkId: uuid('source_validation_link_id').references(() => sprayLabValidationLinks.id, {
+        onDelete: 'set null',
+    }),
+    grantedAt: timestamp('granted_at', { mode: 'date' }).defaultNow().notNull(),
+    revokedAt: timestamp('revoked_at', { mode: 'date' }),
+    expiresAt: timestamp('expires_at', { mode: 'date' }),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+    payload: jsonb('payload').notNull().default('{}').$type<TeamCoachSharePayload>(),
+}, (table) => [
+    index('team_coach_report_shares_workspace_player_status_idx').on(table.workspaceId, table.playerUserId, table.shareStatus),
+    index('team_coach_report_shares_player_status_idx').on(table.playerUserId, table.shareStatus),
+    index('team_coach_report_shares_source_analysis_idx').on(table.sourceAnalysisSessionId),
+    index('team_coach_report_shares_source_program_idx').on(table.sourceTrainingProgramCycleId),
+]);
+
+export const teamCoachReviewNotes = pgTable('team_coach_review_notes', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    workspaceId: uuid('workspace_id')
+        .notNull()
+        .references(() => teamCoachWorkspaces.id, { onDelete: 'cascade' }),
+    shareId: uuid('share_id')
+        .notNull()
+        .references(() => teamCoachReportShares.id, { onDelete: 'cascade' }),
+    authorUserId: uuid('author_user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    playerUserId: uuid('player_user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    note: text('note').notNull(),
+    requestedNextAction: text('requested_next_action').$type<TeamCoachNextActionKind>(),
+    payload: jsonb('payload').notNull().default('{}').$type<TeamCoachReviewNotePayload>(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+    archivedAt: timestamp('archived_at', { mode: 'date' }),
+}, (table) => [
+    index('team_coach_review_notes_workspace_created_idx').on(table.workspaceId, table.createdAt),
+    index('team_coach_review_notes_share_created_idx').on(table.shareId, table.createdAt),
+    index('team_coach_review_notes_player_created_idx').on(table.playerUserId, table.createdAt),
+]);
+
+export const teamCoachReviewStatusEvents = pgTable('team_coach_review_status_events', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    workspaceId: uuid('workspace_id')
+        .notNull()
+        .references(() => teamCoachWorkspaces.id, { onDelete: 'cascade' }),
+    shareId: uuid('share_id')
+        .notNull()
+        .references(() => teamCoachReportShares.id, { onDelete: 'cascade' }),
+    actorUserId: uuid('actor_user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    playerUserId: uuid('player_user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    previousStatus: text('previous_status').$type<TeamCoachReviewStatus>(),
+    nextStatus: text('next_status')
+        .$type<TeamCoachReviewStatus>()
+        .notNull(),
+    reason: text('reason'),
+    payload: jsonb('payload').notNull().default('{}').$type<TeamCoachReviewStatusPayload>(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => [
+    index('team_coach_review_status_events_workspace_created_idx').on(table.workspaceId, table.createdAt),
+    index('team_coach_review_status_events_share_created_idx').on(table.shareId, table.createdAt),
+    index('team_coach_review_status_events_next_status_idx').on(table.nextStatus, table.createdAt),
+]);
+
+export const teamCoachReviewPackets = pgTable('team_coach_review_packets', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    workspaceId: uuid('workspace_id')
+        .notNull()
+        .references(() => teamCoachWorkspaces.id, { onDelete: 'cascade' }),
+    shareId: uuid('share_id')
+        .notNull()
+        .references(() => teamCoachReportShares.id, { onDelete: 'cascade' }),
+    createdByUserId: uuid('created_by_user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    playerUserId: uuid('player_user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    visibility: text('visibility')
+        .$type<TeamCoachPacketVisibility>()
+        .notNull()
+        .default('private'),
+    status: text('status')
+        .$type<TeamCoachPacketStatus>()
+        .notNull()
+        .default('draft'),
+    title: text('title').notNull(),
+    teamSafeSnapshot: jsonb('team_safe_snapshot')
+        .notNull()
+        .$type<TeamCoachSafeReportSnapshot>(),
+    reviewStatus: text('review_status').$type<TeamCoachReviewStatus>(),
+    requestedNextAction: text('requested_next_action').$type<TeamCoachNextActionKind>(),
+    payload: jsonb('payload').notNull().default('{}').$type<TeamCoachReviewPacketPayload>(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+    revokedAt: timestamp('revoked_at', { mode: 'date' }),
+}, (table) => [
+    index('team_coach_review_packets_workspace_status_idx').on(table.workspaceId, table.status),
+    index('team_coach_review_packets_share_status_idx').on(table.shareId, table.status),
+    index('team_coach_review_packets_player_updated_idx').on(table.playerUserId, table.updatedAt),
+]);
+
+export const teamCoachPacketLinks = pgTable('team_coach_packet_links', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    packetId: uuid('packet_id')
+        .notNull()
+        .references(() => teamCoachReviewPackets.id, { onDelete: 'cascade' }),
+    workspaceId: uuid('workspace_id')
+        .notNull()
+        .references(() => teamCoachWorkspaces.id, { onDelete: 'cascade' }),
+    ownerUserId: uuid('owner_user_id')
+        .notNull()
+        .references(() => users.id, { onDelete: 'cascade' }),
+    tokenVerifierHash: text('token_verifier_hash').notNull(),
+    tokenVerifierPrefix: text('token_verifier_prefix').notNull(),
+    status: text('status')
+        .$type<TeamCoachPrivateLinkStatus>()
+        .notNull()
+        .default('active'),
+    expiresAt: timestamp('expires_at', { mode: 'date' }),
+    revokedByUserId: uuid('revoked_by_user_id').references(() => users.id, {
+        onDelete: 'set null',
+    }),
+    revokedAt: timestamp('revoked_at', { mode: 'date' }),
+    payload: jsonb('payload').notNull().default('{}').$type<TeamCoachPacketLinkPayload>(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => [
+    uniqueIndex('team_coach_packet_links_token_hash_uidx').on(table.tokenVerifierHash),
+    index('team_coach_packet_links_packet_status_idx').on(table.packetId, table.status),
+    index('team_coach_packet_links_workspace_status_idx').on(table.workspaceId, table.status),
+    index('team_coach_packet_links_expires_idx').on(table.expiresAt),
+]);
+
+export const teamCoachSeatLedger = pgTable('team_coach_seat_ledger', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    workspaceId: uuid('workspace_id')
+        .notNull()
+        .references(() => teamCoachWorkspaces.id, { onDelete: 'cascade' }),
+    actorUserId: uuid('actor_user_id').references(() => users.id, {
+        onDelete: 'set null',
+    }),
+    targetUserId: uuid('target_user_id').references(() => users.id, {
+        onDelete: 'set null',
+    }),
+    inviteId: uuid('invite_id').references(() => teamCoachWorkspaceInvites.id, {
+        onDelete: 'set null',
+    }),
+    membershipId: uuid('membership_id').references(() => teamCoachWorkspaceMemberships.id, {
+        onDelete: 'set null',
+    }),
+    eventType: text('event_type').notNull(),
+    seatState: text('seat_state').$type<TeamCoachSeatState>().notNull(),
+    delta: integer('delta').notNull().default(0),
+    seatLimit: integer('seat_limit').notNull(),
+    occupiedSeats: integer('occupied_seats').notNull(),
+    invitedSeats: integer('invited_seats').notNull(),
+    reasonCode: text('reason_code'),
+    metadata: jsonb('metadata').notNull().default('{}').$type<TeamCoachSeatLedgerMetadata>(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => [
+    index('team_coach_seat_ledger_workspace_created_idx').on(table.workspaceId, table.createdAt),
+    index('team_coach_seat_ledger_invite_idx').on(table.inviteId),
+    index('team_coach_seat_ledger_membership_idx').on(table.membershipId),
+]);
+
+export const teamCoachAuditEvents = pgTable('team_coach_audit_events', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    workspaceId: uuid('workspace_id')
+        .notNull()
+        .references(() => teamCoachWorkspaces.id, { onDelete: 'cascade' }),
+    actorUserId: uuid('actor_user_id').references(() => users.id, {
+        onDelete: 'set null',
+    }),
+    targetUserId: uuid('target_user_id').references(() => users.id, {
+        onDelete: 'set null',
+    }),
+    inviteId: uuid('invite_id').references(() => teamCoachWorkspaceInvites.id, {
+        onDelete: 'set null',
+    }),
+    membershipId: uuid('membership_id').references(() => teamCoachWorkspaceMemberships.id, {
+        onDelete: 'set null',
+    }),
+    shareId: uuid('share_id').references(() => teamCoachReportShares.id, {
+        onDelete: 'set null',
+    }),
+    noteId: uuid('note_id').references(() => teamCoachReviewNotes.id, {
+        onDelete: 'set null',
+    }),
+    packetId: uuid('packet_id').references(() => teamCoachReviewPackets.id, {
+        onDelete: 'set null',
+    }),
+    packetLinkId: uuid('packet_link_id').references(() => teamCoachPacketLinks.id, {
+        onDelete: 'set null',
+    }),
+    eventType: text('event_type')
+        .$type<TeamCoachAuditEventType>()
+        .notNull(),
+    reasonCode: text('reason_code'),
+    metadata: jsonb('metadata').notNull().default('{}').$type<TeamCoachAuditMetadata>(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+}, (table) => [
+    index('team_coach_audit_events_workspace_created_idx').on(table.workspaceId, table.createdAt),
+    index('team_coach_audit_events_actor_created_idx').on(table.actorUserId, table.createdAt),
+    index('team_coach_audit_events_target_created_idx').on(table.targetUserId, table.createdAt),
+    index('team_coach_audit_events_type_created_idx').on(table.eventType, table.createdAt),
+    index('team_coach_audit_events_share_created_idx').on(table.shareId, table.createdAt),
+]);
+
+export const teamCoachWorkspacesRelations = relations(teamCoachWorkspaces, ({ one, many }) => ({
+    owner: one(users, {
+        relationName: 'team_coach_workspaces_owner',
+        fields: [teamCoachWorkspaces.ownerUserId],
+        references: [users.id],
+    }),
+    memberships: many(teamCoachWorkspaceMemberships),
+    invites: many(teamCoachWorkspaceInvites),
+    shares: many(teamCoachReportShares),
+    packets: many(teamCoachReviewPackets),
+    auditEvents: many(teamCoachAuditEvents),
+}));
+
+export const teamCoachWorkspaceMembershipsRelations = relations(teamCoachWorkspaceMemberships, ({ one, many }) => ({
+    workspace: one(teamCoachWorkspaces, {
+        fields: [teamCoachWorkspaceMemberships.workspaceId],
+        references: [teamCoachWorkspaces.id],
+    }),
+    user: one(users, {
+        fields: [teamCoachWorkspaceMemberships.userId],
+        references: [users.id],
+    }),
+    seatLedgerEvents: many(teamCoachSeatLedger),
+    auditEvents: many(teamCoachAuditEvents),
+}));
+
+export const teamCoachWorkspaceInvitesRelations = relations(teamCoachWorkspaceInvites, ({ one, many }) => ({
+    workspace: one(teamCoachWorkspaces, {
+        fields: [teamCoachWorkspaceInvites.workspaceId],
+        references: [teamCoachWorkspaces.id],
+    }),
+    createdByUser: one(users, {
+        relationName: 'team_coach_workspace_invites_created_by',
+        fields: [teamCoachWorkspaceInvites.createdByUserId],
+        references: [users.id],
+    }),
+    invitedUser: one(users, {
+        relationName: 'team_coach_workspace_invites_invited_user',
+        fields: [teamCoachWorkspaceInvites.invitedUserId],
+        references: [users.id],
+    }),
+    acceptedByUser: one(users, {
+        relationName: 'team_coach_workspace_invites_accepted_by',
+        fields: [teamCoachWorkspaceInvites.acceptedByUserId],
+        references: [users.id],
+    }),
+    revokedByUser: one(users, {
+        relationName: 'team_coach_workspace_invites_revoked_by',
+        fields: [teamCoachWorkspaceInvites.revokedByUserId],
+        references: [users.id],
+    }),
+    seatLedgerEvents: many(teamCoachSeatLedger),
+    auditEvents: many(teamCoachAuditEvents),
+}));
+
+export const teamCoachReportSharesRelations = relations(teamCoachReportShares, ({ one, many }) => ({
+    workspace: one(teamCoachWorkspaces, {
+        fields: [teamCoachReportShares.workspaceId],
+        references: [teamCoachWorkspaces.id],
+    }),
+    player: one(users, {
+        relationName: 'team_coach_report_shares_player',
+        fields: [teamCoachReportShares.playerUserId],
+        references: [users.id],
+    }),
+    sharedBy: one(users, {
+        relationName: 'team_coach_report_shares_shared_by',
+        fields: [teamCoachReportShares.sharedByUserId],
+        references: [users.id],
+    }),
+    sourceAnalysisSession: one(analysisSessions, {
+        relationName: 'team_coach_report_shares_source_analysis',
+        fields: [teamCoachReportShares.sourceAnalysisSessionId],
+        references: [analysisSessions.id],
+    }),
+    sourceHistorySession: one(analysisSessions, {
+        relationName: 'team_coach_report_shares_source_history',
+        fields: [teamCoachReportShares.sourceHistorySessionId],
+        references: [analysisSessions.id],
+    }),
+    sourceProtocolRevision: one(completeTrainingProtocolRevisions, {
+        fields: [teamCoachReportShares.sourceProtocolRevisionId],
+        references: [completeTrainingProtocolRevisions.id],
+    }),
+    sourceSprayLabSession: one(sprayLabSessions, {
+        fields: [teamCoachReportShares.sourceSprayLabSessionId],
+        references: [sprayLabSessions.id],
+    }),
+    sourceTrainingProgramCycle: one(trainingProgramCycles, {
+        fields: [teamCoachReportShares.sourceTrainingProgramCycleId],
+        references: [trainingProgramCycles.id],
+    }),
+    sourceValidationLink: one(sprayLabValidationLinks, {
+        fields: [teamCoachReportShares.sourceValidationLinkId],
+        references: [sprayLabValidationLinks.id],
+    }),
+    notes: many(teamCoachReviewNotes),
+    statusEvents: many(teamCoachReviewStatusEvents),
+    packets: many(teamCoachReviewPackets),
+    auditEvents: many(teamCoachAuditEvents),
+}));
+
+export const teamCoachReviewNotesRelations = relations(teamCoachReviewNotes, ({ one, many }) => ({
+    workspace: one(teamCoachWorkspaces, {
+        fields: [teamCoachReviewNotes.workspaceId],
+        references: [teamCoachWorkspaces.id],
+    }),
+    share: one(teamCoachReportShares, {
+        fields: [teamCoachReviewNotes.shareId],
+        references: [teamCoachReportShares.id],
+    }),
+    author: one(users, {
+        relationName: 'team_coach_review_notes_author',
+        fields: [teamCoachReviewNotes.authorUserId],
+        references: [users.id],
+    }),
+    player: one(users, {
+        relationName: 'team_coach_review_notes_player',
+        fields: [teamCoachReviewNotes.playerUserId],
+        references: [users.id],
+    }),
+    auditEvents: many(teamCoachAuditEvents),
+}));
+
+export const teamCoachReviewStatusEventsRelations = relations(teamCoachReviewStatusEvents, ({ one }) => ({
+    workspace: one(teamCoachWorkspaces, {
+        fields: [teamCoachReviewStatusEvents.workspaceId],
+        references: [teamCoachWorkspaces.id],
+    }),
+    share: one(teamCoachReportShares, {
+        fields: [teamCoachReviewStatusEvents.shareId],
+        references: [teamCoachReportShares.id],
+    }),
+    actor: one(users, {
+        relationName: 'team_coach_review_status_events_actor',
+        fields: [teamCoachReviewStatusEvents.actorUserId],
+        references: [users.id],
+    }),
+    player: one(users, {
+        relationName: 'team_coach_review_status_events_player',
+        fields: [teamCoachReviewStatusEvents.playerUserId],
+        references: [users.id],
+    }),
+}));
+
+export const teamCoachReviewPacketsRelations = relations(teamCoachReviewPackets, ({ one, many }) => ({
+    workspace: one(teamCoachWorkspaces, {
+        fields: [teamCoachReviewPackets.workspaceId],
+        references: [teamCoachWorkspaces.id],
+    }),
+    share: one(teamCoachReportShares, {
+        fields: [teamCoachReviewPackets.shareId],
+        references: [teamCoachReportShares.id],
+    }),
+    createdBy: one(users, {
+        relationName: 'team_coach_review_packets_created_by',
+        fields: [teamCoachReviewPackets.createdByUserId],
+        references: [users.id],
+    }),
+    player: one(users, {
+        relationName: 'team_coach_review_packets_player',
+        fields: [teamCoachReviewPackets.playerUserId],
+        references: [users.id],
+    }),
+    links: many(teamCoachPacketLinks),
+    auditEvents: many(teamCoachAuditEvents),
+}));
+
+export const teamCoachPacketLinksRelations = relations(teamCoachPacketLinks, ({ one, many }) => ({
+    packet: one(teamCoachReviewPackets, {
+        fields: [teamCoachPacketLinks.packetId],
+        references: [teamCoachReviewPackets.id],
+    }),
+    workspace: one(teamCoachWorkspaces, {
+        fields: [teamCoachPacketLinks.workspaceId],
+        references: [teamCoachWorkspaces.id],
+    }),
+    owner: one(users, {
+        fields: [teamCoachPacketLinks.ownerUserId],
+        references: [users.id],
+    }),
+    revokedBy: one(users, {
+        fields: [teamCoachPacketLinks.revokedByUserId],
+        references: [users.id],
+    }),
+    auditEvents: many(teamCoachAuditEvents),
+}));
+
+export const teamCoachSeatLedgerRelations = relations(teamCoachSeatLedger, ({ one }) => ({
+    workspace: one(teamCoachWorkspaces, {
+        fields: [teamCoachSeatLedger.workspaceId],
+        references: [teamCoachWorkspaces.id],
+    }),
+    actor: one(users, {
+        relationName: 'team_coach_seat_ledger_actor',
+        fields: [teamCoachSeatLedger.actorUserId],
+        references: [users.id],
+    }),
+    target: one(users, {
+        relationName: 'team_coach_seat_ledger_target',
+        fields: [teamCoachSeatLedger.targetUserId],
+        references: [users.id],
+    }),
+    invite: one(teamCoachWorkspaceInvites, {
+        fields: [teamCoachSeatLedger.inviteId],
+        references: [teamCoachWorkspaceInvites.id],
+    }),
+    membership: one(teamCoachWorkspaceMemberships, {
+        fields: [teamCoachSeatLedger.membershipId],
+        references: [teamCoachWorkspaceMemberships.id],
+    }),
+}));
+
+export const teamCoachAuditEventsRelations = relations(teamCoachAuditEvents, ({ one }) => ({
+    workspace: one(teamCoachWorkspaces, {
+        fields: [teamCoachAuditEvents.workspaceId],
+        references: [teamCoachWorkspaces.id],
+    }),
+    actor: one(users, {
+        relationName: 'team_coach_audit_events_actor',
+        fields: [teamCoachAuditEvents.actorUserId],
+        references: [users.id],
+    }),
+    target: one(users, {
+        relationName: 'team_coach_audit_events_target',
+        fields: [teamCoachAuditEvents.targetUserId],
+        references: [users.id],
+    }),
+    invite: one(teamCoachWorkspaceInvites, {
+        fields: [teamCoachAuditEvents.inviteId],
+        references: [teamCoachWorkspaceInvites.id],
+    }),
+    membership: one(teamCoachWorkspaceMemberships, {
+        fields: [teamCoachAuditEvents.membershipId],
+        references: [teamCoachWorkspaceMemberships.id],
+    }),
+    share: one(teamCoachReportShares, {
+        fields: [teamCoachAuditEvents.shareId],
+        references: [teamCoachReportShares.id],
+    }),
+    note: one(teamCoachReviewNotes, {
+        fields: [teamCoachAuditEvents.noteId],
+        references: [teamCoachReviewNotes.id],
+    }),
+    packet: one(teamCoachReviewPackets, {
+        fields: [teamCoachAuditEvents.packetId],
+        references: [teamCoachReviewPackets.id],
+    }),
+    packetLink: one(teamCoachPacketLinks, {
+        fields: [teamCoachAuditEvents.packetLinkId],
+        references: [teamCoachPacketLinks.id],
+    }),
+}));
+
 export const featureEntitlements = pgTable('feature_entitlements', {
     key: text('key').$type<CommunityEntitlementKey>().primaryKey(),
     description: text('description').notNull(),
@@ -2979,6 +3675,32 @@ export type SocialProCollectionRow = typeof socialProCollections.$inferSelect;
 export type NewSocialProCollection = typeof socialProCollections.$inferInsert;
 export type SocialProCollectionItemRow = typeof socialProCollectionItems.$inferSelect;
 export type NewSocialProCollectionItem = typeof socialProCollectionItems.$inferInsert;
+export type TeamCoachWorkspaceRow = typeof teamCoachWorkspaces.$inferSelect;
+export type NewTeamCoachWorkspace = typeof teamCoachWorkspaces.$inferInsert;
+export type TeamCoachWorkspaceMembershipRow =
+    typeof teamCoachWorkspaceMemberships.$inferSelect;
+export type NewTeamCoachWorkspaceMembership =
+    typeof teamCoachWorkspaceMemberships.$inferInsert;
+export type TeamCoachWorkspaceInviteRow =
+    typeof teamCoachWorkspaceInvites.$inferSelect;
+export type NewTeamCoachWorkspaceInvite =
+    typeof teamCoachWorkspaceInvites.$inferInsert;
+export type TeamCoachReportShareRow = typeof teamCoachReportShares.$inferSelect;
+export type NewTeamCoachReportShare = typeof teamCoachReportShares.$inferInsert;
+export type TeamCoachReviewNoteRow = typeof teamCoachReviewNotes.$inferSelect;
+export type NewTeamCoachReviewNote = typeof teamCoachReviewNotes.$inferInsert;
+export type TeamCoachReviewStatusEventRow =
+    typeof teamCoachReviewStatusEvents.$inferSelect;
+export type NewTeamCoachReviewStatusEvent =
+    typeof teamCoachReviewStatusEvents.$inferInsert;
+export type TeamCoachReviewPacketRow = typeof teamCoachReviewPackets.$inferSelect;
+export type NewTeamCoachReviewPacket = typeof teamCoachReviewPackets.$inferInsert;
+export type TeamCoachPacketLinkRow = typeof teamCoachPacketLinks.$inferSelect;
+export type NewTeamCoachPacketLink = typeof teamCoachPacketLinks.$inferInsert;
+export type TeamCoachSeatLedgerRow = typeof teamCoachSeatLedger.$inferSelect;
+export type NewTeamCoachSeatLedger = typeof teamCoachSeatLedger.$inferInsert;
+export type TeamCoachAuditEventRow = typeof teamCoachAuditEvents.$inferSelect;
+export type NewTeamCoachAuditEvent = typeof teamCoachAuditEvents.$inferInsert;
 export type FeatureEntitlementRow = typeof featureEntitlements.$inferSelect;
 export type NewFeatureEntitlement = typeof featureEntitlements.$inferInsert;
 export type UserEntitlementRow = typeof userEntitlements.$inferSelect;
