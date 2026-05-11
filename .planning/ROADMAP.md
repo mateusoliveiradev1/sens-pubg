@@ -21,7 +21,7 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 | 10 | Guided Pro Training Programs | Organize the Pro loop into weekly and monthly adaptive training programs | PREC-03, COACH-01, COACH-02, COACH-03, COACH-04, COACH-05, MON-01, MON-02 |
 | 11 | Social Pro Community Premium | Add Pro social value while keeping public community as a trust funnel | MON-01, MON-02, MON-03, MON-04, MON-05 |
 | 12 | 6/6 | Complete    | 2026-05-10 |
-| 13 | 4/8 | In Progress|  |
+| 13 | 5/8 | In Progress|  |
 
 ## Phase 1: Measurement Truth Contract
 
@@ -545,7 +545,7 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **UI hint:** yes
 
-**Plans:** 4/8 plans executed
+**Plans:** 5/8 plans executed
 
 **Wave 0**
 - [x] `13-00-PLAN.md` - Team Coach Validation Scaffold. Complete as of 2026-05-11 with RED validation coverage, dedicated No False Team verifier, package script registration, and desktop/mobile browser matrix scaffold before implementation.
@@ -558,7 +558,7 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **Wave 3 *(blocked on Wave 2 completion)***
 - [x] `13-03-PLAN.md` - Team Safe Reports, Consent, Review Packets, And Links. Complete as of 2026-05-11 with scoped player sharing, revocation, team-safe redaction, Team Review Packet models, revocable packet links, and lifecycle audit events.
-- [ ] `13-04-PLAN.md` - Coach Cockpit, Player Dossier, Notes, And Review Workflow. Builds roster triage, blocker/validation lanes, player dossiers, private coach notes, review status, and next-action requests.
+- [x] `13-04-PLAN.md` - Coach Cockpit, Player Dossier, Notes, And Review Workflow. Complete as of 2026-05-11 with roster triage, blocker/validation lanes, player dossiers, private coach notes, review status, next-action requests, and evidence-safe loader actions.
 
 **Wave 4 *(blocked on Wave 3 completion)***
 - [ ] `13-05-PLAN.md` - Mesa do Coach Workspace UI And Dossie do Jogador. Adds `/mesa-coach`, locked/empty/cockpit states, dossier route, mobile-safe premium layouts, and navigation.

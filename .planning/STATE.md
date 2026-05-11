@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: ready_to_execute
-last_updated: "2026-05-11T03:03:31.950Z"
+last_updated: "2026-05-11T03:27:05.439Z"
 progress:
   total_phases: 13
   completed_phases: 12
   total_plans: 80
-  completed_plans: 77
-  percent: 96
+  completed_plans: 78
+  percent: 98
 ---
 
 # State: Sens PUBG
@@ -107,21 +107,22 @@ Phase 13: Team And Coach Expansion
 - Phase 13 plan 13-01 is complete with Team/Coach contracts, `requires_team` entitlement grouping, server-owned Team capability policy, denial reasons, and Team lock/projection copy separate from solo Pro and Social Pro.
 - Phase 13 plan 13-02 is complete with private Team Coach workspace persistence, memberships, invites, consent/share/review/packet foundations, seat ledger, audit events, seat accounting helpers, and workspace/invite actions that reload Team entitlement, membership, invite, and seat state server-side.
 - Phase 13 plan 13-03 is complete with team-safe report redaction, Team Review Packet view models, packet token helpers, share/revoke/context/packet/link actions, persisted lifecycle audit events, focused tests, typecheck, monetization tests, and benchmark gate passing.
+- Phase 13 plan 13-04 is complete with the Mesa do Coach cockpit, player dossier, review notes/status/next-action server actions, cockpit/dossier loader actions, focused tests, typecheck, and benchmark gate passing.
 - Phase 13 Wave 1 focused gates pass: focused Team/monetization Vitest, `npm run typecheck`, `npm run test:monetization`, and `npm run benchmark:gate`. Full Phase 13 verification remains in progress because RED scaffold tests intentionally target future waves.
 - Phase 13 Wave 2 focused gates pass: Team Coach schema/seat/action Vitest, `npm run test:monetization`, and `npm run typecheck`.
-- Phase 13 Wave 3 plan 13-03 gates pass: focused Team-safe report/packet/action Vitest, `npm run typecheck`, `npm run test:monetization`, and `npm run benchmark:gate`. Plan 13-04 remains pending.
+- Phase 13 Wave 3 gates pass for plans 13-03 and 13-04: focused Team-safe report/packet/action/cockpit/dossier Vitest, `npm run typecheck`, and `npm run benchmark:gate`. Full Phase 13 verification remains in progress because later UI/route/evidence plans are pending.
 
 ## Next Recommended Command
 
-`$gsd-execute-phase 13 --wave 3`
+`$gsd-execute-phase 13 --wave 4`
 
-Continue Phase 13 Wave 3 with plan 13-04 Coach Cockpit.
+Continue Phase 13 Wave 4 with plan 13-05 Mesa do Coach UI and plan 13-06 packet route/handoffs.
 
 ## Session
 
-- Last session: 2026-05-11T03:01:31Z
-- Stopped At: Completed 13-03-PLAN.md.
-- Resume File: .planning/phases/13-team-and-coach-expansion/13-04-PLAN.md
+- Last session: 2026-05-11T03:27:05Z
+- Stopped At: Completed 13-04-PLAN.md.
+- Resume File: .planning/phases/13-team-and-coach-expansion/13-05-PLAN.md
 
 ## Performance Metrics
 
@@ -150,6 +151,7 @@ Continue Phase 13 Wave 3 with plan 13-04 Coach Cockpit.
 | Phase 13 P01 | 10 min | 3 tasks | 8 files |
 | Phase 13 P02 | 17 min | 3 tasks | 10 files |
 | Phase 13-team-and-coach-expansion P03 | 21.2 minutes | 3 tasks | 8 files |
+| Phase 13-team-and-coach-expansion P04 | 16 min | 3 tasks | 8 files |
 
 ## Decisions
 
@@ -212,6 +214,9 @@ Continue Phase 13 Wave 3 with plan 13-04 Coach Cockpit.
 - [Phase 13 Plan 13-03]: Player sharing validates player source ownership plus workspace-owner Team access so consent stays scoped without requiring player-paid Team entitlement.
 - [Phase 13 Plan 13-03]: Team Review Packet links store verifier hash and prefix values only; raw opaque tokens are returned once and never persisted.
 - [Phase 13 Plan 13-03]: Revoked Team shares stop future private source reload access while preserving last redacted snapshot readability and audit evidence.
+- [Phase 13 Plan 13-04]: Cockpit comparison is triage-only with global ranking explicitly disabled.
+- [Phase 13 Plan 13-04]: Player dossiers read only shared, redacted Team Coach snapshots; revoked shares remain snapshot-readable without private source reload.
+- [Phase 13 Plan 13-04]: Coach review actions persist notes, status events, next-action requests, and audit events without updating analysis confidence, coverage, blockers, validation, or Coach Extremo truth.
 
 ## Open Questions
 
