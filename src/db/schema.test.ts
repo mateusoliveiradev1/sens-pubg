@@ -1369,3 +1369,187 @@ describe('social pro persistence schema', () => {
         expect(actions.every((action) => action.startsWith('social_pro.'))).toBe(true);
     });
 });
+
+describe('team coach persistence schema', () => {
+    it('defines private workspace rows without depending on public community squad identity', () => {
+        const workspaces = getExportedTable('teamCoachWorkspaces');
+
+        const ownerUserId = getColumn(workspaces, 'owner_user_id');
+        const name = getColumn(workspaces, 'name');
+        const status = getColumn(workspaces, 'status');
+        const seatLimit = getColumn(workspaces, 'seat_limit');
+        const createdAt = getColumn(workspaces, 'created_at');
+        const updatedAt = getColumn(workspaces, 'updated_at');
+        const archivedAt = getColumn(workspaces, 'archived_at');
+
+        expect(ownerUserId.notNull).toBe(true);
+        expect(name.notNull).toBe(true);
+        expect(status.notNull).toBe(true);
+        expect(status.default).toBe('active');
+        expect(seatLimit.notNull).toBe(true);
+        expect(seatLimit.default).toBe(8);
+        expect(createdAt.notNull).toBe(true);
+        expect(updatedAt.notNull).toBe(true);
+        expect(archivedAt.notNull).toBe(false);
+
+        expect(getForeignKey(
+            workspaces,
+            'team_coach_workspaces_owner_user_id_users_id_fk',
+        ).onDelete).toBe('cascade');
+        expect(getIndex(workspaces, 'team_coach_workspaces_owner_status_idx').config.columns.map((column) => column.name)).toEqual([
+            'owner_user_id',
+            'status',
+        ]);
+
+        expectColumnMissing(workspaces, 'community_squad_id');
+        expectColumnMissing(workspaces, 'public_slug');
+    });
+
+    it('defines workspace memberships with role, status, seat state, lifecycle timestamps, and one row per workspace user', () => {
+        const memberships = getExportedTable('teamCoachWorkspaceMemberships');
+
+        const workspaceId = getColumn(memberships, 'workspace_id');
+        const userId = getColumn(memberships, 'user_id');
+        const role = getColumn(memberships, 'role');
+        const status = getColumn(memberships, 'status');
+        const seatState = getColumn(memberships, 'seat_state');
+        const joinedAt = getColumn(memberships, 'joined_at');
+        const leftAt = getColumn(memberships, 'left_at');
+        const suspendedAt = getColumn(memberships, 'suspended_at');
+        const revokedAt = getColumn(memberships, 'revoked_at');
+
+        expect(workspaceId.notNull).toBe(true);
+        expect(userId.notNull).toBe(true);
+        expect(role.notNull).toBe(true);
+        expect(role.default).toBe('player');
+        expect(status.notNull).toBe(true);
+        expect(status.default).toBe('active');
+        expect(seatState.notNull).toBe(true);
+        expect(seatState.default).toBe('occupied');
+        expect(joinedAt.notNull).toBe(true);
+        expect(leftAt.notNull).toBe(false);
+        expect(suspendedAt.notNull).toBe(false);
+        expect(revokedAt.notNull).toBe(false);
+
+        expect(getForeignKey(
+            memberships,
+            'team_coach_workspace_memberships_workspace_id_team_coach_workspaces_id_fk',
+        ).onDelete).toBe('cascade');
+        expect(getForeignKey(
+            memberships,
+            'team_coach_workspace_memberships_user_id_users_id_fk',
+        ).onDelete).toBe('cascade');
+        expect(getIndex(memberships, 'team_coach_workspace_memberships_workspace_user_uidx').config.unique).toBe(true);
+        expect(getIndex(memberships, 'team_coach_workspace_memberships_user_status_idx').config.columns.map((column) => column.name)).toEqual([
+            'user_id',
+            'status',
+        ]);
+    });
+
+    it('defines high-entropy workspace invites with intended role, recipient metadata, status, expiration, and lifecycle indexes', () => {
+        const invites = getExportedTable('teamCoachWorkspaceInvites');
+
+        const workspaceId = getColumn(invites, 'workspace_id');
+        const createdByUserId = getColumn(invites, 'created_by_user_id');
+        const invitedUserId = getColumn(invites, 'invited_user_id');
+        const invitedEmail = getColumn(invites, 'invited_email');
+        const intendedRole = getColumn(invites, 'intended_role');
+        const inviteCode = getColumn(invites, 'invite_code');
+        const status = getColumn(invites, 'status');
+        const expiresAt = getColumn(invites, 'expires_at');
+        const acceptedByUserId = getColumn(invites, 'accepted_by_user_id');
+        const revokedByUserId = getColumn(invites, 'revoked_by_user_id');
+
+        expect(workspaceId.notNull).toBe(true);
+        expect(createdByUserId.notNull).toBe(true);
+        expect(invitedUserId.notNull).toBe(false);
+        expect(invitedEmail.notNull).toBe(false);
+        expect(intendedRole.notNull).toBe(true);
+        expect(inviteCode.notNull).toBe(true);
+        expect(status.notNull).toBe(true);
+        expect(status.default).toBe('pending');
+        expect(expiresAt.notNull).toBe(true);
+        expect(acceptedByUserId.notNull).toBe(false);
+        expect(revokedByUserId.notNull).toBe(false);
+
+        expect(getIndex(invites, 'team_coach_workspace_invites_code_uidx').config.unique).toBe(true);
+        expect(getIndex(invites, 'team_coach_workspace_invites_workspace_status_idx').config.columns.map((column) => column.name)).toEqual([
+            'workspace_id',
+            'status',
+        ]);
+        expect(getIndex(invites, 'team_coach_workspace_invites_expires_idx').config.columns.map((column) => column.name)).toEqual([
+            'expires_at',
+        ]);
+    });
+
+    it('defines consent/share, notes, review status events, packet links, seat ledger, and audit event surfaces', () => {
+        const shares = getExportedTable('teamCoachReportShares');
+        const notes = getExportedTable('teamCoachReviewNotes');
+        const statusEvents = getExportedTable('teamCoachReviewStatusEvents');
+        const packets = getExportedTable('teamCoachReviewPackets');
+        const packetLinks = getExportedTable('teamCoachPacketLinks');
+        const seatLedger = getExportedTable('teamCoachSeatLedger');
+        const auditEvents = getExportedTable('teamCoachAuditEvents');
+
+        expect(getColumn(shares, 'consent_status').default).toBe('granted');
+        expect(getColumn(shares, 'consent_scopes').default).toBe('[]');
+        expect(getColumn(shares, 'share_status').default).toBe('active');
+        expect(getColumn(shares, 'team_safe_snapshot').notNull).toBe(true);
+        expect(getColumn(shares, 'source_analysis_session_id').notNull).toBe(false);
+        expect(getColumn(shares, 'source_training_program_cycle_id').notNull).toBe(false);
+        expect(getIndex(shares, 'team_coach_report_shares_workspace_player_status_idx').config.columns.map((column) => column.name)).toEqual([
+            'workspace_id',
+            'player_user_id',
+            'share_status',
+        ]);
+
+        expect(getColumn(notes, 'note').notNull).toBe(true);
+        expect(getColumn(notes, 'requested_next_action').notNull).toBe(false);
+        expect(getColumn(statusEvents, 'previous_status').notNull).toBe(false);
+        expect(getColumn(statusEvents, 'next_status').notNull).toBe(true);
+        expect(getColumn(packets, 'visibility').default).toBe('private');
+        expect(getColumn(packets, 'status').default).toBe('draft');
+        expect(getColumn(packetLinks, 'token_verifier_hash').notNull).toBe(true);
+        expect(getColumn(packetLinks, 'token_verifier_prefix').notNull).toBe(true);
+        expect(getIndex(packetLinks, 'team_coach_packet_links_token_hash_uidx').config.unique).toBe(true);
+
+        expect(getColumn(seatLedger, 'seat_limit').notNull).toBe(true);
+        expect(getColumn(seatLedger, 'occupied_seats').notNull).toBe(true);
+        expect(getColumn(seatLedger, 'invited_seats').notNull).toBe(true);
+        expect(getIndex(seatLedger, 'team_coach_seat_ledger_workspace_created_idx').config.columns.map((column) => column.name)).toEqual([
+            'workspace_id',
+            'created_at',
+        ]);
+
+        expect(getColumn(auditEvents, 'event_type').notNull).toBe(true);
+        expect(getColumn(auditEvents, 'metadata').default).toBe('{}');
+        expect(getForeignKey(
+            auditEvents,
+            'team_coach_audit_events_workspace_id_team_coach_workspaces_id_fk',
+        ).onDelete).toBe('cascade');
+        expect(getIndex(auditEvents, 'team_coach_audit_events_workspace_created_idx').config.columns.map((column) => column.name)).toEqual([
+            'workspace_id',
+            'created_at',
+        ]);
+        expect(getIndex(auditEvents, 'team_coach_audit_events_type_created_idx').config.columns.map((column) => column.name)).toEqual([
+            'event_type',
+            'created_at',
+        ]);
+    });
+
+    it('ships the blocking Team Coach migration with private workspace tables and audit indexes', () => {
+        const migrationSql = readFileSync(
+            new URL('../../drizzle/0015_team_coach_expansion.sql', import.meta.url),
+            'utf8',
+        );
+
+        expect(migrationSql).toContain('CREATE TABLE IF NOT EXISTS "team_coach_workspaces"');
+        expect(migrationSql).toContain('CREATE TABLE IF NOT EXISTS "team_coach_workspace_memberships"');
+        expect(migrationSql).toContain('CREATE TABLE IF NOT EXISTS "team_coach_workspace_invites"');
+        expect(migrationSql).toContain('CREATE TABLE IF NOT EXISTS "team_coach_report_shares"');
+        expect(migrationSql).toContain('CREATE TABLE IF NOT EXISTS "team_coach_audit_events"');
+        expect(migrationSql).toContain('team_coach_workspace_memberships_workspace_user_uidx');
+        expect(migrationSql).toContain('team_coach_audit_events_type_created_idx');
+        expect(migrationSql).not.toContain('community_squad_id');
+    });
+});
