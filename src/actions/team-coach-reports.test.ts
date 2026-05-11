@@ -447,6 +447,81 @@ describe('Team Coach report actions', () => {
         ]));
     });
 
+    it('regenerates packet links with persisted revoke and create audit events', async () => {
+        mocks.auth.mockResolvedValue({ user: { id: 'coach-1', role: 'user' } });
+        selectQueue.push(
+            [packetRow()],
+            [activeShare()],
+            [workspaceRow],
+            [coachMembership],
+            [{
+                id: 'link-old',
+                packetId: 'packet-1',
+                status: 'active',
+                tokenVerifierHash: 'old-verifier',
+                expiresAt: null,
+            }],
+            [packetRow()],
+            [activeShare()],
+            [workspaceRow],
+            [coachMembership],
+        );
+        insertReturningQueue.push([
+            { id: 'link-new', status: 'active', expiresAt: new Date('2026-05-12T02:00:00.000Z') },
+        ]);
+        const { regenerateTeamCoachPacketLink } = await loadTeamCoachReports();
+
+        const result = await regenerateTeamCoachPacketLink({
+            workspaceId: 'workspace-1',
+            packetId: 'packet-1',
+            previousLinkId: 'link-old',
+            expiresAt: '2026-05-12T02:00:00.000Z',
+            reason: 'rotation',
+        });
+
+        expect(result).toMatchObject({
+            success: true,
+            link: {
+                id: 'link-new',
+                token: expect.any(String),
+                status: 'active',
+                expiresAt: '2026-05-12T02:00:00.000Z',
+            },
+            auditEvents: [
+                expect.objectContaining({ type: 'team_coach.packet_link_revoked' }),
+                expect.objectContaining({ type: 'team_coach.packet_link_created' }),
+            ],
+        });
+        expect(updatedValues).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                tableName: 'team_coach_packet_links',
+                values: expect.objectContaining({
+                    status: 'revoked',
+                    revokedByUserId: 'coach-1',
+                    revokedAt: expect.any(Date),
+                }),
+            }),
+        ]));
+        expect(insertedValues).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                tableName: 'team_coach_audit_events',
+                values: expect.objectContaining({
+                    packetLinkId: 'link-old',
+                    eventType: 'packet_link_revoked',
+                    reasonCode: 'rotation',
+                }),
+            }),
+            expect.objectContaining({
+                tableName: 'team_coach_audit_events',
+                values: expect.objectContaining({
+                    packetLinkId: 'link-new',
+                    eventType: 'packet_link_created',
+                    reasonCode: 'rotation',
+                }),
+            }),
+        ]));
+    });
+
     it('reads packets by active token only, blocks disabled links, and projects the redacted packet view model', async () => {
         mocks.auth.mockResolvedValue(null);
         const { createTeamCoachPacketLinkTokenVerifier, generateTeamCoachPacketLinkToken } = await import('@/lib/team-coach-link-token');

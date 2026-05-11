@@ -1443,6 +1443,20 @@ export async function regenerateTeamCoachPacketLink(
         })
         .where(eq(teamCoachPacketLinks.id, previousLink.id));
 
+    await writeAuditEvent({
+        workspaceId: input.workspaceId,
+        actorUserId: user.userId,
+        targetUserId: loaded.share.playerUserId,
+        shareId: loaded.share.id,
+        packetId: input.packetId,
+        packetLinkId: previousLink.id,
+        eventType: 'packet_link_revoked',
+        reasonCode: normalizeOptionalText(input.reason ?? 'regenerated'),
+        metadata: {
+            regenerated: true,
+        },
+    });
+
     const created = await createTeamCoachPacketLink({
         workspaceId: input.workspaceId,
         packetId: input.packetId,
