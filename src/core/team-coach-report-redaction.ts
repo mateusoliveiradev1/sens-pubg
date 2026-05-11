@@ -47,6 +47,7 @@ export interface TeamCoachSafeReportSnapshot {
     readonly requiredHonestyFields: readonly TeamCoachRequiredHonestyField[];
     readonly sections: Partial<Record<TeamCoachSafeSectionKey, unknown>>;
     readonly generatedAt: string | null;
+    readonly [key: string]: unknown;
 }
 
 const DEFAULT_NO_OVERCLAIM_DISCLAIMER =
