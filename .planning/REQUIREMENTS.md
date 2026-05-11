@@ -43,7 +43,7 @@
 ### Expansion
 
 - [x] **TEAM-01**: Coach/team user can review multiple player reports in a team-oriented workflow after solo Pro is validated.
-- [ ] **TEAM-02**: User can share/export a premium analysis report without exposing private account data.
+- [x] **TEAM-02**: User can share/export a premium analysis report without exposing private account data.
 
 ## v2 Requirements
 
@@ -94,7 +94,7 @@
 | MON-04 | Phase 5 | Complete |
 | MON-05 | Phase 5 | Complete; Stripe Dashboard copy review manually blocked |
 | TEAM-01 | Phase 6 | Complete |
-| TEAM-02 | Phase 6 | Pending |
+| TEAM-02 | Phase 6 | Complete |
 
 **Coverage:**
 - v1 requirements: 22 total
