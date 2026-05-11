@@ -545,6 +545,39 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **UI hint:** yes
 
+**Plans:**
+
+**Wave 0**
+- `13-00` - Team Coach Validation Scaffold. Creates RED validation coverage, dedicated No False Team verifier, package script registration, and desktop/mobile browser matrix scaffold before implementation.
+
+**Wave 1 *(blocked on Wave 0 completion)***
+- `13-01` - Team Coach Contracts, Access, And Projection. Defines Mesa do Coach contracts, Team capability policy, separate `team.player_review`/`team.seats` access, denial reasons, and Team locks.
+
+**Wave 2 *(blocked on Wave 1 completion)***
+- `13-02` - Workspace Persistence, Invites, Seats, And Audit. Adds private Team workspace persistence, memberships, invites, seat accounting, and audited workspace/member actions.
+
+**Wave 3 *(blocked on Wave 2 completion)***
+- `13-03` - Team Safe Reports, Consent, Review Packets, And Links. Builds scoped player sharing, revocation, team-safe redaction, Team Review Packet models, and revocable packet links.
+- `13-04` - Coach Cockpit, Player Dossier, Notes, And Review Workflow. Builds roster triage, blocker/validation lanes, player dossiers, private coach notes, review status, and next-action requests.
+
+**Wave 4 *(blocked on Wave 3 completion)***
+- `13-05` - Mesa do Coach Workspace UI And Dossie do Jogador. Adds `/mesa-coach`, locked/empty/cockpit states, dossier route, mobile-safe premium layouts, and navigation.
+- `13-06` - Packet Route, Product Handoffs, Print Export, And Moderation. Adds Team Review Packet read/print route, Analyze/History/Dashboard/Spray Lab/Ciclo/Social Pro handoffs, and admin packet disable path.
+
+**Wave 5 *(blocked on all prior plans)***
+- `13-07` - No False Team Playwright, Copy Safety, And Evidence Matrix. Completes desktop/mobile browser evidence, copy-safety gates, final checklist/docs, verifier hardening, and required command evidence.
+
+**Cross-cutting constraints:**
+- Preserve the browser-first analysis path; Team/Coach organizes evidence and review, not backend video processing.
+- Team access is separate from solo Pro and Social Pro; client state, public links, community membership, URL params, and checkout success never grant Team authority.
+- Player consent is the central access primitive; workspace membership never exposes the full private account/history by default.
+- Team-safe snapshots and packets must preserve confidence, coverage, blockers, inconclusive/limited support, validation state, and no-overclaim disclaimers.
+- Coach notes and review status are human review artifacts; they cannot mutate deterministic analysis, Coach Extremo truth, confidence, coverage, blockers, or validation state.
+- Team Review Packets are private/unlisted by default, revocable, redacted, print-friendly, and never certification, rank proof, guaranteed improvement, or official PUBG/KRAFTON material.
+- Seat accounting is a server-owned foundation only; self-serve Stripe seat billing, proration, invoices, and production seat-payment evidence are deferred.
+- Public community basics remain open/free where already open, and no paid Team value may be based only on PUBG API-derived data.
+- Final Delivered status requires the dedicated verifier, focused Phase 13 tests, monetization/community gates, typecheck, full Vitest, benchmark gate, build, and desktop/mobile Playwright evidence.
+
 ## Coverage Validation
 
 - v1 requirements covered: 22/22
