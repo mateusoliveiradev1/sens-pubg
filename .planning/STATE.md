@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: ready_to_execute
-last_updated: "2026-05-11T00:00:00.000Z"
+last_updated: "2026-05-11T02:00:17.625Z"
 progress:
   total_phases: 13
   completed_phases: 12
   total_plans: 80
-  completed_plans: 72
-  percent: 90
+  completed_plans: 74
+  percent: 93
 ---
 
 # State: Sens PUBG
@@ -103,18 +103,21 @@ Phase 13: Team And Coach Expansion
 - Phase 12 plan 12-05 is complete with authenticated Revenue Ops Playwright desktop/mobile evidence, Phase 12 copy-safety hardening, final No False Launch evidence rows, verification docs, and the dedicated `verify:phase12:revenue-ops` gate passing.
 - Phase 12 final status is Partially delivered: implementation and local verification are complete, but real charging remains blocked until Stripe test-mode evidence, Stripe production evidence, deployed smoke/OAuth/env proof, and public paid launch approval are available.
 - Phase 13 planning is complete with 8 executable Team And Coach Expansion plans across 6 waves, backed by `13-RESEARCH.md` and full TEAM-01/TEAM-02 plus D-01..D-70 decision coverage from `13-CONTEXT.md`.
+- Phase 13 plan 13-00 is complete with the No False Team verifier scaffold, RED validation tests for Team access/privacy/actions/cockpit/routes, package script registration, and desktop/mobile Playwright matrix scaffold.
+- Phase 13 plan 13-01 is complete with Team/Coach contracts, `requires_team` entitlement grouping, server-owned Team capability policy, denial reasons, and Team lock/projection copy separate from solo Pro and Social Pro.
+- Phase 13 Wave 1 focused gates pass: focused Team/monetization Vitest, `npm run typecheck`, `npm run test:monetization`, and `npm run benchmark:gate`. Full Phase 13 verification remains in progress because RED scaffold tests intentionally target future waves.
 
 ## Next Recommended Command
 
-`$gsd-execute-phase 13`
+`$gsd-execute-phase 13 --wave 2`
 
-Execute Phase 13 Team And Coach Expansion plans.
+Execute Phase 13 Wave 2 plan 13-02 Workspace Persistence, Invites, Seats, And Audit.
 
 ## Session
 
-- Last session: 2026-05-10T01:34:59Z
-- Stopped At: Planned Phase 13 Team And Coach Expansion.
-- Resume File: .planning/ROADMAP.md
+- Last session: 2026-05-11T01:58:42Z
+- Stopped At: Completed Phase 13 Wave 1 (13-00 and 13-01).
+- Resume File: .planning/phases/13-team-and-coach-expansion/13-02-PLAN.md
 
 ## Performance Metrics
 
@@ -139,9 +142,15 @@ Execute Phase 13 Team And Coach Expansion plans.
 | Phase 12 P03 | 12 min | 3 tasks | 12 files |
 | Phase 12 P04 | 9 min | 3 tasks | 5 files |
 | Phase 12 P05 | 10 min | 3 tasks | 5 files |
+| Phase 13 P00 | 10 min | 3 tasks | 11 files |
+| Phase 13 P01 | 10 min | 3 tasks | 8 files |
 
 ## Decisions
 
+- [Phase 13 Plan 13-00]: The No False Team verifier derives Delivered, Partially delivered, and Blocked from required evidence rows, valid statuses, and explicit remaining gaps rather than trusting declared status.
+- [Phase 13 Plan 13-00]: RED Team/Coach scaffold tests intentionally fail for future-owned redaction, cockpit, actions, Mesa do Coach, dossier, and packet routes until their implementation waves land.
+- [Phase 13 Plan 13-01]: Team access uses `requires_team` entitlements and a `team` catalog tier so solo Pro and Social Pro do not grant Mesa do Coach authority.
+- [Phase 13 Plan 13-01]: Team locks use "Com Team" copy and state that Team authority requires server-owned entitlement, membership, and player consent, not client state or checkout success.
 - [Phase 09]: Spray Lab protocol payloads are never trusted from the client; actions load owned analysis/protocol revision rows before creating sessions.
 - [Phase 09]: Validation status is derived server-side from owned validation analysis trend evidence and variable confirmation, with changed variables mapped to `nao_compativel`.
 - [Phase 09]: Free receives a useful basic Lab projection, while Pro entitlements unlock audit drawers, session history, validated index, benchmarks, and comparisons.
@@ -254,3 +263,5 @@ Execute Phase 13 Team And Coach Expansion plans.
 - Phase 12 12-03 executed: Added the versioned Revenue Ops launch readiness matrix, beta/public hard gates, Stripe test/production evidence separation, safe degradation rules, paid-launch release readiness output, and launch/runbook docs; focused Phase 12 tests, typecheck, local readiness, and monetization tests passed.
 - Phase 12 12-04 executed: Added `/admin/revenue-ops`, Revenue Ops admin navigation, server-loaded launch-control cockpit UI, actionable no-go blockers, evidence matrix summary, support-domain summaries, Pro usage depth, and route contracts; focused Revenue Ops tests, typecheck, monetization tests, and build passed.
 - Phase 12 12-05 executed: Added authenticated Revenue Ops Playwright proof, copy-safety and verifier hardening, the final No False Launch checklist, Phase 12 verification docs, and an explicit Partially delivered launch posture with Stripe/deploy/public-launch evidence still pending.
+- Phase 13 13-00 executed: Added the No False Team verifier, CI evidence tests, RED Team/Coach tests for access/privacy/actions/cockpit/routes, page contract scaffolds, Playwright desktop/mobile matrix, and `verify:phase13:team-coach` package script.
+- Phase 13 13-01 executed: Added Team/Coach enum contracts, Team entitlement grouping with `requires_team`, Team access policy, premium Team locks/projection booleans, and focused coverage proving solo Pro/Social Pro do not grant Team authority.

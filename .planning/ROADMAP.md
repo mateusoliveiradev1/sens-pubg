@@ -21,7 +21,7 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 | 10 | Guided Pro Training Programs | Organize the Pro loop into weekly and monthly adaptive training programs | PREC-03, COACH-01, COACH-02, COACH-03, COACH-04, COACH-05, MON-01, MON-02 |
 | 11 | Social Pro Community Premium | Add Pro social value while keeping public community as a trust funnel | MON-01, MON-02, MON-03, MON-04, MON-05 |
 | 12 | 6/6 | Complete    | 2026-05-10 |
-| 13 | Team And Coach Expansion | Extend paid value to teams/coaches after solo Pro proof | TEAM-01, TEAM-02 |
+| 13 | 2/8 | In Progress|  |
 
 ## Phase 1: Measurement Truth Contract
 
@@ -545,27 +545,27 @@ This roadmap turns the live product into a paid spray improvement product. It pr
 
 **UI hint:** yes
 
-**Plans:**
+**Plans:** 2/8 plans complete
 
 **Wave 0**
-- `13-00` - Team Coach Validation Scaffold. Creates RED validation coverage, dedicated No False Team verifier, package script registration, and desktop/mobile browser matrix scaffold before implementation.
+- [x] `13-00-PLAN.md` - Team Coach Validation Scaffold. Complete as of 2026-05-11 with RED validation coverage, dedicated No False Team verifier, package script registration, and desktop/mobile browser matrix scaffold before implementation.
 
 **Wave 1 *(blocked on Wave 0 completion)***
-- `13-01` - Team Coach Contracts, Access, And Projection. Defines Mesa do Coach contracts, Team capability policy, separate `team.player_review`/`team.seats` access, denial reasons, and Team locks.
+- [x] `13-01-PLAN.md` - Team Coach Contracts, Access, And Projection. Complete as of 2026-05-11 with Mesa do Coach contracts, separate Team capability policy, `team.player_review`/`team.seats` access, denial reasons, and Team locks.
 
 **Wave 2 *(blocked on Wave 1 completion)***
-- `13-02` - Workspace Persistence, Invites, Seats, And Audit. Adds private Team workspace persistence, memberships, invites, seat accounting, and audited workspace/member actions.
+- [ ] `13-02-PLAN.md` - Workspace Persistence, Invites, Seats, And Audit. Adds private Team workspace persistence, memberships, invites, seat accounting, and audited workspace/member actions.
 
 **Wave 3 *(blocked on Wave 2 completion)***
-- `13-03` - Team Safe Reports, Consent, Review Packets, And Links. Builds scoped player sharing, revocation, team-safe redaction, Team Review Packet models, and revocable packet links.
-- `13-04` - Coach Cockpit, Player Dossier, Notes, And Review Workflow. Builds roster triage, blocker/validation lanes, player dossiers, private coach notes, review status, and next-action requests.
+- [ ] `13-03-PLAN.md` - Team Safe Reports, Consent, Review Packets, And Links. Builds scoped player sharing, revocation, team-safe redaction, Team Review Packet models, and revocable packet links.
+- [ ] `13-04-PLAN.md` - Coach Cockpit, Player Dossier, Notes, And Review Workflow. Builds roster triage, blocker/validation lanes, player dossiers, private coach notes, review status, and next-action requests.
 
 **Wave 4 *(blocked on Wave 3 completion)***
-- `13-05` - Mesa do Coach Workspace UI And Dossie do Jogador. Adds `/mesa-coach`, locked/empty/cockpit states, dossier route, mobile-safe premium layouts, and navigation.
-- `13-06` - Packet Route, Product Handoffs, Print Export, And Moderation. Adds Team Review Packet read/print route, Analyze/History/Dashboard/Spray Lab/Ciclo/Social Pro handoffs, and admin packet disable path.
+- [ ] `13-05-PLAN.md` - Mesa do Coach Workspace UI And Dossie do Jogador. Adds `/mesa-coach`, locked/empty/cockpit states, dossier route, mobile-safe premium layouts, and navigation.
+- [ ] `13-06-PLAN.md` - Packet Route, Product Handoffs, Print Export, And Moderation. Adds Team Review Packet read/print route, Analyze/History/Dashboard/Spray Lab/Ciclo/Social Pro handoffs, and admin packet disable path.
 
 **Wave 5 *(blocked on all prior plans)***
-- `13-07` - No False Team Playwright, Copy Safety, And Evidence Matrix. Completes desktop/mobile browser evidence, copy-safety gates, final checklist/docs, verifier hardening, and required command evidence.
+- [ ] `13-07-PLAN.md` - No False Team Playwright, Copy Safety, And Evidence Matrix. Completes desktop/mobile browser evidence, copy-safety gates, final checklist/docs, verifier hardening, and required command evidence.
 
 **Cross-cutting constraints:**
 - Preserve the browser-first analysis path; Team/Coach organizes evidence and review, not backend video processing.
